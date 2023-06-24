@@ -10,7 +10,13 @@ public class Layer {
     private final List<Neuron> neurons = new ArrayList<>();
     private final List<Double> activations = new ArrayList<>();
 
-    public List<Double> calculateActivations(){
+    public Layer(int numNeurons, int numConnections) {
+        build(numNeurons, numConnections);
+    }
+
+    public List<Double> calculateActivations(List<Double> inputs){
+        setInputs(inputs);
+
         for(Neuron neuron: neurons){
             activations.add(neuron.calculateActivation());
         }
@@ -18,13 +24,13 @@ public class Layer {
         return activations;
     }
 
-    public void setInputs(List<Double> inputs){
+    private void setInputs(List<Double> inputs){
         for (Neuron neuron: neurons){
             neuron.setInputs(inputs);
         }
     }
 
-    public void build(int numNeurons, int numConnections){
+    private void build(int numNeurons, int numConnections){
         for(int i=0; i<numNeurons; i++){
             neurons.add(new Neuron(numConnections));
         }

@@ -22,10 +22,7 @@ public class Network {
         var numConnections = inputDimension;
 
         for(int numNeurons: neuronLayout){
-            var newLayer = new Layer();
-            newLayer.build(numNeurons, numConnections);
-
-            layers.add(newLayer);
+            layers.add(new Layer(numNeurons, numConnections));
 
             numConnections = numNeurons;
         }
@@ -34,10 +31,9 @@ public class Network {
     public List<Double> forwardPass(List<Double> firstInput){
         List<Double> previousActivations = firstInput;
 
-        for(Layer layer: layers){
-            layer.setInputs(previousActivations);
-            previousActivations = layer.calculateActivations();
-        }
+        for(Layer layer: layers)
+            previousActivations =
+                    layer.calculateActivations(previousActivations);
 
         networkOutput = layers.get(numLayers-1).getActivations();
 
