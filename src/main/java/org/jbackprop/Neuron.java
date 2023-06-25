@@ -20,20 +20,25 @@ public abstract class Neuron {
     @Setter
     private List<Connection> outputConnections;
 
-    public Neuron(int numConnections, Layer previousLayer){
+    private LossFunction lossFunction;
+
+    public Neuron(int numConnections,
+                  Layer previousLayer,
+                  LossFunction lossFunction){
         inputConnections = new ArrayList<>();
+        this.lossFunction = lossFunction;
         buildConnections(numConnections, previousLayer);
     }
 
     abstract Double activationFunction(double net);
     abstract Double dActivation(double net);
 
-    public static double calculateMSE(double target, double actual) {
-        return Math.pow((target - actual), 2);
+    public double calculateLoss(double target){
+        return lossFunction.calculateLoss(target, activation);
     }
 
-    public static double calculateMSEDerivative(double target, double actual) {
-        return 2 * (target - actual);
+    public double dLoss(double target){
+        return lossFunction.dLoss(target, activation);
     }
 
     public Double calculateActivation(){
@@ -53,7 +58,7 @@ public abstract class Neuron {
     }
 
     public double calculateDelta(double target){
-        var dLoss = calculateMSEDerivative(target, activation);
+        var dLoss = lossFunction.dLoss(target, activation);
         delta = dActivation(net)*dLoss;
 
         return delta;
@@ -89,7 +94,6 @@ public abstract class Neuron {
                                      Connection outputConnection){
         for(Neuron neuron: previousLayer.getNeurons())
             neuron.addOutputConnection(outputConnection);
-
     }
 
     private void addOutputConnection(Connection outputConnection){

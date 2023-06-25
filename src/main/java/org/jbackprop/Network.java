@@ -10,6 +10,7 @@ public class Network {
 
     private final int[] neuronLayout;
     private List<Double> networkOutput;
+    private LossFunction lossFunction;
 
     public Network(float learningRate, int... neuronLayout) {
         this.neuronLayout = neuronLayout;
@@ -18,7 +19,8 @@ public class Network {
     }
 
     private void build(int inputDimension,
-                       Class<Neuron> neuronClass){
+                       Class<Neuron> neuronClass,
+                       LossFunction lossFunction){
 
         var numConnections = inputDimension;
         Layer previousLayer = null;
@@ -27,9 +29,8 @@ public class Network {
             var layer = new Layer();
 
             previousLayer = layer.build(numNeurons,
-                    numConnections,
-                    previousLayer,
-                    neuronClass);
+                    numConnections, previousLayer,
+                    neuronClass, lossFunction);
 
             numConnections = numNeurons;
 
@@ -47,5 +48,10 @@ public class Network {
         networkOutput = layers.get(numLayers-1).getActivations();
 
         return networkOutput;
+    }
+
+    public double calculateSumError(List<Double> target){
+        var outputLayer = layers.get(numLayers-1);
+        return lossFunction.calculateSumError(outputLayer, target);
     }
 }

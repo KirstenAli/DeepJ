@@ -33,11 +33,15 @@ public class Layer {
     public Layer build(int numNeurons,
                        int numConnections,
                        Layer previousLayer,
-                       Class<Neuron> neuronClass){
+                       Class<Neuron> neuronClass,
+                       LossFunction lossFunction){
         for(int i=0; i<numNeurons; i++){
             try {
                 Constructor<Neuron> constructor = neuronClass.getDeclaredConstructor();
-                Neuron neuron = constructor.newInstance(numConnections, previousLayer);
+                Neuron neuron = constructor.newInstance(numConnections,
+                        previousLayer,
+                        lossFunction);
+
                 neurons.add(neuron);
 
             } catch (InvocationTargetException | NoSuchMethodException | InstantiationException |
@@ -47,5 +51,4 @@ public class Layer {
         }
         return this;
     }
-
 }

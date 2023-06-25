@@ -1,9 +1,10 @@
 package org.jbackprop;
 
 public class SigmoidNeuron extends Neuron{
-
-    public SigmoidNeuron(int numConnections, Layer previousLayer) {
-        super(numConnections, previousLayer);
+    public SigmoidNeuron(int numConnections,
+                         Layer previousLayer,
+                         LossFunction lossFunction) {
+        super(numConnections, previousLayer, lossFunction);
     }
 
     @Override
