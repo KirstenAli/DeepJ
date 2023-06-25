@@ -19,4 +19,10 @@ public class Connection {
         product = input*weight;
         return product;
     }
+
+    public double calculateWeightedDelta(){
+        var delta = outputNeuron.getDelta();
+
+        return delta*weight;
+    }
 }

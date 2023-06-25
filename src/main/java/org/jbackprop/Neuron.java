@@ -1,5 +1,6 @@
 package org.jbackprop;
 
+import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
@@ -7,10 +8,12 @@ import java.util.List;
 
 public abstract class Neuron {
     private double bias;
-    private float net;
-    private float activation;
+    private double net;
+    @Getter
+    private double activation;
 
-    private float delta;
+    @Getter
+    private double delta;
 
     private final List<Connection> inputConnections;
 
@@ -22,6 +25,34 @@ public abstract class Neuron {
         buildConnections(numConnections, previousLayer);
     }
 
+    abstract Double activationFunction(double net);
+    abstract Double dActivation(double net);
+    abstract Double lossFunction(double target);
+    abstract Double dLoss(double target);
+
+    public Double calculateActivation(){
+        activation = activationFunction(calculateNet());
+        return activation;
+    }
+
+    public double calculateDelta(){
+        var weightedDeltaSum =0;
+
+        for(Connection connection: outputConnections){
+            weightedDeltaSum+= connection.calculateWeightedDelta();
+        }
+        delta = dActivation(net)*weightedDeltaSum;
+
+        return delta;
+    }
+
+    public double calculateDelta(double target){
+        var dLoss = dLoss(target);
+        delta = dActivation(net)*dLoss;
+
+        return delta;
+    }
+
     public double calculateNet(){
         for(Connection connection: inputConnections)
             net+= connection.calculateProduct();
@@ -29,8 +60,6 @@ public abstract class Neuron {
         net+=bias;
         return net;
     }
-
-    public abstract Double calculateActivation();
 
     public void setInputs(List<Double> inputs){
         for (int i=0; i<inputs.size(); i++){
