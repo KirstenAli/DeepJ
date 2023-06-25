@@ -27,7 +27,6 @@ public class Neuron {
             net+= connection.calculateProduct();
 
         net+=bias;
-
         return net;
     }
 
