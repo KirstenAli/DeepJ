@@ -26,16 +26,13 @@ public class Layer {
         }
     }
 
-    public List<Neuron> build(int numNeurons,
+    public Layer build(int numNeurons,
                                int numConnections,
-                               List<Neuron> previousNeurons){
+                               Layer previousLayer){
+        for(int i=0; i<numNeurons; i++)
+            neurons.add(new Neuron(numConnections, previousLayer));
 
-        for(int i=0; i<numNeurons; i++){
-            var neuron = new Neuron(numConnections, previousNeurons);
-            neurons.add(neuron);
-        }
-
-        return neurons;
+        return this;
     }
 
 }

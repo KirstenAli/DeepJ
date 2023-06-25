@@ -19,10 +19,10 @@ public class Neuron {
 
     private final int numConnections;
 
-    public Neuron(int numConnections, List<Neuron> previousNeurons){
+    public Neuron(int numConnections, Layer previousLayer){
         this.numConnections = numConnections;
         inputConnections = new ArrayList<>();
-        buildConnections(previousNeurons);
+        buildConnections(previousLayer);
     }
 
     public void calculateNet(){
@@ -43,18 +43,18 @@ public class Neuron {
         }
     }
 
-    private void buildConnections(List<Neuron> previousNeurons){
+    private void buildConnections(Layer previousLayer){
         for (int i=0; i<numConnections; i++){
             var connection = new Connection();
             inputConnections.add(connection);
 
-            addOutputConnection(previousNeurons,connection);
+            addOutputConnection(previousLayer,connection);
         }
     }
 
-    private void addOutputConnection(List<Neuron> previousNeurons,
+    private void addOutputConnection(Layer previousLayer,
                                      Connection outputConnection){
-        for(Neuron neuron: previousNeurons)
+        for(Neuron neuron: previousLayer.getNeurons())
             neuron.addOutputConnection(outputConnection);
     }
 

@@ -6,7 +6,7 @@ import java.util.List;
 public class Network {
     private final List<Layer> layers = new ArrayList<>();
     private final int numLayers;
-    private float learningRate;
+    private final float learningRate;
 
     private final int[] neuronLayout;
     private List<Double> networkOutput;
@@ -20,14 +20,14 @@ public class Network {
     private void build(int inputDimension){
 
         var numConnections = inputDimension;
-        List<Neuron> previousNeurons = null;
+        Layer previousLayer = null;
 
         for(int numNeurons: neuronLayout){
             var layer = new Layer();
 
-            previousNeurons = layer.build(numNeurons,
+            previousLayer = layer.build(numNeurons,
                     numConnections,
-                    previousNeurons);
+                    previousLayer);
 
             numConnections = numNeurons;
 
