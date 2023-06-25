@@ -1,5 +1,7 @@
 package org.jbackprop;
 
+import lombok.Setter;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,17 +12,21 @@ public class Neuron {
 
     private float delta;
 
-    private final List<Connection> connections = new ArrayList<>();
+    private final List<Connection> inputConnections;
+
+    @Setter
+    private List<Connection> outputConnections;
 
     private final int numConnections;
 
-    public Neuron(int numConnections) {
+    public Neuron(int numConnections, List<Neuron> previousNeurons){
         this.numConnections = numConnections;
-        buildConnections();
+        inputConnections = new ArrayList<>();
+        buildConnections(previousNeurons);
     }
 
     public void calculateNet(){
-        for(Connection connection: connections){
+        for(Connection connection: inputConnections){
             net+= connection.calculateProduct();
         }
     }
@@ -32,14 +38,27 @@ public class Neuron {
 
     public void setInputs(List<Double> inputs){
         for (int i=0; i<inputs.size(); i++){
-            var connection = connections.get(i);
+            var connection = inputConnections.get(i);
             connection.setInput(inputs.get(i));
         }
     }
 
-    private void buildConnections(){
+    private void buildConnections(List<Neuron> previousNeurons){
         for (int i=0; i<numConnections; i++){
-           connections.add(new Connection());
+            var connection = new Connection();
+            inputConnections.add(connection);
+
+            addOutputConnection(previousNeurons,connection);
         }
+    }
+
+    private void addOutputConnection(List<Neuron> previousNeurons,
+                                     Connection outputConnection){
+        for(Neuron neuron: previousNeurons)
+            neuron.addOutputConnection(outputConnection);
+    }
+
+    private void addOutputConnection(Connection outputConnection){
+        outputConnections.add(outputConnection);
     }
 }

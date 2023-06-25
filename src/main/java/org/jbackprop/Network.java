@@ -20,11 +20,18 @@ public class Network {
     private void build(int inputDimension){
 
         var numConnections = inputDimension;
+        List<Neuron> previousNeurons = null;
 
         for(int numNeurons: neuronLayout){
-            layers.add(new Layer(numNeurons, numConnections));
+            var layer = new Layer();
+
+            previousNeurons = layer.build(numNeurons,
+                    numConnections,
+                    previousNeurons);
 
             numConnections = numNeurons;
+
+            layers.add(layer);
         }
     }
 
