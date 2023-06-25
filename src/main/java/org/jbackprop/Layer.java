@@ -29,8 +29,8 @@ public class Layer {
     }
 
     public Layer build(int numNeurons,
-                               int numConnections,
-                               Layer previousLayer){
+                       int numConnections,
+                       Layer previousLayer){
         for(int i=0; i<numNeurons; i++)
             neurons.add(new Neuron(numConnections, previousLayer));
 
