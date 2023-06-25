@@ -45,7 +45,7 @@ public class Neuron {
                                   Layer previousLayer){
         for (int i=0; i<numConnections; i++){
             var connection = new Connection();
-            connection.setInputNeuron(this);
+            connection.setOutputNeuron(this);
             inputConnections.add(connection);
 
             addOutputConnection(previousLayer,connection);
@@ -54,10 +54,9 @@ public class Neuron {
 
     private void addOutputConnection(Layer previousLayer,
                                      Connection outputConnection){
-        for(Neuron neuron: previousLayer.getNeurons()) {
-            outputConnection.setOutputNeuron(this);
+        for(Neuron neuron: previousLayer.getNeurons())
             neuron.addOutputConnection(outputConnection);
-        }
+
     }
 
     private void addOutputConnection(Connection outputConnection){

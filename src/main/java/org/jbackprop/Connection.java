@@ -6,7 +6,6 @@ import lombok.Setter;
 @Getter @Setter
 public class Connection {
 
-    private Neuron inputNeuron;
     private Neuron outputNeuron;
     private double input;
     private double weight;
