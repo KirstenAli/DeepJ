@@ -26,7 +26,9 @@ public class Neuron {
         for(Connection connection: inputConnections)
             net+= connection.calculateProduct();
 
-        return net+=bias;
+        net+=bias;
+
+        return net;
     }
 
     public Double calculateActivation(){

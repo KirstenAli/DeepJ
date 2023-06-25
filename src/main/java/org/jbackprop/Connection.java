@@ -16,6 +16,7 @@ public class Connection {
     }
 
     public double calculateProduct(){
-        return product = input*weight;
+        product = input*weight;
+        return product;
     }
 }
