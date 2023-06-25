@@ -27,8 +27,14 @@ public abstract class Neuron {
 
     abstract Double activationFunction(double net);
     abstract Double dActivation(double net);
-    abstract Double lossFunction(double target);
-    abstract Double dLoss(double target);
+
+    public static double calculateMSE(double target, double actual) {
+        return Math.pow((target - actual), 2);
+    }
+
+    public static double calculateMSEDerivative(double target, double actual) {
+        return 2 * (target - actual);
+    }
 
     public Double calculateActivation(){
         activation = activationFunction(calculateNet());
@@ -47,7 +53,7 @@ public abstract class Neuron {
     }
 
     public double calculateDelta(double target){
-        var dLoss = dLoss(target);
+        var dLoss = calculateMSEDerivative(target, activation);
         delta = dActivation(net)*dLoss;
 
         return delta;
