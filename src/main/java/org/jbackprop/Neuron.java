@@ -25,10 +25,11 @@ public class Neuron {
         buildConnections(previousLayer);
     }
 
-    public void calculateNet(){
+    public double calculateNet(){
         for(Connection connection: inputConnections){
             net+= connection.calculateProduct();
         }
+        return net+=bias;
     }
 
     public Double calculateActivation(){
