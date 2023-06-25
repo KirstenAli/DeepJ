@@ -36,7 +36,7 @@ public abstract class Neuron {
     }
 
     public double calculateDelta(){
-        var weightedDeltaSum =0;
+        double weightedDeltaSum =0;
 
         for(Connection connection: outputConnections){
             weightedDeltaSum+= connection.calculateWeightedDelta();
