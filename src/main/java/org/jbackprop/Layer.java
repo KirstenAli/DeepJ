@@ -8,10 +8,12 @@ import java.util.List;
 @Getter
 public class Layer {
     private final List<Neuron> neurons = new ArrayList<>();
-    private final List<Double> activations = new ArrayList<>();
+    private List<Double> activations;
 
     public List<Double> calculateActivations(List<Double> inputs){
         setInputs(inputs);
+
+        activations = new ArrayList<>();
 
         for(Neuron neuron: neurons){
             activations.add(neuron.calculateActivation());
