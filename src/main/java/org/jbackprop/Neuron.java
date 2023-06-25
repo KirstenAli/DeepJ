@@ -17,12 +17,9 @@ public class Neuron {
     @Setter
     private List<Connection> outputConnections;
 
-    private final int numConnections;
-
     public Neuron(int numConnections, Layer previousLayer){
-        this.numConnections = numConnections;
         inputConnections = new ArrayList<>();
-        buildConnections(previousLayer);
+        buildConnections(numConnections, previousLayer);
     }
 
     public double calculateNet(){
@@ -44,7 +41,8 @@ public class Neuron {
         }
     }
 
-    private void buildConnections(Layer previousLayer){
+    private void buildConnections(int numConnections,
+                                  Layer previousLayer){
         for (int i=0; i<numConnections; i++){
             var connection = new Connection();
             inputConnections.add(connection);
