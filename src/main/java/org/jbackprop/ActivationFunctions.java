@@ -1,5 +1,7 @@
 package org.jbackprop;
 
 public enum ActivationFunctions {
-    SIGMOID
+    SIGMOID,
+    TANH,
+    RELU
 }
