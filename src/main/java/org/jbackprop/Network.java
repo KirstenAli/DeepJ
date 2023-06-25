@@ -17,7 +17,8 @@ public class Network {
         this.learningRate = learningRate;
     }
 
-    private void build(int inputDimension){
+    private void build(int inputDimension,
+                       Class<Neuron> neuronClass){
 
         var numConnections = inputDimension;
         Layer previousLayer = null;
@@ -27,7 +28,8 @@ public class Network {
 
             previousLayer = layer.build(numNeurons,
                     numConnections,
-                    previousLayer);
+                    previousLayer,
+                    neuronClass);
 
             numConnections = numNeurons;
 

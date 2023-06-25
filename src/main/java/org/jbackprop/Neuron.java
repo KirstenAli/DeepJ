@@ -5,7 +5,7 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Neuron {
+public abstract class Neuron {
     private double bias;
     private float net;
     private float activation;
@@ -30,10 +30,7 @@ public class Neuron {
         return net;
     }
 
-    public Double calculateActivation(){
-        calculateNet();
-        return 0.0;
-    }
+    public abstract Double calculateActivation();
 
     public void setInputs(List<Double> inputs){
         for (int i=0; i<inputs.size(); i++){

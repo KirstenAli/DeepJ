@@ -2,6 +2,8 @@ package org.jbackprop;
 
 import lombok.Getter;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,10 +32,19 @@ public class Layer {
 
     public Layer build(int numNeurons,
                        int numConnections,
-                       Layer previousLayer){
-        for(int i=0; i<numNeurons; i++)
-            neurons.add(new Neuron(numConnections, previousLayer));
+                       Layer previousLayer,
+                       Class<Neuron> neuronClass){
+        for(int i=0; i<numNeurons; i++){
+            try {
+                Constructor<Neuron> constructor = neuronClass.getDeclaredConstructor();
+                Neuron neuron = constructor.newInstance(numConnections, previousLayer);
+                neurons.add(neuron);
 
+            } catch (InvocationTargetException | NoSuchMethodException | InstantiationException |
+                     IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
         return this;
     }
 
