@@ -20,11 +20,12 @@ public abstract class Neuron {
     @Setter
     private List<Connection> outputConnections;
 
-    private LossFunction lossFunction;
+    private final LossFunction lossFunction;
 
     public Neuron(int numConnections,
                   Layer previousLayer,
                   LossFunction lossFunction){
+        bias = Math.random();
         inputConnections = new ArrayList<>();
         this.lossFunction = lossFunction;
         buildConnections(numConnections, previousLayer);

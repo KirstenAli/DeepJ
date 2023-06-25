@@ -3,8 +3,8 @@ package org.jbackprop;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Network {
-    private final List<Layer> layers = new ArrayList<>();
+public class Network{
+    private final List<Layer> layers;
     private final int numLayers;
     private final float learningRate;
 
@@ -12,10 +12,16 @@ public class Network {
     private List<Double> networkOutput;
     private LossFunction lossFunction;
 
-    public Network(float learningRate, int... neuronLayout) {
+    public Network(float learningRate, int... neuronLayout){
         this.neuronLayout = neuronLayout;
         numLayers = neuronLayout.length;
         this.learningRate = learningRate;
+        layers = new ArrayList<>();
+    }
+
+    public void beforeEpoch(){
+    }
+    public void AfterEpoch(){
     }
 
     private void build(int inputDimension,
@@ -50,7 +56,7 @@ public class Network {
         return networkOutput;
     }
 
-    public double calculateSumError(List<Double> target){
+    private double calculateSumError(List<Double> target){
         var outputLayer = layers.get(numLayers-1);
         return lossFunction.calculateSumError(outputLayer, target);
     }
