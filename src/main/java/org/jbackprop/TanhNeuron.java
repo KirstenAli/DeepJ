@@ -6,12 +6,12 @@ public class TanhNeuron extends Neuron{
     }
 
     @Override
-    Double activationFunction(double net) {
+    double activationFunction(double net) {
         return tanh(net);
     }
 
     @Override
-    Double dActivation(double net) {
+    double dActivation(double net) {
         return tanhDerivative(net);
     }
 

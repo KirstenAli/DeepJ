@@ -27,4 +27,11 @@ public class Connection {
 
         return delta*weight;
     }
+
+    public void adjustWeight(){
+        var learningRate = globalParams.getLearningRate();
+        var delta = outputNeuron.getDelta();
+
+        weight+=learningRate*delta*input;
+    }
 }

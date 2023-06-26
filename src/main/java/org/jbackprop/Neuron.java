@@ -19,6 +19,8 @@ public abstract class Neuron {
 
     private final LossFunction lossFunction;
 
+    private double loss;
+
     public Neuron(int numConnections,
                   Layer previousLayer,
                   GlobalParams globalParams){
@@ -28,18 +30,19 @@ public abstract class Neuron {
         buildConnections(numConnections, previousLayer, globalParams);
     }
 
-    abstract Double activationFunction(double net);
-    abstract Double dActivation(double net);
+    abstract double activationFunction(double net);
+    abstract double dActivation(double net);
 
     public double calculateLoss(double target){
-        return lossFunction.calculateLoss(target, activation);
+        loss = lossFunction.calculateLoss(target, activation);
+        return loss;
     }
 
     public double dLoss(double target){
         return lossFunction.dLoss(target, activation);
     }
 
-    public Double calculateActivation(){
+    public double calculateActivation(){
         activation = activationFunction(calculateNet());
         return activation;
     }

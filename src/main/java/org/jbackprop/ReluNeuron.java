@@ -6,12 +6,12 @@ public class ReluNeuron extends Neuron{
     }
 
     @Override
-    Double activationFunction(double net) {
+    double activationFunction(double net) {
         return relu(net);
     }
 
     @Override
-    Double dActivation(double net) {
+    double dActivation(double net) {
         return reluDerivative(net);
     }
 

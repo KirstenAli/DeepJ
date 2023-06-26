@@ -8,12 +8,12 @@ public class SigmoidNeuron extends Neuron{
     }
 
     @Override
-    Double activationFunction(double net) {
+    double activationFunction(double net) {
         return sigmoid(net);
     }
 
     @Override
-    Double dActivation(double net) {
+    double dActivation(double net) {
         return sigmoidDerivative(net);
     }
 
