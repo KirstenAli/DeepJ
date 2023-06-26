@@ -10,10 +10,11 @@ public class Connection {
     private double weight;
     private double product;
 
-    private double learningRate;
+    private GlobalParams globalParams;
 
-    public Connection() {
+    public Connection(GlobalParams globalParams) {
         weight = Math.random();
+        this.globalParams = globalParams;
     }
 
     public double calculateProduct(){

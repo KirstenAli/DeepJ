@@ -25,7 +25,7 @@ public abstract class Neuron {
         bias = Math.random();
         inputConnections = new ArrayList<>();
         this.lossFunction = globalParams.getLossFunction();
-        buildConnections(numConnections, previousLayer);
+        buildConnections(numConnections, previousLayer, globalParams);
     }
 
     abstract Double activationFunction(double net);
@@ -78,9 +78,10 @@ public abstract class Neuron {
     }
 
     private void buildConnections(int numConnections,
-                                  Layer previousLayer){
+                                  Layer previousLayer,
+                                  GlobalParams globalParams){
         for (int i=0; i<numConnections; i++){
-            var connection = new Connection();
+            var connection = new Connection(globalParams);
             connection.setOutputNeuron(this);
             inputConnections.add(connection);
 
