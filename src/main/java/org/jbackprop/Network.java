@@ -9,7 +9,7 @@ import java.util.List;
 public class Network{
     private final List<Layer> layers;
     private final int numLayers;
-    private final float learningRate;
+    private int epochs;
 
     private final int[] neuronLayout;
     private List<Double> networkOutput;
@@ -18,7 +18,6 @@ public class Network{
     public Network(float learningRate, int... neuronLayout){
         this.neuronLayout = neuronLayout;
         numLayers = neuronLayout.length;
-        this.learningRate = learningRate;
         layers = new ArrayList<>();
     }
 
@@ -64,7 +63,7 @@ public class Network{
         //TODO
     }
 
-    private void updateWeights(){
+    private void adjustWeights(){
         //TODO
     }
 
