@@ -60,6 +60,14 @@ public class Network{
         //TODO
     }
 
+    private void backwardPass(){
+        //TODO
+    }
+
+    private void updateWeights(){
+        //TODO
+    }
+
     private double calculateSumError(){
         var outputLayer = layers.get(numLayers-1);
         return lossFunction.calculateSumError(outputLayer);
