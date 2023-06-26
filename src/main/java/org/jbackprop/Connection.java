@@ -5,11 +5,12 @@ import lombok.Setter;
 
 @Getter @Setter
 public class Connection {
-
     private Neuron outputNeuron;
     private double input;
     private double weight;
     private double product;
+
+    private double learningRate;
 
     public Connection() {
         weight = Math.random();

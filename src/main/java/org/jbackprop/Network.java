@@ -27,9 +27,7 @@ public class Network{
     public void AfterEpoch(){
     }
 
-    private void build(int inputDimension,
-                       Class<Neuron> neuronClass,
-                       LossFunction lossFunction){
+    private void build(int inputDimension,GlobalParams globalParams){
 
         var numConnections = inputDimension;
         Layer previousLayer = null;
@@ -38,8 +36,7 @@ public class Network{
             var layer = new Layer();
 
             previousLayer = layer.build(numNeurons,
-                    numConnections, previousLayer,
-                    neuronClass, lossFunction);
+                    numConnections, previousLayer, globalParams);
 
             numConnections = numNeurons;
 

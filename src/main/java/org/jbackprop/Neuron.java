@@ -21,10 +21,10 @@ public abstract class Neuron {
 
     public Neuron(int numConnections,
                   Layer previousLayer,
-                  LossFunction lossFunction){
+                  GlobalParams globalParams){
         bias = Math.random();
         inputConnections = new ArrayList<>();
-        this.lossFunction = lossFunction;
+        this.lossFunction = globalParams.getLossFunction();
         buildConnections(numConnections, previousLayer);
     }
 

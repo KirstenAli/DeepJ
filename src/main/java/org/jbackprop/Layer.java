@@ -32,12 +32,12 @@ public class Layer {
     }
 
     public Layer build(int numNeurons, int numConnections,
-                       Layer previousLayer, Class<Neuron> neuronClass,
-                       LossFunction lossFunction){
+                       Layer previousLayer, GlobalParams globalParams){
         for(int i=0; i<numNeurons; i++){
             try {
+                Class<Neuron> neuronClass = globalParams.getNeuronClass();
                 Constructor<Neuron> constructor = neuronClass.getDeclaredConstructor();
-                Neuron neuron = constructor.newInstance(numConnections, previousLayer, lossFunction);
+                Neuron neuron = constructor.newInstance(numConnections, previousLayer, globalParams);
 
                 neurons.add(neuron);
 
