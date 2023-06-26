@@ -56,6 +56,10 @@ public class Network{
         return networkOutput;
     }
 
+    public void learn(){
+        //TODO
+    }
+
     private double calculateSumError(){
         var outputLayer = layers.get(numLayers-1);
         return lossFunction.calculateSumError(outputLayer);
