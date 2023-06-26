@@ -1,8 +1,11 @@
 package org.jbackprop;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.ArrayList;
 import java.util.List;
-
+@Getter @Setter
 public class Network{
     private final List<Layer> layers;
     private final int numLayers;

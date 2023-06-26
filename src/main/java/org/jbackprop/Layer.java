@@ -1,13 +1,14 @@
 package org.jbackprop;
 
 import lombok.Getter;
+import lombok.Setter;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
-@Getter
+@Getter @Setter
 public class Layer {
     private final List<Neuron> neurons = new ArrayList<>();
     private List<Double> activations;

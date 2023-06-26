@@ -16,6 +16,19 @@ public class MSE implements LossFunction{
     @Override
     public double calculateSumError(Layer outputlayer,
                                     List<Double> target){
+        return calculateMSESum(outputlayer, target);
+    }
+
+    private static double calculateMSE(double target, double actual){
+        return Math.pow((target - actual), 2);
+    }
+
+    private static double calculateMSEDerivative(double target, double actual){
+        return 2 * (target - actual);
+    }
+
+    private static double calculateMSESum(Layer outputlayer,
+                                          List<Double> target){
         double sumError =0;
         var neurons = outputlayer.getNeurons();
 
@@ -25,13 +38,5 @@ public class MSE implements LossFunction{
         }
 
         return sumError;
-    }
-
-    public static double calculateMSE(double target, double actual){
-        return Math.pow((target - actual), 2);
-    }
-
-    public static double calculateMSEDerivative(double target, double actual){
-        return 2 * (target - actual);
     }
 }

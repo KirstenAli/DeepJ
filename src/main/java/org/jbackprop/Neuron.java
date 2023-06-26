@@ -5,19 +5,16 @@ import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
-
+@Getter @Setter
 public abstract class Neuron {
     private double bias;
     private double net;
-    @Getter
     private double activation;
 
-    @Getter
     private double delta;
 
     private final List<Connection> inputConnections;
 
-    @Setter
     private List<Connection> outputConnections;
 
     private final LossFunction lossFunction;
