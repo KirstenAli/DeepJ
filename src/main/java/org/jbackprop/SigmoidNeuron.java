@@ -3,8 +3,8 @@ package org.jbackprop;
 public class SigmoidNeuron extends Neuron{
     public SigmoidNeuron(int numConnections,
                          Layer previousLayer,
-                         LossFunction lossFunction) {
-        super(numConnections, previousLayer, lossFunction);
+                         GlobalParams globalParams) {
+        super(numConnections, previousLayer, globalParams);
     }
 
     @Override
