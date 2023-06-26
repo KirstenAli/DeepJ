@@ -31,21 +31,19 @@ public class Layer {
         }
     }
 
-    public Layer build(int numNeurons,
-                       int numConnections,
-                       Layer previousLayer,
-                       Class<Neuron> neuronClass,
+    public Layer build(int numNeurons, int numConnections,
+                       Layer previousLayer, Class<Neuron> neuronClass,
                        LossFunction lossFunction){
         for(int i=0; i<numNeurons; i++){
             try {
                 Constructor<Neuron> constructor = neuronClass.getDeclaredConstructor();
-                Neuron neuron = constructor.newInstance(numConnections,
-                        previousLayer,
-                        lossFunction);
+                Neuron neuron = constructor.newInstance(numConnections, previousLayer, lossFunction);
 
                 neurons.add(neuron);
 
-            } catch (InvocationTargetException | NoSuchMethodException | InstantiationException |
+            } catch (InvocationTargetException |
+                     NoSuchMethodException |
+                     InstantiationException |
                      IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
