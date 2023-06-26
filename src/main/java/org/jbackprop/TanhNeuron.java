@@ -7,11 +7,20 @@ public class TanhNeuron extends Neuron{
 
     @Override
     Double activationFunction(double net) {
-        return null;
+        return tanh(net);
     }
 
     @Override
     Double dActivation(double net) {
-        return null;
+        return tanhDerivative(net);
+    }
+
+    public double tanh(double x) {
+        return Math.tanh(x);
+    }
+
+    public double tanhDerivative(double x) {
+        double tanhX = Math.tanh(x);
+        return 1 - Math.pow(tanhX, 2);
     }
 }

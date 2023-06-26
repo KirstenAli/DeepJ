@@ -7,11 +7,23 @@ public class ReluNeuron extends Neuron{
 
     @Override
     Double activationFunction(double net) {
-        return null;
+        return relu(net);
     }
 
     @Override
     Double dActivation(double net) {
-        return null;
+        return reluDerivative(net);
+    }
+
+    public double relu(double x) {
+        return Math.max(0, x);
+    }
+
+    public double reluDerivative(double x) {
+        if (x <= 0) {
+            return 0;
+        } else {
+            return 1;
+        }
     }
 }
