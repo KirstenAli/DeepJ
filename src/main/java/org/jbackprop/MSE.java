@@ -12,7 +12,7 @@ public class MSE extends LossFunction {
     public double dLoss(double target, double actual){
         return calculateMSEDerivative(target, actual);
     }
-    
+
     @Override
     double getSumError(Layer outputLayer, List<Double> target) {
         return 0;
