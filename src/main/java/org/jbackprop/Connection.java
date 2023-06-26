@@ -32,6 +32,6 @@ public class Connection {
         var learningRate = globalParams.getLearningRate();
         var delta = outputNeuron.getDelta();
 
-        weight+=learningRate*delta*input;
+        weight-=learningRate*delta*input;
     }
 }
