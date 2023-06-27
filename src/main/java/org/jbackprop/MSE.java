@@ -12,7 +12,7 @@ public class MSE extends LossFunction {
     }
 
     @Override
-    double getSumError(Layer outputLayer) {
+    double getSumLoss(Layer outputLayer) {
         return 0;
     }
 
