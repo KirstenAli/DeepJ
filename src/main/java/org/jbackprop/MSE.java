@@ -1,7 +1,5 @@
 package org.jbackprop;
 
-import java.util.List;
-
 public class MSE extends LossFunction {
     @Override
     public double calculateLoss(double target, double actual){
