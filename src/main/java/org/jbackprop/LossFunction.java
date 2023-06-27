@@ -5,13 +5,13 @@ public abstract class LossFunction {
     abstract double dLoss(double target, double actual);
     abstract double getSumLoss(Layer outputLayer);
     double calculateSumLoss(Layer outputLayer) {
-        double sumError =0;
+        double sumLoss =0;
         var neurons = outputLayer.getNeurons();
 
         for (Neuron neuron : neurons) {
-            sumError += neuron.getLoss();
+            sumLoss += neuron.getLoss();
         }
 
-        return sumError;
+        return sumLoss;
     }
 }
