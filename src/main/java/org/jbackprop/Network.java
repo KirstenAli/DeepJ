@@ -24,7 +24,9 @@ public class Network{
     public void beforeEpoch(){
     }
     public void AfterEpoch(){
+        
     }
+
 
     private void build(int inputDimension,GlobalParams globalParams){
 

@@ -15,11 +15,11 @@ public class TanhNeuron extends Neuron{
         return tanhDerivative(net);
     }
 
-    public double tanh(double x) {
+    public static double tanh(double x) {
         return Math.tanh(x);
     }
 
-    public double tanhDerivative(double x) {
+    public static double tanhDerivative(double x) {
         double tanhX = Math.tanh(x);
         return 1 - Math.pow(tanhX, 2);
     }
