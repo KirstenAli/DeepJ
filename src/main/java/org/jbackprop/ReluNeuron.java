@@ -15,11 +15,11 @@ public class ReluNeuron extends Neuron{
         return reluDerivative(net);
     }
 
-    public double relu(double x) {
+    public static double relu(double x) {
         return Math.max(0, x);
     }
 
-    public double reluDerivative(double x) {
+    public static double reluDerivative(double x) {
         if (x <= 0) {
             return 0;
         } else {
