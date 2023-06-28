@@ -6,15 +6,18 @@ import lombok.Setter;
 @Getter @Setter
 public class Connection {
     private Neuron outputNeuron;
+    private Neuron inputNeuron;
     private double input;
     private double weight;
     private double product;
+    private Double learningRate;
 
     private GlobalParams globalParams;
 
     public Connection(GlobalParams globalParams) {
         weight = Math.random();
-        this.globalParams = globalParams;
+        input = 1;
+        learningRate = globalParams.getLearningRate();
     }
 
     public double calculateProduct(){
@@ -23,15 +26,13 @@ public class Connection {
     }
 
     public double calculateWeightedDelta(){
-        var delta = outputNeuron.getDelta();
+        var delta = inputNeuron.getDelta();
 
         return delta*weight;
     }
 
     public void adjustWeight(){
-        var learningRate = globalParams.getLearningRate();
-        var delta = outputNeuron.getDelta();
-
-        weight-=learningRate*delta*input;
+        var delta = inputNeuron.getDelta();
+        weight+=learningRate*delta*input;
     }
 }

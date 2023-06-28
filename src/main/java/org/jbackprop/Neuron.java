@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 @Getter @Setter
 public abstract class Neuron {
-    private double bias;
     private double net;
     private double activation;
 
@@ -20,13 +19,15 @@ public abstract class Neuron {
     private final LossFunction lossFunction;
 
     private double loss;
+    private Connection bias;
 
     public Neuron(int numConnections,
                   Layer previousLayer,
                   GlobalParams globalParams){
-        bias = Math.random();
+
         inputConnections = new ArrayList<>();
         this.lossFunction = globalParams.getLossFunction();
+
         buildConnections(numConnections, previousLayer, globalParams);
     }
 
@@ -59,7 +60,7 @@ public abstract class Neuron {
     }
 
     public double calculateDelta(double target){
-        var dLoss = lossFunction.dLoss(target, activation);
+        var dLoss = dLoss(target);
         delta = dActivation(net)*dLoss;
 
         return delta;
@@ -69,7 +70,7 @@ public abstract class Neuron {
         for(Connection connection: inputConnections)
             net+= connection.calculateProduct();
 
-        net+=bias;
+        net+=bias.getProduct();
         return net;
     }
 
@@ -83,22 +84,26 @@ public abstract class Neuron {
     private void buildConnections(int numConnections,
                                   Layer previousLayer,
                                   GlobalParams globalParams){
+        bias = new Connection(globalParams);
+        inputConnections.add(bias);
+
         for (int i=0; i<numConnections; i++){
             var connection = new Connection(globalParams);
-            connection.setOutputNeuron(this);
+            connection.setInputNeuron(this);
             inputConnections.add(connection);
 
-            addOutputConnection(previousLayer,connection);
+            addOutputConnection(previousLayer,connection,i);
         }
     }
 
     private void addOutputConnection(Layer previousLayer,
-                                     Connection outputConnection){
-        for(Neuron neuron: previousLayer.getNeurons())
-            neuron.addOutputConnection(outputConnection);
+                                     Connection outputConnection,
+                                     int index){
+        if(previousLayer!=null){
+            var previousNeuron = previousLayer.getNeurons().get(index);
+            outputConnection.setOutputNeuron(previousNeuron);
+        }
     }
 
-    private void addOutputConnection(Connection outputConnection){
-        outputConnections.add(outputConnection);
-    }
+
 }
