@@ -104,6 +104,4 @@ public abstract class Neuron {
             outputConnection.setOutputNeuron(prevNeuron);
         }
     }
-
-
 }
