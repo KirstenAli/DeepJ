@@ -98,10 +98,10 @@ public abstract class Neuron {
 
     private void addOutputConnection(Layer previousLayer,
                                      Connection outputConnection,
-                                     int index){
+                                     int prevNeuronIndex){
         if(previousLayer!=null){
-            var previousNeuron = previousLayer.getNeurons().get(index);
-            outputConnection.setOutputNeuron(previousNeuron);
+            var prevNeuron = previousLayer.getNeurons().get(prevNeuronIndex);
+            outputConnection.setOutputNeuron(prevNeuron);
         }
     }
 
