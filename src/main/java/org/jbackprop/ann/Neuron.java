@@ -19,6 +19,7 @@ public abstract class Neuron {
     private final LossFunction lossFunction;
 
     private double loss;
+    private double actualLoss;
     private Connection bias;
 
     public Neuron(Integer numConnections,
@@ -35,13 +36,18 @@ public abstract class Neuron {
     abstract double activationFunction(double net);
     abstract double dActivation(double net);
 
-    public double calculateLoss(double target){
-        loss = lossFunction.calculateLoss(target, activation);
+    private double calculateActualLoss(double target){
+        actualLoss = target-activation;
+        return actualLoss;
+    }
+
+    public double calculateLoss(){
+        loss = lossFunction.calculateLoss(actualLoss);
         return loss;
     }
 
-    public double dLoss(double target){
-        return lossFunction.dLoss(target, activation);
+    private double dLoss(double target){
+        return lossFunction.dLoss(calculateActualLoss(target));
     }
 
     public double calculateActivation(){

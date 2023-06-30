@@ -11,7 +11,8 @@ import java.util.List;
 public class Network{
     private List<Layer> layers;
     private Layer outputLayer;
-    private double totalLoss;
+    private double lossOfEpoch;
+    private double lossOfPreviousEpoch;
 
     private final int[] neuronLayout;
     private List<Double> networkOutput;
@@ -30,12 +31,15 @@ public class Network{
                 networkParams.getDesiredLoss());
     }
 
+    public Network(DataSet dataSet, int... neuronLayout){
+        this(new NetworkParams<>(), dataSet, neuronLayout);
+    }
+
     public void beforeEpoch(){
     }
     public void afterEpoch(){
         
     }
-
 
     private void build(int inputDimension, NetworkParams networkParams){
         layers = new ArrayList<>();
@@ -64,7 +68,6 @@ public class Network{
                     layer.calculateActivations(previousActivations);
 
         networkOutput = outputLayer.getActivations();
-        System.out.println(networkOutput);
     }
 
     public void learn(DataSet dataSet,
@@ -74,18 +77,20 @@ public class Network{
             beforeEpoch();
             epoch(dataSet);
             afterEpoch();
-            totalLoss=0;
+            lossOfPreviousEpoch = lossOfEpoch;
+            lossOfEpoch =0;
             epochs--;
         }
 
-        while (epochs>0);
+        while (epochs>0 &&
+                desiredLoss<lossOfPreviousEpoch);
     }
 
     private void epoch(DataSet dataSet){
         for(Row row: dataSet.getRows()){
             forwardPass(row.getInput());
-            totalLoss += calculateSumLoss();
             backwardPass(row.getTarget());
+            lossOfEpoch += calculateLossOfIteration();
             adjustWeights();
         }
     }
@@ -104,7 +109,7 @@ public class Network{
         }
     }
 
-    private double calculateSumLoss(){
+    private double calculateLossOfIteration(){
         return lossFunction.calculateSumLoss(outputLayer);
     }
 }

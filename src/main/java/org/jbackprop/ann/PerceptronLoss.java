@@ -2,12 +2,12 @@ package org.jbackprop.ann;
 
 public class PerceptronLoss extends LossFunction{
     @Override
-    double calculateLoss(double target, double actual) {
-        return target-actual;
+    double calculateLoss(double loss) {
+        return loss;
     }
 
     @Override
-    double dLoss(double target, double actual) {
+    double dLoss(double loss) {
         return Double.NaN;
     }
 

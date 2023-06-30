@@ -22,12 +22,4 @@ public class Perceptron extends Neuron{
             return 0;
         }
     }
-
-    @Override
-    public double calculateLoss(double target) {
-        var loss = super.calculateLoss(target);
-        setDelta(loss*-1);
-
-        return loss;
-    }
 }

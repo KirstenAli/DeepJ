@@ -9,15 +9,25 @@ public class NetworkParams<T extends Neuron> {
     private LossFunction lossFunction;
     private double learningRate;
     private int epochs;
-    private double desiredLoss = 0.01;
+    private double desiredLoss;
 
     public NetworkParams(Class<T> neuronClass,
                          LossFunction lossFunction,
                          double learningRate,
-                         int epochs) {
+                         int epochs,
+                         double desiredLoss){
         this.neuronClass = neuronClass;
         this.lossFunction = lossFunction;
         this.learningRate = learningRate;
         this.epochs = epochs;
+        this.desiredLoss = desiredLoss;
+    }
+
+    public NetworkParams(){
+        this((Class<T>) SigmoidNeuron.class,
+                new MSE(),
+                0.1,
+                1000000000,
+                0.01);
     }
 }
