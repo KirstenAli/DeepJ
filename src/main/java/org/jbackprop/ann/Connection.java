@@ -1,4 +1,4 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -12,12 +12,12 @@ public class Connection {
     private double product;
     private Double learningRate;
 
-    private GlobalParams globalParams;
+    private NetworkParams networkParams;
 
-    public Connection(GlobalParams globalParams) {
-        weight = Math.random();
+    public Connection(NetworkParams networkParams) {
+        weight = Math.random() -0.5;
         input = 1;
-        learningRate = globalParams.getLearningRate();
+        learningRate = networkParams.getLearningRate();
     }
 
     public double calculateProduct(){

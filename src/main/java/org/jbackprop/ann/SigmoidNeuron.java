@@ -1,10 +1,10 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 public class SigmoidNeuron extends Neuron{
-    public SigmoidNeuron(int numConnections,
+    public SigmoidNeuron(Integer numConnections,
                          Layer previousLayer,
-                         GlobalParams globalParams) {
-        super(numConnections, previousLayer, globalParams);
+                         NetworkParams networkParams) {
+        super(numConnections, previousLayer, networkParams);
     }
 
     @Override

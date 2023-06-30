@@ -1,4 +1,4 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 public enum ActivationFunctions {
     SIGMOID,

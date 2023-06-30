@@ -1,8 +1,8 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 public class Perceptron extends Neuron{
-    public Perceptron(int numConnections, Layer previousLayer, GlobalParams globalParams) {
-        super(numConnections, previousLayer, globalParams);
+    public Perceptron(Integer numConnections, Layer previousLayer, NetworkParams networkParams) {
+        super(numConnections, previousLayer, networkParams);
     }
 
     @Override

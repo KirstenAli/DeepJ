@@ -1,4 +1,4 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 public class PerceptronLoss extends LossFunction{
     @Override

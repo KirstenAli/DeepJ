@@ -1,4 +1,4 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 public abstract class LossFunction {
     abstract double calculateLoss(double target, double actual);
@@ -11,7 +11,6 @@ public abstract class LossFunction {
         for (Neuron neuron : neurons){
             sumLoss += neuron.getLoss();
         }
-
         return sumLoss;
     }
 }

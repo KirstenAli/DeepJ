@@ -1,4 +1,4 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -21,14 +21,15 @@ public abstract class Neuron {
     private double loss;
     private Connection bias;
 
-    public Neuron(int numConnections,
+    public Neuron(Integer numConnections,
                   Layer previousLayer,
-                  GlobalParams globalParams){
+                  NetworkParams networkParams){
 
         inputConnections = new ArrayList<>();
-        this.lossFunction = globalParams.getLossFunction();
+        outputConnections = new ArrayList<>();
+        this.lossFunction = networkParams.getLossFunction();
 
-        buildConnections(numConnections, previousLayer, globalParams);
+        buildConnections(numConnections, previousLayer, networkParams);
     }
 
     abstract double activationFunction(double net);
@@ -48,22 +49,18 @@ public abstract class Neuron {
         return activation;
     }
 
-    public double calculateDelta(){
+    public void calculateDelta(){
         double weightedDeltaSum =0;
 
         for(Connection connection: outputConnections){
             weightedDeltaSum+= connection.calculateWeightedDelta();
         }
         delta = dActivation(net)*weightedDeltaSum;
-
-        return delta;
     }
 
-    public double calculateDelta(double target){
+    public void calculateDelta(double target){
         var dLoss = dLoss(target);
         delta = dActivation(net)*dLoss;
-
-        return delta;
     }
 
     public double calculateNet(){
@@ -83,17 +80,19 @@ public abstract class Neuron {
 
     private void buildConnections(int numConnections,
                                   Layer previousLayer,
-                                  GlobalParams globalParams){
-        bias = new Connection(globalParams);
-        inputConnections.add(bias);
+                                  NetworkParams networkParams){
 
         for (int i=0; i<numConnections; i++){
-            var connection = new Connection(globalParams);
+            var connection = new Connection(networkParams);
             connection.setInputNeuron(this);
             inputConnections.add(connection);
 
             addOutputConnection(previousLayer,connection,i);
         }
+
+        bias = new Connection(networkParams);
+        bias.setInputNeuron(this);
+        inputConnections.add(bias);
     }
 
     private void addOutputConnection(Layer previousLayer,
@@ -101,7 +100,19 @@ public abstract class Neuron {
                                      int prevNeuronIndex){
         if(previousLayer!=null){
             var prevNeuron = previousLayer.getNeurons().get(prevNeuronIndex);
-            outputConnection.setOutputNeuron(prevNeuron);
+            prevNeuron.addOutputConnection(outputConnection);
         }
+    }
+
+    private void addOutputConnection(Connection outputConnection){
+        outputConnection.setOutputNeuron(this);
+        outputConnections.add(outputConnection);
+    }
+
+    public void adjustWeights(){
+        for(Connection connection: inputConnections){
+            connection.adjustWeight();
+        }
+        net=0; // resets net for next forward pass.
     }
 }

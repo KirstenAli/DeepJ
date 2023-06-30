@@ -1,8 +1,8 @@
-package org.jbackprop;
+package org.jbackprop.ann;
 
 public class ReluNeuron extends Neuron{
-    public ReluNeuron(int numConnections, Layer previousLayer, GlobalParams globalParams) {
-        super(numConnections, previousLayer, globalParams);
+    public ReluNeuron(Integer numConnections, Layer previousLayer, NetworkParams networkParams) {
+        super(numConnections, previousLayer, networkParams);
     }
 
     @Override
