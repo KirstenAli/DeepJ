@@ -12,8 +12,8 @@ public class MSE extends LossFunction {
     }
 
     @Override
-    double calculateActualSumLoss(Layer outputLayer) {
-        return calculateSumLoss(outputLayer);
+    double calculateSumLoss(Layer outputLayer) {
+        return calculateActualSumLoss(outputLayer);
     }
 
     private static double calculateMSE(double loss){
