@@ -11,7 +11,7 @@ public class NetworkParams {
     private int epochs;
     private double desiredLoss;
 
-    public <T extends Neuron> NetworkParams(ActivationFunction activationFunction,
+    public NetworkParams(ActivationFunction activationFunction,
                          LossFunction lossFunction,
                          double learningRate,
                          int epochs,
@@ -27,7 +27,7 @@ public class NetworkParams {
         this(new Sigmoid());
     }
 
-    public <T extends Neuron> NetworkParams(ActivationFunction activationFunction){
+    public NetworkParams(ActivationFunction activationFunction){
         this(activationFunction,
                 new MSE(),
                 0.1,
