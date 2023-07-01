@@ -46,11 +46,6 @@ public class Layer {
             neuron.calculateDelta();
     }
 
-    public void calculateDeltas(double[] targets){
-        for(int i=0; i<targets.length; i++)
-            neurons.get(i).calculateDelta(targets[i]);
-    }
-
     public void adjustWeights(){
         for(Neuron neuron: neurons)
             neuron.adjustWeights();

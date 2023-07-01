@@ -17,6 +17,6 @@ public class Test{
         var dataset = new DataSet(2,1);
         dataset.addRows(rows);
 
-        new MyNetwork(dataset, 3,2,1);
+        new MyNetwork(dataset, 100,50,1);
     }
 }
