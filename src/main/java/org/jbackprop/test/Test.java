@@ -1,5 +1,6 @@
 package org.jbackprop.test;
 
+import org.jbackprop.ann.NetworkBuilder;
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
 
@@ -17,6 +18,14 @@ public class Test{
         var dataset = new DataSet(2,1);
         dataset.addRows(rows);
 
-        new MyNetwork(dataset, 100,50,1);
+        var networkBuilder = new NetworkBuilder();
+
+        var network = networkBuilder
+                .neuronLayout(3,2,1)
+                .dataSet(dataset)
+                .network(new MyNetwork())
+                .build();
+
+        network.learn();
     }
 }

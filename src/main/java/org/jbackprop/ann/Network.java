@@ -9,35 +9,25 @@ import java.util.ArrayList;
 import java.util.List;
 @Getter @Setter
 public class Network{
-    private List<Layer> layers;
-    private Layer outputLayer;
+    private List<HiddenLayer> hiddenLayers;
+    private OutputLayer outputLayer;
     private double lossOfEpoch;
     private double lossOfPreviousEpoch;
 
-    private final int[] neuronLayout;
+    private int[] neuronLayout;
     private double[] networkOutput;
     private LossFunction lossFunction;
-    private NetworkParams networkParams;
+    private NetworkBuilder networkBuilder;
     private DataSet dataSet;
 
-    private Network(NetworkParams networkParams,
-                   DataSet dataSet, int... neuronLayout){
-       this(networkParams, neuronLayout);
-       this.dataSet = dataSet;
-
-        build();
-        learn();
+    public void setNetworkBuilder(NetworkBuilder networkBuilder) {
+        this.neuronLayout = networkBuilder.getNeuronLayout();
+        this.dataSet = networkBuilder.getDataSet();
+        this.networkBuilder = networkBuilder;
+        lossFunction = networkBuilder.getLossFunction();
     }
 
-    public Network(NetworkParams networkParams,
-                   int... neuronLayout){
-        this.neuronLayout = neuronLayout;
-        this.networkParams = networkParams;
-        lossFunction = networkParams.getLossFunction();
-    }
-
-    public Network(DataSet dataSet, int... neuronLayout){
-        this(new NetworkParams(), dataSet, neuronLayout);
+    public Network() {
     }
 
     public void beforeEpoch(){
@@ -46,38 +36,42 @@ public class Network{
         
     }
 
-    private void build(){
-        layers = new ArrayList<>();
+    public void build(){
+        hiddenLayers = new ArrayList<>();
         var connectionsPerNeuron = dataSet.getInputDimension();
-        Layer previousLayer = null;
+        HiddenLayer previousLayer = null;
 
-        for(int numNeurons: neuronLayout){
-            var layer = new Layer();
+        int i;
+        for(i=0; i<neuronLayout.length-1; i++){
+            var hiddenLayer = new HiddenLayer();
+            hiddenLayer.build(neuronLayout[i],
+                    connectionsPerNeuron, previousLayer, networkBuilder);
 
-            previousLayer = layer.build(numNeurons,
-                    connectionsPerNeuron, previousLayer, networkParams);
+            connectionsPerNeuron = neuronLayout[i];
+            previousLayer = hiddenLayer;
 
-            connectionsPerNeuron = numNeurons;
-
-            layers.add(layer);
+            hiddenLayers.add(hiddenLayer);
         }
 
-        outputLayer = layers.get(layers.size()-1);
+        outputLayer = new OutputLayer();
+        outputLayer.build(neuronLayout[i],
+                connectionsPerNeuron, previousLayer, networkBuilder);
     }
 
     public void forwardPass(double[] firstInput){
         double[] previousActivations = firstInput;
 
-        for(Layer layer: layers)
+        for(HiddenLayer layer: hiddenLayers)
             previousActivations =
                     layer.calculateActivations(previousActivations);
 
-        networkOutput = outputLayer.getActivations();
+
+        networkOutput = outputLayer.calculateActivations(previousActivations);
     }
 
     public void learn(){
-        var epochs = networkParams.getEpochs();
-        var desiredLoss = networkParams.getDesiredLoss();
+        var epochs = networkBuilder.getEpochs();
+        var desiredLoss = networkBuilder.getDesiredLoss();
 
         do{
             beforeEpoch();
@@ -104,18 +98,20 @@ public class Network{
     private void backwardPass(double[] targets){
         outputLayer.calculateDeltas(targets);
 
-        for (int i=layers.size()-2; i>=0; i--){
-            layers.get(i).calculateDeltas();
+        for (int i = hiddenLayers.size()-1; i>=0; i--){
+            hiddenLayers.get(i).calculateDeltas();
         }
     }
 
     private void adjustWeights(){
-        for (Layer layer: layers){
+        outputLayer.adjustWeights();
+
+        for (HiddenLayer layer: hiddenLayers){
             layer.adjustWeights();
         }
     }
 
     private double calculateLossOfIteration(){
-        return lossFunction.calculateActualSumLoss(outputLayer);
+        return lossFunction.calculateSumLoss(outputLayer);
     }
 }

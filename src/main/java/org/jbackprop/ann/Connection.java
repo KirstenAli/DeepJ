@@ -12,12 +12,12 @@ public class Connection {
     private double product;
     private Double learningRate;
 
-    private NetworkParams networkParams;
+    private NetworkBuilder networkBuilder;
 
-    public Connection(NetworkParams networkParams) {
+    public Connection(NetworkBuilder networkBuilder) {
         weight = Math.random() -0.5;
         input = 1;
-        learningRate = networkParams.getLearningRate();
+        learningRate = networkBuilder.getLearningRate();
     }
 
     public double calculateProduct(){

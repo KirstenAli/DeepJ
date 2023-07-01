@@ -3,12 +3,11 @@ package org.jbackprop.ann;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Getter @Setter
-public class Layer {
-    private final List<Neuron> neurons = new ArrayList<>();
+public abstract class Layer <T extends Neuron> {
+    protected List<T> neurons;
     private double[] activations;
 
     public double[] calculateActivations(double[] inputs){
@@ -28,23 +27,10 @@ public class Layer {
         }
     }
 
-    public Layer build(int numNeurons, int connectionsPerNeuron,
-                       Layer previousLayer, NetworkParams networkParams){
-
-        for(int i=0; i<numNeurons; i++){
-            Neuron neuron = new Neuron(connectionsPerNeuron,
-                    previousLayer,
-                    networkParams);
-
-            neurons.add(neuron);
-        }
-        return this;
-    }
-
-    public void calculateDeltas(){
-        for(Neuron neuron: neurons)
-            neuron.calculateDelta();
-    }
+    abstract void build(int numNeurons,
+                        int connectionsPerNeuron,
+                        HiddenLayer previousLayer,
+                        NetworkBuilder networkBuilder);
 
     public void adjustWeights(){
         for(Neuron neuron: neurons)
