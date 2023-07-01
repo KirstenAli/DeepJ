@@ -20,7 +20,7 @@ public class Network{
     private NetworkParams networkParams;
     private DataSet dataSet;
 
-    public Network(NetworkParams networkParams,
+    private Network(NetworkParams networkParams,
                    DataSet dataSet, int... neuronLayout){
        this(networkParams, neuronLayout);
        this.dataSet = dataSet;
