@@ -1,17 +1,13 @@
 package org.jbackprop.ann;
 
-public class ReluNeuron extends Neuron{
-    public ReluNeuron(Integer numConnections, Layer previousLayer, NetworkParams networkParams) {
-        super(numConnections, previousLayer, networkParams);
-    }
-
+public class Relu implements ActivationFunction{
     @Override
-    double activationFunction(double net) {
+    public double applyActivation(double net) {
         return relu(net);
     }
 
     @Override
-    double dActivation(double net) {
+    public double derivative(double net, double activation) {
         return reluDerivative(net);
     }
 

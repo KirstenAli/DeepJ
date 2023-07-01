@@ -6,21 +6,21 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 @Getter @Setter
-public abstract class Neuron {
+public class Neuron {
     private double net;
     private double activation;
 
     private double delta;
 
     private final List<Connection> inputConnections;
-
-    private List<Connection> outputConnections;
+    private final List<Connection> outputConnections;
+    private Connection bias;
 
     private final LossFunction lossFunction;
+    private final ActivationFunction activationFunction;
 
     private double loss;
     private double actualLoss;
-    private Connection bias;
 
     public Neuron(Integer numConnections,
                   Layer previousLayer,
@@ -29,12 +29,10 @@ public abstract class Neuron {
         inputConnections = new ArrayList<>();
         outputConnections = new ArrayList<>();
         this.lossFunction = networkParams.getLossFunction();
+        this.activationFunction = networkParams.getActivationFunction();
 
         buildConnections(numConnections, previousLayer, networkParams);
     }
-
-    abstract double activationFunction(double net);
-    abstract double dActivation(double net);
 
     private double calculateActualLoss(double target){
         actualLoss = target-activation;
@@ -51,7 +49,8 @@ public abstract class Neuron {
     }
 
     public double calculateActivation(){
-        activation = activationFunction(calculateNet());
+        var net = calculateNet();
+        activation = activationFunction.applyActivation(net);
         return activation;
     }
 
@@ -61,12 +60,15 @@ public abstract class Neuron {
         for(Connection connection: outputConnections){
             weightedDeltaSum+= connection.calculateWeightedDelta();
         }
-        delta = dActivation(net)*weightedDeltaSum;
+
+        var activationDerivative = activationFunction.derivative(net,activation);
+        delta = activationDerivative*weightedDeltaSum;
     }
 
     public void calculateDelta(double target){
         var dLoss = dLoss(target);
-        delta = dActivation(net)*dLoss;
+        var activationDerivative = activationFunction.derivative(net,activation);
+        delta = activationDerivative*dLoss;
     }
 
     public double calculateNet(){

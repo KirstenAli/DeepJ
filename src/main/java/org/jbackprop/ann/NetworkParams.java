@@ -5,18 +5,18 @@ import lombok.Setter;
 
 @Setter @Getter
 public class NetworkParams {
-    private Class neuronClass;
+    private ActivationFunction activationFunction;
     private LossFunction lossFunction;
     private double learningRate;
     private int epochs;
     private double desiredLoss;
 
-    public <T extends Neuron> NetworkParams(Class<T> neuronClass,
+    public <T extends Neuron> NetworkParams(ActivationFunction activationFunction,
                          LossFunction lossFunction,
                          double learningRate,
                          int epochs,
                          double desiredLoss){
-        this.neuronClass = neuronClass;
+        this.activationFunction = activationFunction;
         this.lossFunction = lossFunction;
         this.learningRate = learningRate;
         this.epochs = epochs;
@@ -24,11 +24,11 @@ public class NetworkParams {
     }
 
     public NetworkParams(){
-        this(SigmoidNeuron.class);
+        this(new Sigmoid());
     }
 
-    public <T extends Neuron> NetworkParams(Class<T> neuronClass){
-        this(neuronClass,
+    public <T extends Neuron> NetworkParams(ActivationFunction activationFunction){
+        this(activationFunction,
                 new MSE(),
                 0.1,
                 1000000000,
