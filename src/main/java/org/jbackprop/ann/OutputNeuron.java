@@ -3,8 +3,9 @@ package org.jbackprop.ann;
 import lombok.Getter;
 import lombok.Setter;
 
-@Setter @Getter
-public class OutputNeuron extends Neuron{
+@Setter
+@Getter
+public class OutputNeuron extends Neuron {
 
     private double loss;
     private double actualLoss;
@@ -15,23 +16,24 @@ public class OutputNeuron extends Neuron{
         this.lossFunction = networkBuilder.getLossFunction();
     }
 
-    private double dLoss(double target){
+    private double dLoss(double target) {
         return lossFunction.dLoss(calculateActualLoss(target));
     }
 
-    private double calculateActualLoss(double target){
-        actualLoss = target-activation;
+    private double calculateActualLoss(double target) {
+        actualLoss = target - activation;
         return actualLoss;
     }
 
-    public double calculateLoss(){
+    public double calculateLoss() {
         loss = lossFunction.calculateLoss(actualLoss);
         return loss;
     }
 
-    public void calculateDelta(double target){
+    public void calculateDelta(double target) {
         var dLoss = dLoss(target);
-        var activationDerivative = activationFunction.derivative(net,activation);
-        delta = activationDerivative*dLoss;
+        var activationDerivative = activationFunction.derivative(net, activation);
+        delta = activationDerivative * dLoss;
     }
+
 }

@@ -54,10 +54,11 @@ public class NetworkBuilder {
         return this;
     }
 
-    public Network build(){
+    public Network build() {
         network.setNetworkBuilder(this);
         network.build();
 
         return network;
     }
+
 }

@@ -2,13 +2,11 @@ package org.jbackprop.ann;
 
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
-@Getter @Setter
-public class Network{
+
+public class Network {
     private List<HiddenLayer> hiddenLayers;
     private OutputLayer outputLayer;
     private double lossOfEpoch;
@@ -30,19 +28,20 @@ public class Network{
     public Network() {
     }
 
-    public void beforeEpoch(){
-    }
-    public void afterEpoch(){
-        
+    public void beforeEpoch() {
     }
 
-    public void build(){
+    public void afterEpoch() {
+
+    }
+
+    public void build() {
         hiddenLayers = new ArrayList<>();
         var connectionsPerNeuron = dataSet.getInputDimension();
         HiddenLayer previousLayer = null;
 
         int i;
-        for(i=0; i<neuronLayout.length-1; i++){
+        for (i = 0; i < neuronLayout.length - 1; i++) {
             var hiddenLayer = new HiddenLayer();
             hiddenLayer.build(neuronLayout[i],
                     connectionsPerNeuron, previousLayer, networkBuilder);
@@ -58,10 +57,10 @@ public class Network{
                 connectionsPerNeuron, previousLayer, networkBuilder);
     }
 
-    public void forwardPass(double[] firstInput){
+    public void forwardPass(double[] firstInput) {
         double[] previousActivations = firstInput;
 
-        for(HiddenLayer layer: hiddenLayers)
+        for (HiddenLayer layer : hiddenLayers)
             previousActivations =
                     layer.calculateActivations(previousActivations);
 
@@ -69,25 +68,25 @@ public class Network{
         networkOutput = outputLayer.calculateActivations(previousActivations);
     }
 
-    public void learn(){
+    public void learn() {
         var epochs = networkBuilder.getEpochs();
         var desiredLoss = networkBuilder.getDesiredLoss();
 
-        do{
+        do {
             beforeEpoch();
             epoch(dataSet);
             afterEpoch();
             lossOfPreviousEpoch = lossOfEpoch;
-            lossOfEpoch =0;
+            lossOfEpoch = 0;
             epochs--;
         }
 
-        while (epochs>0 &&
-                desiredLoss<lossOfPreviousEpoch);
+        while (epochs > 0 &&
+                desiredLoss < lossOfPreviousEpoch);
     }
 
-    private void epoch(DataSet dataSet){
-        for(Row row: dataSet.getRows()){
+    private void epoch(DataSet dataSet) {
+        for (Row row : dataSet.getRows()) {
             forwardPass(row.getInput());
             backwardPass(row.getTarget());
             lossOfEpoch += calculateLossOfIteration();
@@ -95,23 +94,31 @@ public class Network{
         }
     }
 
-    private void backwardPass(double[] targets){
+    private void backwardPass(double[] targets) {
         outputLayer.calculateDeltas(targets);
 
-        for (int i = hiddenLayers.size()-1; i>=0; i--){
+        for (int i = hiddenLayers.size() - 1; i >= 0; i--) {
             hiddenLayers.get(i).calculateDeltas();
         }
     }
 
-    private void adjustWeights(){
+    private void adjustWeights() {
         outputLayer.adjustWeights();
 
-        for (HiddenLayer layer: hiddenLayers){
+        for (HiddenLayer layer : hiddenLayers) {
             layer.adjustWeights();
         }
     }
 
-    private double calculateLossOfIteration(){
+    private double calculateLossOfIteration() {
         return lossFunction.calculateSumLoss(outputLayer);
+    }
+
+    public double getLossOfEpoch() {
+        return this.lossOfEpoch;
+    }
+
+    public NetworkBuilder getNetworkBuilder() {
+        return this.networkBuilder;
     }
 }

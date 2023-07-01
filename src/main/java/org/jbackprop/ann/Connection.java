@@ -3,7 +3,8 @@ package org.jbackprop.ann;
 import lombok.Getter;
 import lombok.Setter;
 
-@Getter @Setter
+@Setter
+@Getter
 public class Connection {
     private Neuron outputNeuron;
     private Neuron inputNeuron;
@@ -15,24 +16,25 @@ public class Connection {
     private NetworkBuilder networkBuilder;
 
     public Connection(NetworkBuilder networkBuilder) {
-        weight = Math.random() -0.5;
+        weight = Math.random() - 0.5;
         input = 1;
         learningRate = networkBuilder.getLearningRate();
     }
 
-    public double calculateProduct(){
-        product = input*weight;
+    public double calculateProduct() {
+        product = input * weight;
         return product;
     }
 
-    public double calculateWeightedDelta(){
+    public double calculateWeightedDelta() {
         var delta = inputNeuron.getDelta();
 
-        return delta*weight;
+        return delta * weight;
     }
 
-    public void adjustWeight(){
+    public void adjustWeight() {
         var delta = inputNeuron.getDelta();
-        weight+=learningRate*delta*input;
+        weight += learningRate * delta * input;
     }
+
 }

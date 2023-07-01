@@ -3,7 +3,7 @@ package org.jbackprop.ann;
 public class HiddenLayer extends Layer<HiddenNeuron>{
 
     @Override
-    void build(int numNeurons, int connectionsPerNeuron, HiddenLayer previousLayer, NetworkBuilder networkBuilder) {
+    public void build(int numNeurons, int connectionsPerNeuron, HiddenLayer previousLayer, NetworkBuilder networkBuilder) {
         this.neurons =
                 LayerBuilder.build(numNeurons, connectionsPerNeuron, previousLayer, networkBuilder, HiddenNeuron.class);
     }
