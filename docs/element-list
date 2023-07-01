@@ -1,1 +1,3 @@
-org.jbackprop
+org.jbackprop.ann
+org.jbackprop.dataset
+org.jbackprop.test

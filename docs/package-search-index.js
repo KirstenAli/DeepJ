@@ -1,1 +1,1 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"org.jbackprop"}];updateSearchResults();
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"org.jbackprop.ann"},{"l":"org.jbackprop.dataset"},{"l":"org.jbackprop.test"}];updateSearchResults();
