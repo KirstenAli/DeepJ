@@ -77,10 +77,10 @@ public abstract class Neuron {
         return net;
     }
 
-    public void setInputs(List<Double> inputs){
-        for (int i=0; i<inputs.size(); i++){
+    public void setInputs(double[] inputs){
+        for (int i=0; i<inputs.length; i++){
             var connection = inputConnections.get(i);
-            connection.setInput(inputs.get(i));
+            connection.setInput(inputs[i]);
         }
     }
 

@@ -4,14 +4,14 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Setter @Getter
-public class NetworkParams<T extends Neuron> {
-    private Class<T> neuronClass;
+public class NetworkParams {
+    private Class neuronClass;
     private LossFunction lossFunction;
     private double learningRate;
     private int epochs;
     private double desiredLoss;
 
-    public NetworkParams(Class<T> neuronClass,
+    public <T extends Neuron> NetworkParams(Class<T> neuronClass,
                          LossFunction lossFunction,
                          double learningRate,
                          int epochs,
@@ -24,7 +24,11 @@ public class NetworkParams<T extends Neuron> {
     }
 
     public NetworkParams(){
-        this((Class<T>) SigmoidNeuron.class,
+        this(SigmoidNeuron.class);
+    }
+
+    public <T extends Neuron> NetworkParams(Class<T> neuronClass){
+        this(neuronClass,
                 new MSE(),
                 0.1,
                 1000000000,

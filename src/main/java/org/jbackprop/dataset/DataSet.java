@@ -23,7 +23,7 @@ public class DataSet {
         rows.add(row);
     }
 
-    public void addRow(List<Double> input, List<Double> output){
+    public void addRow(double[] input, double[]output){
         rows.add(new Row(input, output));
     }
 }

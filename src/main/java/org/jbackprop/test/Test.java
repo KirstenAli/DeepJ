@@ -9,10 +9,10 @@ public class Test{
     public static void main(String[] args){
 
         var rows = List.of(
-                new Row(List.of(0.0,0.0), List.of(0.0)),
-                new Row(List.of(1.0,0.0), List.of(1.0)),
-                new Row(List.of(0.0,1.0), List.of(1.0)),
-                new Row(List.of(1.0,1.0), List.of(0.0)));
+                new Row(new double[]{0.0,0.0}, new double[]{0.0}),
+                new Row(new double[]{1.0,0.0}, new double[]{1.0}),
+                new Row(new double[]{0.0,1.0}, new double[]{1.0}),
+                new Row(new double[]{1.0,1.0}, new double[]{0.0}));
 
         var dataset = new DataSet(2,1);
         dataset.addRows(rows);

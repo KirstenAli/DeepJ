@@ -11,36 +11,36 @@ import java.util.List;
 @Getter @Setter
 public class Layer {
     private final List<Neuron> neurons = new ArrayList<>();
-    private List<Double> activations;
+    private double[] activations;
 
-    public List<Double> calculateActivations(List<Double> inputs){
+    public double[] calculateActivations(double[] inputs){
         setInputs(inputs);
 
-        activations = new ArrayList<>();
+        activations = new double[neurons.size()];
 
-        for(Neuron neuron: neurons){
-            activations.add(neuron.calculateActivation());
+        for(int i=0; i<neurons.size(); i++){
+            activations[i] = neurons.get(i).calculateActivation();
         }
         return activations;
     }
 
-    private void setInputs(List<Double> inputs){
+    private void setInputs(double[] inputs){
         for (Neuron neuron: neurons){
             neuron.setInputs(inputs);
         }
     }
 
-    public <T extends Neuron> Layer build(int numNeurons, int numConnections,
-                       Layer previousLayer, NetworkParams<T> networkParams){
+    public Layer build(int numNeurons, int numConnections,
+                       Layer previousLayer, NetworkParams networkParams){
         for(int i=0; i<numNeurons; i++){
             try {
-                Class<T> neuronClass = networkParams.getNeuronClass();
+                Class neuronClass = networkParams.getNeuronClass();
 
-                Constructor<T> constructor = neuronClass.getDeclaredConstructor(Integer.class,
+                Constructor constructor = neuronClass.getDeclaredConstructor(Integer.class,
                         Layer.class,
                         NetworkParams.class);
 
-                Neuron neuron = constructor.newInstance(numConnections, previousLayer, networkParams);
+                Neuron neuron = (Neuron) constructor.newInstance(numConnections, previousLayer, networkParams);
 
                 neurons.add(neuron);
 
@@ -59,9 +59,9 @@ public class Layer {
             neuron.calculateDelta();
     }
 
-    public void calculateDeltas(List<Double> targets){
-        for(int i=0; i<targets.size(); i++)
-            neurons.get(i).calculateDelta(targets.get(i));
+    public void calculateDeltas(double[] targets){
+        for(int i=0; i<targets.length; i++)
+            neurons.get(i).calculateDelta(targets[i]);
     }
 
     public void adjustWeights(){

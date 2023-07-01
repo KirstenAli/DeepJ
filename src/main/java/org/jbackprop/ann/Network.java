@@ -15,24 +15,29 @@ public class Network{
     private double lossOfPreviousEpoch;
 
     private final int[] neuronLayout;
-    private List<Double> networkOutput;
+    private double[] networkOutput;
     private LossFunction lossFunction;
+    private NetworkParams networkParams;
+    private DataSet dataSet;
 
     public Network(NetworkParams networkParams,
                    DataSet dataSet, int... neuronLayout){
+       this(networkParams, neuronLayout);
+       this.dataSet = dataSet;
+
+        build();
+        learn();
+    }
+
+    public Network(NetworkParams networkParams,
+                   int... neuronLayout){
         this.neuronLayout = neuronLayout;
+        this.networkParams = networkParams;
         lossFunction = networkParams.getLossFunction();
-
-        build(dataSet.getInputDimension(),
-                networkParams);
-
-        learn(dataSet,
-                networkParams.getEpochs(),
-                networkParams.getDesiredLoss());
     }
 
     public Network(DataSet dataSet, int... neuronLayout){
-        this(new NetworkParams<>(), dataSet, neuronLayout);
+        this(new NetworkParams(), dataSet, neuronLayout);
     }
 
     public void beforeEpoch(){
@@ -41,9 +46,9 @@ public class Network{
         
     }
 
-    private void build(int inputDimension, NetworkParams networkParams){
+    private void build(){
         layers = new ArrayList<>();
-        var numConnections = inputDimension;
+        var numConnections = dataSet.getInputDimension();
         Layer previousLayer = null;
 
         for(int numNeurons: neuronLayout){
@@ -60,8 +65,8 @@ public class Network{
         outputLayer = layers.get(layers.size()-1);
     }
 
-    public void forwardPass(List<Double> firstInput){
-        List<Double> previousActivations = firstInput;
+    public void forwardPass(double[] firstInput){
+        double[] previousActivations = firstInput;
 
         for(Layer layer: layers)
             previousActivations =
@@ -70,9 +75,10 @@ public class Network{
         networkOutput = outputLayer.getActivations();
     }
 
-    public void learn(DataSet dataSet,
-                      int epochs,
-                      double desiredLoss){
+    public void learn(){
+        var epochs = networkParams.getEpochs();
+        var desiredLoss = networkParams.getDesiredLoss();
+
         do{
             beforeEpoch();
             epoch(dataSet);
@@ -95,7 +101,7 @@ public class Network{
         }
     }
 
-    private void backwardPass(List<Double> targets){
+    private void backwardPass(double[] targets){
         outputLayer.calculateDeltas(targets);
 
         for (int i=layers.size()-2; i>=0; i--){
