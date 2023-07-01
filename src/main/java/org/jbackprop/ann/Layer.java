@@ -30,7 +30,7 @@ public class Layer {
         }
     }
 
-    public Layer build(int numNeurons, int numConnections,
+    public Layer build(int numNeurons, int connectionsPerNeuron,
                        Layer previousLayer, NetworkParams networkParams){
         for(int i=0; i<numNeurons; i++){
             try {
@@ -40,7 +40,7 @@ public class Layer {
                         Layer.class,
                         NetworkParams.class);
 
-                Neuron neuron = (Neuron) constructor.newInstance(numConnections, previousLayer, networkParams);
+                Neuron neuron = (Neuron) constructor.newInstance(connectionsPerNeuron, previousLayer, networkParams);
 
                 neurons.add(neuron);
 

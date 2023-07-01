@@ -48,16 +48,16 @@ public class Network{
 
     private void build(){
         layers = new ArrayList<>();
-        var numConnections = dataSet.getInputDimension();
+        var connectionsPerNeuron = dataSet.getInputDimension();
         Layer previousLayer = null;
 
         for(int numNeurons: neuronLayout){
             var layer = new Layer();
 
             previousLayer = layer.build(numNeurons,
-                    numConnections, previousLayer, networkParams);
+                    connectionsPerNeuron, previousLayer, networkParams);
 
-            numConnections = numNeurons;
+            connectionsPerNeuron = numNeurons;
 
             layers.add(layer);
         }
