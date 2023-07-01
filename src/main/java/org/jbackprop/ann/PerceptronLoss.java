@@ -12,7 +12,7 @@ public class PerceptronLoss extends LossFunction{
     }
 
     @Override
-    double getSumLoss(Layer outputLayer) {
+    double calculateActualSumLoss(Layer outputLayer) {
         return calculateSumLoss(outputLayer);
     }
 }

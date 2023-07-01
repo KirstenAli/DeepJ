@@ -116,6 +116,6 @@ public class Network{
     }
 
     private double calculateLossOfIteration(){
-        return lossFunction.calculateSumLoss(outputLayer);
+        return lossFunction.calculateActualSumLoss(outputLayer);
     }
 }
