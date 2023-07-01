@@ -5,11 +5,11 @@ import lombok.Setter;
 
 @Getter @Setter
 public class Row{
-    private double[] input;
-    private double[] target;
+    private double[] inputs;
+    private double[] targets;
 
-    public Row(double[] input, double[] target){
-        this.input = input;
-        this.target = target;
+    public Row(double[] inputs, double[] targets){
+        this.inputs = inputs;
+        this.targets = targets;
     }
 }

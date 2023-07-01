@@ -87,8 +87,8 @@ public class Network {
 
     private void epoch(DataSet dataSet) {
         for (Row row : dataSet.getRows()) {
-            forwardPass(row.getInput());
-            backwardPass(row.getTarget());
+            forwardPass(row.getInputs());
+            backwardPass(row.getTargets());
             lossOfEpoch += calculateLossOfIteration();
             adjustWeights();
         }
