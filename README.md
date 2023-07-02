@@ -14,11 +14,11 @@ public static void main(String[] args){
         var dataset = new DataSet(2,1);
         dataset.addRows(rows);
 
-        test1(dataset);
-        test2(dataset);
+        example1(dataset);
+        example2(dataset);
     }
 
-    public static void test1(DataSet dataSet){
+    public static void example1(DataSet dataSet){
         var networkBuilder = new NetworkBuilder();
 
         var network = networkBuilder
@@ -29,7 +29,7 @@ public static void main(String[] args){
         network.learn();
     }
 
-    public static void test2(DataSet dataSet){
+    public static void example2(DataSet dataSet){
         var networkBuilder = new NetworkBuilder();
 
         var network = networkBuilder
