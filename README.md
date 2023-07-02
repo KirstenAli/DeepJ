@@ -1,7 +1,7 @@
 # JBackprop
 JBackprop offers a robust feedforward neural network (FNN) implementation in Java. This comprehensive library also empowers developers with an extensive repertoire of advanced data preprocessing functions enabling streamlined training of neural networks in Java.
 
- public static void main(String[] args){
+public static void main(String[] args){
         var rows = List.of(
                 new Row(new double[]{0.0,0.0}, new double[]{0.0}),
                 new Row(new double[]{1.0,0.0}, new double[]{1.0}),
@@ -11,7 +11,7 @@ JBackprop offers a robust feedforward neural network (FNN) implementation in Jav
         var dataset = new DataSet(2,1);
         dataset.addRows(rows);
 
-        //test1(dataset);
+        test1(dataset);
         test2(dataset);
     }
 
@@ -19,7 +19,7 @@ JBackprop offers a robust feedforward neural network (FNN) implementation in Jav
         var networkBuilder = new NetworkBuilder();
 
         var network = networkBuilder
-                .neuronLayout(3,2,1)
+                .architecture(3,2,1)
                 .dataSet(dataSet)
                 .build();
 
@@ -30,7 +30,7 @@ JBackprop offers a robust feedforward neural network (FNN) implementation in Jav
         var networkBuilder = new NetworkBuilder();
 
         var network = networkBuilder
-                .neuronLayout(500,400,300,200,100,50,25,10,1)
+                .architecture(500,400,300,200,100,50,25,10,1)
                 .dataSet(dataSet)
                 .activationFunction(new Tanh())
                 .lossFunction(new MSE())
