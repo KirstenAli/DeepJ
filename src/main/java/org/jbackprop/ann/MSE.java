@@ -7,7 +7,7 @@ public class MSE extends LossFunction {
     }
 
     @Override
-    public double dLoss(double loss){
+    public double derivative(double loss){
         return calculateMSEDerivative(loss);
     }
 
