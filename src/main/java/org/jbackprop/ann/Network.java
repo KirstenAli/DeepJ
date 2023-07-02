@@ -1,25 +1,28 @@
 package org.jbackprop.ann;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter @Setter
 public class Network {
     private List<HiddenLayer> hiddenLayers;
     private OutputLayer outputLayer;
     private double lossOfEpoch;
     private double lossOfPreviousEpoch;
 
-    private int[] neuronLayout;
+    private int[] architecture;
     private double[] networkOutput;
     private LossFunction lossFunction;
     private NetworkBuilder networkBuilder;
     private DataSet dataSet;
 
     public void setNetworkBuilder(NetworkBuilder networkBuilder) {
-        this.neuronLayout = networkBuilder.getNeuronLayout();
+        this.architecture = networkBuilder.getArchitecture();
         this.dataSet = networkBuilder.getDataSet();
         this.networkBuilder = networkBuilder;
         lossFunction = networkBuilder.getLossFunction();
@@ -41,19 +44,19 @@ public class Network {
         HiddenLayer previousLayer = null;
 
         int i;
-        for (i = 0; i < neuronLayout.length - 1; i++) {
+        for (i = 0; i < architecture.length - 1; i++) {
             var hiddenLayer = new HiddenLayer();
-            hiddenLayer.build(neuronLayout[i],
+            hiddenLayer.build(architecture[i],
                     connectionsPerNeuron, previousLayer, networkBuilder);
 
-            connectionsPerNeuron = neuronLayout[i];
+            connectionsPerNeuron = architecture[i];
             previousLayer = hiddenLayer;
 
             hiddenLayers.add(hiddenLayer);
         }
 
         outputLayer = new OutputLayer();
-        outputLayer.build(neuronLayout[i],
+        outputLayer.build(architecture[i],
                 connectionsPerNeuron, previousLayer, networkBuilder);
     }
 

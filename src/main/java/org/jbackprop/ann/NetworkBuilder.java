@@ -5,7 +5,7 @@ import org.jbackprop.dataset.DataSet;
 
 @Getter
 public class NetworkBuilder {
-    private int[] neuronLayout;
+    private int[] architecture;
     private ActivationFunction activationFunction = new Sigmoid();
     private LossFunction lossFunction = new MSE();
     private double learningRate = 0.1;
@@ -44,8 +44,8 @@ public class NetworkBuilder {
         return this;
     }
 
-    public NetworkBuilder neuronLayout(int... neuronLayout) {
-        this.neuronLayout = neuronLayout;
+    public NetworkBuilder architecture(int... architecture) {
+        this.architecture = architecture;
         return this;
     }
 
