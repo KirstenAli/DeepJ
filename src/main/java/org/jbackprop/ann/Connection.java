@@ -11,7 +11,7 @@ public class Connection {
     private double input;
     private double weight;
     private double product;
-    private Double learningRate;
+    private double learningRate;
 
     private NetworkBuilder networkBuilder;
 
