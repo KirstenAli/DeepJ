@@ -5,6 +5,7 @@ Getting Started:
 
 ```java
 public static void main(String[] args){
+        //XOR
         var rows = List.of(
                 new Row(new double[]{0.0,0.0}, new double[]{0.0}),
                 new Row(new double[]{1.0,0.0}, new double[]{1.0}),
