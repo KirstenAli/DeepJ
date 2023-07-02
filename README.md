@@ -33,7 +33,7 @@ public static void main(String[] args){
         var networkBuilder = new NetworkBuilder();
 
         var network = networkBuilder
-                .architecture(500,400,300,200,100,50,25,10,1)
+                .architecture(500,400,300,200,100,50,25,10,5,2,1)
                 .dataSet(dataSet)
                 .activationFunction(new Tanh())
                 .lossFunction(new MSE())
