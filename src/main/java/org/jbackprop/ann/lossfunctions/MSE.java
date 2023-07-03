@@ -22,7 +22,7 @@ public class MSE implements LossFunction {
         for (OutputNeuron neuron : neurons){
             sumLoss += calculateLoss(neuron.getActualLoss());
         }
-        return sumLoss;
+        return sumLoss/outputLayer.getLayerSize();
     }
 
     private static double calculateMSE(double loss){
