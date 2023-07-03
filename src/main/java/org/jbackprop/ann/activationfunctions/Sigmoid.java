@@ -1,6 +1,6 @@
-package org.jbackprop.ann;
+package org.jbackprop.ann.activationfunctions;
 
-public class Sigmoid implements ActivationFunction{
+public class Sigmoid implements ActivationFunction {
 
     @Override
     public double applyActivation(double net) {

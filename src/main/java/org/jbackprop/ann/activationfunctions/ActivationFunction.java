@@ -1,4 +1,4 @@
-package org.jbackprop.ann;
+package org.jbackprop.ann.activationfunctions;
 
 public interface ActivationFunction {
     double applyActivation(double net);

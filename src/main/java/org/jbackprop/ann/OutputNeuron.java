@@ -2,6 +2,7 @@ package org.jbackprop.ann;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.jbackprop.ann.lossfunctions.LossFunction;
 
 @Setter
 @Getter

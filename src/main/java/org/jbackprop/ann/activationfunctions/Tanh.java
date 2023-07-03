@@ -1,6 +1,5 @@
-package org.jbackprop.ann;
-
-public class Tanh implements ActivationFunction{
+package org.jbackprop.ann.activationfunctions;
+public class Tanh implements ActivationFunction {
 
     @Override
     public double applyActivation(double net) {

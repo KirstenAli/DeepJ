@@ -1,4 +1,6 @@
-package org.jbackprop.ann;
+package org.jbackprop.ann.lossfunctions;
+
+import org.jbackprop.ann.OutputLayer;
 
 public class MSE extends LossFunction {
     @Override
@@ -12,7 +14,7 @@ public class MSE extends LossFunction {
     }
 
     @Override
-    double calculateSumLoss(OutputLayer outputLayer) {
+    public double calculateSumLoss(OutputLayer outputLayer) {
         return calculateActualSumLoss(outputLayer);
     }
 

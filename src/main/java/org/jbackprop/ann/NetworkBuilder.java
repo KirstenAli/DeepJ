@@ -1,6 +1,10 @@
 package org.jbackprop.ann;
 
 import lombok.Getter;
+import org.jbackprop.ann.activationfunctions.ActivationFunction;
+import org.jbackprop.ann.activationfunctions.Sigmoid;
+import org.jbackprop.ann.lossfunctions.LossFunction;
+import org.jbackprop.ann.lossfunctions.MSE;
 import org.jbackprop.dataset.DataSet;
 
 @Getter

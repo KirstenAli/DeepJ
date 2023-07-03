@@ -1,8 +1,8 @@
 package org.jbackprop.test;
 
-import org.jbackprop.ann.MSE;
+import org.jbackprop.ann.lossfunctions.MSE;
 import org.jbackprop.ann.NetworkBuilder;
-import org.jbackprop.ann.Tanh;
+import org.jbackprop.ann.activationfunctions.Tanh;
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
 
@@ -21,7 +21,7 @@ public class Test{
         dataset.addRows(rows);
 
         example1(dataset);
-        example2(dataset);
+        //example2(dataset);
     }
 
     public static void example1(DataSet dataSet){
@@ -29,6 +29,7 @@ public class Test{
 
         var network = networkBuilder
                 .architecture(3,2,1)
+                .network(new MyNetwork())
                 .dataSet(dataSet)
                 .build();
 

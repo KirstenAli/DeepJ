@@ -1,6 +1,8 @@
 package org.jbackprop.ann;
 
-public class Heaviside implements ActivationFunction{
+import org.jbackprop.ann.activationfunctions.ActivationFunction;
+
+public class Heaviside implements ActivationFunction {
 
     @Override
     public double applyActivation(double net) {

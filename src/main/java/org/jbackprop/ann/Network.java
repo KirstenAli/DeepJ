@@ -2,6 +2,7 @@ package org.jbackprop.ann;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.jbackprop.ann.lossfunctions.LossFunction;
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
 

@@ -1,6 +1,6 @@
-package org.jbackprop.ann;
+package org.jbackprop.ann.activationfunctions;
 
-public class Relu implements ActivationFunction{
+public class Relu implements ActivationFunction {
     @Override
     public double applyActivation(double net) {
         return relu(net);
