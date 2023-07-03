@@ -1,9 +1,9 @@
 package org.jbackprop.ann;
 
 import lombok.Getter;
-import org.jbackprop.ann.activationfunctions.ActivationFunction;
-import org.jbackprop.ann.activationfunctions.Sigmoid;
+import org.jbackprop.ann.activationfunctions.*;
 import org.jbackprop.ann.lossfunctions.LossFunction;
+import org.jbackprop.ann.lossfunctions.LossFunctions;
 import org.jbackprop.ann.lossfunctions.MSE;
 import org.jbackprop.dataset.DataSet;
 
@@ -18,13 +18,20 @@ public class NetworkBuilder {
     private DataSet dataSet;
     private Network network = new Network();
 
-    public NetworkBuilder activationFunction(ActivationFunction activationFunction) {
-        this.activationFunction = activationFunction;
+    public NetworkBuilder activationFunction(ActivationFunctions activationFunctions) {
+        activationFunction = switch (activationFunctions){
+            case SIGMOID -> new Sigmoid();
+            case TANH -> new Tanh();
+            case RELU -> new Relu();
+        };
         return this;
     }
 
-    public NetworkBuilder lossFunction(LossFunction lossFunction) {
-        this.lossFunction = lossFunction;
+    public NetworkBuilder lossFunction(LossFunctions lossFunctions) {
+
+        lossFunction = switch (lossFunctions){
+            case MSE -> new MSE();
+        };
         return this;
     }
 

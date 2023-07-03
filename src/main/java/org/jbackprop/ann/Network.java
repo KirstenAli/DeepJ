@@ -13,6 +13,7 @@ import java.util.List;
 public class Network {
     private List<HiddenLayer> hiddenLayers;
     private OutputLayer outputLayer;
+    private int currentEpoch;
     private double lossOfEpoch;
     private double lossOfPreviousEpoch;
 
@@ -68,7 +69,6 @@ public class Network {
             previousActivations =
                     layer.calculateActivations(previousActivations);
 
-
         networkOutput = outputLayer.calculateActivations(previousActivations);
     }
 
@@ -77,6 +77,7 @@ public class Network {
         var desiredLoss = networkBuilder.getDesiredLoss();
 
         do {
+            currentEpoch++;
             beforeEpoch();
             epoch(dataSet);
             afterEpoch();
@@ -115,7 +116,7 @@ public class Network {
     }
 
     private double calculateLossOfIteration() {
-        return lossFunction.calculateSumLoss(outputLayer);
+        return lossFunction.calculateLossOfIteration(outputLayer);
     }
 
     public double getLossOfEpoch() {

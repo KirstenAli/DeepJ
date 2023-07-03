@@ -16,13 +16,8 @@ public class OutputNeuron extends Neuron {
         this.lossFunction = networkBuilder.getLossFunction();
     }
 
-    private double calculateActualLoss(double target) {
-        actualLoss = target - activation;
-        return actualLoss;
-    }
-
     public void calculateDelta(double target) {
-        var actualLoss = calculateActualLoss(target);
+        actualLoss = lossFunction.calculateActualLoss(target, activation);
         var lossDerivative = lossFunction.derivative(actualLoss);
         var activationDerivative = activationFunction.derivative(net, activation);
 

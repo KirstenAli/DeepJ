@@ -1,8 +1,8 @@
 package org.jbackprop.test;
 
-import org.jbackprop.ann.lossfunctions.MSE;
+import org.jbackprop.ann.activationfunctions.ActivationFunctions;
+import org.jbackprop.ann.lossfunctions.LossFunctions;
 import org.jbackprop.ann.NetworkBuilder;
-import org.jbackprop.ann.activationfunctions.Tanh;
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
 
@@ -42,10 +42,10 @@ public class Test{
         var network = networkBuilder
                 .architecture(500,400,300,200,100,50,25,10,5,4,3,2,1)
                 .dataSet(dataSet)
-                .activationFunction(new Tanh())
-                .lossFunction(new MSE())
+                .activationFunction(ActivationFunctions.TANH)
+                .lossFunction(LossFunctions.MSE)
                 .learningRate(0.1)
-                .desiredLoss(0.01)
+                .desiredLoss(0.01) // Training stops
                 .epochs(1000000000)
                 .network(new MyNetwork())
                 .build();

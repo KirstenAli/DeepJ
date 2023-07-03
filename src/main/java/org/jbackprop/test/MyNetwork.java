@@ -7,6 +7,6 @@ public class MyNetwork extends Network {
     @Override
     public void afterEpoch() {
         super.afterEpoch();
-        System.out.println("Total Loss: " + getLossOfEpoch());
+        System.out.println("Loss of epoch " + getCurrentEpoch() + ": " + getLossOfEpoch());
     }
 }
