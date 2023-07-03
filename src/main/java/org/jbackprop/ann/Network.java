@@ -67,9 +67,9 @@ public class Network {
 
         for (HiddenLayer layer : hiddenLayers)
             previousActivations =
-                    layer.calculateActivations(previousActivations);
+                    layer.applyActivations(previousActivations);
 
-        networkOutput = outputLayer.calculateActivations(previousActivations);
+        networkOutput = outputLayer.applyActivations(previousActivations);
     }
 
     public void learn() {

@@ -36,7 +36,7 @@ public abstract class Neuron {
         inputConnections = new ArrayList<>();
     }
 
-    public double calculateActivation() {
+    public double applyActivation() {
         var net = calculateNet();
         activation = activationFunction.applyActivation(net);
         return activation;

@@ -11,13 +11,13 @@ public abstract class Layer<T extends Neuron> {
     protected List<T> neurons;
     private double[] activations;
 
-    public double[] calculateActivations(double[] inputs) {
+    public double[] applyActivations(double[] inputs) {
         setInputs(inputs);
 
         activations = new double[neurons.size()];
 
         for (int i = 0; i < neurons.size(); i++) {
-            activations[i] = neurons.get(i).calculateActivation();
+            activations[i] = neurons.get(i).applyActivation();
         }
         return activations;
     }
