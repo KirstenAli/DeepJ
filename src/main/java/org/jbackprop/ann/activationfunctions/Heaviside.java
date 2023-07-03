@@ -1,6 +1,4 @@
-package org.jbackprop.ann;
-
-import org.jbackprop.ann.activationfunctions.ActivationFunction;
+package org.jbackprop.ann.activationfunctions;
 
 public class Heaviside implements ActivationFunction {
 
