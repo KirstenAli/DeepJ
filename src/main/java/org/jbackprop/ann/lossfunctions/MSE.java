@@ -1,8 +1,9 @@
 package org.jbackprop.ann.lossfunctions;
 
 import org.jbackprop.ann.OutputLayer;
+import org.jbackprop.ann.OutputNeuron;
 
-public class MSE extends LossFunction {
+public class MSE implements LossFunction {
     @Override
     public double calculateLoss(double loss){
         return calculateMSE(loss);
@@ -15,7 +16,13 @@ public class MSE extends LossFunction {
 
     @Override
     public double calculateSumLoss(OutputLayer outputLayer) {
-        return calculateActualSumLoss(outputLayer);
+        double sumLoss =0;
+        var neurons = outputLayer.getNeurons();
+
+        for (OutputNeuron neuron : neurons){
+            sumLoss += calculateLoss(neuron.getActualLoss());
+        }
+        return sumLoss;
     }
 
     private static double calculateMSE(double loss){

@@ -8,7 +8,6 @@ import org.jbackprop.ann.lossfunctions.LossFunction;
 @Getter
 public class OutputNeuron extends Neuron {
 
-    private double loss;
     private double actualLoss;
     private final LossFunction lossFunction;
 
@@ -20,11 +19,6 @@ public class OutputNeuron extends Neuron {
     private double calculateActualLoss(double target) {
         actualLoss = target - activation;
         return actualLoss;
-    }
-
-    public double calculateLoss() {
-        loss = lossFunction.calculateLoss(actualLoss);
-        return loss;
     }
 
     public void calculateDelta(double target) {
