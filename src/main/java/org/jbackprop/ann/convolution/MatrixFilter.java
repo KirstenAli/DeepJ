@@ -5,20 +5,21 @@ public class MatrixFilter {
     public static double[][] applyFilter(double[][] matrix, double[][] filter, int stride) {
         int filterSize = filter.length;
 
-        Convolution applyFilter = (i, j)-> {
+        ConvolutionTask convolutionTask = (i, j)-> {
             final double[] sum = {0};
 
-            WindowOperation windowOperation = (row, col)->
+            WindowOperation filterOperation = (row, col)->
                     sum[0] += matrix[i*stride+row][j*stride+col] * filter[row][col];
 
-            Window.apply(0, 0, filterSize, filterSize, windowOperation);
+            Window.apply(0, 0, filterSize, filterSize, filterOperation);
 
             return sum[0];
         };
 
-        return SlidingWindow.convolve(matrix, filterSize, stride, applyFilter);
+        return SlidingWindow.convolve(matrix, filterSize, stride, convolutionTask);
     }
 
+/*
     public static void main(String[] args){
         double[][] matrix1 = {
                 {1, 2, 3, 1, 2, 3},
@@ -44,5 +45,5 @@ public class MatrixFilter {
         }
 
     }
-
+*/
 }

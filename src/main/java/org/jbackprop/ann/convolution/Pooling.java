@@ -4,7 +4,7 @@ public class Pooling {
 
     public static double[][] pool(double[][] input, int poolSize, int stride, PoolingType poolingType) {
 
-        Convolution pool = (i, j)->{
+        ConvolutionTask pool = (i, j)->{
             int startRow = i * stride;
             int startCol = j * stride;
             int endRow = startRow + poolSize;
