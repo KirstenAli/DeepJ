@@ -21,7 +21,6 @@ public class Pooling {
         return SlidingWindow.convolve(input, poolSize, stride, convolution);
     }
 
-
     public static double getMaxValue(double[][] input, int startRow, int startCol, int endRow, int endCol) {
         final double[] maxVal = {Double.MIN_VALUE};
 
