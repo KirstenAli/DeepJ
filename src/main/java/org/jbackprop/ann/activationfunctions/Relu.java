@@ -16,10 +16,6 @@ public class Relu implements ActivationFunction {
     }
 
     public static double reluDerivative(double x) {
-        if (x <= 0) {
-            return 0;
-        } else {
-            return 1;
-        }
+        return x > 0 ? 1 : 0;
     }
 }

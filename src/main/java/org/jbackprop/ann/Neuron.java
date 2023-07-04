@@ -43,6 +43,7 @@ public abstract class Neuron {
     }
 
     public double calculateNet() {
+        net=0;
         for (Connection connection : inputConnections)
             net += connection.calculateProduct();
 
@@ -84,7 +85,6 @@ public abstract class Neuron {
         for (Connection connection : inputConnections) {
             connection.adjustWeight();
         }
-        net = 0; // resets net for next forward pass.
     }
 
 }
