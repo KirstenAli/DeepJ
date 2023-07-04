@@ -1,5 +1,5 @@
 org.jbackprop.ann
 org.jbackprop.ann.activationfunctions
-org.jbackprop.ann.convolutionTask
+org.jbackprop.ann.convolution
 org.jbackprop.ann.lossfunctions
 org.jbackprop.dataset

@@ -4,7 +4,7 @@ public class Pooling {
 
     public static double[][] pool(double[][] input, int poolSize, int stride, PoolingType poolingType) {
 
-        ConvolutionTask pool = (i, j)->{
+        Convolution convolution = (i, j)->{
             int startRow = i * stride;
             int startCol = j * stride;
             int endRow = startRow + poolSize;
@@ -15,12 +15,10 @@ public class Pooling {
                 case MAX -> getMaxValue(input, startRow, startCol, endRow, endCol);
 
                 case AVERAGE -> getAverageValue(input, startRow, startCol, endRow, endCol);
-
-                case GLOBAL -> getGlobalValue(input);
             };
         };
 
-        return SlidingWindow.convolve(input, poolSize, stride, pool);
+        return SlidingWindow.convolve(input, poolSize, stride, convolution);
     }
 
 
