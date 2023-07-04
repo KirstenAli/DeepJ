@@ -1,4 +1,4 @@
-package org.jbackprop.test;
+package test;
 
 import org.jbackprop.ann.Network;
 

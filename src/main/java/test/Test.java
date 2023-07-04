@@ -1,4 +1,4 @@
-package org.jbackprop.test;
+package test;
 
 import org.jbackprop.ann.activationfunctions.ActivationFunctions;
 import org.jbackprop.ann.lossfunctions.LossFunctions;
@@ -45,6 +45,7 @@ public class Test{
                 .activationFunction(ActivationFunctions.TANH)
                 .lossFunction(LossFunctions.MSE)
                 .learningRate(0.1)
+                .momentum(0.1)
                 .desiredLoss(0.01) // Training stops
                 .epochs(1000000000)
                 .network(new MyNetwork())

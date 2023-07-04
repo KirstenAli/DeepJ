@@ -12,6 +12,8 @@ public class Connection {
     private double weight;
     private double product;
     private double learningRate;
+    private double momentum;
+    private double prevUpdate;
 
     private NetworkBuilder networkBuilder;
 
@@ -19,6 +21,7 @@ public class Connection {
         weight = Math.random() - 0.5;
         input = 1;
         learningRate = networkBuilder.getLearningRate();
+        momentum = networkBuilder.getMomentum();
     }
 
     public double calculateProduct() {
@@ -34,7 +37,10 @@ public class Connection {
 
     public void adjustWeight() {
         var delta = inputNeuron.getDelta();
-        weight += learningRate * delta * input;
+        var update = learningRate * delta * input;
+        update+= momentum*prevUpdate; // add momentum to update
+        weight += update;
+        prevUpdate = update;
     }
 
 }

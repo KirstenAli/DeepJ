@@ -1,6 +1,6 @@
 package org.jbackprop.ann.convolution;
 
-public interface ConvolutionOperation {
+public interface Convolution {
 
     double apply(int i, int j);
 }

@@ -3,7 +3,7 @@ package org.jbackprop.ann.convolution;
 public class SlidingWindow {
 
     public static double[][] convolve(double[][] matrix, int filterSize, int stride,
-                                ConvolutionOperation convolutionOperation) {
+                                Convolution convolution) {
         int numRows = matrix.length;
         int numCols = matrix[0].length;
 
@@ -13,7 +13,7 @@ public class SlidingWindow {
 
         for (int i = 0; i < outputRows; i++) {
             for (int j = 0; j < outputCols; j++) {
-                result[i][j] = convolutionOperation.apply(i,j);
+                result[i][j] = convolution.apply(i,j);
             }
         }
 

@@ -4,7 +4,7 @@ public class Pooling {
 
     public static double[][] pool(double[][] input, int poolSize, int stride, PoolingType poolingType) {
 
-        ConvolutionOperation pool = (i, j)->{
+        Convolution pool = (i, j)->{
             int startRow = i * stride;
             int startCol = j * stride;
             int endRow = startRow + poolSize;
@@ -25,27 +25,25 @@ public class Pooling {
 
 
     public static double getMaxValue(double[][] input, int startRow, int startCol, int endRow, int endCol) {
-        double maxVal = Double.MIN_VALUE;
+        final double[] maxVal = {Double.MIN_VALUE};
 
-        for (int row = startRow; row < endRow; row++) {
-            for (int col = startCol; col < endCol; col++) {
-                maxVal = Math.max(maxVal, input[row][col]);
-            }
-        }
+        WindowOperation windowOperation = (row, col)->
+                maxVal[0] = Math.max(maxVal[0], input[row][col]);
 
-        return maxVal;
+        Window.apply(startRow, startCol, endRow, endCol, windowOperation);
+
+        return maxVal[0];
     }
 
     public static double getAverageValue(double[][] input, int startRow, int startCol, int endRow, int endCol) {
-        double sum = 0.0;
+        final double[] sum = {0};
 
-        for (int row = startRow; row < endRow; row++) {
-            for (int col = startCol; col < endCol; col++) {
-                sum += input[row][col];
-            }
-        }
+        WindowOperation windowOperation = (row, col)->
+                sum[0] += input[row][col];
 
-        return sum / ((endRow - startRow) * (endCol - startCol));
+        Window.apply(startRow, startCol, endRow, endCol, windowOperation);
+
+        return sum[0] / ((endRow - startRow) * (endCol - startCol));
     }
 
     public static double getGlobalValue(double[][] input) {

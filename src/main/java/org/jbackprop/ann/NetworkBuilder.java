@@ -13,6 +13,7 @@ public class NetworkBuilder {
     private ActivationFunction activationFunction = new Sigmoid();
     private LossFunction lossFunction = new MSE();
     private double learningRate = 0.1;
+    private double momentum;
     private int epochs = 1000000000;
     private double desiredLoss = 0.01;
     private DataSet dataSet;
@@ -62,6 +63,11 @@ public class NetworkBuilder {
 
     public NetworkBuilder network(Network network) {
         this.network = network;
+        return this;
+    }
+
+    public NetworkBuilder momentum(double momentum) {
+        this.momentum = momentum;
         return this;
     }
 
