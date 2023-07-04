@@ -11,8 +11,8 @@ public class SlidingWindow {
         int outputCols = (numCols - filterSize) / stride + 1;
         double[][] result = new double[outputRows][outputCols];
 
-        for (int i = 0; i < outputRows; i+=stride) {
-            for (int j = 0; j < outputCols; j+=stride) {
+        for (int i = 0; i < outputRows; i++) {
+            for (int j = 0; j < outputCols; j++) {
                 result[i][j] = convolutionOperation.apply(i,j);
             }
         }

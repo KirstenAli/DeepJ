@@ -9,7 +9,7 @@ public class MatrixFilter {
             int sum = 0;
             for (int k = 0; k < filterSize; k++) {
                 for (int l = 0; l < filterSize; l++) {
-                    sum += matrix[i+k][j+l] * filter[k][l];
+                    sum += matrix[i*stride+k][j*stride+l] * filter[k][l];
                 }
             }
 
@@ -21,9 +21,10 @@ public class MatrixFilter {
 
     public static void main(String[] args){
         double[][] matrix1 = {
-                {1, 2, 3},
-                {4, 5, 6},
-                {7, 8, 9}
+                {1, 2, 3, 1, 2, 3},
+                {4, 5, 6, 1, 2, 3},
+                {7, 8, 9, 1, 2, 3},
+                {7, 8, 9, 1, 2, 3}
         };
         double[][] filter1 = {
                 {1, 0},
