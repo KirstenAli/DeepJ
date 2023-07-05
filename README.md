@@ -17,7 +17,7 @@ public static void main(String[] args){
         dataset.addRows(rows);
 
         example1(dataset);
-        //example2(dataset);
+        example2(dataset);
     }
 
     public static void example1(DataSet dataSet){
