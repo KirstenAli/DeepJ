@@ -6,7 +6,7 @@ JBackprop offers a robust feedforward neural network (FNN) implementation in Jav
 Getting Started:
 
 ```java
-    public static void main(String[] args){
+public static void main(String[] args){
         var rows = List.of(
                 new Row(new double[]{0.0,0.0}, new double[]{0.0}),
                 new Row(new double[]{1.0,0.0}, new double[]{1.0}),
