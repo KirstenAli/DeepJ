@@ -6,8 +6,7 @@ JBackprop offers a robust feedforward neural network (FNN) implementation in Jav
 Getting Started:
 
 ```java
-public static void main(String[] args){
-        //XOR
+    public static void main(String[] args){
         var rows = List.of(
                 new Row(new double[]{0.0,0.0}, new double[]{0.0}),
                 new Row(new double[]{1.0,0.0}, new double[]{1.0}),
@@ -18,7 +17,7 @@ public static void main(String[] args){
         dataset.addRows(rows);
 
         example1(dataset);
-        example2(dataset);
+        //example2(dataset);
     }
 
     public static void example1(DataSet dataSet){
@@ -26,6 +25,7 @@ public static void main(String[] args){
 
         var network = networkBuilder
                 .architecture(3,2,1)
+                .network(new MyNetwork())
                 .dataSet(dataSet)
                 .build();
 
@@ -38,10 +38,11 @@ public static void main(String[] args){
         var network = networkBuilder
                 .architecture(500,400,300,200,100,50,25,10,5,4,3,2,1)
                 .dataSet(dataSet)
-                .activationFunction(new Tanh())
-                .lossFunction(new MSE())
+                .activationFunction(ActivationFunctions.TANH)
+                .lossFunction(LossFunctions.MSE)
                 .learningRate(0.1)
-                .desiredLoss(0.01)
+                .momentum(0.1)
+                .desiredLoss(0.01) // Training stops
                 .epochs(1000000000)
                 .network(new MyNetwork())
                 .build();
