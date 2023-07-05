@@ -25,7 +25,6 @@ public static void main(String[] args){
 
         var network = networkBuilder
                 .architecture(3,2,1)
-                .network(new MyNetwork())
                 .dataSet(dataSet)
                 .build();
 
