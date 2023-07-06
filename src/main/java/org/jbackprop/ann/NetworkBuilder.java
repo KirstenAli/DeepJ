@@ -10,7 +10,7 @@ import org.jbackprop.dataset.DataSet;
 @Getter
 public class NetworkBuilder {
     private int[] architecture;
-    private ActivationFunction activationFunction = new Sigmoid();
+    private ActivationFunction activationFunction = new Tanh();
     private LossFunction lossFunction = new MSE();
     private double learningRate = 0.1;
     private double momentum;
