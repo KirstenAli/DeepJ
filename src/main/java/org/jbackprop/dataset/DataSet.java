@@ -3,20 +3,18 @@ package org.jbackprop.dataset;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 @Setter @Getter
 public class DataSet {
-    List<Row> rows;
+    private List<Row> rows;
     private int inputDimension;
     private int outputDimension;
 
     public DataSet(int inputDimension, int outputDimension) {
+        rows = new ArrayList<>();
         this.inputDimension = inputDimension;
         this.outputDimension = outputDimension;
-    }
-
-    public void addRows(List<Row> rows) {
-        this.rows = rows;
     }
 
     public void addRow(Row row){
