@@ -43,7 +43,10 @@ Getting Started:
                 .momentum(0.1)
                 .desiredLoss(0.01) // Training stops
                 .epochs(1000000000)
-                .network(new MyNetwork())
+                .beforeEpoch(net ->
+                        System.out.println("Current Epoch: " + net.getCurrentEpoch()))
+                .afterEpoch(net ->
+                        System.out.println("Error of Epoch: " + net.getLossOfEpoch() + "\n"))
                 .build();
 
         network.learn();
