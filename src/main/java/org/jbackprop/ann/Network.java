@@ -115,8 +115,4 @@ public class Network {
     public double getLossOfEpoch() {
         return this.lossOfEpoch;
     }
-
-    public NetworkBuilder getNetworkBuilder() {
-        return this.networkBuilder;
-    }
 }
