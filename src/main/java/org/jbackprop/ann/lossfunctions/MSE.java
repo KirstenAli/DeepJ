@@ -13,6 +13,6 @@ public class MSE extends LossFunction {
 
     @Override
     public double derivative(double actualLoss){
-        return 2*actualLoss;
+        return actualLoss; //precisely 2*actualLoss
     }
 }
