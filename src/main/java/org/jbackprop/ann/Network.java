@@ -53,8 +53,8 @@ public class Network {
                 connectionsPerNeuron, previousLayer, networkBuilder);
     }
 
-    public void forwardPass(double[] firstInput) {
-        double[] previousActivations = firstInput;
+    public void forwardPass(double[] input) {
+        double[] previousActivations = input;
 
         for (HiddenLayer layer : hiddenLayers)
             previousActivations =
