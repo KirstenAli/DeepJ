@@ -1,12 +1,12 @@
 # JBackprop
-JBackprop offers a robust feedforward neural network (FNN) implementation in Java. This comprehensive library also empowers developers with an extensive repertoire of advanced data preprocessing functions enabling streamlined training of neural networks in Java.
+JBackprop is an object-oriented artificial neural network (ANN) library written in Java. This comprehensive library also empowers developers with an extensive repertoire of advanced data preprocessing functions enabling streamlined training of neural networks in Java.
 
 [View the Docs](https://kirstenali.github.io/JBackprop/)
 
 Getting Started:
 
 ```java
-public static void main(String[] args){
+ public static void main(String[] args){
 
         var dataSet = new DataSet(2,1);
 
@@ -43,9 +43,9 @@ public static void main(String[] args){
                 .desiredLoss(0.01) // Training stops
                 .epochs(1000000000)
                 .beforeEpoch(net ->
-                        System.out.println("Current Epoch: " + net.getCurrentEpoch()))
+                        System.out.println("Current Epoch:" + net.getCurrentEpoch()))
                 .afterEpoch(net ->
-                        System.out.println("Error of Epoch: " + net.getLossOfEpoch() + "\n"))
+                        System.out.println("Loss of Epoch:" + net.getLossOfEpoch() + "\n"))
                 .build();
 
         network.learn();
