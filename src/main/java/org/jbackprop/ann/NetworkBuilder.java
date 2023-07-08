@@ -17,7 +17,15 @@ public class NetworkBuilder {
     private int epochs = 1000000000;
     private double desiredLoss = 0.01;
     private DataSet dataSet;
+    private EpochOperation beforeEpoch;
+    private EpochOperation afterEpoch;
     private Network network = new Network();
+
+    public NetworkBuilder() {
+        network = new Network();
+        beforeEpoch = network->{};
+        afterEpoch= network->{};
+    }
 
     public NetworkBuilder activationFunction(ActivationFunctions activationFunctions) {
         activationFunction = switch (activationFunctions){
@@ -78,4 +86,13 @@ public class NetworkBuilder {
         return network;
     }
 
+    public NetworkBuilder beforeEpoch(EpochOperation beforeEpoch) {
+        this.beforeEpoch = beforeEpoch;
+        return this;
+    }
+
+    public NetworkBuilder afterEpoch(EpochOperation afterEpoch) {
+        this.afterEpoch = afterEpoch;
+        return this;
+    }
 }

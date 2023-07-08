@@ -20,8 +20,8 @@ public class Test{
         var dataset = new DataSet(2,1);
         dataset.addRows(rows);
 
-        example1(dataset);
-        //example2(dataset);
+        //example1(dataset);
+        example2(dataset);
     }
 
     public static void example1(DataSet dataSet){
@@ -29,7 +29,6 @@ public class Test{
 
         var network = networkBuilder
                 .architecture(3,2,1)
-                .network(new MyNetwork())
                 .dataSet(dataSet)
                 .build();
 
@@ -48,7 +47,10 @@ public class Test{
                 .momentum(0.1)
                 .desiredLoss(0.01) // Training stops
                 .epochs(1000000000)
-                .network(new MyNetwork())
+                .beforeEpoch(net ->
+                        System.out.println("Current Epoch: " + net.getCurrentEpoch()))
+                .afterEpoch(net ->
+                        System.out.println("Error of Epoch: " + net.getLossOfEpoch() + "\n"))
                 .build();
 
         network.learn();

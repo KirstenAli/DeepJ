@@ -1,6 +1,7 @@
 package org.jbackprop.ann;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.jbackprop.ann.lossfunctions.LossFunction;
 import org.jbackprop.dataset.DataSet;
@@ -9,7 +10,7 @@ import org.jbackprop.dataset.Row;
 import java.util.ArrayList;
 import java.util.List;
 
-@Getter @Setter
+@Getter @Setter @NoArgsConstructor
 public class Network {
     private List<HiddenLayer> hiddenLayers;
     private OutputLayer outputLayer;
@@ -24,20 +25,10 @@ public class Network {
     private DataSet dataSet;
 
     public void setNetworkBuilder(NetworkBuilder networkBuilder) {
-        this.architecture = networkBuilder.getArchitecture();
-        this.dataSet = networkBuilder.getDataSet();
         this.networkBuilder = networkBuilder;
+        architecture = networkBuilder.getArchitecture();
+        dataSet = networkBuilder.getDataSet();
         lossFunction = networkBuilder.getLossFunction();
-    }
-
-    public Network() {
-    }
-
-    public void beforeEpoch() {
-    }
-
-    public void afterEpoch() {
-
     }
 
     public void build() {
@@ -75,12 +66,14 @@ public class Network {
     public void learn() {
         var epochs = networkBuilder.getEpochs();
         var desiredLoss = networkBuilder.getDesiredLoss();
+        var beforeEpoch = networkBuilder.getBeforeEpoch();
+        var afterEpoch = networkBuilder.getAfterEpoch();
 
         do {
             currentEpoch++;
-            beforeEpoch();
+            beforeEpoch.perform(this);
             epoch(dataSet);
-            afterEpoch();
+            afterEpoch.perform(this);
             lossOfPreviousEpoch = lossOfEpoch;
             lossOfEpoch = 0;
             epochs--;
