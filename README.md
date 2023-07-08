@@ -16,7 +16,7 @@ Getting Started:
         var dataset = new DataSet(2,1);
         dataset.addRows(rows);
 
-        //example1(dataset);
+        example1(dataset);
         example2(dataset);
     }
 
