@@ -9,15 +9,15 @@ public class Test{
 
     public static void main(String[] args){
 
-        var dataset = new DataSet(2,1);
+        var dataSet = new DataSet(2,1);
 
-        dataset.addRow(new double[]{0.0, 0.0}, new double[]{0.0});
-        dataset.addRow(new double[]{1.0, 0.0}, new double[]{1.0});
-        dataset.addRow(new double[]{0.0, 1.0}, new double[]{1.0});
-        dataset.addRow(new double[]{1.0, 1.0}, new double[]{0.0});
+        dataSet.addRow(new double[]{0.0, 0.0}, new double[]{0.0});
+        dataSet.addRow(new double[]{1.0, 0.0}, new double[]{1.0});
+        dataSet.addRow(new double[]{0.0, 1.0}, new double[]{1.0});
+        dataSet.addRow(new double[]{1.0, 1.0}, new double[]{0.0});
 
-        example1(dataset);
-        example2(dataset);
+        example1(dataSet);
+        example2(dataSet);
     }
 
     public static void example1(DataSet dataSet){
