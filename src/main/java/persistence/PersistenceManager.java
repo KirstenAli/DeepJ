@@ -10,9 +10,9 @@ import java.io.IOException;
 public class PersistenceManager {
 
     private static void saveObjectAsJson(Object object,
-                                        String filePath,
-                                        String fileName,
-                                        ObjectMapper objectMapper) {
+                                         String filePath,
+                                         String fileName,
+                                         ObjectMapper objectMapper) {
         try {
             objectMapper.writeValue(new File(fileName), object);
         } catch (IOException e) {
