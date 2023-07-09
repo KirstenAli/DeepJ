@@ -5,7 +5,6 @@ import lombok.Getter;
 
 @Getter
 public class OutputLayer extends Layer<OutputNeuron> {
-    @JsonIgnore
     private int size;
     public void calculateDeltas(double[] targets) {
         for (int i = 0; i < targets.length; i++)

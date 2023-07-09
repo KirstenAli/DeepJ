@@ -20,7 +20,6 @@ public class NetworkBuilder {
     private DataSet dataSet;
     private EpochOperation beforeEpoch;
     private EpochOperation afterEpoch;
-    @JsonIgnore
     private Network network = new Network();
 
     public NetworkBuilder() {

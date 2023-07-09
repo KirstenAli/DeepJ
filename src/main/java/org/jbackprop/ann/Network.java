@@ -1,6 +1,7 @@
 package org.jbackprop.ann;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,22 +15,17 @@ import java.util.List;
 
 @Getter @Setter @NoArgsConstructor
 public class Network {
+    @JsonProperty
     private List<HiddenLayer> hiddenLayers;
+    @JsonProperty
     private OutputLayer outputLayer;
-    @JsonIgnore
     private int currentEpoch;
-    @JsonIgnore
     private double lossOfEpoch;
-    @JsonIgnore
     private double lossOfPreviousEpoch;
     private int[] architecture;
-    @JsonIgnore
     private double[] networkOutput;
-    @JsonIgnore
     private LossFunction lossFunction;
-    @JsonIgnore
     private NetworkBuilder networkBuilder;
-    @JsonIgnore
     private DataSet dataSet;
 
     public void setNetworkBuilder(NetworkBuilder networkBuilder) {
