@@ -1,17 +1,17 @@
 package org.jbackprop.ann;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 import org.jbackprop.ann.activationfunctions.ActivationFunction;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 @Setter
 @Getter
-public abstract class Neuron {
+public abstract class Neuron implements Serializable {
     protected double net;
     protected double activation;
     protected double delta;
@@ -86,5 +86,4 @@ public abstract class Neuron {
             connection.adjustWeight();
         }
     }
-
 }

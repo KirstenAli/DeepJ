@@ -3,10 +3,11 @@ package org.jbackprop.dataset;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 @Setter @Getter
-public class DataSet {
+public class DataSet implements Serializable {
     private List<Row> rows;
     private int inputDimension;
     private int outputDimension;

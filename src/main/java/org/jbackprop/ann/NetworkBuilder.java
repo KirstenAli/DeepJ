@@ -1,6 +1,5 @@
 package org.jbackprop.ann;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import org.jbackprop.ann.activationfunctions.*;
 import org.jbackprop.ann.lossfunctions.LossFunction;
@@ -8,8 +7,10 @@ import org.jbackprop.ann.lossfunctions.LossFunctions;
 import org.jbackprop.ann.lossfunctions.MSE;
 import org.jbackprop.dataset.DataSet;
 
+import java.io.Serializable;
+
 @Getter
-public class NetworkBuilder {
+public class NetworkBuilder implements Serializable {
     private int[] architecture;
     private ActivationFunction activationFunction = new Tanh();
     private LossFunction lossFunction = new MSE();
@@ -18,9 +19,9 @@ public class NetworkBuilder {
     private int epochs = 1000000000;
     private double desiredLoss = 0.01;
     private DataSet dataSet;
-    private EpochOperation beforeEpoch;
-    private EpochOperation afterEpoch;
-    private Network network = new Network();
+    private transient EpochOperation beforeEpoch;
+    private transient EpochOperation afterEpoch;
+    private Network network;
 
     public NetworkBuilder() {
         network = new Network();

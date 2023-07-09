@@ -3,8 +3,10 @@ package org.jbackprop.dataset;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serializable;
+
 @Getter @Setter
-public class Row{
+public class Row implements Serializable {
     private double[] inputs;
     private double[] targets;
 

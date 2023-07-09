@@ -9,11 +9,12 @@ import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
 import persistence.PersistenceManager;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 @Getter @Setter @NoArgsConstructor
-public class Network {
+public class Network implements Serializable {
     @JsonProperty
     private List<HiddenLayer> hiddenLayers;
     @JsonProperty
@@ -116,13 +117,11 @@ public class Network {
         return lossFunction.calculateLossOfIteration(outputLayer);
     }
 
-    public void save(String filePath, String fileName){
-
-    }
-    public void saveWeightsAsJson(String filePath, String fileName){
-        PersistenceManager.saveWeightsAsJson(this, filePath, fileName);
+    public void save(String filePath){
+        PersistenceManager.saveNetwork(this, filePath);
     }
 
-    public void load(String filePath){
+    public void saveWeightsAsJson(String filePath){
+        PersistenceManager.saveWeightsAsJson(this, filePath);
     }
 }

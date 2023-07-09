@@ -3,7 +3,9 @@ package org.jbackprop.ann.lossfunctions;
 import org.jbackprop.ann.OutputLayer;
 import org.jbackprop.ann.OutputNeuron;
 
-public abstract class LossFunction {
+import java.io.Serializable;
+
+public abstract class LossFunction implements Serializable {
     public abstract double calculateActualLoss(double target, double actual);
     public abstract double calculateLoss(double actualLoss);
     public abstract double derivative(double actualLoss);

@@ -4,11 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Setter
 @Getter
-public abstract class Layer<T extends Neuron> {
+public abstract class Layer<T extends Neuron> implements Serializable {
     @JsonProperty
     protected List<T> neurons;
     private double[] activations;
