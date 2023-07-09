@@ -1,5 +1,6 @@
 package org.jbackprop.ann;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 import org.jbackprop.ann.lossfunctions.LossFunction;
@@ -9,7 +10,8 @@ import org.jbackprop.ann.lossfunctions.LossFunction;
 public class OutputNeuron extends Neuron {
 
     private double actualLoss;
-    private final LossFunction lossFunction;
+    @JsonIgnore
+    private LossFunction lossFunction;
 
     public OutputNeuron(Integer numConnections, HiddenLayer previousLayer, NetworkBuilder networkBuilder) {
         super(numConnections, previousLayer, networkBuilder);

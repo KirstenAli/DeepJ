@@ -17,7 +17,7 @@ public class Test{
         dataSet.addRow(new double[]{1.0, 1.0}, new double[]{0.0});
 
         example1(dataSet);
-        example2(dataSet);
+        //example2(dataSet);
     }
 
     public static void example1(DataSet dataSet){
@@ -29,6 +29,8 @@ public class Test{
                 .build();
 
         network.learn();
+
+        network.exportAsJson("/", "my network");
     }
 
     public static void example2(DataSet dataSet){

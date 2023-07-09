@@ -1,12 +1,16 @@
 package org.jbackprop.ann;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import lombok.Getter;
 import lombok.Setter;
 
 @Setter
 @Getter
 public class Connection {
+    @JsonIgnore
     private Neuron outputNeuron;
+    @JsonIgnore
     private Neuron inputNeuron;
     private double input;
     private double weight;
@@ -14,7 +18,7 @@ public class Connection {
     private double learningRate;
     private double momentum;
     private double prevUpdate;
-
+    @JsonIgnore
     private NetworkBuilder networkBuilder;
 
     public Connection(NetworkBuilder networkBuilder) {

@@ -1,5 +1,6 @@
 package org.jbackprop.ann;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 import org.jbackprop.ann.activationfunctions.ActivationFunction;
@@ -12,16 +13,14 @@ import java.util.List;
 public abstract class Neuron {
     protected double net;
     protected double activation;
-
     protected double delta;
-
-    private final List<Connection> inputConnections;
-
+    private List<Connection> inputConnections;
     private Connection bias;
-
-    protected final ActivationFunction activationFunction;
+    @JsonIgnore
+    protected ActivationFunction activationFunction;
     private int numConnections;
     private HiddenLayer previousLayer;
+    @JsonIgnore
     private NetworkBuilder networkBuilder;
 
     public Neuron(Integer numConnections,

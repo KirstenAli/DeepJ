@@ -1,5 +1,6 @@
 package org.jbackprop.ann;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import org.jbackprop.ann.activationfunctions.*;
 import org.jbackprop.ann.lossfunctions.LossFunction;
@@ -19,6 +20,7 @@ public class NetworkBuilder {
     private DataSet dataSet;
     private EpochOperation beforeEpoch;
     private EpochOperation afterEpoch;
+    @JsonIgnore
     private Network network = new Network();
 
     public NetworkBuilder() {

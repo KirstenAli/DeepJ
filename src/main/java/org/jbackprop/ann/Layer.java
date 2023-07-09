@@ -1,14 +1,18 @@
 package org.jbackprop.ann;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
 
 @Setter
 @Getter
+@NoArgsConstructor
 public abstract class Layer<T extends Neuron> {
     protected List<T> neurons;
+    @JsonIgnore
     private double[] activations;
 
     public double[] applyActivations(double[] inputs) {

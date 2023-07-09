@@ -10,6 +10,7 @@ import java.util.List;
 public class HiddenNeuron extends Neuron{
 
     private List<Connection> outputConnections;
+
     public HiddenNeuron(Integer numConnections, HiddenLayer previousLayer, NetworkBuilder networkBuilder) {
         super(numConnections, previousLayer, networkBuilder);
         outputConnections = new ArrayList<>();

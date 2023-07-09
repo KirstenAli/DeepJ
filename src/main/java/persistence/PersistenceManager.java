@@ -1,6 +1,7 @@
 package persistence;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,8 +14,9 @@ public class PersistenceManager {
         ObjectMapper objectMapper = new ObjectMapper();
 
         try {
+            //objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
             // Convert the object to JSON and write it to a file
-            objectMapper.writeValue(new File(filePath + fileName), object);
+            objectMapper.writeValue(new File(fileName), object);
         } catch (IOException e) {
             e.printStackTrace();
         }

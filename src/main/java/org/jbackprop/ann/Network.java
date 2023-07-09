@@ -1,11 +1,13 @@
 package org.jbackprop.ann;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.jbackprop.ann.lossfunctions.LossFunction;
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
+import persistence.PersistenceManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,8 +22,11 @@ public class Network {
 
     private int[] architecture;
     private double[] networkOutput;
+    @JsonIgnore
     private LossFunction lossFunction;
+    @JsonIgnore
     private NetworkBuilder networkBuilder;
+    @JsonIgnore
     private DataSet dataSet;
 
     public void setNetworkBuilder(NetworkBuilder networkBuilder) {
@@ -112,7 +117,10 @@ public class Network {
         return lossFunction.calculateLossOfIteration(outputLayer);
     }
 
-    public double getLossOfEpoch() {
-        return this.lossOfEpoch;
+    public void exportAsJson(String filePath, String fileName){
+        PersistenceManager.saveObjectAsJson(this, filePath, fileName);
+    }
+
+    public void load(String filePath){
     }
 }
