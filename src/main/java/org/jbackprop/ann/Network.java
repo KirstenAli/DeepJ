@@ -22,7 +22,6 @@ public class Network {
     private double lossOfEpoch;
     @JsonIgnore
     private double lossOfPreviousEpoch;
-
     private int[] architecture;
     @JsonIgnore
     private double[] networkOutput;

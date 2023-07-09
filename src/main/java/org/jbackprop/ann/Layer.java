@@ -40,5 +40,4 @@ public abstract class Layer<T extends Neuron> {
         for (Neuron neuron : neurons)
             neuron.adjustWeights();
     }
-
 }
