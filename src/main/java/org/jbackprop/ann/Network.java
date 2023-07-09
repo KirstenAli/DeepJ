@@ -1,6 +1,5 @@
 package org.jbackprop.ann;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,6 +21,7 @@ public class Network {
     private int currentEpoch;
     private double lossOfEpoch;
     private double lossOfPreviousEpoch;
+    @JsonProperty
     private int[] architecture;
     private double[] networkOutput;
     private LossFunction lossFunction;
@@ -119,8 +119,8 @@ public class Network {
     public void save(String filePath, String fileName){
 
     }
-    public void exportWeightsAsJson(String filePath, String fileName){
-        PersistenceManager.saveObjectAsJson(this, filePath, fileName);
+    public void saveWeightsAsJson(String filePath, String fileName){
+        PersistenceManager.saveWeightsAsJson(this, filePath, fileName);
     }
 
     public void load(String filePath){
