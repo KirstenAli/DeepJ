@@ -7,7 +7,7 @@ import lombok.Setter;
 import org.jbackprop.ann.lossfunctions.LossFunction;
 import org.jbackprop.dataset.DataSet;
 import org.jbackprop.dataset.Row;
-import persistence.PersistenceManager;
+import org.jbackprop.persistence.PersistenceManager;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -121,7 +121,7 @@ public class Network implements Serializable {
         PersistenceManager.saveNetwork(this, filePath);
     }
 
-    public void saveWeightsAsJson(String filePath){
-        PersistenceManager.saveWeightsAsJson(this, filePath);
+    public void saveWeightsAsJsonFile(String filePath){
+        PersistenceManager.saveWeightsAsJsonFile(this, filePath);
     }
 }

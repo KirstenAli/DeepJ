@@ -1,4 +1,4 @@
-package persistence;
+package org.jbackprop.persistence;
 
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,9 +9,9 @@ import java.io.*;
 
 public class PersistenceManager {
 
-    private static void saveObjectAsJson(Object object,
-                                         String filePath,
-                                         ObjectMapper objectMapper) {
+    private static void saveObjectAsJsonFile(Object object,
+                                             String filePath,
+                                             ObjectMapper objectMapper) {
         try {
             objectMapper.writeValue(new File(filePath), object);
         } catch (IOException e) {
@@ -20,8 +20,9 @@ public class PersistenceManager {
     }
 
     private static void serializeObject(Object object, String filePath) {
-        try (FileOutputStream fileOut = new FileOutputStream(filePath);
-             ObjectOutputStream objectOut = new ObjectOutputStream(fileOut)) {
+        try {
+            FileOutputStream fileOut = new FileOutputStream(filePath);
+            ObjectOutputStream objectOut = new ObjectOutputStream(fileOut);
             objectOut.writeObject(object);
         } catch (IOException e) {
             e.printStackTrace();
@@ -29,8 +30,9 @@ public class PersistenceManager {
     }
 
     private static Object deserializeObject(String filePath) {
-        try (FileInputStream fileIn = new FileInputStream(filePath);
-             ObjectInputStream objectIn = new ObjectInputStream(fileIn)) {
+        try {
+            FileInputStream fileIn = new FileInputStream(filePath);
+            ObjectInputStream objectIn = new ObjectInputStream(fileIn);
             return objectIn.readObject();
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -38,15 +40,15 @@ public class PersistenceManager {
         return null;
     }
 
-    public static void saveWeightsAsJson(Object network,
-                                         String filePath) {
+    public static void saveWeightsAsJsonFile(Object network,
+                                             String filePath) {
 
         ObjectMapper objectMapper = JsonMapper
                 .builder()
                 .disable(MapperFeature.AUTO_DETECT_GETTERS)
                 .build();
 
-        saveObjectAsJson(network, filePath, objectMapper);
+        saveObjectAsJsonFile(network, filePath, objectMapper);
     }
 
     public static void saveNetwork(Object network, String filePath) {

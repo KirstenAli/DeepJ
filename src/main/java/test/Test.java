@@ -4,7 +4,7 @@ import org.jbackprop.ann.activationfunctions.ActivationFunctions;
 import org.jbackprop.ann.lossfunctions.LossFunctions;
 import org.jbackprop.ann.NetworkBuilder;
 import org.jbackprop.dataset.DataSet;
-import persistence.PersistenceManager;
+import org.jbackprop.persistence.PersistenceManager;
 
 public class Test{
 
@@ -34,7 +34,7 @@ public class Test{
         network.save("my network");
 
         network = PersistenceManager.loadNetwork("my network");
-        network.saveWeightsAsJson("network weights");
+        network.saveWeightsAsJsonFile("network weights");
     }
 
     public static void example2(DataSet dataSet){
