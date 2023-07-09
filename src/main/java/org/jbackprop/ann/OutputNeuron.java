@@ -8,7 +8,7 @@ import org.jbackprop.ann.lossfunctions.LossFunction;
 @Setter
 @Getter
 public class OutputNeuron extends Neuron {
-
+    @JsonIgnore
     private double actualLoss;
     @JsonIgnore
     private LossFunction lossFunction;

@@ -11,14 +11,19 @@ import java.util.List;
 @Setter
 @Getter
 public abstract class Neuron {
+    @JsonIgnore
     protected double net;
+    @JsonIgnore
     protected double activation;
+    @JsonIgnore
     protected double delta;
     private List<Connection> inputConnections;
     private Connection bias;
     @JsonIgnore
     protected ActivationFunction activationFunction;
+    @JsonIgnore
     private int numConnections;
+    @JsonIgnore
     private HiddenLayer previousLayer;
     @JsonIgnore
     private NetworkBuilder networkBuilder;

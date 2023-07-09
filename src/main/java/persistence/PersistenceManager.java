@@ -14,7 +14,6 @@ public class PersistenceManager {
         ObjectMapper objectMapper = new ObjectMapper();
 
         try {
-            //objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
             // Convert the object to JSON and write it to a file
             objectMapper.writeValue(new File(fileName), object);
         } catch (IOException e) {

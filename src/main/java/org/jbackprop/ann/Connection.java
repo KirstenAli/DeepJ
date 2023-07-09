@@ -12,11 +12,16 @@ public class Connection {
     private Neuron outputNeuron;
     @JsonIgnore
     private Neuron inputNeuron;
+    @JsonIgnore
     private double input;
     private double weight;
+    @JsonIgnore
     private double product;
+    @JsonIgnore
     private double learningRate;
+    @JsonIgnore
     private double momentum;
+    @JsonIgnore
     private double prevUpdate;
     @JsonIgnore
     private NetworkBuilder networkBuilder;
@@ -46,5 +51,4 @@ public class Connection {
         weight += update;
         prevUpdate = update;
     }
-
 }

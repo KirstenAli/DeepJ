@@ -16,11 +16,15 @@ import java.util.List;
 public class Network {
     private List<HiddenLayer> hiddenLayers;
     private OutputLayer outputLayer;
+    @JsonIgnore
     private int currentEpoch;
+    @JsonIgnore
     private double lossOfEpoch;
+    @JsonIgnore
     private double lossOfPreviousEpoch;
 
     private int[] architecture;
+    @JsonIgnore
     private double[] networkOutput;
     @JsonIgnore
     private LossFunction lossFunction;
@@ -117,7 +121,10 @@ public class Network {
         return lossFunction.calculateLossOfIteration(outputLayer);
     }
 
-    public void exportAsJson(String filePath, String fileName){
+    public void save(String filePath, String fileName){
+
+    }
+    public void exportWeightsAsJson(String filePath, String fileName){
         PersistenceManager.saveObjectAsJson(this, filePath, fileName);
     }
 

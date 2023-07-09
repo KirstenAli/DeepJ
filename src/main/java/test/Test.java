@@ -30,7 +30,7 @@ public class Test{
 
         network.learn();
 
-        network.exportAsJson("/", "my network");
+        network.exportWeightsAsJson("/", "my network");
     }
 
     public static void example2(DataSet dataSet){
