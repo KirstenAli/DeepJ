@@ -40,7 +40,7 @@ Getting Started:
                 .lossFunction(LossFunctions.MSE)
                 .learningRate(0.1)
                 .momentum(0.1)
-                .desiredLoss(0.01) // Training stops
+                .desiredLoss(0.01) 
                 .epochs(1000000000)
                 .beforeEpoch(net ->
                         System.out.println("Current Epoch:" + net.getCurrentEpoch()))
