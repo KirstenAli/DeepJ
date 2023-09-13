@@ -1,5 +1,5 @@
 # JBackprop
-JBackprop is an object-oriented artificial neural network (ANN) library written in Java.
+JBackprop is an object-oriented artificial neural network (ANN) library for Java.
 
 [View the Docs](https://kirstenali.github.io/JBackprop/)
 
