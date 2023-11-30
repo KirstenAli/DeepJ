@@ -28,6 +28,12 @@ Getting Started:
                 .build();
 
         network.learn();
+
+        network.save("my network");
+
+        network = PersistenceManager.loadNetwork("my network");
+
+        network.saveWeightsAsJsonFile("network weights");
     }
 
     public static void example2(DataSet dataSet){
