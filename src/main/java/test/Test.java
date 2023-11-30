@@ -34,6 +34,7 @@ public class Test{
         network.save("my network");
 
         network = PersistenceManager.loadNetwork("my network");
+
         network.saveWeightsAsJsonFile("network weights");
     }
 
@@ -48,7 +49,7 @@ public class Test{
                 .learningRate(0.1)
                 .momentum(0.1)
                 .desiredLoss(0.01) // Training stops
-                .epochs(1000000000)
+                .epochs(1000000000) // Training stops
                 .beforeEpoch(net ->
                         System.out.println("Current Epoch:" + net.getCurrentEpoch()))
                 .afterEpoch(net ->
