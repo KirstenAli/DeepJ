@@ -31,4 +31,12 @@ public class HiddenNeuron extends Neuron{
         outputConnection.setOutputNeuron(this);
         outputConnections.add(outputConnection);
     }
+
+    public List<Connection> getOutputConnections() {
+        return outputConnections;
+    }
+
+    public void setOutputConnections(List<Connection> outputConnections) {
+        this.outputConnections = outputConnections;
+    }
 }

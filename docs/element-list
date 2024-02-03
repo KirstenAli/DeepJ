@@ -3,3 +3,5 @@ org.jbackprop.ann.activationfunctions
 org.jbackprop.ann.convolution
 org.jbackprop.ann.lossfunctions
 org.jbackprop.dataset
+org.jbackprop.persistence
+test

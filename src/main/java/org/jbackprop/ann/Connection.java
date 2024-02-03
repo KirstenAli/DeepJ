@@ -45,4 +45,76 @@ public class Connection implements Serializable {
         weight += update;
         prevUpdate = update;
     }
+
+    public Neuron getOutputNeuron() {
+        return outputNeuron;
+    }
+
+    public void setOutputNeuron(Neuron outputNeuron) {
+        this.outputNeuron = outputNeuron;
+    }
+
+    public Neuron getInputNeuron() {
+        return inputNeuron;
+    }
+
+    public void setInputNeuron(Neuron inputNeuron) {
+        this.inputNeuron = inputNeuron;
+    }
+
+    public double getInput() {
+        return input;
+    }
+
+    public void setInput(double input) {
+        this.input = input;
+    }
+
+    public double getWeight() {
+        return weight;
+    }
+
+    public void setWeight(double weight) {
+        this.weight = weight;
+    }
+
+    public double getProduct() {
+        return product;
+    }
+
+    public void setProduct(double product) {
+        this.product = product;
+    }
+
+    public double getLearningRate() {
+        return learningRate;
+    }
+
+    public void setLearningRate(double learningRate) {
+        this.learningRate = learningRate;
+    }
+
+    public double getMomentum() {
+        return momentum;
+    }
+
+    public void setMomentum(double momentum) {
+        this.momentum = momentum;
+    }
+
+    public double getPrevUpdate() {
+        return prevUpdate;
+    }
+
+    public void setPrevUpdate(double prevUpdate) {
+        this.prevUpdate = prevUpdate;
+    }
+
+    public NetworkBuilder getNetworkBuilder() {
+        return networkBuilder;
+    }
+
+    public void setNetworkBuilder(NetworkBuilder networkBuilder) {
+        this.networkBuilder = networkBuilder;
+    }
 }

@@ -23,5 +23,4 @@ public class OutputNeuron extends Neuron {
 
         delta = activationDerivative * lossDerivative;
     }
-
 }
