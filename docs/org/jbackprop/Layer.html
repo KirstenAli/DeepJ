@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="dc.created" content="2023-06-26">
-<meta name="description" content="declaration: package: org.jbackprop, class: Layer">
+<meta name="description" content="declaration: package: org.DeepJ, class: Layer">
 <meta name="generator" content="javadoc/ClassWriterImpl">
 <link rel="stylesheet" type="text/css" href="../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../script-dir/jquery-ui.min.css" title="Style">
@@ -81,11 +81,11 @@ loadScripts(document, 'script');</script>
 <main role="main">
 <!-- ======== START OF CLASS DATA ======== -->
 <div class="header">
-<div class="sub-title"><span class="package-label-in-type">Package</span>&nbsp;<a href="package-summary.html">org.jbackprop</a></div>
+<div class="sub-title"><span class="package-label-in-type">Package</span>&nbsp;<a href="package-summary.html">org.DeepJ</a></div>
 <h1 title="Class Layer" class="title">Class Layer</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree"><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">java.lang.Object</a>
-<div class="inheritance">org.jbackprop.ann.Layer</div>
+<div class="inheritance">org.DeepJ.ann.Layer</div>
 </div>
 <section class="class-description" id="class-description">
 <hr>
@@ -118,12 +118,12 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Layer.html" title="class in org.jbackprop">Layer</a></code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Layer.html" title="class in org.DeepJ">Layer</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#build(int,int,org.jbackprop.Layer,java.lang.Class,org.jbackprop.LossFunction)" class="member-name-link">build</a><wbr>(int&nbsp;numNeurons,
  int&nbsp;numConnections,
- <a href="Layer.html" title="class in org.jbackprop">Layer</a>&nbsp;previousLayer,
- <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="Neuron.html" title="class in org.jbackprop">Neuron</a>&gt;&nbsp;neuronClass,
- <a href="LossFunction.html" title="interface in org.jbackprop">LossFunction</a>&nbsp;lossFunction)</code></div>
+ <a href="Layer.html" title="class in org.DeepJ">Layer</a>&nbsp;previousLayer,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="Neuron.html" title="class in org.DeepJ">Neuron</a>&gt;&nbsp;neuronClass,
+ <a href="LossFunction.html" title="interface in org.DeepJ">LossFunction</a>&nbsp;lossFunction)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Double.html" title="class or interface in java.lang" class="external-link">Double</a>&gt;</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#calculateActivations(java.util.List)" class="member-name-link">calculateActivations</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Double.html" title="class or interface in java.lang" class="external-link">Double</a>&gt;&nbsp;inputs)</code></div>
@@ -168,11 +168,11 @@ loadScripts(document, 'script');</script>
 <li>
 <section class="detail" id="build(int,int,org.jbackprop.Layer,java.lang.Class,org.jbackprop.LossFunction)">
 <h3>build</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="Layer.html" title="class in org.jbackprop">Layer</a></span>&nbsp;<span class="element-name">build</span><wbr><span class="parameters">(int&nbsp;numNeurons,
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="Layer.html" title="class in org.DeepJ">Layer</a></span>&nbsp;<span class="element-name">build</span><wbr><span class="parameters">(int&nbsp;numNeurons,
  int&nbsp;numConnections,
- <a href="Layer.html" title="class in org.jbackprop">Layer</a>&nbsp;previousLayer,
- <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="Neuron.html" title="class in org.jbackprop">Neuron</a>&gt;&nbsp;neuronClass,
- <a href="LossFunction.html" title="interface in org.jbackprop">LossFunction</a>&nbsp;lossFunction)</span></div>
+ <a href="Layer.html" title="class in org.DeepJ">Layer</a>&nbsp;previousLayer,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="Neuron.html" title="class in org.DeepJ">Neuron</a>&gt;&nbsp;neuronClass,
+ <a href="LossFunction.html" title="interface in org.DeepJ">LossFunction</a>&nbsp;lossFunction)</span></div>
 </section>
 </li>
 </ul>

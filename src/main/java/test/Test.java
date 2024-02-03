@@ -1,10 +1,10 @@
 package test;
 
-import org.jbackprop.ann.activationfunctions.ActivationFunctions;
-import org.jbackprop.ann.lossfunctions.LossFunctions;
-import org.jbackprop.ann.NetworkBuilder;
-import org.jbackprop.dataset.DataSet;
-import org.jbackprop.persistence.PersistenceManager;
+import org.DeepJ.ann.activationfunctions.ActivationFunctions;
+import org.DeepJ.ann.lossfunctions.LossFunctions;
+import org.DeepJ.ann.NetworkBuilder;
+import org.DeepJ.dataset.DataSet;
+import org.DeepJ.persistence.PersistenceManager;
 
 public class Test{
 
