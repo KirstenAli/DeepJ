@@ -1,7 +1,5 @@
 package org.DeepJ.transformer;
 
-import org.DeepJ.transformer.Tensor;
-
 import java.util.Random;
 
 public class SelfAttentionLayer {

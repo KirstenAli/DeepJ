@@ -1,6 +1,6 @@
 org.DeepJ.ann
 org.DeepJ.ann.activationfunctions
-org.DeepJ.ann.convolution
+org.DeepJ.convolution
 org.DeepJ.ann.lossfunctions
 org.DeepJ.dataset
 org.DeepJ.persistence

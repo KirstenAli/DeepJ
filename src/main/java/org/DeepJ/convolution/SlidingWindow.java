@@ -1,4 +1,4 @@
-package org.DeepJ.ann.convolution;
+package org.DeepJ.convolution;
 
 public class SlidingWindow {
 
