@@ -107,6 +107,25 @@ public class Tensor {
         return sum / (this.rows * this.cols);
     }
 
+    public static Tensor unflattenToTensor(double[] flat, int rows, int cols) {
+        Tensor t = new Tensor(rows, cols);
+        for (int i = 0; i < flat.length; i++) {
+            t.data[i / cols][i % cols] = flat[i];
+        }
+        return t;
+    }
+
+    public static double[] flattenTensor(Tensor t) {
+        double[] flat = new double[t.rows * t.cols];
+        int index = 0;
+        for (int i = 0; i < t.rows; i++) {
+            for (int j = 0; j < t.cols; j++) {
+                flat[index++] = t.data[i][j];
+            }
+        }
+        return flat;
+    }
+
     public void print(String label) {
         System.out.println(label);
         for (double[] row : data) {
