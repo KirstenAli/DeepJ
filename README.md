@@ -57,7 +57,8 @@ public static void example2(DataSet dataSet) {
     network.learn();
 }
 
-public static void TransformerNetworkIntegration() {
+//Transformer NN integration test
+public static void example3() {
 
     Tensor input = new Tensor(new double[][]{
             {1, 0, 0},
