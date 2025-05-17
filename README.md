@@ -29,11 +29,11 @@ public static void example1(DataSet dataSet) {
 
     network.learn();
 
-    network.save("my network");
+    network.save("my_network");
 
-    network = PersistenceManager.loadNetwork("my network");
+    network = PersistenceManager.loadNetwork("my_network");
 
-    network.saveWeightsAsJsonFile("network weights");
+    network.saveWeightsAsJsonFile("network_weights");
 }
 
 public static void example2(DataSet dataSet) {
@@ -57,7 +57,7 @@ public static void example2(DataSet dataSet) {
     network.learn();
 }
 
-//Transformer NN integration test
+//SelfAttentionLayer NN integration test
 public static void example3() {
 
     Tensor input = new Tensor(new double[][]{

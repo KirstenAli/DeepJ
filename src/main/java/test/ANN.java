@@ -6,7 +6,7 @@ import org.DeepJ.ann.NetworkBuilder;
 import org.DeepJ.dataset.DataSet;
 import org.DeepJ.persistence.PersistenceManager;
 
-public class Test{
+public class ANN {
 
     public static void main(String[] args){
 
@@ -31,11 +31,11 @@ public class Test{
 
         network.learn();
 
-        network.save("my network");
+        network.save("my_network");
 
-        network = PersistenceManager.loadNetwork("my network");
+        network = PersistenceManager.loadNetwork("my_network");
 
-        network.saveWeightsAsJsonFile("network weights");
+        network.saveWeightsAsJsonFile("network_weights");
     }
 
     public static void example2(DataSet dataSet){
