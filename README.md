@@ -59,16 +59,15 @@ public static void example2(DataSet dataSet) {
 
 //SelfAttentionLayer NN integration test
 public static void example3() {
-
-    Tensor input = new Tensor(new double[][]{
+    var input = new Tensor(new double[][] {
             {1, 0, 0},
             {0, 1, 0},
             {0, 0, 1}
     });
 
-    double[] target = {1.0};
+    var target = new double[]{1.0};
 
-    SelfAttentionLayer attention = new SelfAttentionLayer(3);
+    var attention = new SelfAttentionLayer(3);
 
     var dataSet = new DataSet(9, 1);
     var network = new NetworkBuilder()
@@ -76,14 +75,14 @@ public static void example3() {
             .dataSet(dataSet)
             .build();
 
-    for (int epoch = 0; epoch < 1000; epoch++) {
+    for (int epoch = 0; epoch < 10000; epoch++) {
 
-        Tensor attentionOutput = attention.forward(input);
-        double[] nnInput = flattenTensor(attentionOutput);
+        var attentionOutput = attention.forward(input);
+        var nnInput = flattenTensor(attentionOutput);
         network.forwardPass(nnInput);
 
-        double predicted = network.getOutput()[0];
-        double loss = network.calculateLossOfIteration();
+        var predicted = network.getOutput()[0];
+        var loss = network.calculateLossOfIteration();
 
         if (epoch % 100 == 0) {
             System.out.printf("Epoch %d: Loss = %.6f, Prediction = %.4f\n", epoch, loss, predicted);
@@ -91,14 +90,14 @@ public static void example3() {
 
         network.backwardPass(target);
 
-        double[] gradInput = network.sumInputWeightedDeltas();
-        Tensor gradTensor = unflattenToTensor(gradInput, 3, 3);
+        var gradInput = network.getInputGradient();
+        var gradTensor = unflattenToTensor(gradInput, 3, 3);
         attention.backward(gradTensor, 0.05);
 
         network.adjustWeights();
     }
 
-    Tensor finalAttn = attention.forward(input);
+    var finalAttn = attention.forward(input);
     network.forwardPass(flattenTensor(finalAttn));
     System.out.println("Final prediction: " + network.getOutput()[0]);
 }

@@ -115,7 +115,7 @@ public class Network implements Serializable {
         return lossFunction.calculateLossOfIteration(outputLayer);
     }
 
-    public double[] sumInputWeightedDeltas() {
+    public double[] getInputGradient() {
         return hiddenLayers.get(0).neurons.stream()
                 .mapToDouble(HiddenNeuron::sumWeightedDeltasFromInputs)
                 .toArray();

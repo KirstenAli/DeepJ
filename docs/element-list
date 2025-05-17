@@ -5,3 +5,4 @@ org.DeepJ.convolution
 org.DeepJ.dataset
 org.DeepJ.persistence
 org.DeepJ.transformer
+test
