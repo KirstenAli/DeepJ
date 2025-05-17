@@ -19,7 +19,7 @@ public class TrainSelfAttention {
 
         SelfAttentionLayer attn = new SelfAttentionLayer(dim);
 
-        for (int epoch = 0; epoch < 1000; epoch++) {
+        for (int epoch = 0; epoch < 100000; epoch++) {
             Tensor output = attn.forward(input);
             Tensor dLoss = output.subtract(target);
             if (epoch % 100 == 0) {
