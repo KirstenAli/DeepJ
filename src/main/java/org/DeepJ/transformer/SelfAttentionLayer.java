@@ -27,7 +27,6 @@ public class SelfAttentionLayer {
     }
 
     public void backward(Tensor dL_dOutput, double learningRate) {
-
         Tensor dV = attention.transpose().matmul(dL_dOutput);
         Tensor dAttention = dL_dOutput.matmul(V.transpose());
         Tensor dScores = Tensor.applySoftmaxBackward(dAttention, attention)
