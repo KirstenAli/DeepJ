@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 @Getter @Setter
@@ -16,15 +17,24 @@ public class HiddenNeuron extends Neuron{
         outputConnections = new ArrayList<>();
     }
 
-    public void calculateDelta(){
-        double weightedDeltaSum =0;
+    public void calculateDelta() {
+        double weightedDeltaSum = sumWeightedDeltasFromOutputs();
+        var activationDerivative = activationFunction.derivative(net, activation);
+        delta = activationDerivative * weightedDeltaSum;
+    }
 
-        for(Connection connection: outputConnections){
-            weightedDeltaSum+= connection.calculateWeightedDelta();
-        }
+    public double sumWeightedDeltasFromOutputs() {
+        return sumWeightedDeltas(outputConnections);
+    }
 
-        var activationDerivative = activationFunction.derivative(net,activation);
-        delta = activationDerivative*weightedDeltaSum;
+    public double sumWeightedDeltasFromInputs() {
+        return sumWeightedDeltas(inputConnections.subList(0, inputConnections.size() - 1));
+    }
+
+    private double sumWeightedDeltas(Collection<Connection> connections) {
+        return connections.stream()
+                .mapToDouble(Connection::calculateWeightedDelta)
+                .sum();
     }
 
     void addOutputConnection(Connection outputConnection){

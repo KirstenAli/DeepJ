@@ -17,8 +17,8 @@ public class Test{
         dataSet.addRow(new double[]{0.0, 1.0}, new double[]{1.0});
         dataSet.addRow(new double[]{1.0, 1.0}, new double[]{0.0});
 
-        example1(dataSet);
-        //example2(dataSet);
+        //example1(dataSet);
+        example2(dataSet);
     }
 
     public static void example1(DataSet dataSet){
@@ -42,7 +42,7 @@ public class Test{
         var networkBuilder = new NetworkBuilder();
 
         var network = networkBuilder
-                .architecture(500,400,300,200,100,50,25,10,5,4,3,2,1)
+                .architecture(3,2,1)
                 .dataSet(dataSet)
                 .activationFunction(ActivationFunctions.TANH)
                 .lossFunction(LossFunctions.MSE)

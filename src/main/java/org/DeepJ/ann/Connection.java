@@ -34,7 +34,6 @@ public class Connection implements Serializable {
 
     public double calculateWeightedDelta() {
         var delta = inputNeuron.getDelta();
-
         return delta * weight;
     }
 

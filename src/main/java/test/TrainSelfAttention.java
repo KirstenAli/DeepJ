@@ -25,7 +25,7 @@ public class TrainSelfAttention {
             if (epoch % 100 == 0) {
                 System.out.printf("Epoch %d - Loss: %.6f\n", epoch, output.mseLoss(target));
             }
-            attn.backward(dLoss, target, 0.05);
+            attn.backward(dLoss, 0.05);
         }
 
         attn.forward(input).print("Final Output:");

@@ -16,9 +16,7 @@ public abstract class Neuron implements Serializable {
     protected double activation;
     protected double delta;
     @JsonProperty
-    private List<Connection> inputConnections;
-    @JsonProperty
-    private Connection bias;
+    protected List<Connection> inputConnections;
     protected ActivationFunction activationFunction;
     private int numConnections;
     private HiddenLayer previousLayer;
@@ -46,8 +44,6 @@ public abstract class Neuron implements Serializable {
         net=0;
         for (Connection connection : inputConnections)
             net += connection.calculateProduct();
-
-        net += bias.getProduct();
         return net;
     }
 
@@ -59,18 +55,18 @@ public abstract class Neuron implements Serializable {
     }
 
     public void buildConnections() {
-
         for (int i = 0; i < numConnections; i++) {
-            var connection = new Connection(networkBuilder);
-            connection.setInputNeuron(this);
-            inputConnections.add(connection);
-
+            var connection = addInputConnection();
             addOutputConnection(connection, i);
         }
+        addInputConnection(); // bias
+    }
 
-        bias = new Connection(networkBuilder);
-        bias.setInputNeuron(this);
-        inputConnections.add(bias);
+    private Connection addInputConnection() {
+        var connection = new Connection(networkBuilder);
+        connection.setInputNeuron(this);
+        inputConnections.add(connection);
+        return connection;
     }
 
     private void addOutputConnection(Connection outputConnection,

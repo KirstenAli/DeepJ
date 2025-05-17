@@ -24,7 +24,7 @@ public class Network implements Serializable {
     private double lossOfPreviousEpoch;
     @JsonProperty
     private int[] architecture;
-    private double[] networkOutput;
+    private double[] output;
     private LossFunction lossFunction;
     private NetworkBuilder networkBuilder;
     private DataSet dataSet;
@@ -65,7 +65,7 @@ public class Network implements Serializable {
             previousActivations =
                     layer.applyActivations(previousActivations);
 
-        networkOutput = outputLayer.applyActivations(previousActivations);
+        output = outputLayer.applyActivations(previousActivations);
     }
 
     public void learn() {
@@ -88,7 +88,7 @@ public class Network implements Serializable {
                 desiredLoss < lossOfPreviousEpoch);
     }
 
-    private void epoch(DataSet dataSet) {
+    public void epoch(DataSet dataSet) {
         for (Row row : dataSet.getRows()) {
             forwardPass(row.getInputs());
             backwardPass(row.getTargets());
@@ -97,7 +97,7 @@ public class Network implements Serializable {
         }
     }
 
-    private void backwardPass(double[] targets) {
+    public void backwardPass(double[] targets) {
         outputLayer.calculateDeltas(targets);
 
         for (int i = hiddenLayers.size() - 1; i >= 0; i--) {
@@ -105,16 +105,21 @@ public class Network implements Serializable {
         }
     }
 
-    private void adjustWeights() {
+    public void adjustWeights() {
         outputLayer.adjustWeights();
-
         for (HiddenLayer layer : hiddenLayers) {
             layer.adjustWeights();
         }
     }
 
-    private double calculateLossOfIteration() {
+    public double calculateLossOfIteration() {
         return lossFunction.calculateLossOfIteration(outputLayer);
+    }
+
+    public double[] sumInputWeightedDeltas() {
+        return hiddenLayers.get(0).neurons.stream()
+                .mapToDouble(HiddenNeuron::sumWeightedDeltasFromInputs)
+                .toArray();
     }
 
     public void save(String filePath){
