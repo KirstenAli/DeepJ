@@ -1,11 +1,7 @@
 package org.DeepJ.ann;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.DeepJ.ann.lossfunctions.LossFunction;
 
-@Setter
-@Getter
 public class OutputNeuron extends Neuron {
     private double actualLoss;
     private LossFunction lossFunction;
@@ -21,5 +17,21 @@ public class OutputNeuron extends Neuron {
         var activationDerivative = activationFunction.derivative(net, activation);
 
         delta = activationDerivative * lossDerivative;
+    }
+
+    public double getActualLoss() {
+        return actualLoss;
+    }
+
+    public void setActualLoss(double actualLoss) {
+        this.actualLoss = actualLoss;
+    }
+
+    public LossFunction getLossFunction() {
+        return lossFunction;
+    }
+
+    public void setLossFunction(LossFunction lossFunction) {
+        this.lossFunction = lossFunction;
     }
 }

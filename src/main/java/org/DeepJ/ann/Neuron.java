@@ -1,16 +1,12 @@
 package org.DeepJ.ann;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.Setter;
 import org.DeepJ.ann.activationfunctions.ActivationFunction;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-@Setter
-@Getter
 public abstract class Neuron implements Serializable {
     protected double net;
     protected double activation;
@@ -81,5 +77,69 @@ public abstract class Neuron implements Serializable {
         for (Connection connection : inputConnections) {
             connection.adjustWeight();
         }
+    }
+
+    public double getNet() {
+        return net;
+    }
+
+    public void setNet(double net) {
+        this.net = net;
+    }
+
+    public double getActivation() {
+        return activation;
+    }
+
+    public void setActivation(double activation) {
+        this.activation = activation;
+    }
+
+    public double getDelta() {
+        return delta;
+    }
+
+    public void setDelta(double delta) {
+        this.delta = delta;
+    }
+
+    public List<Connection> getInputConnections() {
+        return inputConnections;
+    }
+
+    public void setInputConnections(List<Connection> inputConnections) {
+        this.inputConnections = inputConnections;
+    }
+
+    public ActivationFunction getActivationFunction() {
+        return activationFunction;
+    }
+
+    public void setActivationFunction(ActivationFunction activationFunction) {
+        this.activationFunction = activationFunction;
+    }
+
+    public int getNumConnections() {
+        return numConnections;
+    }
+
+    public void setNumConnections(int numConnections) {
+        this.numConnections = numConnections;
+    }
+
+    public HiddenLayer getPreviousLayer() {
+        return previousLayer;
+    }
+
+    public void setPreviousLayer(HiddenLayer previousLayer) {
+        this.previousLayer = previousLayer;
+    }
+
+    public NetworkBuilder getNetworkBuilder() {
+        return networkBuilder;
+    }
+
+    public void setNetworkBuilder(NetworkBuilder networkBuilder) {
+        this.networkBuilder = networkBuilder;
     }
 }

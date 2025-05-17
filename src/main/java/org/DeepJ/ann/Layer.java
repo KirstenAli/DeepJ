@@ -1,14 +1,10 @@
 package org.DeepJ.ann;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.List;
 
-@Setter
-@Getter
 public abstract class Layer<T extends Neuron> implements Serializable {
     @JsonProperty
     protected List<T> neurons;
@@ -39,5 +35,21 @@ public abstract class Layer<T extends Neuron> implements Serializable {
     public void adjustWeights() {
         for (Neuron neuron : neurons)
             neuron.adjustWeights();
+    }
+
+    public List<T> getNeurons() {
+        return neurons;
+    }
+
+    public void setNeurons(List<T> neurons) {
+        this.neurons = neurons;
+    }
+
+    public double[] getActivations() {
+        return activations;
+    }
+
+    public void setActivations(double[] activations) {
+        this.activations = activations;
     }
 }

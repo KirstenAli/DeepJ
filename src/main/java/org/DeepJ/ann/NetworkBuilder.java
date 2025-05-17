@@ -1,6 +1,5 @@
 package org.DeepJ.ann;
 
-import lombok.Getter;
 import org.DeepJ.ann.activationfunctions.*;
 import org.DeepJ.ann.lossfunctions.LossFunction;
 import org.DeepJ.ann.lossfunctions.LossFunctions;
@@ -9,7 +8,6 @@ import org.DeepJ.dataset.DataSet;
 
 import java.io.Serializable;
 
-@Getter
 public class NetworkBuilder implements Serializable {
     private int[] architecture;
     private ActivationFunction activationFunction = new Tanh();
@@ -96,5 +94,49 @@ public class NetworkBuilder implements Serializable {
     public NetworkBuilder afterEpoch(EpochOperation afterEpoch) {
         this.afterEpoch = afterEpoch;
         return this;
+    }
+
+    public int[] getArchitecture() {
+        return architecture;
+    }
+
+    public ActivationFunction getActivationFunction() {
+        return activationFunction;
+    }
+
+    public LossFunction getLossFunction() {
+        return lossFunction;
+    }
+
+    public double getLearningRate() {
+        return learningRate;
+    }
+
+    public double getMomentum() {
+        return momentum;
+    }
+
+    public int getEpochs() {
+        return epochs;
+    }
+
+    public double getDesiredLoss() {
+        return desiredLoss;
+    }
+
+    public DataSet getDataSet() {
+        return dataSet;
+    }
+
+    public EpochOperation getBeforeEpoch() {
+        return beforeEpoch;
+    }
+
+    public EpochOperation getAfterEpoch() {
+        return afterEpoch;
+    }
+
+    public Network getNetwork() {
+        return network;
     }
 }

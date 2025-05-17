@@ -1,9 +1,6 @@
 package org.DeepJ.ann;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.DeepJ.ann.lossfunctions.LossFunction;
 import org.DeepJ.dataset.DataSet;
 import org.DeepJ.dataset.Row;
@@ -13,7 +10,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-@Getter @Setter @NoArgsConstructor
 public class Network implements Serializable {
     @JsonProperty
     private List<HiddenLayer> hiddenLayers;
@@ -34,6 +30,9 @@ public class Network implements Serializable {
         architecture = networkBuilder.getArchitecture();
         dataSet = networkBuilder.getDataSet();
         lossFunction = networkBuilder.getLossFunction();
+    }
+
+    public Network() {
     }
 
     public void build() {
@@ -128,5 +127,81 @@ public class Network implements Serializable {
 
     public void saveWeightsAsJsonFile(String filePath){
         PersistenceManager.saveWeightsAsJsonFile(this, filePath);
+    }
+
+    public List<HiddenLayer> getHiddenLayers() {
+        return hiddenLayers;
+    }
+
+    public void setHiddenLayers(List<HiddenLayer> hiddenLayers) {
+        this.hiddenLayers = hiddenLayers;
+    }
+
+    public OutputLayer getOutputLayer() {
+        return outputLayer;
+    }
+
+    public void setOutputLayer(OutputLayer outputLayer) {
+        this.outputLayer = outputLayer;
+    }
+
+    public int getCurrentEpoch() {
+        return currentEpoch;
+    }
+
+    public void setCurrentEpoch(int currentEpoch) {
+        this.currentEpoch = currentEpoch;
+    }
+
+    public double getLossOfEpoch() {
+        return lossOfEpoch;
+    }
+
+    public void setLossOfEpoch(double lossOfEpoch) {
+        this.lossOfEpoch = lossOfEpoch;
+    }
+
+    public double getLossOfPreviousEpoch() {
+        return lossOfPreviousEpoch;
+    }
+
+    public void setLossOfPreviousEpoch(double lossOfPreviousEpoch) {
+        this.lossOfPreviousEpoch = lossOfPreviousEpoch;
+    }
+
+    public int[] getArchitecture() {
+        return architecture;
+    }
+
+    public void setArchitecture(int[] architecture) {
+        this.architecture = architecture;
+    }
+
+    public double[] getOutput() {
+        return output;
+    }
+
+    public void setOutput(double[] output) {
+        this.output = output;
+    }
+
+    public LossFunction getLossFunction() {
+        return lossFunction;
+    }
+
+    public void setLossFunction(LossFunction lossFunction) {
+        this.lossFunction = lossFunction;
+    }
+
+    public NetworkBuilder getNetworkBuilder() {
+        return networkBuilder;
+    }
+
+    public DataSet getDataSet() {
+        return dataSet;
+    }
+
+    public void setDataSet(DataSet dataSet) {
+        this.dataSet = dataSet;
     }
 }

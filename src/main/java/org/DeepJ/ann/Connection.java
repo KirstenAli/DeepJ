@@ -1,13 +1,9 @@
 package org.DeepJ.ann;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.io.Serializable;
 
-@Setter
-@Getter
 public class Connection implements Serializable {
     private Neuron outputNeuron;
     private Neuron inputNeuron;
