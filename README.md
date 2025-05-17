@@ -6,7 +6,7 @@ DeepJ is an object-oriented artificial neural network (ANN) library for Java.
 Getting Started:
 
 ```java
- public static void TransformerNetworkIntegration(String[] args) {
+ public static void main(String[] args) {
 
     var dataSet = new DataSet(2, 1);
 
@@ -76,7 +76,6 @@ public static void example3() {
             .build();
 
     for (int epoch = 0; epoch < 10000; epoch++) {
-
         var attentionOutput = attention.forward(input);
         var nnInput = flattenTensor(attentionOutput);
         network.forwardPass(nnInput);
