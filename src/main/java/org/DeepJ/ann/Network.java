@@ -91,7 +91,7 @@ public class Network implements Serializable {
         for (Row row : dataSet.getRows()) {
             forwardPass(row.getInputs());
             backwardPass(row.getTargets());
-            lossOfEpoch += calculateLossOfIteration();
+            lossOfEpoch += calculateLoss();
             adjustWeights();
         }
     }
@@ -111,7 +111,7 @@ public class Network implements Serializable {
         }
     }
 
-    public double calculateLossOfIteration() {
+    public double calculateLoss() {
         return lossFunction.calculateLossOfIteration(outputLayer);
     }
 

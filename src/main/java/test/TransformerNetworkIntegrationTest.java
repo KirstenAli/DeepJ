@@ -35,7 +35,7 @@ public class TransformerNetworkIntegrationTest {
             network.forwardPass(nnInput);
 
             double predicted = network.getOutput()[0];
-            double loss = network.calculateLossOfIteration();
+            double loss = network.calculateLoss();
 
             if (epoch % 100 == 0) {
                 System.out.printf("Epoch %d: Loss = %.6f, Prediction = %.4f\n", epoch, loss, predicted);
