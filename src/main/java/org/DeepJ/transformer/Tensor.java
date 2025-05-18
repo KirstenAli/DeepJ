@@ -56,39 +56,69 @@ public class Tensor {
     public static Tensor softmaxRows(Tensor logits) {
         Tensor result = new Tensor(logits.rows, logits.cols);
         for (int i = 0; i < logits.rows; i++) {
-            double max = Double.NEGATIVE_INFINITY;
-            for (int j = 0; j < logits.cols; j++)
-                max = Math.max(max, logits.data[i][j]);
-
-            double sum = 0.0;
-            for (int j = 0; j < logits.cols; j++)
-                sum += Math.exp(logits.data[i][j] - max);
-
-            for (int j = 0; j < logits.cols; j++)
-                result.data[i][j] = Math.exp(logits.data[i][j] - max) / sum;
+            computeSoftmaxRow(logits.data[i], result.data[i]);
         }
         return result;
     }
 
-    public static Tensor applySoftmaxBackward(Tensor dL_dSoftmax, Tensor softmaxOutput) {
-        int rows = dL_dSoftmax.rows;
-        int cols = dL_dSoftmax.cols;
-        Tensor result = new Tensor(rows, cols);
+    private static void computeSoftmaxRow(double[] inputRow, double[] outputRow) {
+        double max = findMax(inputRow);
+        double sum = computeExpSum(inputRow, max);
+        applySoftmax(inputRow, outputRow, max, sum);
+    }
 
-        for (int i = 0; i < rows; i++) {
-            double[] grad = dL_dSoftmax.data[i];
-            double[] s = softmaxOutput.data[i];
-            for (int j = 0; j < cols; j++) {
-                double sum = 0.0;
-                for (int k = 0; k < cols; k++) {
-                    double jac = (j == k) ? s[j] * (1 - s[j]) : -s[j] * s[k];
-                    sum += jac * grad[k];
-                }
-                result.data[i][j] = sum;
-            }
+    private static double findMax(double[] row) {
+        double max = Double.NEGATIVE_INFINITY;
+        for (double v : row) {
+            if (v > max) max = v;
         }
+        return max;
+    }
 
+    private static double computeExpSum(double[] row, double max) {
+        double sum = 0.0;
+        for (double v : row) {
+            sum += Math.exp(v - max);
+        }
+        return sum;
+    }
+
+    private static void applySoftmax(double[] input, double[] output, double max, double sum) {
+        for (int j = 0; j < input.length; j++) {
+            output[j] = Math.exp(input[j] - max) / sum;
+        }
+    }
+
+    public static Tensor applySoftmaxBackward(Tensor dL_dSoftmax, Tensor softmaxOutput) {
+        Tensor result = new Tensor(dL_dSoftmax.rows, dL_dSoftmax.cols);
+        computeBackwardSoftmaxRows(dL_dSoftmax, softmaxOutput, result);
         return result;
+    }
+
+    private static void computeBackwardSoftmaxRows(Tensor grad, Tensor softmax, Tensor result) {
+        for (int i = 0; i < grad.rows; i++) {
+            result.data[i] = computeSoftmaxGradientRow(grad.data[i], softmax.data[i]);
+        }
+    }
+
+    private static double[] computeSoftmaxGradientRow(double[] grad, double[] softmax) {
+        int n = grad.length;
+        double[] result = new double[n];
+        for (int j = 0; j < n; j++) {
+            result[j] = computeSoftmaxGradDot(grad, softmax, j);
+        }
+        return result;
+    }
+
+    private static double computeSoftmaxGradDot(double[] grad, double[] softmax, int j) {
+        double sum = 0.0;
+        for (int k = 0; k < grad.length; k++) {
+            double jacobian = (j == k)
+                    ? softmax[j] * (1 - softmax[j])
+                    : -softmax[j] * softmax[k];
+            sum += jacobian * grad[k];
+        }
+        return sum;
     }
 
     public Tensor subtract(Tensor other) {
