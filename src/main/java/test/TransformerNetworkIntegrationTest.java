@@ -20,7 +20,8 @@ public class TransformerNetworkIntegrationTest {
 
         double[] target = new double[]{1.0};
 
-        SelfAttentionLayer attention = new SelfAttentionLayer(3, 0.05);
+        SelfAttentionLayer attn = new SelfAttentionLayer(3);
+        attn.setLearningRate(0.05);
 
         DataSet dataSet = new DataSet(9, 1);
         Network network = new NetworkBuilder()
@@ -29,7 +30,7 @@ public class TransformerNetworkIntegrationTest {
                 .build();
 
         for (int epoch = 0; epoch < 10000; epoch++) {
-            Tensor attentionOutput = attention.forward(input);
+            Tensor attentionOutput = attn.forward(input);
             double[] nnInput = flattenTensor(attentionOutput);
             network.forward(nnInput);
 
@@ -44,13 +45,13 @@ public class TransformerNetworkIntegrationTest {
 
             double[] gradInput = network.getInputGradient();
             Tensor gradTensor = unflattenToTensor(gradInput, 3, 3);
-            attention.backward(gradTensor);
+            attn.backward(gradTensor);
 
-            attention.adjustWeights();
-            network.adjustWeights();
+            attn.updateWeights();
+            network.updateWeights();
         }
 
-        Tensor finalAttn = attention.forward(input);
+        Tensor finalAttn = attn.forward(input);
         network.forward(flattenTensor(finalAttn));
         System.out.println("Final prediction: " + network.getOutput()[0]);
     }

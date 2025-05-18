@@ -73,7 +73,7 @@ public abstract class Neuron implements Serializable {
         }
     }
 
-    public void adjustWeights() {
+    public void updateWeights() {
         for (Connection connection : inputConnections) {
             connection.adjustWeight();
         }

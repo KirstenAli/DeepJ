@@ -32,9 +32,9 @@ public abstract class Layer<T extends Neuron> implements Serializable {
                         HiddenLayer previousLayer,
                         NetworkBuilder networkBuilder);
 
-    public void adjustWeights() {
+    public void updateWeights() {
         for (Neuron neuron : neurons)
-            neuron.adjustWeights();
+            neuron.updateWeights();
     }
 
     public List<T> getNeurons() {

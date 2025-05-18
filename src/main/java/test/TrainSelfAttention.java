@@ -17,7 +17,8 @@ public class TrainSelfAttention {
                 {0, 0, 1, 0}
         });
 
-        SelfAttentionLayer attn = new SelfAttentionLayer(dim, 0.05);
+        SelfAttentionLayer attn = new SelfAttentionLayer(dim);
+        attn.setLearningRate(0.05);
 
         for (int epoch = 0; epoch < 100000; epoch++) {
             Tensor output = attn.forward(input);
@@ -26,7 +27,7 @@ public class TrainSelfAttention {
                 System.out.printf("Epoch %d - Loss: %.6f\n", epoch, output.mseLoss(target));
             }
             attn.backward(dLoss);
-            attn.adjustWeights();
+            attn.updateWeights();
         }
 
         attn.forward(input).print("Final Output:");

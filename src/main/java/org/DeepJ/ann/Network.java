@@ -92,7 +92,7 @@ public class Network implements Serializable {
             forward(row.getInputs());
             backward(row.getTargets());
             lossOfEpoch += calculateLoss();
-            adjustWeights();
+            updateWeights();
         }
     }
 
@@ -104,10 +104,10 @@ public class Network implements Serializable {
         }
     }
 
-    public void adjustWeights() {
-        outputLayer.adjustWeights();
+    public void updateWeights() {
+        outputLayer.updateWeights();
         for (HiddenLayer layer : hiddenLayers) {
-            layer.adjustWeights();
+            layer.updateWeights();
         }
     }
 

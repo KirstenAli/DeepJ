@@ -11,9 +11,8 @@ public class SelfAttentionLayer {
     private Tensor input, Q, K, V, attention;
     private double learningRate;
 
-    public SelfAttentionLayer(int dModel, double learningRate) {
+    public SelfAttentionLayer(int dModel) {
         this.dModel = dModel;
-        this.learningRate = learningRate;
         Random rand = new Random();
         this.Wq = Tensor.random(dModel, dModel, rand);
         this.Wk = Tensor.random(dModel, dModel, rand);
@@ -60,7 +59,7 @@ public class SelfAttentionLayer {
         dWv = input.transpose().matmul(dV);
     }
 
-    public void adjustWeights() {
+    public void updateWeights() {
         Wq = Wq.subtract(dWq.scale(learningRate));
         Wk = Wk.subtract(dWk.scale(learningRate));
         Wv = Wv.subtract(dWv.scale(learningRate));
