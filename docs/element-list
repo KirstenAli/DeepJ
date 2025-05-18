@@ -1,0 +1,7 @@
+org.DeepJ.ann
+org.DeepJ.ann.activationfunctions
+org.DeepJ.ann.lossfunctions
+org.DeepJ.convolution
+org.DeepJ.dataset
+org.DeepJ.persistence
+org.DeepJ.transformer
