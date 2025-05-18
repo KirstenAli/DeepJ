@@ -67,7 +67,7 @@ public static void example3() {
 
     double[] target = new double[]{1.0};
 
-    SelfAttentionLayer attention = new SelfAttentionLayer(3);
+    SelfAttentionLayer attention = new SelfAttentionLayer(3, 0.05);
 
     DataSet dataSet = new DataSet(9, 1);
     Network network = new NetworkBuilder()
@@ -78,7 +78,7 @@ public static void example3() {
     for (int epoch = 0; epoch < 10000; epoch++) {
         Tensor attentionOutput = attention.forward(input);
         double[] nnInput = flattenTensor(attentionOutput);
-        network.forwardPass(nnInput);
+        network.forward(nnInput);
 
         double predicted = network.getOutput()[0];
         double loss = network.calculateLoss();
@@ -87,17 +87,18 @@ public static void example3() {
             System.out.printf("Epoch %d: Loss = %.6f, Prediction = %.4f\n", epoch, loss, predicted);
         }
 
-        network.backwardPass(target);
+        network.backward(target);
 
         double[] gradInput = network.getInputGradient();
         Tensor gradTensor = unflattenToTensor(gradInput, 3, 3);
-        attention.backward(gradTensor, 0.05);
+        attention.backward(gradTensor);
 
+        attention.adjustWeights();
         network.adjustWeights();
     }
 
     Tensor finalAttn = attention.forward(input);
-    network.forwardPass(flattenTensor(finalAttn));
+    network.forward(flattenTensor(finalAttn));
     System.out.println("Final prediction: " + network.getOutput()[0]);
 }
 

@@ -57,7 +57,7 @@ public class Network implements Serializable {
                 connectionsPerNeuron, previousLayer, networkBuilder);
     }
 
-    public void forwardPass(double[] input) {
+    public void forward(double[] input) {
         double[] previousActivations = input;
 
         for (HiddenLayer layer : hiddenLayers)
@@ -89,14 +89,14 @@ public class Network implements Serializable {
 
     public void epoch(DataSet dataSet) {
         for (Row row : dataSet.getRows()) {
-            forwardPass(row.getInputs());
-            backwardPass(row.getTargets());
+            forward(row.getInputs());
+            backward(row.getTargets());
             lossOfEpoch += calculateLoss();
             adjustWeights();
         }
     }
 
-    public void backwardPass(double[] targets) {
+    public void backward(double[] targets) {
         outputLayer.calculateDeltas(targets);
 
         for (int i = hiddenLayers.size() - 1; i >= 0; i--) {
