@@ -48,7 +48,7 @@ public class ANN {
                 .lossFunction(LossFunctions.MSE)
                 .learningRate(0.1)
                 .momentum(0.1)
-                .desiredLoss(0.00001) // Training stops
+                .desiredLoss(0.01) // Training stops
                 .epochs(1000000000) // Training stops
                 .beforeEpoch(net ->
                         System.out.println("Current Epoch:" + net.getCurrentEpoch()))
