@@ -76,7 +76,6 @@ public static void example3() {
             .build();
 
     for (int epoch = 0; epoch < 10000; epoch++) {
-
         Tensor attentionOutput = attention.forward(input);
         double[] nnInput = flattenTensor(attentionOutput);
         network.forwardPass(nnInput);
