@@ -34,7 +34,7 @@ public class SelfAttentionLayer {
     }
 
     private Tensor computeAttention(Tensor Q, Tensor K) {
-        return Q.matmul(K.transpose()).scale(1.0 / Math.sqrt(dModel));
+        return Q.matmul(K.transpose()).multiplyScalar(1.0 / Math.sqrt(dModel));
     }
 
     public void backward(Tensor dL_dOutput) {
@@ -50,7 +50,7 @@ public class SelfAttentionLayer {
 
     private Tensor computeDScores(Tensor dAttention) {
         return Tensor.applySoftmaxBackward(dAttention, attention)
-                .scale(1.0 / Math.sqrt(dModel));
+                .multiplyScalar(1.0 / Math.sqrt(dModel));
     }
 
     private void computeGradients() {
@@ -60,9 +60,9 @@ public class SelfAttentionLayer {
     }
 
     public void updateWeights() {
-        Wq = Wq.subtract(dWq.scale(learningRate));
-        Wk = Wk.subtract(dWk.scale(learningRate));
-        Wv = Wv.subtract(dWv.scale(learningRate));
+        Wq = Wq.subtract(dWq.multiplyScalar(learningRate));
+        Wk = Wk.subtract(dWk.multiplyScalar(learningRate));
+        Wv = Wv.subtract(dWv.multiplyScalar(learningRate));
     }
 
     public int getdModel() {

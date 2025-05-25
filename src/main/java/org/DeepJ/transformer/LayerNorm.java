@@ -2,7 +2,7 @@ package org.DeepJ.transformer;
 
 public class LayerNorm {
     private final int dim;
-    private final double epsilon = 1e-5;
+    private static final double epsilon = 1e-5;
 
     private Tensor gamma;
     private Tensor beta;
@@ -56,19 +56,21 @@ public class LayerNorm {
 
     private Tensor computeDMean(Tensor dNorm, Tensor xMu, Tensor std, Tensor dVar) {
         return dNorm.divideRows(std)
-                .scale(-1.0)
+                .multiplyScalar(-1.0)
                 .sumAlongRows()
-                .add(xMu.scale(-2.0)
+                .add(xMu.multiplyScalar(-2.0)
                         .multiplyRows(dVar)
                         .sumAlongRows()
-                        .divideScalar(input.cols));
+                        .divideScalar(input.cols)
+                );
     }
 
     private Tensor computeDInput(Tensor dNorm, Tensor xMu, Tensor std, Tensor dMean, Tensor dVar) {
         return dNorm.divideRows(std)
-                .add(xMu.scale(2.0)
+                .add(xMu.multiplyScalar(2.0)
                         .multiplyRows(dVar)
-                        .divideScalar(input.cols))
+                        .divideScalar(input.cols)
+                )
                 .addRows(dMean.divideScalar(input.cols));
     }
 
@@ -76,8 +78,8 @@ public class LayerNorm {
         Tensor dGamma = dL_dOutput.multiply(normalized).sumAlongCols();
         Tensor dBeta  = dL_dOutput.sumAlongCols();
 
-        gamma = gamma.subtract(dGamma.scale(learningRate));
-        beta  = beta.subtract(dBeta .scale(learningRate));
+        gamma = gamma.subtract(dGamma.multiplyScalar(learningRate));
+        beta  = beta.subtract(dBeta .multiplyScalar(learningRate));
     }
 
     public int getDim() {

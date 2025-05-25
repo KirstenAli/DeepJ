@@ -2,7 +2,6 @@ package org.DeepJ.transformer;
 
 import java.util.Random;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 
 public class Tensor {
     public double[][] data;
@@ -36,17 +35,6 @@ public class Tensor {
                 operation.accept(r,c);
     }
 
-    public void reduceRowWise(BiConsumer<Integer, Double> operation,
-                              BiFunction<Integer, Integer, Double> accumulator){
-        for (int r = 0; r < this.rows; r++) {
-            double accumulation = 0;
-            for (int c = 0; c < this.cols; c++) {
-                accumulation += accumulator.apply(r,c);
-            }
-            operation.accept(r,accumulation);
-        }
-    }
-
     public static Tensor random(int rows, int cols, Random rand) {
         Tensor t = new Tensor(rows, cols);
         matrixOp((r, c) -> t.data[r][c] = rand.nextGaussian() * 0.1, t);
@@ -71,33 +59,24 @@ public class Tensor {
     }
 
     public Tensor multiplyRows(Tensor rowScalars) {
-        Tensor out = new Tensor(this.rows, this.cols);
-        for (int r = 0; r < rows; r++) {
+        Tensor result = new Tensor(this.rows, this.cols);
+
+        matrixOp((r,c) -> {
             double s = rowScalars.data[r][0];
-            for (int c = 0; c < cols; c++)
-                out.data[r][c] = this.data[r][c] * s;
-        }
-        return out;
+            result.data[r][c] = this.data[r][c] * s;
+        });
+
+        return result;
     }
 
     public Tensor addRows(Tensor rowScalars) {
-        Tensor out = new Tensor(this.rows, this.cols);
-        for (int r = 0; r < rows; r++) {
-            double s = rowScalars.data[r][0];
-            for (int c = 0; c < cols; c++)
-                out.data[r][c] = this.data[r][c] + s;
-        }
-        return out;
-    }
+        Tensor result = new Tensor(this.rows, this.cols);
 
-    public Tensor sumAlongCols() {
-        Tensor result = new Tensor(1, this.cols);
-        for (int c = 0; c < this.cols; c++) {
-            double s = 0.0;
-            for (int r = 0; r < this.rows; r++)
-                s += this.data[r][c];
-            result.data[0][c] = s;
-        }
+        matrixOp((r,c) -> {
+            double s = rowScalars.data[r][0];
+            result.data[r][c] = this.data[r][c] + s;
+        });
+
         return result;
     }
 
@@ -113,9 +92,21 @@ public class Tensor {
         return result;
     }
 
-    public Tensor scale(double scalar) {
+    public Tensor multiplyScalar(double scalar) {
         Tensor result = new Tensor(this.rows, this.cols);
         matrixOp((r, c) -> result.data[r][c] = this.data[r][c] * scalar);
+        return result;
+    }
+
+    public Tensor addScalar(double scalar) {
+        Tensor result = new Tensor(this.rows, this.cols);
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + scalar);
+        return result;
+    }
+
+    public Tensor divideScalar(double scalar) {
+        Tensor result = new Tensor(this.rows, this.cols);
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] / scalar);
         return result;
     }
 
@@ -221,33 +212,32 @@ public class Tensor {
     }
 
     public Tensor meanAlongRows() {
-        Tensor result = new Tensor(this.rows, 1);
-
-        reduceRowWise((r,a) -> result.data[r][0] = a / this.cols,
-                (r,c) -> this.data[r][c]);
-
-        return result;
+        Tensor sum = new Tensor(this.rows, 1);
+        matrixOp((r, c) -> sum.data[r][0] += this.data[r][c]);
+        return sum.divideScalar(this.cols);
     }
 
     public Tensor varianceAlongRows() {
         Tensor mean = this.meanAlongRows();
         Tensor result = new Tensor(this.rows, 1);
 
-        reduceRowWise((r,a) -> result.data[r][0] = a / this.cols,
-                (r,c) -> {
-                    double diff = this.data[r][c] - mean.data[r][0];
-                    return diff * diff;
-                });
+        matrixOp((r,c) -> {
+            double diff = this.data[r][c] - mean.data[r][0];
+            result.data[r][0] += diff * diff;
+        });
 
-        return result;
+        return result.divideScalar(cols);
     }
 
     public Tensor sumAlongRows() {
         Tensor result = new Tensor(this.rows, 1);
+        matrixOp((r,c) -> result.data[r][0] += this.data[r][c]);
+        return result;
+    }
 
-        reduceRowWise((r,a) -> result.data[r][0] = a,
-                (r,c) -> this.data[r][c]);
-
+    public Tensor sumAlongCols() {
+        Tensor result = new Tensor(1, this.cols);
+        matrixOp((r,c) -> result.data[0][c] += this.data[r][c]);
         return result;
     }
 
@@ -289,24 +279,6 @@ public class Tensor {
     public Tensor pow(double exponent) {
         Tensor result = new Tensor(this.rows, this.cols);
         matrixOp((r,c) -> result.data[r][c] = Math.pow(this.data[r][c], exponent));
-        return result;
-    }
-
-    public Tensor addScalar(double scalar) {
-        Tensor result = new Tensor(this.rows, this.cols);
-        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + scalar);
-        return result;
-    }
-
-    public Tensor divideScalar(double scalar) {
-        Tensor result = new Tensor(this.rows, this.cols);
-        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] / scalar);
-        return result;
-    }
-
-    public Tensor multiplyScalar(double scalar) {
-        Tensor result = new Tensor(this.rows, this.cols);
-        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] * scalar);
         return result;
     }
 
