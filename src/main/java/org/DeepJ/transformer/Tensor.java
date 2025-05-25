@@ -69,12 +69,6 @@ public class Tensor {
         return result;
     }
 
-    public Tensor addRows(Tensor rowScalars) {
-        Tensor result = new Tensor(this.rows, this.cols);
-        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + rowScalars.data[r][0]);
-        return result;
-    }
-
     public double sum() {
         double[] sum = new double[]{0.0};
         matrixOp((r,c) -> sum[0] += data[r][c]);
@@ -176,6 +170,12 @@ public class Tensor {
     public Tensor add(Tensor other) {
         Tensor result = new Tensor(this.rows, this.cols);
         matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + other.data[r][c]);
+        return result;
+    }
+
+    public Tensor addRows(Tensor rowScalars) {
+        Tensor result = new Tensor(this.rows, this.cols);
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + rowScalars.data[r][0]);
         return result;
     }
 
