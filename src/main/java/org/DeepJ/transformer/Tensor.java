@@ -71,12 +71,7 @@ public class Tensor {
 
     public Tensor addRows(Tensor rowScalars) {
         Tensor result = new Tensor(this.rows, this.cols);
-
-        matrixOp((r,c) -> {
-            double s = rowScalars.data[r][0];
-            result.data[r][c] = this.data[r][c] + s;
-        });
-
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + rowScalars.data[r][0]);
         return result;
     }
 
