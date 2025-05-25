@@ -58,14 +58,9 @@ public class Tensor {
         return result;
     }
 
-    public Tensor multiplyRows(Tensor rowScalars) {
+    public Tensor multiplyBroadcastCols(Tensor colVector) {
         Tensor result = new Tensor(this.rows, this.cols);
-
-        matrixOp((r,c) -> {
-            double s = rowScalars.data[r][0];
-            result.data[r][c] = this.data[r][c] * s;
-        });
-
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] * colVector.data[r][0]);
         return result;
     }
 
@@ -173,9 +168,9 @@ public class Tensor {
         return result;
     }
 
-    public Tensor addRows(Tensor rowScalars) {
+    public Tensor addBroadcastCols(Tensor colVector) {
         Tensor result = new Tensor(this.rows, this.cols);
-        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + rowScalars.data[r][0]);
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + colVector.data[r][0]);
         return result;
     }
 
@@ -253,13 +248,13 @@ public class Tensor {
         return result;
     }
 
-    public Tensor addBroadcast(Tensor rowVector) {
+    public Tensor addBroadcastRows(Tensor rowVector) {
         Tensor result = new Tensor(this.rows, this.cols);
         matrixOp((r,c) -> result.data[r][c] = this.data[r][c] + rowVector.data[0][c]);
         return result;
     }
 
-    public Tensor multiplyBroadcast(Tensor rowVector) {
+    public Tensor multiplyBroadcastRows(Tensor rowVector) {
         Tensor result = new Tensor(this.rows, this.cols);
         matrixOp((r,c) -> result.data[r][c] = this.data[r][c] * rowVector.data[0][c]);
         return result;

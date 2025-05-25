@@ -31,7 +31,7 @@ public class LayerNorm {
     }
 
     private Tensor applyAffine(Tensor norm) {
-        return norm.multiplyBroadcast(gamma).addBroadcast(beta);
+        return norm.multiplyBroadcastRows(gamma).addBroadcastRows(beta);
     }
 
     public Tensor backward(Tensor dL_dOutput) {
@@ -39,7 +39,7 @@ public class LayerNorm {
 
         Tensor std  = variance.addScalar(epsilon).sqrt();
         Tensor xMu  = input.subtractRows(mean);
-        Tensor dNorm = dL_dOutput.multiplyBroadcast(gamma);
+        Tensor dNorm = dL_dOutput.multiplyBroadcastRows(gamma);
 
         Tensor dVar  = computeDVariance(dNorm, xMu, std);
         Tensor dMean = computeDMean(dNorm, xMu, std, dVar);
@@ -50,7 +50,7 @@ public class LayerNorm {
     private Tensor computeDVariance(Tensor dNorm, Tensor xMu, Tensor std) {
         return dNorm.multiply(xMu)
                 .multiplyScalar(-0.5)
-                .multiplyRows(std.pow(-3))
+                .multiplyBroadcastCols(std.pow(-3))
                 .sumAlongRows();
     }
 
@@ -59,7 +59,7 @@ public class LayerNorm {
                 .multiplyScalar(-1.0)
                 .sumAlongRows()
                 .add(xMu.multiplyScalar(-2.0)
-                        .multiplyRows(dVar)
+                        .multiplyBroadcastCols(dVar)
                         .sumAlongRows()
                         .divideScalar(input.cols)
                 );
@@ -68,10 +68,10 @@ public class LayerNorm {
     private Tensor computeDInput(Tensor dNorm, Tensor xMu, Tensor std, Tensor dMean, Tensor dVar) {
         return dNorm.divideRows(std)
                 .add(xMu.multiplyScalar(2.0)
-                        .multiplyRows(dVar)
+                        .multiplyBroadcastCols(dVar)
                         .divideScalar(input.cols)
                 )
-                .addRows(dMean.divideScalar(input.cols));
+                .addBroadcastCols(dMean.divideScalar(input.cols));
     }
 
     public void updateWeights() {
