@@ -231,20 +231,15 @@ public class Tensor {
         return result;
     }
 
-    public Tensor divideRows(Tensor rowStd) {
+    public Tensor divideBroadcastCols(Tensor colVector) {
         Tensor result = new Tensor(this.rows, this.cols);
-
-        matrixOp((r,c) -> {
-            double denom = rowStd.data[r][0];
-            result.data[r][c] = this.data[r][c] / denom;
-        });
-
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] / colVector.data[r][0]);
         return result;
     }
 
-    public Tensor subtractRows(Tensor rowMeans) {
+    public Tensor subtractBroadcastCols(Tensor colVector) {
         Tensor result = new Tensor(this.rows, this.cols);
-        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] - rowMeans.data[r][0]);
+        matrixOp((r,c) -> result.data[r][c] = this.data[r][c] - colVector.data[r][0]);
         return result;
     }
 

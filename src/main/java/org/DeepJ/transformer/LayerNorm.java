@@ -26,8 +26,8 @@ public class LayerNorm {
     }
 
     private Tensor normalize(Tensor x, Tensor mean, Tensor var) {
-        return x.subtractRows(mean)
-                .divideRows(var.addScalar(epsilon).sqrt());
+        return x.subtractBroadcastCols(mean)
+                .divideBroadcastCols(var.addScalar(epsilon).sqrt());
     }
 
     private Tensor applyAffine(Tensor norm) {
@@ -38,7 +38,7 @@ public class LayerNorm {
         this.dL_dOutput = dL_dOutput;
 
         Tensor std  = variance.addScalar(epsilon).sqrt();
-        Tensor xMu  = input.subtractRows(mean);
+        Tensor xMu  = input.subtractBroadcastCols(mean);
         Tensor dNorm = dL_dOutput.multiplyBroadcastRows(gamma);
 
         Tensor dVar  = computeDVariance(dNorm, xMu, std);
@@ -55,7 +55,7 @@ public class LayerNorm {
     }
 
     private Tensor computeDMean(Tensor dNorm, Tensor xMu, Tensor std, Tensor dVar) {
-        return dNorm.divideRows(std)
+        return dNorm.divideBroadcastCols(std)
                 .multiplyScalar(-1.0)
                 .sumAlongRows()
                 .add(xMu.multiplyScalar(-2.0)
@@ -66,7 +66,7 @@ public class LayerNorm {
     }
 
     private Tensor computeDInput(Tensor dNorm, Tensor xMu, Tensor std, Tensor dMean, Tensor dVar) {
-        return dNorm.divideRows(std)
+        return dNorm.divideBroadcastCols(std)
                 .add(xMu.multiplyScalar(2.0)
                         .multiplyBroadcastCols(dVar)
                         .divideScalar(input.cols)
