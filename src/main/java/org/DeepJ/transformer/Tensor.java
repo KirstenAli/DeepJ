@@ -70,6 +70,43 @@ public class Tensor {
         return result;
     }
 
+    public Tensor multiplyRows(Tensor rowScalars) {
+        Tensor out = new Tensor(this.rows, this.cols);
+        for (int r = 0; r < rows; r++) {
+            double s = rowScalars.data[r][0];
+            for (int c = 0; c < cols; c++)
+                out.data[r][c] = this.data[r][c] * s;
+        }
+        return out;
+    }
+
+    public Tensor addRows(Tensor rowScalars) {
+        Tensor out = new Tensor(this.rows, this.cols);
+        for (int r = 0; r < rows; r++) {
+            double s = rowScalars.data[r][0];
+            for (int c = 0; c < cols; c++)
+                out.data[r][c] = this.data[r][c] + s;
+        }
+        return out;
+    }
+
+    public Tensor sumAlongCols() {
+        Tensor result = new Tensor(1, this.cols);
+        for (int c = 0; c < this.cols; c++) {
+            double s = 0.0;
+            for (int r = 0; r < this.rows; r++)
+                s += this.data[r][c];
+            result.data[0][c] = s;
+        }
+        return result;
+    }
+
+    public double sum() {
+        double[] sum = new double[]{0.0};
+        matrixOp((r,c) -> sum[0] += data[r][c]);
+        return sum[0];
+    }
+
     public Tensor transpose() {
         Tensor result = new Tensor(this.cols, this.rows);
         matrixOp((r, c)-> result.data[c][r] = this.data[r][c]);
