@@ -1,10 +1,10 @@
 org.DeepJ.ann
-org.DeepJ.ann.activationfunctions
-org.DeepJ.ann.lossfunctions
-org.DeepJ.annv2
-org.DeepJ.annv2.activations
-org.DeepJ.annv2.loss
-org.DeepJ.annv2.optimisers
+org.DeepJ.ann.activations
+org.DeepJ.ann.loss
+org.DeepJ.ann.optimisers
+org.DeepJ.annoop
+org.DeepJ.annoop.activationfunctions
+org.DeepJ.annoop.lossfunctions
 org.DeepJ.convolution
 org.DeepJ.dataset
 org.DeepJ.persistence

@@ -1,7 +1,7 @@
 package test;
 
-import org.DeepJ.ann.Network;
-import org.DeepJ.ann.NetworkBuilder;
+import org.DeepJ.ann_oop.Network;
+import org.DeepJ.ann_oop.NetworkBuilder;
 import org.DeepJ.dataset.DataSet;
 import org.DeepJ.transformer.*;
 
