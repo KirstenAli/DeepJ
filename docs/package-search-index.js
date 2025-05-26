@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"org.DeepJ.ann"},{"l":"org.DeepJ.ann.activationfunctions"},{"l":"org.DeepJ.ann.lossfunctions"},{"l":"org.DeepJ.convolution"},{"l":"org.DeepJ.dataset"},{"l":"org.DeepJ.persistence"},{"l":"org.DeepJ.transformer"}];updateSearchResults();
