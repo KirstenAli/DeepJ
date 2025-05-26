@@ -3,7 +3,7 @@ package org.DeepJ.persistence;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import org.DeepJ.annoop.Network;
+import org.DeepJ.ann.Network;
 
 import java.io.*;
 

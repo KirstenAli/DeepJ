@@ -1,8 +1,8 @@
 package test;
 
-import org.DeepJ.ann_oop.activationfunctions.ActivationFunctions;
-import org.DeepJ.ann_oop.lossfunctions.LossFunctions;
-import org.DeepJ.ann_oop.NetworkBuilder;
+import org.DeepJ.ann.activationfunctions.ActivationFunctions;
+import org.DeepJ.ann.lossfunctions.LossFunctions;
+import org.DeepJ.ann.NetworkBuilder;
 import org.DeepJ.dataset.DataSet;
 import org.DeepJ.persistence.PersistenceManager;
 

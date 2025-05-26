@@ -1,12 +1,12 @@
 package test;
 
-import org.DeepJ.ann.ActivationLayer;
-import org.DeepJ.ann.DenseLayer;
-import org.DeepJ.ann.NeuralNetwork;
-import org.DeepJ.ann.activations.Tanh;
-import org.DeepJ.ann.loss.MSELoss;
-import org.DeepJ.ann.optimisers.OptimizerFactory;
-import org.DeepJ.ann.optimisers.SGDMomentum;
+import org.DeepJ.annv2.ActivationLayer;
+import org.DeepJ.annv2.DenseLayer;
+import org.DeepJ.annv2.NeuralNetwork;
+import org.DeepJ.annv2.activations.Tanh;
+import org.DeepJ.annv2.loss.MSELoss;
+import org.DeepJ.annv2.optimisers.OptimizerFactory;
+import org.DeepJ.annv2.optimisers.SGDMomentum;
 import org.DeepJ.transformer.Tensor;
 
 public class ANNv2 {
