@@ -23,6 +23,8 @@ public class TransformerNetworkIntegrationTest {
         SelfAttentionLayer attn = new SelfAttentionLayer(3);
         attn.setLearningRate(0.05);
 
+        LayerNorm layerNorm = new LayerNorm(3);
+
         DataSet dataSet = new DataSet(9, 1);
         Network network = new NetworkBuilder()
                 .architecture(9, 6, 1)
@@ -30,8 +32,10 @@ public class TransformerNetworkIntegrationTest {
                 .build();
 
         for (int epoch = 0; epoch < 10000; epoch++) {
+            // Forward pass
             Tensor attentionOutput = attn.forward(input);
-            double[] nnInput = flattenTensor(attentionOutput);
+            Tensor normedOutput = layerNorm.forward(attentionOutput);
+            double[] nnInput = flattenTensor(normedOutput);
             network.forward(nnInput);
 
             double predicted = network.getOutput()[0];
@@ -41,18 +45,22 @@ public class TransformerNetworkIntegrationTest {
                 System.out.printf("Epoch %d: Loss = %.6f, Prediction = %.4f\n", epoch, loss, predicted);
             }
 
+            // Backward pass
             network.backward(target);
-
             double[] gradInput = network.getInputGradient();
             Tensor gradTensor = unflattenToTensor(gradInput, 3, 3);
-            attn.backward(gradTensor);
+            Tensor dNorm = layerNorm.backward(gradTensor);
+            attn.backward(dNorm);
 
+            // Update weights
+            layerNorm.updateWeights();
             attn.updateWeights();
             network.updateWeights();
         }
 
         Tensor finalAttn = attn.forward(input);
-        network.forward(flattenTensor(finalAttn));
+        Tensor finalNorm = layerNorm.forward(finalAttn);
+        network.forward(flattenTensor(finalNorm));
         System.out.println("Final prediction: " + network.getOutput()[0]);
     }
 }

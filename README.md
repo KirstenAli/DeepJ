@@ -58,7 +58,7 @@ public static void example2(DataSet dataSet) {
 }
 
 //SelfAttentionLayer NN integration test
-public static void example3() {
+public static void transformerIntegrationTest() {
     Tensor input = new Tensor(new double[][] {
             {1, 0, 0},
             {0, 1, 0},
@@ -70,6 +70,8 @@ public static void example3() {
     SelfAttentionLayer attn = new SelfAttentionLayer(3);
     attn.setLearningRate(0.05);
 
+    LayerNorm layerNorm = new LayerNorm(3);
+
     DataSet dataSet = new DataSet(9, 1);
     Network network = new NetworkBuilder()
             .architecture(9, 6, 1)
@@ -77,8 +79,10 @@ public static void example3() {
             .build();
 
     for (int epoch = 0; epoch < 10000; epoch++) {
+        // Forward pass
         Tensor attentionOutput = attn.forward(input);
-        double[] nnInput = flattenTensor(attentionOutput);
+        Tensor normedOutput = layerNorm.forward(attentionOutput);
+        double[] nnInput = flattenTensor(normedOutput);
         network.forward(nnInput);
 
         double predicted = network.getOutput()[0];
@@ -88,19 +92,54 @@ public static void example3() {
             System.out.printf("Epoch %d: Loss = %.6f, Prediction = %.4f\n", epoch, loss, predicted);
         }
 
+        // Backward pass
         network.backward(target);
-
         double[] gradInput = network.getInputGradient();
         Tensor gradTensor = unflattenToTensor(gradInput, 3, 3);
-        attn.backward(gradTensor);
+        Tensor dNorm = layerNorm.backward(gradTensor);
+        attn.backward(dNorm);
 
+        // Update weights
+        layerNorm.updateWeights();
         attn.updateWeights();
         network.updateWeights();
     }
 
     Tensor finalAttn = attn.forward(input);
-    network.forward(flattenTensor(finalAttn));
+    Tensor finalNorm = layerNorm.forward(finalAttn);
+    network.forward(flattenTensor(finalNorm));
     System.out.println("Final prediction: " + network.getOutput()[0]);
+}
+
+//transformer.ann (experimental)
+public static void main(String[] args) {
+    double[][] in  = {{0,0}, {0,1}, {1,0}, {1,1}};
+    double[][] out = {{0},   {1},   {1},   {0}};
+    Tensor input  = new Tensor(in);
+    Tensor target = new Tensor(out);
+
+    OptimizerFactory opt = (r, c) -> new SGDMomentum(0.1, 0.1);
+
+    NeuralNetwork net = new NeuralNetwork();
+    net.addLayer(new DenseLayer(2, 3, opt));
+    net.addLayer(new ActivationLayer(new Tanh()));
+
+    net.addLayer(new DenseLayer(3, 2, opt));
+    net.addLayer(new ActivationLayer(new Tanh()));
+
+    net.addLayer(new DenseLayer(2, 1, opt));
+    net.addLayer(new ActivationLayer(new Tanh()));
+
+    int    epochs = 10000;
+    double lr     = 0.1;
+
+    System.out.println("Training network on XOR with MSE loss…");
+    net.train(input, target, new MSELoss(), epochs, lr);
+
+    Tensor pred = net.forward(input);
+    System.out.println();
+    pred.print("Predictions:");
+    target.print("Targets:");
 }
 
 ```
