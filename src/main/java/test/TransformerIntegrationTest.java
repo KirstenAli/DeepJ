@@ -8,7 +8,7 @@ import org.DeepJ.transformer.*;
 import static org.DeepJ.transformer.Tensor.flattenTensor;
 import static org.DeepJ.transformer.Tensor.unflattenToTensor;
 
-public class TransformerNetworkIntegrationTest {
+public class TransformerIntegrationTest {
 
     public static void main(String[] args) {
 

@@ -57,7 +57,6 @@ public static void example2(DataSet dataSet) {
     network.learn();
 }
 
-//SelfAttentionLayer NN integration test
 public static void transformerIntegrationTest() {
     Tensor input = new Tensor(new double[][] {
             {1, 0, 0},
