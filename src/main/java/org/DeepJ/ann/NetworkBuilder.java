@@ -4,7 +4,7 @@ import org.DeepJ.ann.activationfunctions.*;
 import org.DeepJ.ann.lossfunctions.LossFunction;
 import org.DeepJ.ann.lossfunctions.LossFunctions;
 import org.DeepJ.ann.lossfunctions.MSE;
-import org.DeepJ.dataset.DataSet;
+import org.DeepJ.ann.dataset.DataSet;
 
 import java.io.Serializable;
 

@@ -1,9 +1,8 @@
 package org.DeepJ.ann;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.DeepJ.ann.lossfunctions.LossFunction;
-import org.DeepJ.dataset.DataSet;
-import org.DeepJ.dataset.Row;
+import org.DeepJ.ann.dataset.DataSet;
+import org.DeepJ.ann.dataset.Row;
 import org.DeepJ.persistence.PersistenceManager;
 
 import java.io.Serializable;
@@ -11,14 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Network implements Serializable {
-    @JsonProperty
     private List<HiddenLayer> hiddenLayers;
-    @JsonProperty
     private OutputLayer outputLayer;
     private int currentEpoch;
     private double lossOfEpoch;
     private double lossOfPreviousEpoch;
-    @JsonProperty
     private int[] architecture;
     private double[] output;
     private LossFunction lossFunction;
@@ -123,10 +119,6 @@ public class Network implements Serializable {
 
     public void save(String filePath){
         PersistenceManager.saveNetwork(this, filePath);
-    }
-
-    public void saveWeightsAsJsonFile(String filePath){
-        PersistenceManager.saveWeightsAsJsonFile(this, filePath);
     }
 
     public List<HiddenLayer> getHiddenLayers() {

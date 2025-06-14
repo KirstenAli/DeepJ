@@ -1,12 +1,9 @@
 package org.DeepJ.ann;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.io.Serializable;
 import java.util.List;
 
 public abstract class Layer<T extends Neuron> implements Serializable {
-    @JsonProperty
     protected List<T> neurons;
     private double[] activations;
 

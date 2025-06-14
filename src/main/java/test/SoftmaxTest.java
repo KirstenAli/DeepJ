@@ -1,6 +1,6 @@
 package test;
 
-import org.DeepJ.transformer.Tensor;
+import org.DeepJ.annv2.Tensor;
 
 public class SoftmaxTest {
 

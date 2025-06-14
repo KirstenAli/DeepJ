@@ -1,6 +1,5 @@
 package org.DeepJ.ann;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.DeepJ.ann.activationfunctions.ActivationFunction;
 
 import java.io.Serializable;
@@ -11,7 +10,6 @@ public abstract class Neuron implements Serializable {
     protected double net;
     protected double activation;
     protected double delta;
-    @JsonProperty
     protected List<Connection> inputConnections;
     protected ActivationFunction activationFunction;
     private int numConnections;
