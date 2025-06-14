@@ -13,6 +13,7 @@ public class NeuralNetwork {
     private final Tensor target;
     private final LossFunction lossFunction;
     private final int epochs;
+    private final double targetLoss;
     private final double learningRate;
     private final boolean logLoss;
 
@@ -20,7 +21,7 @@ public class NeuralNetwork {
             Tensor input,
             Tensor target,
             LossFunction lossFunction,
-            int epochs,
+            int epochs, double targetLoss,
             double learningRate,
             boolean logLoss
     ) {
@@ -28,6 +29,7 @@ public class NeuralNetwork {
         this.target = target;
         this.lossFunction = lossFunction;
         this.epochs = epochs;
+        this.targetLoss = targetLoss;
         this.learningRate = learningRate;
         this.logLoss = logLoss;
     }
@@ -66,6 +68,13 @@ public class NeuralNetwork {
 
             if (logLoss) {
                 System.out.printf("Epoch %d, Loss: %.6f%n", epoch, loss);
+            }
+
+            if (loss <= targetLoss) {
+                if (logLoss) {
+                    System.out.printf("target loss %.6f reached at epoch %d%n", targetLoss, epoch);
+                }
+                break;
             }
         }
     }

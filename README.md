@@ -26,6 +26,7 @@ Getting Started:
             .target(target)
             .loss(new MSELoss())
             .epochs(10000)
+            .targetLoss(0.001)
             .learningRate(0.1)
             .logLoss(true)
             .addLayer(new SelfAttentionLayer(3))

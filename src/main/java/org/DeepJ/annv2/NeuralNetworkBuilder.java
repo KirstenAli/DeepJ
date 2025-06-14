@@ -11,6 +11,7 @@ public class NeuralNetworkBuilder {
     private Tensor target;
     private LossFunction lossFunction;
     private int epochs = 1000;
+    private double targetLoss = 0.0;
     private double learningRate = 0.01;
     private boolean logLoss = true;
 
@@ -28,6 +29,11 @@ public class NeuralNetworkBuilder {
 
     public NeuralNetworkBuilder loss(LossFunction lossFunction) {
         this.lossFunction = lossFunction;
+        return this;
+    }
+
+    public NeuralNetworkBuilder targetLoss(double targetLoss) {
+        this.targetLoss = targetLoss;
         return this;
     }
 
@@ -56,7 +62,7 @@ public class NeuralNetworkBuilder {
             throw new IllegalStateException("Input, target, and loss function must be set.");
         }
 
-        NeuralNetwork net = new NeuralNetwork(input, target, lossFunction, epochs, learningRate, logLoss);
+        NeuralNetwork net = new NeuralNetwork(input, target, lossFunction, epochs, targetLoss, learningRate, logLoss);
         for (Layer layer : layers) {
             net.addLayer(layer);
         }
