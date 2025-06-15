@@ -1,5 +1,6 @@
 package org.DeepJ.annv2;
 
+import java.util.Arrays;
 import java.util.Random;
 import java.util.function.BiConsumer;
 
@@ -105,61 +106,55 @@ public class Tensor {
     private static void computeSoftmaxRow(double[] inputRow, double[] outputRow) {
         double max = findMax(inputRow);
         double sum = computeExpSum(inputRow, max);
-        applySoftmax(inputRow, outputRow, max, sum);
+        softmax(inputRow, outputRow, max, sum);
     }
 
     private static double findMax(double[] row) {
-        double max = Double.NEGATIVE_INFINITY;
-        for (double v : row) {
-            if (v > max) max = v;
-        }
-        return max;
+        return Arrays.stream(row).max().orElse(Double.NEGATIVE_INFINITY);
     }
 
     private static double computeExpSum(double[] row, double max) {
-        double sum = 0.0;
-        for (double v : row) {
-            sum += Math.exp(v - max);
-        }
-        return sum;
+        return Arrays.stream(row)
+                .map(v -> Math.exp(v - max))
+                .sum();
     }
 
-    private static void applySoftmax(double[] input, double[] output, double max, double sum) {
+    private static void softmax(double[] input, double[] output, double max, double sum) {
         for (int j = 0; j < input.length; j++) {
             output[j] = Math.exp(input[j] - max) / sum;
         }
     }
 
-    public static Tensor applySoftmaxBackward(Tensor dL_dSoftmax, Tensor softmaxOutput) {
-        Tensor result = new Tensor(dL_dSoftmax.rows, dL_dSoftmax.cols);
-        computeBackwardSoftmaxRows(dL_dSoftmax, softmaxOutput, result);
-        return result;
-    }
+    public static Tensor softmaxBackward(Tensor upstreamGrad,
+                                         Tensor softmaxOutput) {
 
-    private static void computeBackwardSoftmaxRows(Tensor grad, Tensor softmax, Tensor result) {
-        for (int i = 0; i < grad.rows; i++) {
-            result.data[i] = computeSoftmaxGradientRow(grad.data[i], softmax.data[i]);
+        Tensor gradWrtLogits = new Tensor(upstreamGrad.rows, upstreamGrad.cols);
+
+        for (int row = 0; row < upstreamGrad.rows; row++) {
+            double[] gradRow   = upstreamGrad.data[row];
+            double[] probRow   = softmaxOutput.data[row];
+            double[] outRow    = gradWrtLogits.data[row];
+
+            double weightedSum = dotProduct(gradRow, probRow);
+
+            fillLogitGradRow(gradRow, probRow, outRow, weightedSum);
         }
+        return gradWrtLogits;
     }
 
-    private static double[] computeSoftmaxGradientRow(double[] grad, double[] softmax) {
-        int n = grad.length;
-        double[] result = new double[n];
-        for (int j = 0; j < n; j++) {
-            result[j] = computeSoftmaxGradDot(grad, softmax, j);
-        }
-        return result;
-    }
-
-    private static double computeSoftmaxGradDot(double[] grad, double[] softmax, int j) {
+    private static double dotProduct(double[] a, double[] b) {
         double sum = 0.0;
-        for (int k = 0; k < grad.length; k++) {
-            double jacobian = (j == k)
-                    ? softmax[j] * (1 - softmax[j])
-                    : -softmax[j] * softmax[k];
-            sum += jacobian * grad[k];
-        }
+        for (int i = 0; i < a.length; i++) sum += a[i] * b[i];
         return sum;
+    }
+
+    private static void fillLogitGradRow(double[] gradRow,
+                                         double[] probRow,
+                                         double[] outRow,
+                                         double weightedSum) {
+        for (int j = 0; j < gradRow.length; j++) {
+            outRow[j] = probRow[j] * (gradRow[j] - weightedSum);
+        }
     }
 
     public Tensor add(Tensor other) {
@@ -197,7 +192,7 @@ public class Tensor {
     public static double[] flattenTensor(Tensor t) {
         double[] flat = new double[t.rows * t.cols];
         int[] index = new int[]{0};
-        iterate((r, c) -> flat[index[0]++] = t.data[r][c], t);
+        t.iterate((r, c) -> flat[index[0]++] = t.data[r][c]);
         return flat;
     }
 
@@ -269,12 +264,24 @@ public class Tensor {
 
     public static Tensor ones(int rows, int cols) {
         Tensor result = new Tensor(rows, cols);
-        iterate((r, c) ->  result.data[r][c] = 1.0, result);
+        result.iterate((r, c) ->  result.data[r][c] = 1.0);
         return result;
     }
 
     public static Tensor zeros(int rows, int cols) {
         return new Tensor(rows, cols);
+    }
+
+    public static Tensor causalMask(int size) {
+        Tensor mask = new Tensor(size, size);
+        mask.iterate((r, c) -> {
+            if (c > r) {
+                mask.data[r][c] = -1e9;
+            } else {
+                mask.data[r][c] = 0;
+            }
+        });
+        return mask;
     }
 
     public void print(String label) {

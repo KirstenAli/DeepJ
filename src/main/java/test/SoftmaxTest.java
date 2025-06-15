@@ -37,7 +37,7 @@ public class SoftmaxTest {
                 {1.0, 1.0, 1.0}
         });
 
-        Tensor gradInput = Tensor.applySoftmaxBackward(dL_dSoftmax, softmax);
+        Tensor gradInput = Tensor.softmaxBackward(dL_dSoftmax, softmax);
         double[] grad = gradInput.data[0];
 
         for (int j = 0; j < grad.length; j++) {

@@ -37,6 +37,7 @@ public class LayerNorm implements Layer {
     }
 
     public Tensor backward(Tensor dL_dOutput, double learningRate) {
+        this.learningRate = learningRate;
         this.dL_dOutput = dL_dOutput;
 
         Tensor std  = variance.addScalar(epsilon).sqrt();

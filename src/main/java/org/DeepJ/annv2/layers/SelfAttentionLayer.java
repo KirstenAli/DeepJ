@@ -6,6 +6,7 @@ import java.util.Random;
 
 public class SelfAttentionLayer implements Layer {
     private final int dModel;
+    private final boolean mask;
 
     private Tensor Wq, Wk, Wv;
     private Tensor dQ, dK, dV;
@@ -14,7 +15,12 @@ public class SelfAttentionLayer implements Layer {
     private double learningRate;
 
     public SelfAttentionLayer(int dModel) {
+        this(dModel, true);
+    }
+
+    public SelfAttentionLayer(int dModel, boolean mask) {
         this.dModel = dModel;
+        this.mask = mask;
         Random rand = new Random();
         this.Wq = Tensor.random(dModel, dModel, rand);
         this.Wk = Tensor.random(dModel, dModel, rand);
@@ -25,8 +31,13 @@ public class SelfAttentionLayer implements Layer {
         this.input = input;
         computeQKV(input);
         Tensor scores = computeAttention(Q, K);
+        if (mask) scores = applyMask(scores);
         this.attention = Tensor.softmaxRows(scores);
         return attention.matmul(V);
+    }
+
+    private Tensor applyMask(Tensor scores) {
+        return scores.add(Tensor.causalMask(scores.rows));
     }
 
     private void computeQKV(Tensor x) {
@@ -40,6 +51,8 @@ public class SelfAttentionLayer implements Layer {
     }
 
     public Tensor backward(Tensor dL_dOutput, double learningRate) {
+        this.learningRate = learningRate;
+
         dV = attention.transpose().matmul(dL_dOutput);
         Tensor dAttention = dL_dOutput.matmul(V.transpose());
         Tensor dScores = computeDScores(dAttention);
@@ -52,7 +65,7 @@ public class SelfAttentionLayer implements Layer {
     }
 
     private Tensor computeDScores(Tensor dAttention) {
-        return Tensor.applySoftmaxBackward(dAttention, attention)
+        return Tensor.softmaxBackward(dAttention, attention)
                 .multiplyScalar(1.0 / Math.sqrt(dModel));
     }
 
