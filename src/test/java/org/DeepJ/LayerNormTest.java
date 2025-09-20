@@ -89,6 +89,45 @@ public class LayerNormTest {
                 "Output should be invariant to per-row additive shifts");
     }
 
+    @Test
+    public void gradcheck_LayerNorm_sumLoss() {
+        int rows = 2, dim = 3;
+        double eps = 1e-5, tol = 1e-3;
+
+        LayerNorm ln = new LayerNorm(dim);
+        ln.setGamma(new Tensor(new double[][]{{1.1, 0.9, 1.3}}));
+        ln.setBeta (new Tensor(new double[][]{{-0.2, 0.1, 0.3}}));
+
+        Tensor x = new Tensor(new double[][]{
+                {0.3, -0.7, 1.1},
+                {-0.4, 0.2, 0.5}
+        });
+
+        // forward + backward with dL/dY = 1
+        Tensor y = ln.forward(x);
+        Tensor dLdY = Tensor.ones(rows, dim);
+        Tensor dLdX = ln.backward(dLdY, 0.0);
+
+        // finite-diff w.r.t. x
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < dim; j++) {
+                double orig = x.data[i][j];
+
+                x.data[i][j] = orig + eps;
+                double Lp = ln.forward(x).sum();
+
+                x.data[i][j] = orig - eps;
+                double Lm = ln.forward(x).sum();
+
+                x.data[i][j] = orig; // restore
+
+                double num = (Lp - Lm) / (2*eps);
+                double ana = dLdX.data[i][j];
+                assertEquals(num, ana, tol, "dx mismatch at ("+i+","+j+")");
+            }
+        }
+    }
+
     private static void assertClose(double expected, double actual, double atol, double rtol, String msg) {
         double diff = Math.abs(expected - actual);
         double tol  = atol + rtol * Math.max(Math.abs(expected), Math.abs(actual));
