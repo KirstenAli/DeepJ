@@ -15,7 +15,7 @@ Getting Started:
     });
 
     Tensor target = new Tensor(new double[][]{
-            {1.0}
+            {0, 0, 1}
     });
 
     // Build & Train Model
@@ -34,7 +34,7 @@ Getting Started:
             .addLayer(new FlattenLayer())
             .addLayer(new DenseLayer(9, 6, opt))
             .addLayer(new ActivationLayer(new Tanh()))
-            .addLayer(new DenseLayer(6, 1, opt))
+            .addLayer(new DenseLayer(6, 3, opt))
             .addLayer(new ActivationLayer(new Tanh()))
             .build();
 
