@@ -39,7 +39,7 @@ public class ANNTest {
                 .epochs(10_000)
                 .targetLoss(0.001)
                 .learningRate(0.1)
-                .logLoss(false) // set to true if you want logs
+                .logLoss(true)
                 .addLayer(new SelfAttentionLayer(3))
                 .addLayer(new LayerNorm(3))
                 .addLayer(new FlattenLayer())
