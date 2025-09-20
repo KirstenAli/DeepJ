@@ -6,21 +6,23 @@ DeepJ is an object-oriented artificial neural network (ANN) library for Java.
 Getting Started:
 
 ```java
- public static void main(String[] args) {
-    // Input
+public static void main(String[] args) {
+    // Input: 3 tokens (one-hot encoded)
     Tensor input = new Tensor(new double[][]{
             {1, 0, 0},
             {0, 1, 0},
             {0, 0, 1}
     });
 
+    // Target: one-hot output vector
     Tensor target = new Tensor(new double[][]{
             {0, 0, 1}
     });
 
-    // Build & Train Model
+    // Optimizer
     OptimizerFactory opt = () -> new SGDMomentum(0.1, 0.1);
 
+    // Build model
     NeuralNetwork net = new NeuralNetworkBuilder()
             .input(input)
             .target(target)
@@ -38,9 +40,10 @@ Getting Started:
             .addLayer(new ActivationLayer(new Tanh()))
             .build();
 
+    // Train
     net.train();
 
-    // Predict
+    // Predict and print
     Tensor pred = net.forward(input);
     pred.print("Prediction:");
     target.print("Target:");
