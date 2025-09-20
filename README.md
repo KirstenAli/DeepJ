@@ -7,7 +7,7 @@ Getting Started:
 
 ```java
  public static void main(String[] args) {
-    // === [1] Input ===
+    // Input
     Tensor input = new Tensor(new double[][]{
             {1, 0, 0},
             {0, 1, 0},
@@ -18,7 +18,7 @@ Getting Started:
             {1.0}
     });
 
-    // === [2] Build & Train Model ===
+    // Build & Train Model
     OptimizerFactory opt = () -> new SGDMomentum(0.1, 0.1);
 
     NeuralNetwork net = new NeuralNetworkBuilder()
@@ -40,7 +40,7 @@ Getting Started:
 
     net.train();
 
-    // === [3] Predict ===
+    // Predict
     Tensor pred = net.forward(input);
     pred.print("Prediction:");
     target.print("Target:");
