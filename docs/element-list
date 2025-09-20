@@ -1,0 +1,6 @@
+org.DeepJ.ann
+org.DeepJ.ann.activations
+org.DeepJ.ann.layers
+org.DeepJ.ann.loss
+org.DeepJ.ann.optimisers
+org.DeepJ.convolution
