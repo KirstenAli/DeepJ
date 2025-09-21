@@ -3,7 +3,7 @@ DeepJ is an object-oriented artificial neural network (ANN) library for Java.
 
 [View the Docs](https://kirstenali.github.io/DeepJ/)
 
-## 🚀 Installation  
+## 🚀 Installation
 To get started, add the following dependency to your `pom.xml`:
 
 ```xml
@@ -63,9 +63,7 @@ public static void main(String[] args) {
     // Train
     net.train();
 
-    // Predict and print
+    // Predict
     Tensor pred = net.forward(input);
-    pred.print("Prediction:");
-    target.print("Target:");
 }
 ```
