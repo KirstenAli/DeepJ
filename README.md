@@ -3,7 +3,27 @@ DeepJ is an object-oriented artificial neural network (ANN) library for Java.
 
 [View the Docs](https://kirstenali.github.io/DeepJ/)
 
-Getting Started:
+🚀 Installation  
+To get started, add the following dependency to your `pom.xml`:
+
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/KirstenAli/DeepJ</url>
+    </repository>
+</repositories>
+
+<dependencies>
+<dependency>
+    <groupId>io.github.kirstenali</groupId>
+    <artifactId>deepj</artifactId>
+    <version>0.1.0-alpha</version>
+</dependency>
+</dependencies>
+```
+
+📚 Examples
 
 ```java
 public static void main(String[] args) {
