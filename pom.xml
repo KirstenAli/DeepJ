@@ -8,6 +8,12 @@
     <artifactId>deepj</artifactId>
     <version>0.1.0-alpha</version>
 
+    <properties>
+        <maven.compiler.source>20</maven.compiler.source>
+        <maven.compiler.target>20</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
     <distributionManagement>
         <repository>
             <id>github</id>

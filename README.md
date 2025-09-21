@@ -15,11 +15,11 @@ To get started, add the following dependency to your `pom.xml`:
 </repositories>
 
 <dependencies>
-<dependency>
-    <groupId>io.github.kirstenali</groupId>
-    <artifactId>deepj</artifactId>
-    <version>0.1.0-alpha</version>
-</dependency>
+    <dependency>
+        <groupId>io.github.kirstenali</groupId>
+        <artifactId>deepj</artifactId>
+        <version>0.1.0-alpha</version>
+    </dependency>
 </dependencies>
 ```
 
