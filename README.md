@@ -1,5 +1,5 @@
 # DeepJ
-DeepJ is an object-oriented artificial neural network (ANN) library for Java.
+DeepJ is an artificial neural network (ANN) library for Java.
 
 [View the Docs](https://kirstenali.github.io/DeepJ/)
 
