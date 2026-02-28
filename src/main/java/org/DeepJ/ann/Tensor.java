@@ -2,7 +2,6 @@ package org.DeepJ.ann;
 
 import java.util.Arrays;
 import java.util.Random;
-import java.util.function.BiConsumer;
 
 public class Tensor {
     public double[][] data;
@@ -18,80 +17,164 @@ public class Tensor {
         this.rows = data.length;
         this.cols = data[0].length;
         this.data = new double[rows][cols];
-        for (int i = 0; i < rows; i++)
+        for (int i = 0; i < rows; i++) {
+            if (data[i].length != cols)
+                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
             System.arraycopy(data[i], 0, this.data[i], 0, cols);
+        }
     }
 
-    public void iterate(BiConsumer<Integer, Integer> operation) {
-        iterate(operation, this);
+    private static void requireSameShape(Tensor a, Tensor b, String op) {
+        if (a.rows != b.rows || a.cols != b.cols) {
+            throw new IllegalArgumentException(
+                    "Shape mismatch for " + op + ": " + a.rows + "x" + a.cols +
+                            " vs " + b.rows + "x" + b.cols);
+        }
     }
 
-    public static void iterate(BiConsumer<Integer, Integer> operation, Tensor t) {
-        iterate(operation, t, t);
-    }
-
-    public static void iterate(BiConsumer<Integer, Integer> operation, Tensor t, Tensor u) {
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < u.cols; c++)
-                operation.accept(r,c);
+    private static void requireMatmulCompatible(Tensor a, Tensor b) {
+        if (a.cols != b.rows) {
+            throw new IllegalArgumentException(
+                    "Shape mismatch for matmul: " + a.rows + "x" + a.cols +
+                            " cannot be multiplied by " + b.rows + "x" + b.cols);
+        }
     }
 
     public static Tensor random(int rows, int cols, Random rand) {
         Tensor t = new Tensor(rows, cols);
-        iterate((r, c) -> t.data[r][c] = rand.nextGaussian() * 0.1, t);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                t.data[r][c] = rand.nextGaussian() * 0.1;
+            }
+        }
         return t;
     }
 
     public Tensor matmul(Tensor other) {
+        requireMatmulCompatible(this, other);
         Tensor result = new Tensor(this.rows, other.cols);
 
-        iterate((r, c) -> {
-            for (int k = 0; k < this.cols; k++)
-                result.data[r][c] += this.data[r][k] * other.data[k][c];
-        }, this, other);
+        for (int r = 0; r < this.rows; r++) {
+            for (int c = 0; c < other.cols; c++) {
+                double sum = 0.0;
+                for (int k = 0; k < this.cols; k++) {
+                    sum += this.data[r][k] * other.data[k][c];
+                }
+                result.data[r][c] = sum;
+            }
+        }
 
         return result;
     }
 
-    public Tensor multiply(Tensor other) {
+
+    public Tensor addRowVector(Tensor rowVector) {
+        if (rowVector.rows != 1 || rowVector.cols != this.cols)
+            throw new IllegalArgumentException("rowVector must be 1x" + this.cols);
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] * other.data[r][c]);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                result.data[r][c] = this.data[r][c] + rowVector.data[0][c];
+            }
+        }
+        return result;
+    }
+
+    public Tensor sumRows() {
+        Tensor result = new Tensor(1, this.cols);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                result.data[0][c] += this.data[r][c];
+            }
+        }
+        return result;
+    }
+
+    public Tensor divide(Tensor other) {
+        requireSameShape(this, other, "divide");
+        Tensor result = new Tensor(rows, cols);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                result.data[r][c] = this.data[r][c] / other.data[r][c];
+            }
+        }
+        return result;
+    }
+
+    public Tensor clamp(double min, double max) {
+        Tensor result = new Tensor(rows, cols);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                double v = this.data[r][c];
+                if (v < min) v = min;
+                if (v > max) v = max;
+                result.data[r][c] = v;
+            }
+        }
+        return result;
+    }
+
+
+    public Tensor multiply(Tensor other) {
+        requireSameShape(this, other, "multiply");
+        Tensor result = new Tensor(this.rows, this.cols);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                result.data[r][c] = this.data[r][c] * other.data[r][c];
+            }
+        }
         return result;
     }
 
     public Tensor multiplyBroadcastCols(Tensor colVector) {
+        if (colVector.cols != 1 || colVector.rows != this.rows)
+            throw new IllegalArgumentException("colVector must be " + this.rows + "x1");
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] * colVector.data[r][0]);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                result.data[r][c] = this.data[r][c] * colVector.data[r][0];
+            }
+        }
         return result;
     }
 
     public double sum() {
-        double[] sum = new double[]{0.0};
-        iterate((r, c) -> sum[0] += data[r][c]);
-        return sum[0];
+        double sum = 0.0;
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                sum += data[r][c];
+        return sum;
     }
 
     public Tensor transpose() {
         Tensor result = new Tensor(this.cols, this.rows);
-        iterate((r, c)-> result.data[c][r] = this.data[r][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[c][r] = this.data[r][c];
         return result;
     }
 
     public Tensor multiplyScalar(double scalar) {
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] * scalar);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] * scalar;
         return result;
     }
 
     public Tensor addScalar(double scalar) {
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] + scalar);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] + scalar;
         return result;
     }
 
     public Tensor divideScalar(double scalar) {
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] / scalar);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] / scalar;
         return result;
     }
 
@@ -158,27 +241,43 @@ public class Tensor {
     }
 
     public Tensor add(Tensor other) {
+        requireSameShape(this, other, "add");
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] + other.data[r][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] + other.data[r][c];
         return result;
     }
 
     public Tensor addBroadcastCols(Tensor colVector) {
+        if (colVector.cols != 1 || colVector.rows != this.rows)
+            throw new IllegalArgumentException("colVector must be " + this.rows + "x1");
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] + colVector.data[r][0]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] + colVector.data[r][0];
         return result;
     }
 
     public Tensor subtract(Tensor other) {
+        requireSameShape(this, other, "subtract");
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] - other.data[r][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] - other.data[r][c];
         return result;
     }
 
     public double mseLoss(Tensor target) {
-        double[] sum = new double[]{0.0};
-        iterate((r, c) -> sum[0] += Math.pow(this.data[r][c] - target.data[r][c], 2));
-        return sum[0] / (this.rows * this.cols);
+        requireSameShape(this, target, "mseLoss");
+        double sum = 0.0;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                double d = this.data[r][c] - target.data[r][c];
+                sum += d * d;
+            }
+        }
+        return sum / (this.rows * this.cols);
     }
 
     public static Tensor unflattenToTensor(double[] flat, int rows, int cols) {
@@ -191,14 +290,18 @@ public class Tensor {
 
     public static double[] flattenTensor(Tensor t) {
         double[] flat = new double[t.rows * t.cols];
-        int[] index = new int[]{0};
-        t.iterate((r, c) -> flat[index[0]++] = t.data[r][c]);
+        int idx = 0;
+        for (int r = 0; r < t.rows; r++)
+            for (int c = 0; c < t.cols; c++)
+                flat[idx++] = t.data[r][c];
         return flat;
     }
 
     public Tensor meanAlongRows() {
         Tensor sum = new Tensor(this.rows, 1);
-        iterate((r, c) -> sum.data[r][0] += this.data[r][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                sum.data[r][0] += this.data[r][c];
         return sum.divideScalar(this.cols);
     }
 
@@ -206,65 +309,93 @@ public class Tensor {
         Tensor mean = this.meanAlongRows();
         Tensor result = new Tensor(this.rows, 1);
 
-        iterate((r, c) -> {
-            double diff = this.data[r][c] - mean.data[r][0];
-            result.data[r][0] += diff * diff;
-        });
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                double diff = this.data[r][c] - mean.data[r][0];
+                result.data[r][0] += diff * diff;
+            }
+        }
 
         return result.divideScalar(cols);
     }
 
     public Tensor sumAlongRows() {
         Tensor result = new Tensor(this.rows, 1);
-        iterate((r, c) -> result.data[r][0] += this.data[r][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][0] += this.data[r][c];
         return result;
     }
 
     public Tensor sumAlongCols() {
         Tensor result = new Tensor(1, this.cols);
-        iterate((r, c) -> result.data[0][c] += this.data[r][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[0][c] += this.data[r][c];
         return result;
     }
 
     public Tensor divideBroadcastCols(Tensor colVector) {
+        if (colVector.cols != 1 || colVector.rows != this.rows)
+            throw new IllegalArgumentException("colVector must be " + this.rows + "x1");
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] / colVector.data[r][0]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] / colVector.data[r][0];
         return result;
     }
 
     public Tensor subtractBroadcastCols(Tensor colVector) {
+        if (colVector.cols != 1 || colVector.rows != this.rows)
+            throw new IllegalArgumentException("colVector must be " + this.rows + "x1");
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] - colVector.data[r][0]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] - colVector.data[r][0];
         return result;
     }
 
     public Tensor addBroadcastRows(Tensor rowVector) {
+        if (rowVector.rows != 1 || rowVector.cols != this.cols)
+            throw new IllegalArgumentException("rowVector must be 1x" + this.cols);
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] + rowVector.data[0][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] + rowVector.data[0][c];
         return result;
     }
 
     public Tensor multiplyBroadcastRows(Tensor rowVector) {
+        if (rowVector.rows != 1 || rowVector.cols != this.cols)
+            throw new IllegalArgumentException("rowVector must be 1x" + this.cols);
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = this.data[r][c] * rowVector.data[0][c]);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = this.data[r][c] * rowVector.data[0][c];
         return result;
     }
 
     public Tensor sqrt() {
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = Math.sqrt(this.data[r][c]));
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = Math.sqrt(this.data[r][c]);
         return result;
     }
 
     public Tensor pow(double exponent) {
         Tensor result = new Tensor(this.rows, this.cols);
-        iterate((r, c) -> result.data[r][c] = Math.pow(this.data[r][c], exponent));
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = Math.pow(this.data[r][c], exponent);
         return result;
     }
 
     public static Tensor ones(int rows, int cols) {
         Tensor result = new Tensor(rows, cols);
-        result.iterate((r, c) ->  result.data[r][c] = 1.0);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result.data[r][c] = 1.0;
         return result;
     }
 
@@ -274,13 +405,11 @@ public class Tensor {
 
     public static Tensor causalMask(int size) {
         Tensor mask = new Tensor(size, size);
-        mask.iterate((r, c) -> {
-            if (c > r) {
-                mask.data[r][c] = -1e9;
-            } else {
-                mask.data[r][c] = 0;
+        for (int r = 0; r < size; r++) {
+            for (int c = 0; c < size; c++) {
+                mask.data[r][c] = (c > r) ? -1e9 : 0.0;
             }
-        });
+        }
         return mask;
     }
 

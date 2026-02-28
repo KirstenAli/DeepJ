@@ -1,69 +1,74 @@
 # DeepJ
-DeepJ is an artificial neural network (ANN) library for Java.
 
-[View the Docs](https://kirstenali.github.io/DeepJ/)
-
-## 🚀 Installation
-To get started, add the following dependency to your `pom.xml`:
-
-```xml
-<repositories>
-    <repository>
-        <id>github</id>
-        <url>https://maven.pkg.github.com/KirstenAli/DeepJ</url>
-    </repository>
-</repositories>
-
-<dependencies>
-    <dependency>
-        <groupId>io.github.kirstenali</groupId>
-        <artifactId>deepj</artifactId>
-        <version>0.1.0-alpha</version>
-    </dependency>
-</dependencies>
-```
+DeepJ is a lightweight, **transformer-oriented** neural network library for Java.
 
 ## 📚 Examples
 
+### 1) Classic ANN-style MLP (FNN)
+
+Run: `org.DeepJ.examples.TrainClassicFNN`
+
 ```java
-public static void main(String[] args) {
-    // Input: 3 tokens (one-hot encoded)
-    Tensor input = new Tensor(new double[][]{
-            {1, 0, 0},
-            {0, 1, 0},
-            {0, 0, 1}
-    });
+import org.DeepJ.ann.Tensor;
+import org.DeepJ.ann.activations.GELU;
+import org.DeepJ.ann.layers.FNN;
+import org.DeepJ.ann.loss.MSELoss;
+import org.DeepJ.ann.optimisers.AdamW;
+import org.DeepJ.ann.training.SupervisedTraining;
+import org.DeepJ.ann.training.Trainer;
 
-    // Target: one-hot output vector
-    Tensor target = new Tensor(new double[][]{
-            {0, 0, 1}
-    });
+import java.util.Random;
 
-    // Optimizer
-    OptimizerFactory opt = () -> new SGDMomentum(0.1, 0.1);
+Random rnd = new Random(42);
+FNN mlp = new FNN(
+    3,
+    new int[]{16, 16},
+    3,
+    GELU::new,   // activation factory (one instance per layer)
+    null,
+    rnd
+);
 
-    // Build model
-    NeuralNetwork net = new NeuralNetworkBuilder()
-            .input(input)
-            .target(target)
-            .loss(new MSELoss())
-            .epochs(10_000)
-            .targetLoss(0.001)
-            .learningRate(0.1)
-            .logLoss(true)
-            .addLayer(new SelfAttentionLayer(3))
-            .addLayer(new LayerNorm(3))
-            .addLayer(new FlattenLayer())
-            .addLayer(new DenseLayer(9, 6, opt))
-            .addLayer(new ActivationLayer(new Tanh()))
-            .addLayer(new DenseLayer(6, 3, opt))
-            .addLayer(new ActivationLayer(new Tanh()))
-            .build();
+Trainer trainer = SupervisedTraining.trainer(
+    mlp,
+    new MSELoss(),
+    AdamW.defaultAdamW(3e-3),
+    x,
+    y,
+    123L
+);
 
-    // Train
-    net.train();
-
-    // Predict
-    Tensor pred = net.forward(input);
-}
+trainer.train(
+    3000, // maxSteps
+    3,    // batchSize
+    200,  // logEvery
+    0.98, // emaBeta
+    1e-6  // targetEmaLoss
+);
 ```
+
+
+### 2) Transformer stack builder
+
+Use `TransformerBuilder` to create a stack of decoder blocks.
+
+```java
+import org.DeepJ.ann.transformer.TransformerBuilder;
+import org.DeepJ.ann.transformer.TransformerStack;
+import org.DeepJ.ann.activations.GELU;
+
+TransformerStack stack = new TransformerBuilder()
+    .dModel(128)
+    .nHeads(4)
+    .dFF(512)
+    .nLayers(4)
+    .ffnActivation(GELU::new)
+    .seed(42)
+    .build();
+```
+
+### 3) Tiny GPT training + generation
+
+Run: `org.DeepJ.examples.TrainSmallGPT`
+
+It trains a small GPT-style model on `sample_data/sample_corpus.txt` and then generates a continuation.
