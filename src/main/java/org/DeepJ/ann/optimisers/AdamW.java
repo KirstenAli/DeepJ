@@ -3,13 +3,16 @@ package org.DeepJ.ann.optimisers;
 import org.DeepJ.ann.Tensor;
 
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * AdamW optimizer with per-parameter state.
- * Suitable default for transformer training.
+ * Correct bias correction and decoupled weight decay.
+ *
+ * <p>State is keyed by Parameter identity, and updates are applied in-place.
  */
-public class AdamW implements ParameterOptimizer {
+public final class AdamW implements ParameterOptimizer {
 
     private final double lr;
     private final double beta1;
@@ -19,10 +22,15 @@ public class AdamW implements ParameterOptimizer {
 
     private long step = 0;
 
-    private final Map<Tensor, Tensor> m = new IdentityHashMap<>();
-    private final Map<Tensor, Tensor> v = new IdentityHashMap<>();
+    private final Map<Parameter, Tensor> m = new IdentityHashMap<>();
+    private final Map<Parameter, Tensor> v = new IdentityHashMap<>();
 
     public AdamW(double lr, double beta1, double beta2, double eps, double weightDecay) {
+        if (lr <= 0) throw new IllegalArgumentException("lr must be > 0");
+        if (beta1 <= 0 || beta1 >= 1) throw new IllegalArgumentException("beta1 must be in (0,1)");
+        if (beta2 <= 0 || beta2 >= 1) throw new IllegalArgumentException("beta2 must be in (0,1)");
+        if (eps <= 0) throw new IllegalArgumentException("eps must be > 0");
+
         this.lr = lr;
         this.beta1 = beta1;
         this.beta2 = beta2;
@@ -35,41 +43,59 @@ public class AdamW implements ParameterOptimizer {
     }
 
     @Override
-    public void step(Parameter p) {
+    public void step(List<Parameter> params) {
+        if (params == null) throw new IllegalArgumentException("params must not be null");
+
         step++;
 
-        Tensor param = p.value;
-        Tensor grad = p.grad;
-
-        Tensor mt = m.computeIfAbsent(param, t -> Tensor.zeros(t.rows, t.cols));
-        Tensor vt = v.computeIfAbsent(param, t -> Tensor.zeros(t.rows, t.cols));
-
-        // m = beta1*m + (1-beta1)*g
-        mt = mt.multiplyScalar(beta1).add(grad.multiplyScalar(1.0 - beta1));
-        // v = beta2*v + (1-beta2)*g^2
-        Tensor g2 = grad.multiply(grad);
-        vt = vt.multiplyScalar(beta2).add(g2.multiplyScalar(1.0 - beta2));
-
-        m.put(param, mt);
-        v.put(param, vt);
-
-        // bias correction
+        // bias correction scalars for this optimizer step
         double bc1 = 1.0 - Math.pow(beta1, step);
         double bc2 = 1.0 - Math.pow(beta2, step);
 
-        Tensor mHat = mt.divideScalar(bc1);
-        Tensor vHat = vt.divideScalar(bc2);
+        for (Parameter p : params) {
+            if (p == null) continue;
+            stepParam(p, bc1, bc2);
+        }
+    }
 
-        Tensor denom = vHat.sqrt().addScalar(eps);
+    private void stepParam(Parameter p, double bc1, double bc2) {
+        Tensor w = p.value;
+        Tensor g = p.grad;
 
-        // Adam step
-        Tensor update = mHat.divide(denom).multiplyScalar(lr);
-
-        // AdamW decay (decoupled)
-        if (weightDecay != 0.0) {
-            update = update.add(param.multiplyScalar(lr * weightDecay));
+        if (w == null || g == null) return;
+        if (w.rows != g.rows || w.cols != g.cols) {
+            throw new IllegalArgumentException("grad shape must match param shape");
         }
 
-        p.value = param.subtract(update);
+        Tensor mt = m.computeIfAbsent(p, __ -> Tensor.zeros(w.rows, w.cols));
+        Tensor vt = v.computeIfAbsent(p, __ -> Tensor.zeros(w.rows, w.cols));
+
+        for (int r = 0; r < w.rows; r++) {
+            for (int c = 0; c < w.cols; c++) {
+                double grad = g.data[r][c];
+
+                // Update biased moments
+                double mNew = beta1 * mt.data[r][c] + (1.0 - beta1) * grad;
+                double vNew = beta2 * vt.data[r][c] + (1.0 - beta2) * (grad * grad);
+
+                mt.data[r][c] = mNew;
+                vt.data[r][c] = vNew;
+
+                // Bias-corrected moments
+                double mHat = mNew / bc1;
+                double vHat = vNew / bc2;
+
+                // Adam step
+                double update = (lr * mHat) / (Math.sqrt(vHat) + eps);
+
+                // Decoupled weight decay (AdamW)
+                if (weightDecay != 0.0) {
+                    update += lr * weightDecay * w.data[r][c];
+                }
+
+                // In-place update
+                w.data[r][c] -= update;
+            }
+        }
     }
 }

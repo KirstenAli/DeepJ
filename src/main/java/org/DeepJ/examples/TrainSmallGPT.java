@@ -30,7 +30,7 @@ public final class TrainSmallGPT {
 
         GPTModel model = new GPTModel(cfg, 42);
 
-        Trainer trainer = CausalLMTraining.trainer(model, ds, 3e-4);
+        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-3);
 
         // Train until target EMA loss or max steps.
         trainer.train(
@@ -38,19 +38,19 @@ public final class TrainSmallGPT {
                 16,     // batchSize
                 50,     // logEvery
                 0.98,   // emaBeta
-                1.25    // targetEmaLoss (tune based on corpus size)
+                0.25    // targetEmaLoss (tune based on corpus size)
         );
 
         // Generate a continuation.
-        String prompt = "In the workshop, the engineer wrote a note: ";
+        String prompt = "Mara wrote down the rhythm, ";
         String out = TextGenerator.generate(
                 model,
                 tok,
                 cfg,
                 prompt,
-                200,    // maxNewTokens
-                0.9,    // temperature
-                50,     // topK (0 disables)
+                64,    // maxNewTokens
+                0.1,    // temperature
+                0,     // topK (0 disables)
                 1234L   // seed
         );
 

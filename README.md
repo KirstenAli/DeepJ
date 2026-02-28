@@ -6,8 +6,6 @@ DeepJ is a lightweight, **transformer-oriented** neural network library for Java
 
 ### 1) Classic ANN-style MLP (FNN)
 
-Run: `org.DeepJ.examples.TrainClassicFNN`
-
 ```java
 import org.DeepJ.ann.Tensor;
 import org.DeepJ.ann.activations.GELU;

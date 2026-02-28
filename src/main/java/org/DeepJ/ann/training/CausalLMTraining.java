@@ -27,6 +27,7 @@ public final class CausalLMTraining {
 
             double lossSum = 0.0;
 
+            // Accumulate grads over batch
             for (int b = 0; b < batchSize; b++) {
                 int[] x = batch.x()[b];
                 int[] y = batch.y()[b];
@@ -38,11 +39,16 @@ public final class CausalLMTraining {
                 model.backward(dLogits);
             }
 
+            // Average gradients
             List<Parameter> params = model.parameters();
             for (Parameter p : params) {
-                p.grad = p.grad.divideScalar(batchSize);
-                opt.step(p);
+                if (p.grad != null) {
+                    p.grad = p.grad.divideScalar(batchSize);
+                }
             }
+
+            // One optimizer step per batch
+            opt.step(params);
 
             return lossSum / batchSize;
         });

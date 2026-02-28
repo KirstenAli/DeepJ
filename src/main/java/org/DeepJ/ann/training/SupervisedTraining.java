@@ -3,32 +3,18 @@ package org.DeepJ.ann.training;
 import org.DeepJ.ann.Tensor;
 import org.DeepJ.ann.layers.Layer;
 import org.DeepJ.ann.loss.LossFunction;
-import org.DeepJ.ann.optimisers.Parameter;
 import org.DeepJ.ann.optimisers.ParameterOptimizer;
 
 import java.util.Random;
 
 /**
- * Helpers to train classic Tensor->Tensor supervised models (e.g., {@link org.DeepJ.ann.layers.FNN})
- * using the unified {@link Trainer} wrapper.
- *
- * <p>Supports full-batch training (batchSize >= rows) or simple random row mini-batches.
+ * Helpers to train classic Tensor->Tensor supervised models (e.g., FNN)
+ * using the unified Trainer wrapper.
  */
 public final class SupervisedTraining {
 
     private SupervisedTraining() {}
 
-    /**
-     * Create a {@link Trainer} for supervised regression/classification where the model maps
-     * input Tensor -> output Tensor.
-     *
-     * @param model  differentiable model (Layer)
-     * @param lossFn loss function
-     * @param opt    optimizer operating on {@link Parameter}s
-     * @param xAll   inputs, shape [N x in]
-     * @param yAll   targets, shape [N x out]
-     * @param seed   RNG seed for mini-batch sampling
-     */
     public static Trainer trainer(
             Layer model,
             LossFunction lossFn,
@@ -46,9 +32,9 @@ public final class SupervisedTraining {
         Random rnd = new Random(seed);
 
         return new Trainer(batchSize -> {
-            Tensor xb;
-            Tensor yb;
+            model.zeroGrad();
 
+            Tensor xb, yb;
             if (batchSize >= xAll.rows) {
                 xb = xAll;
                 yb = yAll;
@@ -63,10 +49,8 @@ public final class SupervisedTraining {
             Tensor dPred = lossFn.gradient(pred, yb);
             model.backward(dPred, 0.0);
 
-            for (Parameter p : model.parameters()) {
-                opt.step(p);
-            }
-            model.zeroGrad();
+            // One optimizer step per batch
+            opt.step(model.parameters());
 
             return loss;
         });
@@ -76,9 +60,7 @@ public final class SupervisedTraining {
         Tensor out = new Tensor(batchSize, t.cols);
         for (int i = 0; i < batchSize; i++) {
             int r = rnd.nextInt(t.rows);
-            for (int c = 0; c < t.cols; c++) {
-                out.data[i][c] = t.data[r][c];
-            }
+            if (t.cols >= 0) System.arraycopy(t.data[r], 0, out.data[i], 0, t.cols);
         }
         return out;
     }
