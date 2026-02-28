@@ -2,20 +2,49 @@
 
 DeepJ is a lightweight, **transformer-oriented** neural network library for Java.
 
+[View the Docs](https://kirstenali.github.io/DeepJ/)
+
+---
+
+## 🚀 Installation
+To get started, add the following dependency to your `pom.xml`:
+
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/KirstenAli/DeepJ</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>io.github.kirstenali</groupId>
+        <artifactId>deepj</artifactId>
+        <version>0.1.0-alpha</version>
+    </dependency>
+</dependencies>
+```
+
+---
+
 ## 📚 Examples
 
 ### 1) Classic ANN-style MLP (FNN)
 
 ```java
 
-import org.deepj.ann.activations.GELU;
-import org.deepj.ann.layers.FNN;
-import org.deepj.ann.loss.MSELoss;
-import org.deepj.ann.optimisers.AdamW;
-import org.deepj.ann.training.SupervisedTraining;
-import org.deepj.ann.training.Trainer;
+Tensor x = new Tensor(new double[][]{
+        {1, 0, 0},
+        {0, 1, 0},
+        {0, 0, 1}
+});
 
-import java.util.Random;
+Tensor y = new Tensor(new double[][]{
+        {0, 0, 1},
+        {0, 1, 0},
+        {1, 0, 0}
+});
 
 Random rnd = new Random(42);
 FNN mlp = new FNN(
@@ -36,14 +65,12 @@ Trainer trainer = SupervisedTraining.trainer(
         123L
 );
 
-trainer.
-
-train(
+trainer.train(
     3000, // maxSteps
-            3,    // batchSize
-            200,  // logEvery
-            0.98, // emaBeta
-            1e-6  // targetEmaLoss
+    0.98, // emaBeta
+    1e-6  // targetEmaLoss
+    200,  // logEvery
+    3,    // batchSize
 );
 ```
 
@@ -52,9 +79,6 @@ train(
 Use `TransformerBuilder` to create a stack of decoder blocks.
 
 ```java
-import org.deepj.ann.transformer.TransformerBuilder;
-import org.deepj.ann.transformer.TransformerStack;
-import org.deepj.ann.activations.GELU;
 
 TransformerStack stack = new TransformerBuilder()
         .dModel(128)
@@ -69,12 +93,6 @@ TransformerStack stack = new TransformerBuilder()
 ### 3) Tiny GPT training + generation
 
 ```java
-import org.deepj.ann.gpt.*;
-import org.deepj.ann.tokenizer.ByteTokenizer;
-import org.deepj.ann.training.CausalLMTraining;
-import org.deepj.ann.training.Trainer;
-
-import java.nio.file.Path;
 
 Path corpus = Path.of("sample_data/sample_corpus.txt");
 
@@ -95,14 +113,12 @@ GPTModel model = new GPTModel(cfg, 42);
 Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-3);
 
 // Train until target EMA loss or max steps.
-trainer.
-
-train(
+trainer.train(
         10_000, // maxSteps
-                16,     // batchSize
-                50,     // logEvery
-                0.98,   // emaBeta
-                0.25    // targetEmaLoss (tune based on corpus size)
+        16,     // batchSize
+        50,     // logEvery
+        0.98,   // emaBeta
+        0.25    // targetEmaLoss (tune based on corpus size)
 );
 
 // Generate a continuation.
@@ -118,10 +134,6 @@ String out = TextGenerator.generate(
         1234L   // seed
 );
 
-System.out.
-
-println("\n=== Generated ===");
-System.out.
-
-println(out);
+System.out.println("\n=== Generated ===");
+System.out.println(out);
 ```
