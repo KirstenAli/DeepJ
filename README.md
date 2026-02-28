@@ -129,9 +129,9 @@ String out = TextGenerator.generate(
         cfg,
         prompt,
         64,    // maxNewTokens
-        0.1,    // temperature
+        0.1,   // temperature
         0,     // topK (0 disables)
-        1234L   // seed
+        1234L  // seed
 );
 
 System.out.println("\n=== Generated ===");
