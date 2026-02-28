@@ -68,7 +68,7 @@ Trainer trainer = SupervisedTraining.trainer(
 trainer.train(
     3000, // maxSteps
     0.98, // emaBeta
-    1e-6  // targetEmaLoss
+    1e-6, // targetEmaLoss
     200,  // logEvery
     3,    // batchSize
 );
