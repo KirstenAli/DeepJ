@@ -1,6 +1,6 @@
 # DeepJ
 
-DeepJ is a lightweight, **transformer-oriented** neural network library for Java, intended for educational and experimental use.
+DeepJ is a lightweight Java library for building and experimenting with Transformer-based neural networks.
 
 [View the Docs](https://kirstenali.github.io/DeepJ/)
 
