@@ -41,7 +41,7 @@ public final class TrainSmallGPT {
                 16,     // batchSize
                 50,     // logEvery
                 0.98,   // emaBeta
-                0.25    // targetEmaLoss (tune based on corpus size)
+                0.099    // targetEmaLoss (tune based on corpus size)
         );
 
         // Generate a continuation.
@@ -51,9 +51,9 @@ public final class TrainSmallGPT {
                 tok,
                 cfg,
                 prompt,
-                64,    // maxNewTokens
+                200,    // maxNewTokens
                 0.1,    // temperature
-                0,     // topK (0 disables)
+                20,     // topK (0 disables)
                 1234L   // seed
         );
 
