@@ -7,13 +7,13 @@ DeepJ is a lightweight, **transformer-oriented** neural network library for Java
 ### 1) Classic ANN-style MLP (FNN)
 
 ```java
-import org.DeepJ.ann.Tensor;
-import org.DeepJ.ann.activations.GELU;
-import org.DeepJ.ann.layers.FNN;
-import org.DeepJ.ann.loss.MSELoss;
-import org.DeepJ.ann.optimisers.AdamW;
-import org.DeepJ.ann.training.SupervisedTraining;
-import org.DeepJ.ann.training.Trainer;
+
+import org.deepj.ann.activations.GELU;
+import org.deepj.ann.layers.FNN;
+import org.deepj.ann.loss.MSELoss;
+import org.deepj.ann.optimisers.AdamW;
+import org.deepj.ann.training.SupervisedTraining;
+import org.deepj.ann.training.Trainer;
 
 import java.util.Random;
 
@@ -36,12 +36,14 @@ Trainer trainer = SupervisedTraining.trainer(
         123L
 );
 
-trainer.train(
+trainer.
+
+train(
     3000, // maxSteps
-    3,    // batchSize
-    200,  // logEvery
-    0.98, // emaBeta
-    1e-6  // targetEmaLoss
+            3,    // batchSize
+            200,  // logEvery
+            0.98, // emaBeta
+            1e-6  // targetEmaLoss
 );
 ```
 
@@ -50,9 +52,9 @@ trainer.train(
 Use `TransformerBuilder` to create a stack of decoder blocks.
 
 ```java
-import org.DeepJ.ann.transformer.TransformerBuilder;
-import org.DeepJ.ann.transformer.TransformerStack;
-import org.DeepJ.ann.activations.GELU;
+import org.deepj.ann.transformer.TransformerBuilder;
+import org.deepj.ann.transformer.TransformerStack;
+import org.deepj.ann.activations.GELU;
 
 TransformerStack stack = new TransformerBuilder()
         .dModel(128)
@@ -67,10 +69,11 @@ TransformerStack stack = new TransformerBuilder()
 ### 3) Tiny GPT training + generation
 
 ```java
-import org.DeepJ.ann.gpt.*;
-import org.DeepJ.ann.tokenizer.ByteTokenizer;
-import org.DeepJ.ann.training.CausalLMTraining;
-import org.DeepJ.ann.training.Trainer;
+import org.deepj.ann.gpt.*;
+import org.deepj.ann.tokenizer.ByteTokenizer;
+import org.deepj.ann.training.CausalLMTraining;
+import org.deepj.ann.training.Trainer;
+
 import java.nio.file.Path;
 
 Path corpus = Path.of("sample_data/sample_corpus.txt");
@@ -92,12 +95,14 @@ GPTModel model = new GPTModel(cfg, 42);
 Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-3);
 
 // Train until target EMA loss or max steps.
-trainer.train(
+trainer.
+
+train(
         10_000, // maxSteps
-        16,     // batchSize
-        50,     // logEvery
-        0.98,   // emaBeta
-        0.25    // targetEmaLoss (tune based on corpus size)
+                16,     // batchSize
+                50,     // logEvery
+                0.98,   // emaBeta
+                0.25    // targetEmaLoss (tune based on corpus size)
 );
 
 // Generate a continuation.
@@ -113,6 +118,10 @@ String out = TextGenerator.generate(
         1234L   // seed
 );
 
-System.out.println("\n=== Generated ===");
-System.out.println(out);
+System.out.
+
+println("\n=== Generated ===");
+System.out.
+
+println(out);
 ```
