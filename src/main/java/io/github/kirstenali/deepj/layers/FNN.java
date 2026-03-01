@@ -87,6 +87,7 @@ public final class FNN implements Layer {
         return out;
     }
 
+    @Override
     public Tensor backward(Tensor gradOut) {
         Tensor g = gradOut;
 
@@ -103,11 +104,6 @@ public final class FNN implements Layer {
             g = linears.get(i).backward(g);
         }
         return g;
-    }
-
-    @Override
-    public Tensor backward(Tensor gradOutput, double learningRate) {
-        return backward(gradOutput);
     }
 
     @Override

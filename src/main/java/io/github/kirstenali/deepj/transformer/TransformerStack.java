@@ -37,17 +37,13 @@ public final class TransformerStack implements Layer {
         return h;
     }
 
+    @Override
     public Tensor backward(Tensor gradOut) {
         Tensor g = gradOut;
         for (int i = blocks.size() - 1; i >= 0; i--) {
             g = blocks.get(i).backward(g);
         }
         return g;
-    }
-
-    @Override
-    public Tensor backward(Tensor gradOutput, double learningRate) {
-        return backward(gradOutput);
     }
 
     @Override

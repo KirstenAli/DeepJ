@@ -27,6 +27,7 @@ public final class Linear implements Layer {
         this.b = new Parameter(Tensor.zeros(1, dOut));
     }
 
+    @Override
     public Tensor forward(Tensor x) {
         if (x.cols != dIn) throw new IllegalArgumentException("Expected input cols=" + dIn + " got " + x.cols);
         this.lastX = x;
@@ -34,6 +35,7 @@ public final class Linear implements Layer {
         return y;
     }
 
+    @Override
     public Tensor backward(Tensor gradY) {
         // dW = X^T * dY
         Tensor dW = lastX.transpose().matmul(gradY);
@@ -55,10 +57,4 @@ public final class Linear implements Layer {
 
     public Parameter weight() { return W; }
     public Parameter bias() { return b; }
-
-    @Override
-    public Tensor backward(Tensor gradOutput, double learningRate) {
-        return backward(gradOutput);
-    }
-
 }

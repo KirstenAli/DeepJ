@@ -1,15 +1,16 @@
-package io.github.kirstenali.deepj.tokenizer;
+package io.github.kirstenali.deepj.tokenizers;
 
 import java.nio.charset.StandardCharsets;
 
 /**
- * Minimal byte-level tokenizer (0-255). This is enough to train a GPT-style model end-to-end
+ * Minimal byte-level tokenizers (0-255). This is enough to train a GPT-style model end-to-end
  * without external dependencies. For real projects you can swap this for BPE/Unigram.
  */
-public final class ByteTokenizer {
+public final class ByteTokenizer implements Tokenizer {
 
     public static final int VOCAB_SIZE = 256;
 
+    @Override
     public int[] encode(String text) {
         byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
         int[] ids = new int[bytes.length];
@@ -19,6 +20,7 @@ public final class ByteTokenizer {
         return ids;
     }
 
+    @Override
     public String decode(int[] ids) {
         byte[] bytes = new byte[ids.length];
         for (int i = 0; i < ids.length; i++) {

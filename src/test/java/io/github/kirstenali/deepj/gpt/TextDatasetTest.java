@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.gpt;
 
-import io.github.kirstenali.deepj.tokenizer.ByteTokenizer;
+import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
+import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,7 +10,7 @@ public class TextDatasetTest {
 
     @Test
     public void batchHasCorrectShapesAndShift() {
-        ByteTokenizer tok = new ByteTokenizer();
+        Tokenizer tok = new ByteTokenizer();
         int[] tokens = tok.encode("abcdefg");
         TextDataset ds = new TextDataset(tokens, 4, 123);
 

@@ -47,6 +47,7 @@ public final class MultiHeadSelfAttention implements Layer {
         this.Wo = new Parameter(Tensor.random(dModel, dModel, rnd));
     }
 
+    @Override
     public Tensor forward(Tensor x) {
         if (x.cols != dModel) throw new IllegalArgumentException("Expected cols=" + dModel + " got " + x.cols);
         this.x = x;
@@ -110,6 +111,7 @@ public final class MultiHeadSelfAttention implements Layer {
         return mergedBeforeWo.matmul(Wo.value);
     }
 
+    @Override
     public Tensor backward(Tensor dOut) {
         int seqLen = x.rows;
 
@@ -212,10 +214,4 @@ public final class MultiHeadSelfAttention implements Layer {
         ps.add(Wq); ps.add(Wk); ps.add(Wv); ps.add(Wo);
         return ps;
     }
-
-    @Override
-    public Tensor backward(Tensor gradOutput, double learningRate) {
-        return backward(gradOutput);
-    }
-
 }

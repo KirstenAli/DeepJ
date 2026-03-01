@@ -43,15 +43,11 @@ public final class FeedForward implements Layer {
         return fc2.forward(h2);
     }
 
+    @Override
     public Tensor backward(Tensor gradOut) {
         Tensor g2 = fc2.backward(gradOut);
         Tensor g1 = activation.backward(g2);
         return fc1.backward(g1);
-    }
-
-    @Override
-    public Tensor backward(Tensor gradOutput, double learningRate) {
-        return backward(gradOutput);
     }
 
     @Override

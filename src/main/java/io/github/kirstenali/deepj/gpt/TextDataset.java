@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.gpt;
 
-import io.github.kirstenali.deepj.tokenizer.ByteTokenizer;
+import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,7 +26,7 @@ public final class TextDataset {
         this.rnd = new Random(seed);
     }
 
-    public static TextDataset fromFile(Path path, ByteTokenizer tok, int seqLen, long seed) throws IOException {
+    public static TextDataset fromFile(Path path, Tokenizer tok, int seqLen, long seed) throws IOException {
         String text = Files.readString(path);
         return new TextDataset(tok.encode(text), seqLen, seed);
     }

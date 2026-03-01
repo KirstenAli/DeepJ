@@ -4,7 +4,8 @@ import io.github.kirstenali.deepj.gpt.GPTConfig;
 import io.github.kirstenali.deepj.gpt.GPTModel;
 import io.github.kirstenali.deepj.gpt.TextDataset;
 import io.github.kirstenali.deepj.gpt.TextGenerator;
-import io.github.kirstenali.deepj.tokenizer.ByteTokenizer;
+import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
+import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
 import io.github.kirstenali.deepj.training.Trainer;
 
@@ -19,7 +20,7 @@ public final class TrainSmallGPT {
     public static void main(String[] args) throws Exception {
         Path corpus = Path.of("sample_data/sample_corpus.txt");
 
-        ByteTokenizer tok = new ByteTokenizer();
+        Tokenizer tok = new ByteTokenizer();
         TextDataset ds = TextDataset.fromFile(corpus, tok, 64, 123);
 
         GPTConfig cfg = new GPTConfig(

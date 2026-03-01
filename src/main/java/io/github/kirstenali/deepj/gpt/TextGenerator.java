@@ -1,8 +1,7 @@
 package io.github.kirstenali.deepj.gpt;
 
-import io.github.kirstenali.deepj.tokenizer.ByteTokenizer;
-
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -17,7 +16,7 @@ public final class TextGenerator {
 
     public static String generate(
             GPTModel model,
-            ByteTokenizer tok,
+            Tokenizer tok,
             GPTConfig cfg,
             String prompt,
             int maxNewTokens,

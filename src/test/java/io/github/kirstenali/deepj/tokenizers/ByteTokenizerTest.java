@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.tokenizer;
+package io.github.kirstenali.deepj.tokenizers;
 
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +8,7 @@ public class ByteTokenizerTest {
 
     @Test
     public void roundTripEncodeDecode() {
-        ByteTokenizer tok = new ByteTokenizer();
+        Tokenizer tok = new ByteTokenizer();
         String text = "Hello, world! ✅ — café";
         int[] ids = tok.encode(text);
         String decoded = tok.decode(ids);

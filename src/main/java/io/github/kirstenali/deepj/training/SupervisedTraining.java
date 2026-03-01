@@ -47,7 +47,7 @@ public final class SupervisedTraining {
             double loss = lossFn.loss(pred, yb);
 
             Tensor dPred = lossFn.gradient(pred, yb);
-            model.backward(dPred, 0.0);
+            model.backward(dPred);
 
             // One optimizer step per batch
             opt.step(model.parameters());

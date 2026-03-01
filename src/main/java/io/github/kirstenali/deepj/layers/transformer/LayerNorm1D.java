@@ -30,6 +30,7 @@ public final class LayerNorm1D implements Layer {
         this.beta  = new Parameter(Tensor.zeros(1, dim));
     }
 
+    @Override
     public Tensor forward(Tensor x) {
         if (x.cols != dim) throw new IllegalArgumentException("Expected cols=" + dim + " got " + x.cols);
         this.x = x;
@@ -42,6 +43,7 @@ public final class LayerNorm1D implements Layer {
         return xHat.multiplyBroadcastRows(gamma.value).addBroadcastRows(beta.value);
     }
 
+    @Override
     public Tensor backward(Tensor gradOut) {
         // grads for gamma/beta
         gamma.grad = gamma.grad.add(xHat.multiply(gradOut).sumRows());
@@ -81,10 +83,4 @@ public final class LayerNorm1D implements Layer {
     public List<Parameter> parameters() {
         return List.of(gamma, beta);
     }
-
-    @Override
-    public Tensor backward(Tensor gradOutput, double learningRate) {
-        return backward(gradOutput);
-    }
-
 }

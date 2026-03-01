@@ -6,7 +6,7 @@ io.github.kirstenali.deepj.layers.transformer
 io.github.kirstenali.deepj.loss
 io.github.kirstenali.deepj.optimisers
 io.github.kirstenali.deepj.tensor
-io.github.kirstenali.deepj.tokenizer
+io.github.kirstenali.deepj.tokenizers
 io.github.kirstenali.deepj.training
 io.github.kirstenali.deepj.transformer
 io.github.kirstenali.deepj.transformer.embeddings

@@ -11,5 +11,5 @@ public interface Layer extends Trainable {
 
     Tensor forward(Tensor input);
 
-    Tensor backward(Tensor gradOutput, double learningRate);
+    Tensor backward(Tensor gradOutput);
 }

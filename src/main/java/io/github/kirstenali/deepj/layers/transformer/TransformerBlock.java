@@ -43,6 +43,7 @@ public final class TransformerBlock implements Layer {
         return x2.add(mlpOut);
     }
 
+    @Override
     public Tensor backward(Tensor gradOut) {
         // residual add2: y = x2 + mlpOut
         Tensor gX2 = gradOut;
@@ -71,10 +72,4 @@ public final class TransformerBlock implements Layer {
         ps.addAll(mlp.parameters());
         return ps;
     }
-
-    @Override
-    public Tensor backward(Tensor gradOutput, double learningRate) {
-        return backward(gradOutput);
-    }
-
 }
