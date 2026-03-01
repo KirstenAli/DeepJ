@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.loss;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 
 public interface LossFunction {
     double loss(Tensor predicted, Tensor actual);

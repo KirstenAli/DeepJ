@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.training.Trainable;
 

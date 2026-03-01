@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.activations;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 
 /**
  * Gaussian Error Linear Unit (GELU), using the tanh approximation popularized by GPT-2.

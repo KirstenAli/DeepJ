@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.optimisers;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.IdentityHashMap;
 import java.util.List;

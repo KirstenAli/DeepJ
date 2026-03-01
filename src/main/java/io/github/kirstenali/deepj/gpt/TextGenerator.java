@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.gpt;
 
 import io.github.kirstenali.deepj.tokenizer.ByteTokenizer;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.Arrays;
 import java.util.Random;

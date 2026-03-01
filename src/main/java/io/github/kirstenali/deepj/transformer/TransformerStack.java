@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.transformer;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.transformer.TransformerBlock;
 import io.github.kirstenali.deepj.optimisers.Parameter;

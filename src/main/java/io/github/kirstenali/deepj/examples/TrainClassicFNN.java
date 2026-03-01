@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.activations.GELU;
 import io.github.kirstenali.deepj.layers.FNN;
 import io.github.kirstenali.deepj.loss.MSELoss;

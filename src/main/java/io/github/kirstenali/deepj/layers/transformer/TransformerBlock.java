@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.GELU;
 import io.github.kirstenali.deepj.layers.Layer;

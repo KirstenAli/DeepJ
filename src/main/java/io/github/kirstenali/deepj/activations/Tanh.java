@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.activations;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 
 public class Tanh implements ActivationFunction {
     private Tensor output;

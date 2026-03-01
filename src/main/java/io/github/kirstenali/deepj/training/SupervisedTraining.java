@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.training;
 
-import io.github.kirstenali.deepj.Tensor;
+import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.loss.LossFunction;
 import io.github.kirstenali.deepj.optimisers.ParameterOptimizer;
