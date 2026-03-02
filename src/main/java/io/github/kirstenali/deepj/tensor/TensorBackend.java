@@ -9,9 +9,6 @@ public interface TensorBackend {
     Tensor random(int rows, int cols, Random rand);
     Tensor causalMask(int size);
 
-    Tensor softmaxRows(Tensor logits);
-    Tensor softmaxBackward(Tensor upstreamGrad, Tensor softmaxOutput);
-
     Tensor unflattenToTensor(double[] flat, int rows, int cols);
     double[] flattenTensor(Tensor t);
 
@@ -53,7 +50,6 @@ public interface TensorBackend {
     Tensor pow(Tensor a, double exponent);
 
     double sum(Tensor a);
-    double mseLoss(Tensor prediction, Tensor target);
 
     void print(Tensor t, String label);
 }

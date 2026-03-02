@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer;
 
+import io.github.kirstenali.deepj.activations.ActivationFunction;
+import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -34,6 +36,8 @@ public final class MultiHeadSelfAttention implements Layer {
     private Tensor outH;           // [heads*seqLen x headDim]
     private Tensor mergedBeforeWo; // [seqLen x dModel]
 
+    private final ActivationFunction softmax;
+
     public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd) {
         if (dModel % nHeads != 0) throw new IllegalArgumentException("dModel must be divisible by nHeads");
         this.dModel = dModel;
@@ -45,6 +49,8 @@ public final class MultiHeadSelfAttention implements Layer {
         this.Wk = new Parameter(Tensor.random(dModel, dModel, rnd));
         this.Wv = new Parameter(Tensor.random(dModel, dModel, rnd));
         this.Wo = new Parameter(Tensor.random(dModel, dModel, rnd));
+
+        softmax = new Softmax();
     }
 
     @Override
@@ -90,7 +96,7 @@ public final class MultiHeadSelfAttention implements Layer {
             }
         }
 
-        attnProb = Tensor.softmaxRows(scores);
+        attnProb = softmax.forward(scores);
 
         outH = new Tensor(nHeads * seqLen, headDim);
         for (int h = 0; h < nHeads; h++) {
@@ -143,7 +149,7 @@ public final class MultiHeadSelfAttention implements Layer {
             }
         }
 
-        Tensor dScores = Tensor.softmaxBackward(dAttn, attnProb)
+        Tensor dScores = softmax.backward(dAttn)
                 .multiplyScalar(1.0 / Math.sqrt(headDim));
 
         Tensor qh = splitHeads(Q);
