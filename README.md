@@ -96,7 +96,7 @@ TransformerStack stack = new TransformerBuilder()
 
 Path corpus = Path.of("sample_data/sample_corpus.txt");
 
-ByteTokenizer tok = new ByteTokenizer();
+Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(corpus, tok, 64, 123);
 
 GPTConfig cfg = new GPTConfig(
