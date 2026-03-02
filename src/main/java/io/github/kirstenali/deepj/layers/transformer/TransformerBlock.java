@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer;
 
+import io.github.kirstenali.deepj.layers.FNN;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.GELU;
@@ -9,6 +10,7 @@ import io.github.kirstenali.deepj.optimisers.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Supplier;
 
 /**
  * Pre-LN Transformer block:
@@ -20,17 +22,17 @@ public final class TransformerBlock implements Layer {
     private final LayerNorm1D ln1;
     private final LayerNorm1D ln2;
     private final MultiHeadSelfAttention attn;
-    private final FeedForward mlp;
+    private final FNN mlp;
 
     public TransformerBlock(int dModel, int nHeads, int dFF, Random rnd) {
-        this(dModel, nHeads, dFF, new GELU(), rnd);
+        this(dModel, nHeads, dFF, GELU::new, rnd);
     }
 
-    public TransformerBlock(int dModel, int nHeads, int dFF, ActivationFunction activation, Random rnd) {
+    public TransformerBlock(int dModel, int nHeads, int dFF, Supplier<ActivationFunction> ffnActivationFactory, Random rnd) {
         this.ln1 = new LayerNorm1D(dModel);
         this.ln2 = new LayerNorm1D(dModel);
         this.attn = new MultiHeadSelfAttention(dModel, nHeads, true, rnd);
-        this.mlp = new FeedForward(dModel, dFF, activation, rnd);
+        this.mlp = new FNN(dModel, new int[]{ dFF }, dModel, ffnActivationFactory, null, rnd);
     }
 
     public Tensor forward(Tensor x) {

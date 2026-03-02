@@ -3,15 +3,9 @@ package io.github.kirstenali.deepj.tensor;
 import java.util.Arrays;
 import java.util.Random;
 
-public final class CpuBackend implements TensorBackend {
+import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 
-    private static void requireSameShape(Tensor a, Tensor b, String op) {
-        if (a.rows != b.rows || a.cols != b.cols) {
-            throw new IllegalArgumentException(
-                    "Shape mismatch for " + op + ": " + a.rows + "x" + a.cols +
-                            " vs " + b.rows + "x" + b.cols);
-        }
-    }
+public final class CpuBackend implements TensorBackend {
 
     private static void requireMatmulCompatible(Tensor a, Tensor b) {
         if (a.cols != b.rows) {
@@ -350,74 +344,6 @@ public final class CpuBackend implements TensorBackend {
         for (int r = 0; r < a.rows; r++)
             for (int c = 0; c < a.cols; c++)
                 s += a.data[r][c];
-        return s;
-    }
-
-    @Override
-    public double mseLoss(Tensor prediction, Tensor target) {
-        requireSameShape(prediction, target, "mseLoss");
-        double s = 0.0;
-        for (int r = 0; r < prediction.rows; r++) {
-            for (int c = 0; c < prediction.cols; c++) {
-                double d = prediction.data[r][c] - target.data[r][c];
-                s += d * d;
-            }
-        }
-        return s / (prediction.rows * prediction.cols);
-    }
-
-    // Softmax
-
-    @Override
-    public Tensor softmaxRows(Tensor logits) {
-        Tensor result = new Tensor(logits.rows, logits.cols);
-        for (int i = 0; i < logits.rows; i++) {
-            computeSoftmaxRow(logits.data[i], result.data[i]);
-        }
-        return result;
-    }
-
-    private static void computeSoftmaxRow(double[] inputRow, double[] outputRow) {
-        double max = findMax(inputRow);
-        double sum = computeExpSum(inputRow, max);
-        for (int j = 0; j < inputRow.length; j++) {
-            outputRow[j] = Math.exp(inputRow[j] - max) / sum;
-        }
-    }
-
-    private static double findMax(double[] row) {
-        return Arrays.stream(row).max().orElse(Double.NEGATIVE_INFINITY);
-    }
-
-    private static double computeExpSum(double[] row, double max) {
-        return Arrays.stream(row)
-                .map(v -> Math.exp(v - max))
-                .sum();
-    }
-
-    @Override
-    public Tensor softmaxBackward(Tensor upstreamGrad, Tensor softmaxOutput) {
-        requireSameShape(upstreamGrad, softmaxOutput, "softmaxBackward");
-
-        Tensor gradWrtLogits = new Tensor(upstreamGrad.rows, upstreamGrad.cols);
-
-        for (int row = 0; row < upstreamGrad.rows; row++) {
-            double[] gradRow = upstreamGrad.data[row];
-            double[] probRow = softmaxOutput.data[row];
-            double[] outRow  = gradWrtLogits.data[row];
-
-            double weightedSum = dotProduct(gradRow, probRow);
-
-            for (int j = 0; j < gradRow.length; j++) {
-                outRow[j] = probRow[j] * (gradRow[j] - weightedSum);
-            }
-        }
-        return gradWrtLogits;
-    }
-
-    private static double dotProduct(double[] a, double[] b) {
-        double s = 0.0;
-        for (int i = 0; i < a.length; i++) s += a[i] * b[i];
         return s;
     }
 

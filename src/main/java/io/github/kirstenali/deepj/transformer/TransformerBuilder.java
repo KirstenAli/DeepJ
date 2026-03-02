@@ -64,7 +64,7 @@ public final class TransformerBuilder {
         Random rnd = new Random(seed);
         List<TransformerBlock> blocks = new ArrayList<>(nLayers);
         for (int i = 0; i < nLayers; i++) {
-            blocks.add(new TransformerBlock(dModel, nHeads, dFF, ffnActivationFactory.get(), rnd));
+            blocks.add(new TransformerBlock(dModel, nHeads, dFF, ffnActivationFactory, rnd));
         }
         return new TransformerStack(blocks);
     }

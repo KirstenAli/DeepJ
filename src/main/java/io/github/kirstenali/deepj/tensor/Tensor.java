@@ -69,7 +69,6 @@ public class Tensor {
     public Tensor pow(double exponent) { return backend().pow(this, exponent); }
 
     public double sum() { return backend().sum(this); }
-    public double mseLoss(Tensor target) { return backend().mseLoss(this, target); }
 
     public void print(String label) { backend().print(this, label); }
 
@@ -79,13 +78,14 @@ public class Tensor {
     public static Tensor random(int rows, int cols, Random rand) { return backend().random(rows, cols, rand); }
     public static Tensor causalMask(int size) { return backend().causalMask(size); }
 
-    public static Tensor softmaxRows(Tensor logits) { return backend().softmaxRows(logits); }
-    public static Tensor softmaxBackward(Tensor upstreamGrad, Tensor softmaxOutput) {
-        return backend().softmaxBackward(upstreamGrad, softmaxOutput);
-    }
-
-    public static Tensor unflattenToTensor(double[] flat, int rows, int cols) {
-        return backend().unflattenToTensor(flat, rows, cols);
-    }
+    public static Tensor unflattenToTensor(double[] flat, int rows, int cols) {return backend().unflattenToTensor(flat, rows, cols);}
     public static double[] flattenTensor(Tensor t) { return backend().flattenTensor(t); }
+
+    public static void requireSameShape(Tensor a, Tensor b, String op) {
+        if (a.rows != b.rows || a.cols != b.cols) {
+            throw new IllegalArgumentException(
+                    "Shape mismatch for " + op + ": " + a.rows + "x" + a.cols +
+                            " vs " + b.rows + "x" + b.cols);
+        }
+    }
 }
