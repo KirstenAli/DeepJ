@@ -21,7 +21,7 @@ To get started, add the following dependency to your `pom.xml`:
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.1.1-alpha</version>
+        <version>0.1.3-alpha</version>
     </dependency>
 </dependencies>
 ```
