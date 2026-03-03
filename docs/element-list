@@ -1,4 +1,5 @@
 io.github.kirstenali.deepj.activations
+io.github.kirstenali.deepj.concurrent
 io.github.kirstenali.deepj.examples
 io.github.kirstenali.deepj.gpt
 io.github.kirstenali.deepj.layers
