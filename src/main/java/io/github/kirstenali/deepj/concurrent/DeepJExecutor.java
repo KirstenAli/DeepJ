@@ -23,6 +23,10 @@ public final class DeepJExecutor {
         return Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
     }
 
+    private static int defaultParallelThreshold(int threads) {
+        return Math.min(4096, Math.max(256, threads * 128));
+    }
+
     private static ThreadPoolExecutor newExecutor(int nThreads) {
         ThreadPoolExecutor p = new ThreadPoolExecutor(
                 nThreads, nThreads,
@@ -106,7 +110,7 @@ public final class DeepJExecutor {
 
         submitChunkedRange(startInclusive, endExclusive, chunks, chunkSize, latch, cancelled, firstError, body);
 
-        awaitLatch(latch);
+        awaitLatch(latch, cancelled);
 
         RuntimeException ex = firstError.get();
         if (ex != null) throw ex;
@@ -149,10 +153,11 @@ public final class DeepJExecutor {
         }
     }
 
-    private static void awaitLatch(CountDownLatch latch) {
+    private static void awaitLatch(CountDownLatch latch, AtomicBoolean cancelled) {
         try {
             latch.await();
         } catch (InterruptedException ie) {
+            cancelled.set(true);
             Thread.currentThread().interrupt();
             throw new RuntimeException(ie);
         }
