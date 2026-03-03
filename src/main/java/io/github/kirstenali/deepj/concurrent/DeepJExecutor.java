@@ -106,7 +106,7 @@ public final class DeepJExecutor {
 
         submitChunkedRange(startInclusive, endExclusive, chunks, chunkSize, latch, cancelled, firstError, body);
 
-        awaitLatch(latch);
+        awaitLatch(latch, cancelled);
 
         RuntimeException ex = firstError.get();
         if (ex != null) throw ex;
@@ -149,10 +149,11 @@ public final class DeepJExecutor {
         }
     }
 
-    private static void awaitLatch(CountDownLatch latch) {
+    private static void awaitLatch(CountDownLatch latch, AtomicBoolean cancelled) {
         try {
             latch.await();
         } catch (InterruptedException ie) {
+            cancelled.set(true);
             Thread.currentThread().interrupt();
             throw new RuntimeException(ie);
         }
