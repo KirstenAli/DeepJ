@@ -25,7 +25,7 @@ public final class TransformerStack implements Layer {
     }
 
     public List<TransformerBlock> blocks() {
-        return Collections.unmodifiableList(blocks);
+        return blocks;
     }
 
     @Override
