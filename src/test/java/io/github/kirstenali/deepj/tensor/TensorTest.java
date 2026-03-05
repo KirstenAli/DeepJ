@@ -22,20 +22,20 @@ public class TensorTest {
 
     @Test
     void add_and_matmul_workForSmallKnownCase() {
-        Tensor a = TestSupport.tensor(new double[][]{{1,2},{3,4}});
-        Tensor b = TestSupport.tensor(new double[][]{{10,20},{30,40}});
+        Tensor a = new Tensor(new double[][]{{1,2},{3,4}});
+        Tensor b = new Tensor(new double[][]{{10,20},{30,40}});
 
         Tensor s = a.add(b);
-        TestSupport.assertTensorAllClose(s, TestSupport.tensor(new double[][]{{11,22},{33,44}}), 1e-12);
+        TestSupport.assertTensorAllClose(s, new Tensor(new double[][]{{11,22},{33,44}}), 1e-12);
 
         Tensor m = a.matmul(b);
         // [[1*10+2*30, 1*20+2*40], [3*10+4*30, 3*20+4*40]]
-        TestSupport.assertTensorAllClose(m, TestSupport.tensor(new double[][]{{70,100},{150,220}}), 1e-12);
+        TestSupport.assertTensorAllClose(m, new Tensor(new double[][]{{70,100},{150,220}}), 1e-12);
     }
 
     @Test
     void softmax_activation_rowsSumTo1_and_argmaxMatchesMaxIndex() {
-        Tensor logits = TestSupport.tensor(new double[][]{{1, 3, 2}});
+        Tensor logits = new Tensor(new double[][]{{1, 3, 2}});
 
         Softmax sm = new Softmax();
         Tensor p = sm.forward(logits);

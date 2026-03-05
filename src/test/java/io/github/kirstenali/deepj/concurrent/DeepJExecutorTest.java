@@ -14,14 +14,14 @@ public class DeepJExecutorTest {
 
         // sequential path
         DeepJExecutor.setParallelThreshold(Integer.MAX_VALUE);
-        DeepJExecutor.forRange(0, 100, i -> sum.addAndGet(i));
+        DeepJExecutor.forRange(0, 100, sum::addAndGet);
         Assertions.assertEquals(4950, sum.get());
 
         // parallel path (force)
         sum.set(0);
         DeepJExecutor.setParallelThreshold(1);
         DeepJExecutor.setNumThreads(Math.max(2, DeepJExecutor.getNumThreads()));
-        DeepJExecutor.forRange(0, 100, i -> sum.addAndGet(i));
+        DeepJExecutor.forRange(0, 100, sum::addAndGet);
         Assertions.assertEquals(4950, sum.get());
     }
 }

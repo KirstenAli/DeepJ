@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 public class TransformerStackTest {
 
     @Test
@@ -27,6 +29,6 @@ public class TransformerStackTest {
         Tensor gx = stack.backward(gradOut);
         TestSupport.assertTensorShape(gx, 4, 8);
 
-        org.junit.jupiter.api.Assertions.assertFalse(stack.parameters().isEmpty());
+        assertFalse(stack.parameters().isEmpty());
     }
 }

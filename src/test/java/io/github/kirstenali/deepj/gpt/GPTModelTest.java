@@ -65,11 +65,11 @@ public class GPTModelTest {
         // First parameter is token embedding weight (see GPTModel.parameters()).
         Parameter tokW = model.parameters().get(0);
 
-        assertTrue(TestSupport.tensorSumAbs(tokW.grad) > 0.0, "Expected non-zero token embedding grads");
+        assertTrue(tokW.grad.sumAbs() > 0.0, "Expected non-zero token embedding grads");
 
         // Specific used ids should have non-zero rows.
-        assertTrue(TestSupport.tensorSumAbs(TestSupport.tensor(new double[][]{tokW.grad.data[5]})) > 0.0, "id=5 row grad should be non-zero");
-        assertTrue(TestSupport.tensorSumAbs(TestSupport.tensor(new double[][]{tokW.grad.data[1]})) > 0.0, "id=1 row grad should be non-zero");
-        assertTrue(TestSupport.tensorSumAbs(TestSupport.tensor(new double[][]{tokW.grad.data[2]})) > 0.0, "id=2 row grad should be non-zero");
+        assertTrue (new Tensor(new double[][]{tokW.grad.data[5]}).sumAbs() > 0.0, "id=5 row grad should be non-zero");
+        assertTrue(new Tensor(new double[][]{tokW.grad.data[1]}).sumAbs() > 0.0, "id=1 row grad should be non-zero");
+        assertTrue(new Tensor(new double[][]{tokW.grad.data[2]}).sumAbs() > 0.0, "id=2 row grad should be non-zero");
     }
 }
