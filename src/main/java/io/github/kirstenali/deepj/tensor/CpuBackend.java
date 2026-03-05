@@ -461,15 +461,29 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
-    // Loss
+    // Sum
+
+    private static double sumImpl(Tensor a, boolean abs) {
+        double s = 0.0;
+        for (int r = 0; r < a.rows; r++) {
+            double[] row = a.data[r];
+            for (int c = 0; c < a.cols; c++) {
+                double v = row[c];
+                if (abs) v = (v >= 0.0) ? v : -v;
+                s += v;
+            }
+        }
+        return s;
+    }
 
     @Override
     public double sum(Tensor a) {
-        double s = 0.0;
-        for (int r = 0; r < a.rows; r++)
-            for (int c = 0; c < a.cols; c++)
-                s += a.data[r][c];
-        return s;
+        return sumImpl(a, false);
+    }
+
+    @Override
+    public double sumAbs(Tensor a) {
+        return sumImpl(a, true);
     }
 
     // Debug
