@@ -60,6 +60,7 @@ public final class Trainer {
             }
         }
 
-        return new TrainingResult(step + 1, lastLoss, ema);
+        int stepsRun = (step == maxSteps) ? maxSteps : (step + 1);
+        return new TrainingResult(stepsRun, lastLoss, ema);
     }
 }

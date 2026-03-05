@@ -50,6 +50,7 @@ public interface TensorBackend {
     Tensor pow(Tensor a, double exponent);
 
     double sum(Tensor a);
+    double sumAbs(Tensor a);
 
     void print(Tensor t, String label);
 }

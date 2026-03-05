@@ -1,31 +1,37 @@
+
 package io.github.kirstenali.deepj.gpt;
 
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class TextDatasetTest {
 
     @Test
-    public void batchHasCorrectShapesAndShift() {
+    void nextBatch_targetsAreShiftedByOne() throws IOException {
         Tokenizer tok = new ByteTokenizer();
-        int[] tokens = tok.encode("abcdefg");
-        TextDataset ds = new TextDataset(tokens, 4, 123);
 
-        Batch b = ds.nextBatch(2);
+        // For ASCII consecutive letters, byte ids increase by +1 each character.
+        String text = "abcdefg";
+        Path tmp = Files.createTempFile("deepj", ".txt");
+        Files.writeString(tmp, text);
 
-        assertEquals(2, b.x().length);
-        assertEquals(2, b.y().length);
-        assertEquals(4, b.x()[0].length);
-        assertEquals(4, b.y()[0].length);
+        TextDataset ds = TextDataset.fromFile(tmp, tok, 4, 1L);
+        Batch b = ds.nextBatch(3);
 
-        for (int i = 0; i < 2; i++) {
-            // y is x shifted by 1 in source stream, so within each sample y[t] should be the next token after x[t]
-            // Not strictly equal to x[t+1] because sampling is contiguous; within a chunk it is.
-            for (int t = 0; t < 3; t++) {
-                assertEquals(b.x()[i][t+1], b.y()[i][t]);
+        Assertions.assertEquals(3, b.x().length);
+        Assertions.assertEquals(4, b.x()[0].length);
+        Assertions.assertEquals(3, b.y().length);
+        Assertions.assertEquals(4, b.y()[0].length);
+
+        for (int i = 0; i < b.x().length; i++) {
+            for (int t = 0; t < 4; t++) {
+                Assertions.assertEquals(b.x()[i][t] + 1, b.y()[i][t], "for this toy corpus, y = x shifted by one byte");
             }
         }
     }

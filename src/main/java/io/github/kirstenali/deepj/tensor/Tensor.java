@@ -69,6 +69,7 @@ public class Tensor {
     public Tensor pow(double exponent) { return backend().pow(this, exponent); }
 
     public double sum() { return backend().sum(this); }
+    public double sumAbs() {return backend().sumAbs(this); }
 
     public void print(String label) { backend().print(this, label); }
 
