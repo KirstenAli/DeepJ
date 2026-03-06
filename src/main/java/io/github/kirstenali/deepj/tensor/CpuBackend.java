@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.tensor;
 import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
 
 import java.util.Random;
+import java.util.function.DoubleUnaryOperator;
 
 import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 
@@ -463,27 +464,22 @@ public final class CpuBackend implements TensorBackend {
 
     // Sum
 
-    private static double sumImpl(Tensor a, boolean abs) {
+    public double sum(Tensor a) {
         double s = 0.0;
         for (int r = 0; r < a.rows; r++) {
             double[] row = a.data[r];
-            for (int c = 0; c < a.cols; c++) {
-                double v = row[c];
-                if (abs) v = (v >= 0.0) ? v : -v;
-                s += v;
-            }
+            for (int c = 0; c < a.cols; c++) s += row[c];
         }
         return s;
     }
 
-    @Override
-    public double sum(Tensor a) {
-        return sumImpl(a, false);
-    }
-
-    @Override
     public double sumAbs(Tensor a) {
-        return sumImpl(a, true);
+        double s = 0.0;
+        for (int r = 0; r < a.rows; r++) {
+            double[] row = a.data[r];
+            for (int c = 0; c < a.cols; c++) s += Math.abs(row[c]);
+        }
+        return s;
     }
 
     // Debug
