@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.gpt.GPTConfig;
-import io.github.kirstenali.deepj.gpt.GPTModel;
-import io.github.kirstenali.deepj.gpt.TextDataset;
-import io.github.kirstenali.deepj.gpt.TextGenerator;
+import io.github.kirstenali.deepj.models.gpt.GPTConfig;
+import io.github.kirstenali.deepj.models.gpt.GPTModel;
+import io.github.kirstenali.deepj.data.TextDataset;
+import io.github.kirstenali.deepj.models.gpt.TextGenerator;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
@@ -21,15 +21,15 @@ public final class TrainSmallGPT {
         Path corpus = Path.of("sample_data/AllCombined.txt");
 
         Tokenizer tok = new ByteTokenizer();
-        TextDataset ds = TextDataset.fromFile(corpus, tok, 512, 123);
+        TextDataset ds = TextDataset.fromFile(corpus, tok, 128, 123);
 
         GPTConfig cfg = new GPTConfig(
                 ByteTokenizer.VOCAB_SIZE,
-                512,     // maxSeqLen
-                512,    // dModel
-                8,      // nHeads
-                8,      // nLayers
-                2048 // dFF
+                128,     // maxSeqLen
+                256,    // dModel
+                4,      // nHeads
+                4,      // nLayers
+                1024 // dFF
         );
 
         GPTModel model = new GPTModel(cfg, 42);
@@ -61,7 +61,7 @@ public final class TrainSmallGPT {
         loadedModel.load(finalModelPath);
 
         // Generate a continuation.
-        String prompt = "Mara wrote down the rhythm, ";
+        String prompt = "Bob Marley was ";
         String out = TextGenerator.generate(
                 loadedModel,
                 tok,

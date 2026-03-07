@@ -1,11 +1,11 @@
-io.github.kirstenali.deepj
 io.github.kirstenali.deepj.activations
 io.github.kirstenali.deepj.concurrent
+io.github.kirstenali.deepj.data
 io.github.kirstenali.deepj.examples
-io.github.kirstenali.deepj.gpt
 io.github.kirstenali.deepj.layers
 io.github.kirstenali.deepj.layers.transformer
 io.github.kirstenali.deepj.loss
+io.github.kirstenali.deepj.models.gpt
 io.github.kirstenali.deepj.optimisers
 io.github.kirstenali.deepj.persistence
 io.github.kirstenali.deepj.tensor

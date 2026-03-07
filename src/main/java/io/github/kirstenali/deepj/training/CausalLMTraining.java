@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
-import io.github.kirstenali.deepj.gpt.Batch;
-import io.github.kirstenali.deepj.gpt.GPTModel;
-import io.github.kirstenali.deepj.gpt.TextDataset;
+import io.github.kirstenali.deepj.data.Batch;
+import io.github.kirstenali.deepj.models.gpt.GPTModel;
+import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
