@@ -79,7 +79,7 @@ public final class Trainer {
                 }
             }
 
-            if (targetEmaLoss != null && step > 50 && ema <= targetEmaLoss) {
+            if (targetEmaLoss != null && ema <= targetEmaLoss) {
                 break;
             }
         }
