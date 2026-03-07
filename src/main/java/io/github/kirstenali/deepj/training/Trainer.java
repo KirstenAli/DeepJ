@@ -17,6 +17,11 @@ public final class Trainer {
         double trainStep(int batchSize);
     }
 
+    @FunctionalInterface
+    public interface StepHook {
+        void onStep(int step, double loss, double ema) throws Exception;
+    }
+
     private final StepFunction stepFn;
 
     public Trainer(StepFunction stepFn) {
@@ -28,6 +33,16 @@ public final class Trainer {
         return stepFn.trainStep(batchSize);
     }
 
+    public TrainingResult train(
+            int maxSteps,
+            int batchSize,
+            int logEvery,
+            double emaBeta,
+            Double targetEmaLoss
+    ) {
+        return train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, null);
+    }
+
     /**
      * Train until maxSteps or until EMA loss goes below targetEmaLoss (if provided).
      */
@@ -36,7 +51,8 @@ public final class Trainer {
             int batchSize,
             int logEvery,
             double emaBeta,
-            Double targetEmaLoss
+            Double targetEmaLoss,
+            StepHook stepHook
     ) {
         if (maxSteps <= 0) throw new IllegalArgumentException("maxSteps must be > 0");
         if (batchSize <= 0) throw new IllegalArgumentException("batchSize must be > 0");
@@ -53,6 +69,14 @@ public final class Trainer {
 
             if (step % logEvery == 0) {
                 System.out.printf("step=%d loss=%.6f ema=%.6f%n", step, lastLoss, ema);
+            }
+
+            if (stepHook != null) {
+                try {
+                    stepHook.onStep(step, lastLoss, ema);
+                } catch (Exception e) {
+                    throw new RuntimeException("Step hook failed at step " + step, e);
+                }
             }
 
             if (targetEmaLoss != null && step > 50 && ema <= targetEmaLoss) {

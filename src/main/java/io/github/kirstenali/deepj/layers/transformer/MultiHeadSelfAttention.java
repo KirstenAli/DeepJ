@@ -13,7 +13,7 @@ import java.util.Random;
 /**
  * Multi-head causal self-attention for a single sequence (no batch dimension).
  * Input/Output shape: [seqLen x dModel]
- *
+
  * Notes:
  *  - This implementation is intentionally explicit (loops) to keep the code dependency-free.
  *  - For real throughput, replace inner loops with vectorized / native kernels.
@@ -39,7 +39,10 @@ public final class MultiHeadSelfAttention implements Layer {
     private final ActivationFunction softmax;
 
     public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd) {
-        if (dModel % nHeads != 0) throw new IllegalArgumentException("dModel must be divisible by nHeads");
+        if (dModel % nHeads != 0) {
+            throw new IllegalArgumentException("dModel must be divisible by nHeads");
+        }
+
         this.dModel = dModel;
         this.nHeads = nHeads;
         this.headDim = dModel / nHeads;
@@ -50,29 +53,81 @@ public final class MultiHeadSelfAttention implements Layer {
         this.Wv = new Parameter(Tensor.random(dModel, dModel, rnd));
         this.Wo = new Parameter(Tensor.random(dModel, dModel, rnd));
 
-        softmax = new Softmax();
+        this.softmax = new Softmax();
     }
 
     @Override
     public Tensor forward(Tensor x) {
-        if (x.cols != dModel) throw new IllegalArgumentException("Expected cols=" + dModel + " got " + x.cols);
+        validateInput(x);
         this.x = x;
 
-        Q = x.matmul(Wq.value);
-        K = x.matmul(Wk.value);
-        V = x.matmul(Wv.value);
+        projectInputs(x);
 
-        Tensor qh = splitHeads(Q); // [heads*seqLen x headDim]
+        Tensor qh = splitHeads(Q);
         Tensor kh = splitHeads(K);
         Tensor vh = splitHeads(V);
 
+        Tensor scores = computeScaledDotProductScores(qh, kh, x.rows);
+
+        if (causalMask) {
+            applyCausalMaskInPlace(scores, x.rows);
+        }
+
+        attnProb = softmax.forward(scores);
+        outH = applyAttentionToValues(attnProb, vh, x.rows);
+
+        mergedBeforeWo = mergeHeads(outH, x.rows);
+        return mergedBeforeWo.matmul(Wo.value);
+    }
+
+    @Override
+    public Tensor backward(Tensor dOut) {
         int seqLen = x.rows;
+
+        Tensor dMerged = backwardOutputProjection(dOut);
+        Tensor dOutH = splitHeads(dMerged);
+        Tensor vh = splitHeads(V);
+
+        AttentionBackwardResult attnBackward = backwardAttentionAndValues(dOutH, vh, seqLen);
+
+        Tensor qh = splitHeads(Q);
+        Tensor kh = splitHeads(K);
+
+        QueryKeyBackwardResult qkBackward = backwardQueriesAndKeys(
+                attnBackward.dScores, qh, kh, seqLen
+        );
+
+        Tensor dQ = mergeHeads(qkBackward.dQh, seqLen);
+        Tensor dK = mergeHeads(qkBackward.dKh, seqLen);
+        Tensor dV = mergeHeads(attnBackward.dVh, seqLen);
+
+        accumulateProjectionGrads(dQ, dK, dV);
+
+        return dQ.matmul(Wq.value.transpose())
+                .add(dK.matmul(Wk.value.transpose()))
+                .add(dV.matmul(Wv.value.transpose()));
+    }
+
+    private void validateInput(Tensor x) {
+        if (x.cols != dModel) {
+            throw new IllegalArgumentException("Expected cols=" + dModel + " got " + x.cols);
+        }
+    }
+
+    private void projectInputs(Tensor x) {
+        Q = x.matmul(Wq.value);
+        K = x.matmul(Wk.value);
+        V = x.matmul(Wv.value);
+    }
+
+    private Tensor computeScaledDotProductScores(Tensor qh, Tensor kh, int seqLen) {
         Tensor scores = new Tensor(nHeads * seqLen, seqLen);
         double scale = 1.0 / Math.sqrt(headDim);
 
         for (int h = 0; h < nHeads; h++) {
             int rowBase = h * seqLen;
             int kBase = h * seqLen;
+
             for (int i = 0; i < seqLen; i++) {
                 for (int j = 0; j < seqLen; j++) {
                     double dot = 0.0;
@@ -84,24 +139,29 @@ public final class MultiHeadSelfAttention implements Layer {
             }
         }
 
-        if (causalMask) {
-            Tensor mask = Tensor.causalMask(seqLen);
-            for (int h = 0; h < nHeads; h++) {
-                int rowBase = h * seqLen;
-                for (int i = 0; i < seqLen; i++) {
-                    for (int j = 0; j < seqLen; j++) {
-                        scores.data[rowBase + i][j] += mask.data[i][j];
-                    }
+        return scores;
+    }
+
+    private void applyCausalMaskInPlace(Tensor scores, int seqLen) {
+        Tensor mask = Tensor.causalMask(seqLen);
+
+        for (int h = 0; h < nHeads; h++) {
+            int rowBase = h * seqLen;
+            for (int i = 0; i < seqLen; i++) {
+                for (int j = 0; j < seqLen; j++) {
+                    scores.data[rowBase + i][j] += mask.data[i][j];
                 }
             }
         }
+    }
 
-        attnProb = softmax.forward(scores);
+    private Tensor applyAttentionToValues(Tensor attnProb, Tensor vh, int seqLen) {
+        Tensor outH = new Tensor(nHeads * seqLen, headDim);
 
-        outH = new Tensor(nHeads * seqLen, headDim);
         for (int h = 0; h < nHeads; h++) {
             int rowBase = h * seqLen;
             int vBase = h * seqLen;
+
             for (int i = 0; i < seqLen; i++) {
                 for (int d = 0; d < headDim; d++) {
                     double sum = 0.0;
@@ -113,26 +173,22 @@ public final class MultiHeadSelfAttention implements Layer {
             }
         }
 
-        mergedBeforeWo = mergeHeads(outH, seqLen);
-        return mergedBeforeWo.matmul(Wo.value);
+        return outH;
     }
 
-    @Override
-    public Tensor backward(Tensor dOut) {
-        int seqLen = x.rows;
-
+    private Tensor backwardOutputProjection(Tensor dOut) {
         Wo.grad = Wo.grad.add(mergedBeforeWo.transpose().matmul(dOut));
-        Tensor dMerged = dOut.matmul(Wo.value.transpose());
+        return dOut.matmul(Wo.value.transpose());
+    }
 
-        Tensor dOutH = splitHeads(dMerged);
-        Tensor vh = splitHeads(V);
-
+    private AttentionBackwardResult backwardAttentionAndValues(Tensor dOutH, Tensor vh, int seqLen) {
         Tensor dAttn = new Tensor(nHeads * seqLen, seqLen);
         Tensor dVh = new Tensor(nHeads * seqLen, headDim);
 
         for (int h = 0; h < nHeads; h++) {
             int rowBase = h * seqLen;
             int vBase = h * seqLen;
+
             for (int i = 0; i < seqLen; i++) {
                 for (int j = 0; j < seqLen; j++) {
                     double sum = 0.0;
@@ -141,6 +197,7 @@ public final class MultiHeadSelfAttention implements Layer {
                     }
                     dAttn.data[rowBase + i][j] = sum;
                 }
+
                 for (int j = 0; j < seqLen; j++) {
                     for (int d = 0; d < headDim; d++) {
                         dVh.data[vBase + j][d] += attnProb.data[rowBase + i][j] * dOutH.data[rowBase + i][d];
@@ -152,15 +209,19 @@ public final class MultiHeadSelfAttention implements Layer {
         Tensor dScores = softmax.backward(dAttn)
                 .multiplyScalar(1.0 / Math.sqrt(headDim));
 
-        Tensor qh = splitHeads(Q);
-        Tensor kh = splitHeads(K);
+        return new AttentionBackwardResult(dScores, dVh);
+    }
 
+    private QueryKeyBackwardResult backwardQueriesAndKeys(
+            Tensor dScores, Tensor qh, Tensor kh, int seqLen
+    ) {
         Tensor dQh = new Tensor(nHeads * seqLen, headDim);
         Tensor dKh = new Tensor(nHeads * seqLen, headDim);
 
         for (int h = 0; h < nHeads; h++) {
             int rowBase = h * seqLen;
             int kBase = h * seqLen;
+
             for (int i = 0; i < seqLen; i++) {
                 for (int j = 0; j < seqLen; j++) {
                     double g = dScores.data[rowBase + i][j];
@@ -172,29 +233,24 @@ public final class MultiHeadSelfAttention implements Layer {
             }
         }
 
-        Tensor dQ = mergeHeads(dQh, seqLen);
-        Tensor dK = mergeHeads(dKh, seqLen);
-        Tensor dV = mergeHeads(dVh, seqLen);
+        return new QueryKeyBackwardResult(dQh, dKh);
+    }
 
+    private void accumulateProjectionGrads(Tensor dQ, Tensor dK, Tensor dV) {
         Wq.grad = Wq.grad.add(x.transpose().matmul(dQ));
         Wk.grad = Wk.grad.add(x.transpose().matmul(dK));
         Wv.grad = Wv.grad.add(x.transpose().matmul(dV));
-
-        return dQ.matmul(Wq.value.transpose())
-                .add(dK.matmul(Wk.value.transpose()))
-                .add(dV.matmul(Wv.value.transpose()));
     }
 
     private Tensor splitHeads(Tensor t) {
         int seqLen = t.rows;
         Tensor out = new Tensor(nHeads * seqLen, headDim);
+
         for (int i = 0; i < seqLen; i++) {
             for (int h = 0; h < nHeads; h++) {
                 int row = h * seqLen + i;
                 int colBase = h * headDim;
-                for (int d = 0; d < headDim; d++) {
-                    out.data[row][d] = t.data[i][colBase + d];
-                }
+                System.arraycopy(t.data[i], colBase, out.data[row], 0, headDim);
             }
         }
         return out;
@@ -202,22 +258,31 @@ public final class MultiHeadSelfAttention implements Layer {
 
     private Tensor mergeHeads(Tensor t, int seqLen) {
         Tensor out = new Tensor(seqLen, dModel);
+
         for (int i = 0; i < seqLen; i++) {
             for (int h = 0; h < nHeads; h++) {
                 int row = h * seqLen + i;
                 int colBase = h * headDim;
-                for (int d = 0; d < headDim; d++) {
-                    out.data[i][colBase + d] = t.data[row][d];
-                }
+                System.arraycopy(t.data[row], 0, out.data[i], colBase, headDim);
             }
         }
+
         return out;
     }
 
     @Override
     public List<Parameter> parameters() {
         List<Parameter> ps = new ArrayList<>();
-        ps.add(Wq); ps.add(Wk); ps.add(Wv); ps.add(Wo);
+        ps.add(Wq);
+        ps.add(Wk);
+        ps.add(Wv);
+        ps.add(Wo);
         return ps;
+    }
+
+    private record AttentionBackwardResult(Tensor dScores, Tensor dVh) {
+    }
+
+    private record QueryKeyBackwardResult(Tensor dQh, Tensor dKh) {
     }
 }

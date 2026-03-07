@@ -18,44 +18,59 @@ import java.nio.file.Path;
 public final class TrainSmallGPT {
 
     public static void main(String[] args) throws Exception {
-        Path corpus = Path.of("sample_data/sample_corpus.txt");
+        Path corpus = Path.of("sample_data/AllCombined.txt");
 
         Tokenizer tok = new ByteTokenizer();
-        TextDataset ds = TextDataset.fromFile(corpus, tok, 64, 123);
+        TextDataset ds = TextDataset.fromFile(corpus, tok, 512, 123);
 
         GPTConfig cfg = new GPTConfig(
                 ByteTokenizer.VOCAB_SIZE,
-                64,     // maxSeqLen
-                128,    // dModel
-                4,      // nHeads
-                2,      // nLayers
-                4 * 128 // dFF
+                512,     // maxSeqLen
+                512,    // dModel
+                8,      // nHeads
+                8,      // nLayers
+                2048 // dFF
         );
 
         GPTModel model = new GPTModel(cfg, 42);
 
-        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-3);
+        Trainer trainer = CausalLMTraining.trainer(model, ds, 3e-4);
+
+        Path checkpointDir = Path.of("checkpoints");
+
+        Trainer.StepHook checkpointHook = (step, loss, ema) -> {
+            if (step > 0 && step % 500 == 0) {
+                model.save(checkpointDir.resolve("small-gpt-" + step + ".bin"));
+            }
+        };
 
         // Train until target EMA loss or max steps.
         trainer.train(
-                10_000, // maxSteps
-                16,     // batchSize
-                50,     // logEvery
-                0.98,   // emaBeta
-                0.099    // targetEmaLoss (tune based on corpus size)
+                10_000_000,
+                16,
+                50,
+                0.98,
+                0.099,
+                checkpointHook
         );
+
+        Path finalModelPath = checkpointDir.resolve("small-gpt-final.bin");
+        model.save(finalModelPath);
+
+        GPTModel loadedModel = new GPTModel(cfg, 42);
+        loadedModel.load(finalModelPath);
 
         // Generate a continuation.
         String prompt = "Mara wrote down the rhythm, ";
         String out = TextGenerator.generate(
-                model,
+                loadedModel,
                 tok,
                 cfg,
                 prompt,
-                200,    // maxNewTokens
-                0.1,    // temperature
-                20,     // topK (0 disables)
-                1234L   // seed
+                200,
+                0.1,
+                20,
+                1234L
         );
 
         System.out.println("\n=== Generated ===");

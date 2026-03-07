@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.layers.transformer;
 
-import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.List;
 
@@ -27,41 +27,64 @@ public final class LayerNorm1D implements Layer {
     public LayerNorm1D(int dim) {
         this.dim = dim;
         this.gamma = new Parameter(Tensor.ones(1, dim));
-        this.beta  = new Parameter(Tensor.zeros(1, dim));
+        this.beta = new Parameter(Tensor.zeros(1, dim));
     }
 
     @Override
     public Tensor forward(Tensor x) {
-        if (x.cols != dim) throw new IllegalArgumentException("Expected cols=" + dim + " got " + x.cols);
+        validateInput(x);
         this.x = x;
 
-        mean = x.meanAlongRows();
-        var  = x.varianceAlongRows();
-        std  = var.addScalar(EPS).sqrt();
+        computeStatistics(x);
+        xHat = normalize(x);
 
-        xHat = x.subtractBroadcastCols(mean).divideBroadcastCols(std);
-        return xHat.multiplyBroadcastRows(gamma.value).addBroadcastRows(beta.value);
+        return applyAffine(xHat);
     }
 
     @Override
     public Tensor backward(Tensor gradOut) {
-        // grads for gamma/beta
-        gamma.grad = gamma.grad.add(xHat.multiply(gradOut).sumRows());
-        beta.grad  = beta.grad.add(gradOut.sumRows());
-
+        accumulateParameterGrads(gradOut);
         Tensor dXHat = gradOut.multiplyBroadcastRows(gamma.value);
+        return backwardNormalization(dXHat);
+    }
 
-        // Backprop through normalization (per row)
+    private void validateInput(Tensor x) {
+        if (x.cols != dim) {
+            throw new IllegalArgumentException("Expected cols=" + dim + " got " + x.cols);
+        }
+    }
+
+    private void computeStatistics(Tensor x) {
+        mean = x.meanAlongRows();
+        var = x.varianceAlongRows();
+        std = var.addScalar(EPS).sqrt();
+    }
+
+    private Tensor normalize(Tensor x) {
+        return x.subtractBroadcastCols(mean).divideBroadcastCols(std);
+    }
+
+    private Tensor applyAffine(Tensor normalized) {
+        return normalized
+                .multiplyBroadcastRows(gamma.value)
+                .addBroadcastRows(beta.value);
+    }
+
+    private void accumulateParameterGrads(Tensor gradOut) {
+        gamma.grad = gamma.grad.add(xHat.multiply(gradOut).sumRows());
+        beta.grad = beta.grad.add(gradOut.sumRows());
+    }
+
+    private Tensor backwardNormalization(Tensor dXHat) {
         int n = dim;
         Tensor dX = new Tensor(x.rows, x.cols);
 
         for (int r = 0; r < x.rows; r++) {
-            double meanR = mean.data[r][0];
             double stdR = std.data[r][0];
-
-            // Compute sums for efficient formula
+            double invStd = 1.0 / stdR;
             double sumD = 0.0;
             double sumDXHatXHat = 0.0;
+
             for (int c = 0; c < n; c++) {
                 double d = dXHat.data[r][c];
                 sumD += d;
@@ -71,8 +94,7 @@ public final class LayerNorm1D implements Layer {
             for (int c = 0; c < n; c++) {
                 double d = dXHat.data[r][c];
                 double xh = xHat.data[r][c];
-                // (1/std) * (d - mean(d) - xhat * mean(d*xhat))
-                dX.data[r][c] = (1.0 / stdR) * (d - sumD / n - xh * (sumDXHatXHat / n));
+                dX.data[r][c] = invStd * (d - sumD / n - xh * (sumDXHatXHat / n));
             }
         }
 
