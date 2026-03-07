@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.gpt;
+package io.github.kirstenali.deepj.models.gpt;
 
 public record GPTConfig(
         int vocabSize,

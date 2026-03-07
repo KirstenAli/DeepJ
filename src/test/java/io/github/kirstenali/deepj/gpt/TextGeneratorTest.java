@@ -1,6 +1,9 @@
 
 package io.github.kirstenali.deepj.gpt;
 
+import io.github.kirstenali.deepj.models.gpt.GPTConfig;
+import io.github.kirstenali.deepj.models.gpt.GPTModel;
+import io.github.kirstenali.deepj.models.gpt.TextGenerator;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.Assertions;

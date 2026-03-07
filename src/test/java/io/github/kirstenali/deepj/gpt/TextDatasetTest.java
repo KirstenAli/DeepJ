@@ -1,6 +1,8 @@
 
 package io.github.kirstenali.deepj.gpt;
 
+import io.github.kirstenali.deepj.data.Batch;
+import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.Assertions;

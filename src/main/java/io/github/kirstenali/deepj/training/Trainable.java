@@ -6,10 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 public interface Trainable {
-
-    default List<Parameter> parameters() {
-        return Collections.emptyList();
-    }
+    List<Parameter> parameters();
 
     default void zeroGrad() {
         for (Parameter p : parameters()) p.zeroGrad();

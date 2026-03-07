@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.gpt;
+package io.github.kirstenali.deepj.data;
 
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 

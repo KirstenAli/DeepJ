@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.gpt;
+package io.github.kirstenali.deepj.models.gpt;
 
 import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.tensor.Tensor;

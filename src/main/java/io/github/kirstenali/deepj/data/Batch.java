@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.gpt;
+package io.github.kirstenali.deepj.data;
 
 /**
  * One language-modeling batch: x are input token ids, y are targets (next-token ids).

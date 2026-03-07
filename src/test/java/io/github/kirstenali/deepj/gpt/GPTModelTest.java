@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.gpt;
 
 import io.github.kirstenali.deepj.TestSupport;
+import io.github.kirstenali.deepj.models.gpt.GPTConfig;
+import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.Test;
