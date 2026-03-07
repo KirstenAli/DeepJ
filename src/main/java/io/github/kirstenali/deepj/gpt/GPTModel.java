@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.gpt;
 
+import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.training.Trainable;
@@ -17,7 +18,7 @@ import java.util.Random;
  * Minimal GPT-style decoder-only transformer for educational/training use.
  * CPU-only and dependency-free; intended for small models.
  */
-public final class GPTModel implements Trainable {
+public final class GPTModel implements Trainable, Persistable {
 
     private final GPTConfig cfg;
     private final Random rnd;
