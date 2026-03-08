@@ -3,7 +3,6 @@ package io.github.kirstenali.deepj.tensor;
 import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
 
 import java.util.Random;
-import java.util.function.DoubleUnaryOperator;
 
 import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 
