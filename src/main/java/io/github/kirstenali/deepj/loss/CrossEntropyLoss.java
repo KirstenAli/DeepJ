@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.loss;
 
+import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 /**
@@ -33,22 +34,9 @@ public final class CrossEntropyLoss implements LossFunction {
     public static double loss(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
 
-        // log-softmax + NLL
         double lossSum = 0.0;
         for (int i = 0; i < logits.rows; i++) {
-            double max = Double.NEGATIVE_INFINITY;
-            for (int v = 0; v < logits.cols; v++) {
-                double z = logits.data[i][v];
-                if (z > max) max = z;
-            }
-            double sumExp = 0.0;
-            for (int v = 0; v < logits.cols; v++) {
-                sumExp += Math.exp(logits.data[i][v] - max);
-            }
-            double logDen = Math.log(sumExp) + max;
-
-            int t = targets[i];
-            lossSum += (logDen - logits.data[i][t]);
+            lossSum += computeRowLoss(logits, i, targets[i]);
         }
         return lossSum / logits.rows;
     }
@@ -62,25 +50,10 @@ public final class CrossEntropyLoss implements LossFunction {
         Tensor grad = new Tensor(logits.rows, logits.cols);
 
         for (int i = 0; i < logits.rows; i++) {
-            double max = Double.NEGATIVE_INFINITY;
-            for (int v = 0; v < logits.cols; v++) {
-                double z = logits.data[i][v];
-                if (z > max) max = z;
-            }
-            double sumExp = 0.0;
-            for (int v = 0; v < logits.cols; v++) {
-                sumExp += Math.exp(logits.data[i][v] - max);
-            }
-
-            for (int v = 0; v < logits.cols; v++) {
-                double p = Math.exp(logits.data[i][v] - max) / sumExp;
-                grad.data[i][v] = p;
-            }
-            // subtract 1 for the true class
+            Softmax.computeSoftmaxRow(logits.data[i], grad.data[i]);
             grad.data[i][targets[i]] -= 1.0;
         }
 
-        // average
         return grad.divideScalar(logits.rows);
     }
 
@@ -89,8 +62,11 @@ public final class CrossEntropyLoss implements LossFunction {
      */
     public static int[] toIntTargets(Tensor actual) {
         if (actual.cols != 1) {
-            throw new IllegalArgumentException("CrossEntropyLoss expects targets shape [n x 1], got [" + actual.rows + " x " + actual.cols + "]");
+            throw new IllegalArgumentException(
+                    "CrossEntropyLoss expects targets shape [n x 1], got [" + actual.rows + " x " + actual.cols + "]"
+            );
         }
+
         int[] y = new int[actual.rows];
         for (int i = 0; i < actual.rows; i++) {
             y[i] = (int) Math.round(actual.data[i][0]);
@@ -103,19 +79,37 @@ public final class CrossEntropyLoss implements LossFunction {
      */
     public static Tensor fromIntTargets(int[] targets) {
         Tensor t = new Tensor(targets.length, 1);
-        for (int i = 0; i < targets.length; i++) t.data[i][0] = targets[i];
+        for (int i = 0; i < targets.length; i++) {
+            t.data[i][0] = targets[i];
+        }
         return t;
     }
 
+    private static double computeRowLoss(Tensor logits, int row, int target) {
+        double[] logitRow = logits.data[row];
+        double max = Softmax.findMax(logitRow);
+        double sumExp = Softmax.computeExpSum(logitRow, max);
+        double logDen = Math.log(sumExp) + max;
+        return logDen - logitRow[target];
+    }
+
     private static void checkTargets(Tensor logits, int[] targets) {
-        if (logits == null) throw new IllegalArgumentException("logits is null");
-        if (targets == null) throw new IllegalArgumentException("targets is null");
+        if (logits == null) {
+            throw new IllegalArgumentException("logits is null");
+        }
+        if (targets == null) {
+            throw new IllegalArgumentException("targets is null");
+        }
         if (targets.length != logits.rows) {
-            throw new IllegalArgumentException("targets length " + targets.length + " must match logits rows " + logits.rows);
+            throw new IllegalArgumentException(
+                    "targets length " + targets.length + " must match logits rows " + logits.rows
+            );
         }
         for (int t : targets) {
             if (t < 0 || t >= logits.cols) {
-                throw new IllegalArgumentException("target id out of range: " + t + " (vocab=" + logits.cols + ")");
+                throw new IllegalArgumentException(
+                        "target id out of range: " + t + " (vocab=" + logits.cols + ")"
+                );
             }
         }
     }
