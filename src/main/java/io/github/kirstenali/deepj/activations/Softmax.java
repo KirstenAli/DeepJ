@@ -2,8 +2,6 @@ package io.github.kirstenali.deepj.activations;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-import java.util.Arrays;
-
 /**
  * Row-wise softmax for 2D tensors: applies softmax independently to each row.
  *
@@ -37,7 +35,7 @@ public final class Softmax implements ActivationFunction {
         for (int row = 0; row < gradOutput.rows; row++) {
             double[] gradRow = gradOutput.data[row];
             double[] probRow = softmaxOut.data[row];
-            double[] outRow  = gradWrtLogits.data[row];
+            double[] outRow = gradWrtLogits.data[row];
 
             double weightedSum = dotProduct(gradRow, probRow);
 
@@ -48,7 +46,7 @@ public final class Softmax implements ActivationFunction {
         return gradWrtLogits;
     }
 
-    private static void computeSoftmaxRow(double[] inputRow, double[] outputRow) {
+    public static void computeSoftmaxRow(double[] inputRow, double[] outputRow) {
         double max = findMax(inputRow);
         double sum = computeExpSum(inputRow, max);
         for (int j = 0; j < inputRow.length; j++) {
@@ -56,19 +54,29 @@ public final class Softmax implements ActivationFunction {
         }
     }
 
-    private static double findMax(double[] row) {
-        return Arrays.stream(row).max().orElse(Double.NEGATIVE_INFINITY);
+    public static double findMax(double[] row) {
+        double max = Double.NEGATIVE_INFINITY;
+        for (double v : row) {
+            if (v > max) {
+                max = v;
+            }
+        }
+        return max;
     }
 
-    private static double computeExpSum(double[] row, double max) {
-        return Arrays.stream(row)
-                .map(v -> Math.exp(v - max))
-                .sum();
+    public static double computeExpSum(double[] row, double max) {
+        double sum = 0.0;
+        for (double v : row) {
+            sum += Math.exp(v - max);
+        }
+        return sum;
     }
 
     private static double dotProduct(double[] a, double[] b) {
         double s = 0.0;
-        for (int i = 0; i < a.length; i++) s += a[i] * b[i];
+        for (int i = 0; i < a.length; i++) {
+            s += a[i] * b[i];
+        }
         return s;
     }
 }
