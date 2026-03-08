@@ -73,9 +73,7 @@ public final class CpuBackend implements TensorBackend {
         DeepJExecutor.range(0, t.rows).parallel().forEach(r -> {
             int base = r * t.cols;
             double[] tr = t.data[r];
-            for (int c = 0; c < t.cols; c++) {
-                flat[base + c] = tr[c];
-            }
+            if (t.cols >= 0) System.arraycopy(tr, 0, flat, base, t.cols);
         });
         return flat;
     }
