@@ -116,7 +116,7 @@ Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(corpus, tok, 64, 123);
 
 GPTConfig cfg = new GPTConfig(
-        ByteTokenizer.VOCAB_SIZE,
+        tok.vocabSize(),
         64,
         128,
         4,
