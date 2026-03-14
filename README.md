@@ -40,7 +40,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
 
 # 📚 Examples
 
-## 1) Classic ANN-style MLP (FNN)
+## Classic ANN-style MLP (FNN)
 
 Train a small feed-forward network.
 
@@ -88,7 +88,7 @@ trainer.train(
 
 ------------------------------------------------------------------------
 
-## 2) Transformer stack builder
+## Transformer stack builder
 
 Create a stack of decoder blocks using the builder.
 
@@ -105,7 +105,7 @@ TransformerStack stack = new TransformerBuilder()
 
 ------------------------------------------------------------------------
 
-## 3) Tiny GPT training + generation
+## Tiny GPT training + generation
 
 Train a small GPT-style language model.
 
