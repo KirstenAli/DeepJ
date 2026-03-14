@@ -1,0 +1,52 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">DeepJ logo</title>
+  <desc id="desc">A lightweight, GitHub-friendly logo for the DeepJ Java Transformer library featuring a stylized D and J connected by attention nodes.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="84" y1="72" x2="428" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="120" x2="392" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="soft" x1="156" y1="156" x2="360" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7DD3FC" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#34D399" stop-opacity="0.95"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#020617" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect x="48" y="48" width="416" height="416" rx="108" fill="url(#bg)"/>
+  <rect x="56" y="56" width="400" height="400" rx="100" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+
+  <g filter="url(#shadow)">
+    <!-- Stylized D -->
+    <path d="M150 144H228C292.065 144 344 195.935 344 260C344 324.065 292.065 376 228 376H150V144Z"
+          fill="none" stroke="url(#accent)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Inner data flow / transformer ribbon -->
+    <path d="M196 184H228C269.421 184 303 217.579 303 259C303 300.421 269.421 334 228 334H196"
+          fill="none" stroke="#E2E8F0" stroke-opacity="0.9" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- J -->
+    <path d="M354 164V310C354 354.183 318.183 390 274 390C238.654 390 210 361.346 210 326"
+          fill="none" stroke="url(#soft)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Attention nodes -->
+    <path d="M238 210L318 188M240 260L348 258M236 310L312 334"
+          stroke="#E2E8F0" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"/>
+
+    <circle cx="238" cy="210" r="10" fill="#38BDF8"/>
+    <circle cx="240" cy="260" r="10" fill="#22C55E"/>
+    <circle cx="236" cy="310" r="10" fill="#F59E0B"/>
+
+    <circle cx="318" cy="188" r="12" fill="#E2E8F0"/>
+    <circle cx="348" cy="258" r="12" fill="#E2E8F0"/>
+    <circle cx="312" cy="334" r="12" fill="#E2E8F0"/>
+  </g>
+</svg>
