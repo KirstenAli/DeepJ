@@ -12,8 +12,6 @@ DeepJ focuses on:
 
 📚 **Documentation:** https://kirstenali.github.io/DeepJ/
 
-------------------------------------------------------------------------
-
 ## 🚀 Installation
 
 Add the GitHub Packages repository and dependency to your `pom.xml`.
@@ -34,8 +32,6 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     </dependency>
 </dependencies>
 ```
-
-------------------------------------------------------------------------
 
 ## 📚 Examples
 
@@ -85,8 +81,6 @@ trainer.train(
 );
 ```
 
-------------------------------------------------------------------------
-
 ### Transformer stack builder
 
 Create a stack of decoder blocks using the builder.
@@ -101,8 +95,6 @@ TransformerStack stack = new TransformerBuilder()
         .seed(42)
         .build();
 ```
-
-------------------------------------------------------------------------
 
 ### Tiny GPT training + generation
 
@@ -156,8 +148,6 @@ System.out.println("\n=== Generated ===");
 System.out.println(out);
 ```
 
-------------------------------------------------------------------------
-
 ## 💬 Chat UI
 
 DeepJ also includes an **optional JavaFX chat interface** for
@@ -173,9 +163,7 @@ This allows you to:
 -   customize generation settings
 -   plug in completely different model types
 
-------------------------------------------------------------------------
-
-## Using the Chat UI
+### Using the Chat UI
 
 To launch the UI, extend `BaseChatApp` and provide your own
 `ChatService`.
@@ -194,9 +182,7 @@ public class ChatApp extends BaseChatApp {
 }
 ```
 
-------------------------------------------------------------------------
-
-## Implementing a ChatService
+### Implementing a ChatService
 
 Your service controls:
 
@@ -250,17 +236,13 @@ public class GPTChatService implements ChatService {
 }
 ```
 
-------------------------------------------------------------------------
-
-## Example UI Flow
+### Example UI Flow
 
 1.  User selects a trained `.bin` model\
 2.  `ChatService.loadModel()` loads the model\
 3.  User enters a prompt\
 4.  The UI calls `chatService.generate(...)`\
 5.  Generated text appears in the chat window
-
-------------------------------------------------------------------------
 
 ## 📄 License
 
