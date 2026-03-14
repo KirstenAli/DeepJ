@@ -63,4 +63,13 @@ class BPETrainerTest {
 
         assertEquals(new TokenPair(2, 3), best);
     }
+
+    @Test
+    void train_skipsDuplicateMergeCandidatesAndContinues() {
+        BPETrainer trainer = new BPETrainer();
+
+        BPEModel model = trainer.train("aaaaaa", 260);
+
+        assertTrue(model.vocabSize() > 257);
+    }
 }
