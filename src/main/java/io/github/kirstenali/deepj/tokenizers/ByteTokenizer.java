@@ -30,4 +30,9 @@ public final class ByteTokenizer implements Tokenizer {
         }
         return new String(bytes, StandardCharsets.UTF_8);
     }
+
+    @Override
+    public int vocabSize() {
+        return VOCAB_SIZE;
+    }
 }
