@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="io.github.kirstenali.deepj.chatui.ChatController"
+            styleClass="root-pane">
+
+    <left>
+        <VBox spacing="12" styleClass="sidebar">
+            <padding>
+                <Insets top="18" right="16" bottom="18" left="16"/>
+            </padding>
+
+            <Label text="DeepJ Chat" styleClass="sidebar-title"/>
+            <Label text="Model" styleClass="field-label"/>
+
+            <TextField fx:id="modelPathField"
+                       editable="false"
+                       promptText="Select a .bin model file"
+                       styleClass="settings-field"/>
+
+            <Button text="Browse Model"
+                    onAction="#onBrowseModel"
+                    styleClass="secondary-button"/>
+
+            <Separator />
+
+            <Label text="Temperature" styleClass="field-label"/>
+            <TextField fx:id="temperatureField" styleClass="settings-field"/>
+
+            <Label text="Top-k" styleClass="field-label"/>
+            <TextField fx:id="topKField" styleClass="settings-field"/>
+
+            <Label text="Max tokens" styleClass="field-label"/>
+            <TextField fx:id="maxTokensField" styleClass="settings-field"/>
+
+            <Label text="Seed" styleClass="field-label"/>
+            <TextField fx:id="seedField" styleClass="settings-field"/>
+
+            <Separator />
+
+            <Label fx:id="statusLabel" text="Ready" styleClass="status-label"/>
+        </VBox>
+    </left>
+
+    <center>
+        <BorderPane>
+            <top>
+                <HBox styleClass="top-bar" alignment="CENTER_LEFT">
+                    <padding>
+                        <Insets top="16" right="18" bottom="16" left="18"/>
+                    </padding>
+                    <Label text="Chat" styleClass="top-title"/>
+                </HBox>
+            </top>
+
+            <center>
+                <ScrollPane fx:id="scrollPane"
+                            fitToWidth="true"
+                            hbarPolicy="NEVER"
+                            vbarPolicy="AS_NEEDED"
+                            styleClass="chat-scroll">
+                    <content>
+                        <VBox fx:id="messagesBox" spacing="10" styleClass="messages-box">
+                            <padding>
+                                <Insets top="18" right="18" bottom="18" left="18"/>
+                            </padding>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+            </center>
+
+            <bottom>
+                <VBox spacing="10" styleClass="bottom-panel">
+                    <padding>
+                        <Insets top="12" right="16" bottom="16" left="16"/>
+                    </padding>
+
+                    <HBox fx:id="typingIndicator" spacing="8" alignment="CENTER_LEFT" styleClass="typing-box">
+                        <Label text="Model is generating" styleClass="typing-text"/>
+                        <Label text="● ● ●" styleClass="typing-dots"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <TextArea fx:id="inputArea"
+                                  promptText="Type your prompt..."
+                                  wrapText="true"
+                                  prefRowCount="3"
+                                  styleClass="chat-input"
+                                  HBox.hgrow="ALWAYS"/>
+
+                        <Button fx:id="sendButton"
+                                text="Send"
+                                onAction="#onSend"
+                                styleClass="send-button"/>
+                    </HBox>
+                </VBox>
+            </bottom>
+        </BorderPane>
+    </center>
+
+</BorderPane>

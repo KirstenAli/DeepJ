@@ -1,0 +1,130 @@
+.root-pane {
+    -fx-background-color: #f5f7fb;
+    -fx-font-family: "Inter", "Segoe UI", "Arial";
+}
+
+.sidebar {
+    -fx-background-color: white;
+    -fx-pref-width: 280;
+    -fx-border-color: transparent #e5e7eb transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.sidebar-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #111827;
+}
+
+.field-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #4b5563;
+}
+
+.settings-field {
+    -fx-background-color: #f9fafb;
+    -fx-background-radius: 12;
+    -fx-border-color: #d1d5db;
+    -fx-border-radius: 12;
+    -fx-padding: 10 12 10 12;
+    -fx-font-size: 13px;
+}
+
+.secondary-button {
+    -fx-background-color: #eef2f7;
+    -fx-text-fill: #111827;
+    -fx-font-weight: 600;
+    -fx-background-radius: 12;
+    -fx-padding: 10 14 10 14;
+    -fx-cursor: hand;
+}
+
+.status-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #6b7280;
+}
+
+.top-bar {
+    -fx-background-color: white;
+    -fx-border-color: transparent transparent #e5e7eb transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.top-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #111827;
+}
+
+.chat-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.chat-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.messages-box {
+    -fx-background-color: transparent;
+}
+
+.bottom-panel {
+    -fx-background-color: white;
+    -fx-border-color: #e5e7eb transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.typing-box {
+    -fx-background-color: #eef2f7;
+    -fx-background-radius: 12;
+    -fx-padding: 8 12 8 12;
+}
+
+.typing-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: #4b5563;
+}
+
+.typing-dots {
+    -fx-font-size: 12px;
+    -fx-text-fill: #6b7280;
+}
+
+.chat-input {
+    -fx-background-color: #f9fafb;
+    -fx-background-radius: 14;
+    -fx-border-color: #d1d5db;
+    -fx-border-radius: 14;
+    -fx-font-size: 14px;
+    -fx-padding: 10 12 10 12;
+}
+
+.send-button {
+    -fx-background-color: #111827;
+    -fx-text-fill: white;
+    -fx-font-weight: 700;
+    -fx-background-radius: 14;
+    -fx-padding: 12 20 12 20;
+    -fx-cursor: hand;
+}
+
+.bot-bubble {
+    -fx-background-color: white;
+    -fx-background-radius: 18;
+    -fx-border-color: #e5e7eb;
+    -fx-border-radius: 18;
+    -fx-border-width: 1;
+    -fx-padding: 12 14 12 14;
+    -fx-text-fill: #111827;
+    -fx-font-size: 14px;
+}
+
+.user-bubble {
+    -fx-background-color: #111827;
+    -fx-background-radius: 18;
+    -fx-padding: 12 14 12 14;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+}
