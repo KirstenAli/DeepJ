@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./deepj_logo.svg" alt="DeepJ logo" width="170" />
+</p>
+
 # DeepJ
 
 A lightweight Java library for building and experimenting with
