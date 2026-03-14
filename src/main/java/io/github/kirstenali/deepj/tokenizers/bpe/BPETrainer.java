@@ -23,16 +23,12 @@ public final class BPETrainer {
         Map<TokenPair, Integer> mergeToNewId = new HashMap<>();
 
         while (vocab.size() < targetVocabSize) {
-            TokenPair bestPair = findBestPair(words, vocab.endOfWordId());
+            TokenPair bestPair = findBestPair(words, vocab);
             if (bestPair == null) {
                 break;
             }
 
-            Integer newId = tryAddMergedToken(vocab, bestPair);
-            if (newId == null) {
-                break;
-            }
-
+            int newId = addMergedToken(vocab, bestPair);
             merges.add(bestPair);
             mergeToNewId.put(bestPair, newId);
             applyMerge(words, bestPair, newId);
@@ -40,7 +36,7 @@ public final class BPETrainer {
 
         return new BPEModel(
                 vocab.idToBytes(),
-                vocab.bytesToId(),
+                vocab.tokenKeyToId(),
                 merges,
                 mergeToNewId,
                 vocab.endOfWordId()
@@ -67,19 +63,19 @@ public final class BPETrainer {
 
     private VocabularyState createBaseVocabulary() {
         List<byte[]> idToBytes = new ArrayList<>();
-        Map<String, Integer> bytesToId = new HashMap<>();
+        Map<String, Integer> tokenKeyToId = new HashMap<>();
 
         for (int i = 0; i < 256; i++) {
             byte[] token = new byte[]{(byte) i};
             idToBytes.add(token);
-            bytesToId.put(BPEBytes.key(token), i);
+            tokenKeyToId.put(BPEBytes.key(token), i);
         }
 
         int endOfWordId = idToBytes.size();
         idToBytes.add(END_OF_WORD);
-        bytesToId.put(EOW_KEY, endOfWordId);
+        tokenKeyToId.put(EOW_KEY, endOfWordId);
 
-        return new VocabularyState(idToBytes, bytesToId, endOfWordId);
+        return new VocabularyState(idToBytes, tokenKeyToId, endOfWordId);
     }
 
     private List<List<Integer>> buildInitialWords(String text, int endOfWordId) {
@@ -104,8 +100,9 @@ public final class BPETrainer {
         return word;
     }
 
-    private TokenPair findBestPair(List<List<Integer>> words, int endOfWordId) {
-        return selectBestPair(countPairs(words, endOfWordId));
+    private TokenPair findBestPair(List<List<Integer>> words, VocabularyState vocab) {
+        Map<TokenPair, Integer> counts = countPairs(words, vocab.endOfWordId());
+        return selectBestValidPair(counts, vocab);
     }
 
     private Map<TokenPair, Integer> countPairs(List<List<Integer>> words, int endOfWordId) {
@@ -146,18 +143,47 @@ public final class BPETrainer {
         return bestPair;
     }
 
-    private Integer tryAddMergedToken(VocabularyState vocab, TokenPair pair) {
+    private TokenPair selectBestValidPair(Map<TokenPair, Integer> counts, VocabularyState vocab) {
+        TokenPair bestPair = null;
+        int bestCount = 1;
+
+        for (Map.Entry<TokenPair, Integer> entry : counts.entrySet()) {
+            TokenPair candidate = entry.getKey();
+            int count = entry.getValue();
+
+            if (count <= 1) {
+                continue;
+            }
+
+            if (wouldCreateExistingToken(vocab, candidate)) {
+                continue;
+            }
+
+            if (count > bestCount) {
+                bestCount = count;
+                bestPair = candidate;
+            } else if (count == bestCount && bestPair != null && candidate.compareTo(bestPair) < 0) {
+                bestPair = candidate;
+            }
+        }
+
+        return bestPair;
+    }
+
+    private boolean wouldCreateExistingToken(VocabularyState vocab, TokenPair pair) {
         byte[] mergedBytes = BPEBytes.concat(
                 vocab.idToBytes().get(pair.left()),
                 vocab.idToBytes().get(pair.right())
         );
+        return vocab.contains(BPEBytes.key(mergedBytes));
+    }
 
-        String mergedKey = BPEBytes.key(mergedBytes);
-        if (vocab.contains(mergedKey)) {
-            return null;
-        }
-
-        return vocab.add(mergedBytes, mergedKey);
+    private int addMergedToken(VocabularyState vocab, TokenPair pair) {
+        byte[] mergedBytes = BPEBytes.concat(
+                vocab.idToBytes().get(pair.left()),
+                vocab.idToBytes().get(pair.right())
+        );
+        return vocab.add(mergedBytes, BPEBytes.key(mergedBytes));
     }
 
     private void applyMerge(List<List<Integer>> words, TokenPair pair, int newId) {

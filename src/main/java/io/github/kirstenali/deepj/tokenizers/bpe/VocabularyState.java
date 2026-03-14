@@ -5,7 +5,7 @@ import java.util.Map;
 
 record VocabularyState(
         List<byte[]> idToBytes,
-        Map<String, Integer> bytesToId,
+        Map<String, Integer> tokenKeyToId,
         int endOfWordId
 ) {
     int size() {
@@ -13,13 +13,13 @@ record VocabularyState(
     }
 
     boolean contains(String key) {
-        return bytesToId.containsKey(key);
+        return tokenKeyToId.containsKey(key);
     }
 
     int add(byte[] bytes, String key) {
         int newId = idToBytes.size();
         idToBytes.add(bytes);
-        bytesToId.put(key, newId);
+        tokenKeyToId.put(key, newId);
         return newId;
     }
 }

@@ -11,7 +11,7 @@ class BPERegressionTest {
         BPETrainer trainer = new BPETrainer();
         BPEModel model = trainer.train("abc abc abc", 270);
 
-        Integer zeroId = model.bytesToId().get(BPEBytes.key(new byte[]{0}));
+        Integer zeroId = model.tokenKeyToId().get(BPEBytes.key(new byte[]{0}));
         assertNotNull(zeroId);
         assertEquals(0, zeroId);
     }
