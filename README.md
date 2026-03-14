@@ -1,21 +1,20 @@
 # DeepJ
 
-**DeepJ** is a lightweight Java library for building and experimenting
-with **Transformer-based neural networks**.
+A lightweight Java library for building and experimenting with
+**Transformer-based neural networks**.
 
-The library focuses on:
+DeepJ focuses on:
 
 -   simple APIs
 -   minimal dependencies
 -   easy experimentation
 -   clean Java implementations of modern architectures
 
-📚 Documentation\
-https://kirstenali.github.io/DeepJ/
+📚 **Documentation:** https://kirstenali.github.io/DeepJ/
 
 ------------------------------------------------------------------------
 
-# 🚀 Installation
+## 🚀 Installation
 
 Add the GitHub Packages repository and dependency to your `pom.xml`.
 
@@ -38,11 +37,11 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
 
 ------------------------------------------------------------------------
 
-# 📚 Examples
+## 📚 Examples
 
-## Classic ANN-style MLP (FNN)
+### Classic ANN-style MLP (FNN)
 
-Train a small feed-forward network.
+Train a small feed-forward neural network.
 
 ``` java
 Tensor x = new Tensor(new double[][]{
@@ -88,7 +87,7 @@ trainer.train(
 
 ------------------------------------------------------------------------
 
-## Transformer stack builder
+### Transformer stack builder
 
 Create a stack of decoder blocks using the builder.
 
@@ -105,7 +104,7 @@ TransformerStack stack = new TransformerBuilder()
 
 ------------------------------------------------------------------------
 
-## Tiny GPT training + generation
+### Tiny GPT training + generation
 
 Train a small GPT-style language model.
 
@@ -137,7 +136,7 @@ trainer.train(
 );
 ```
 
-### Generate text
+Generate text:
 
 ``` java
 String prompt = "Mara wrote down the rhythm, ";
@@ -159,13 +158,13 @@ System.out.println(out);
 
 ------------------------------------------------------------------------
 
-# 💬 Chat UI
+## 💬 Chat UI
 
-DeepJ also includes a simple **JavaFX chat interface** that lets you
-interact with trained models.
+DeepJ also includes an **optional JavaFX chat interface** for
+interacting with trained models.
 
-The UI itself is **model-agnostic**.\
-You provide your own implementation of the `ChatService` interface.
+The UI is **model-agnostic**, meaning you provide your own
+implementation of the `ChatService` interface.
 
 This allows you to:
 
@@ -176,9 +175,9 @@ This allows you to:
 
 ------------------------------------------------------------------------
 
-# Using the Chat UI
+## Using the Chat UI
 
-To launch the UI, extend `BaseChatApp` and return your own
+To launch the UI, extend `BaseChatApp` and provide your own
 `ChatService`.
 
 ``` java
@@ -197,7 +196,7 @@ public class ChatApp extends BaseChatApp {
 
 ------------------------------------------------------------------------
 
-# Implementing a ChatService
+## Implementing a ChatService
 
 Your service controls:
 
@@ -253,16 +252,16 @@ public class GPTChatService implements ChatService {
 
 ------------------------------------------------------------------------
 
-# Example UI Flow
+## Example UI Flow
 
-1.  User selects a trained `.bin` model
-2.  `ChatService.loadModel()` loads the model
-3.  User enters a prompt
-4.  UI calls `chatService.generate(...)`
-5.  Generated text appears in the chat
+1.  User selects a trained `.bin` model\
+2.  `ChatService.loadModel()` loads the model\
+3.  User enters a prompt\
+4.  The UI calls `chatService.generate(...)`\
+5.  Generated text appears in the chat window
 
 ------------------------------------------------------------------------
 
-# 📄 License
+## 📄 License
 
 MIT License.
