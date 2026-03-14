@@ -24,7 +24,7 @@ public final class TrainSmallGPT {
         TextDataset ds = TextDataset.fromFile(corpus, tok, 128, 123);
 
         GPTConfig cfg = new GPTConfig(
-                ByteTokenizer.VOCAB_SIZE,
+                tok.vocabSize(),
                 128,     // maxSeqLen
                 256,    // dModel
                 4,      // nHeads
