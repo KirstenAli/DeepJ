@@ -1,0 +1,16 @@
+io.github.kirstenali.deepj.activations
+io.github.kirstenali.deepj.concurrent
+io.github.kirstenali.deepj.data
+io.github.kirstenali.deepj.examples
+io.github.kirstenali.deepj.layers
+io.github.kirstenali.deepj.layers.transformer
+io.github.kirstenali.deepj.loss
+io.github.kirstenali.deepj.models.gpt
+io.github.kirstenali.deepj.optimisers
+io.github.kirstenali.deepj.persistence
+io.github.kirstenali.deepj.tensor
+io.github.kirstenali.deepj.tokenizers
+io.github.kirstenali.deepj.tokenizers.bpe
+io.github.kirstenali.deepj.training
+io.github.kirstenali.deepj.transformer
+io.github.kirstenali.deepj.transformer.embeddings
