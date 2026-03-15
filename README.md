@@ -29,11 +29,11 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
 </repositories>
 
 <dependencies>
-<dependency>
-    <groupId>io.github.kirstenali</groupId>
-    <artifactId>deepj</artifactId>
-    <version>0.1.11-alpha</version>
-</dependency>
+    <dependency>
+        <groupId>io.github.kirstenali</groupId>
+        <artifactId>deepj</artifactId>
+        <version>0.1.11-alpha</version>
+    </dependency>
 </dependencies>
 ```
 
@@ -78,7 +78,7 @@ Trainer trainer = SupervisedTraining.trainer(
 
 trainer.train(
         3000, // maxSteps
-        3,    // batchSize (full batch here)
+        3,    // batchSize
         200,  // logEvery
         0.98, // emaBeta
         1e-6  // targetEmaLoss
@@ -111,16 +111,16 @@ Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(
         corpus,
         tok,
-        64,   // seqLen
-        123   // seed
+        64,     // seqLen
+        123     // seed
 );
 
 GPTConfig cfg = new GPTConfig(
         tok.vocabSize(),
-        64,    // maxSeqLen
-        128,   // dModel
-        4,     // nHeads
-        2,     // nLayers
+        64,     // maxSeqLen
+        128,    // dModel
+        4,      // nHeads
+        2,      // nLayers
         4 * 128 // dFF
 );
 
@@ -224,7 +224,7 @@ public class GPTChatService implements ChatService {
     @Override
     public void loadModel(Path modelPath) throws Exception {
         model = new GPTModel(
-                config,
+                config, 
                 42      // seed
         );
         model.load(modelPath);
