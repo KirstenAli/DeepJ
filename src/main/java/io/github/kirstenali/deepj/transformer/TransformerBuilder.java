@@ -21,6 +21,7 @@ public final class TransformerBuilder {
     private int dFF;
     private int nLayers;
     private Supplier<ActivationFunction> ffnActivationFactory = GELU::new;
+    private Random rnd;
     private long seed = 42;
 
     public TransformerBuilder dModel(int dModel) {
@@ -45,13 +46,24 @@ public final class TransformerBuilder {
 
     /** Activation used inside the FFN. Default: GELU. */
     public TransformerBuilder ffnActivation(Supplier<ActivationFunction> activationFactory) {
-        if (activationFactory == null) throw new IllegalArgumentException("activationFactory must not be null");
+        if (activationFactory == null) {
+            throw new IllegalArgumentException("activationFactory must not be null");
+        }
         this.ffnActivationFactory = activationFactory;
         return this;
     }
 
     public TransformerBuilder seed(long seed) {
         this.seed = seed;
+        this.rnd = null;
+        return this;
+    }
+
+    public TransformerBuilder random(Random rnd) {
+        if (rnd == null) {
+            throw new IllegalArgumentException("rnd must not be null");
+        }
+        this.rnd = rnd;
         return this;
     }
 
@@ -61,10 +73,11 @@ public final class TransformerBuilder {
         if (dFF <= 0) throw new IllegalArgumentException("dFF must be > 0");
         if (nLayers <= 0) throw new IllegalArgumentException("nLayers must be > 0");
 
-        Random rnd = new Random(seed);
+        Random random = (rnd != null) ? rnd : new Random(seed);
+
         List<TransformerBlock> blocks = new ArrayList<>(nLayers);
         for (int i = 0; i < nLayers; i++) {
-            blocks.add(new TransformerBlock(dModel, nHeads, dFF, ffnActivationFactory, rnd));
+            blocks.add(new TransformerBlock(dModel, nHeads, dFF, ffnActivationFactory, random));
         }
         return new TransformerStack(blocks);
     }

@@ -6,7 +6,6 @@ import io.github.kirstenali.deepj.layers.transformer.TransformerBlock;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -14,18 +13,12 @@ import java.util.List;
  *
  * <p>This exists to make transformer composition explicit (instead of reusing a generic Sequential).
  */
-public final class TransformerStack implements Layer {
-
-    private final List<TransformerBlock> blocks;
+public record TransformerStack(List<TransformerBlock> blocks) implements Layer {
 
     public TransformerStack(List<TransformerBlock> blocks) {
         if (blocks == null) throw new IllegalArgumentException("blocks must not be null");
         if (blocks.isEmpty()) throw new IllegalArgumentException("blocks must be non-empty");
         this.blocks = List.copyOf(blocks);
-    }
-
-    public List<TransformerBlock> blocks() {
-        return blocks;
     }
 
     @Override
