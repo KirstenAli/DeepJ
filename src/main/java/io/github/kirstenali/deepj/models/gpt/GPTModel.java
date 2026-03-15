@@ -4,11 +4,12 @@ import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.training.Trainable;
+import io.github.kirstenali.deepj.transformer.TransformerStack;
+import io.github.kirstenali.deepj.transformer.TransformerBuilder;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 import io.github.kirstenali.deepj.layers.transformer.LayerNorm1D;
 import io.github.kirstenali.deepj.layers.Linear;
 import io.github.kirstenali.deepj.transformer.embeddings.PositionalEmbedding;
-import io.github.kirstenali.deepj.layers.transformer.TransformerBlock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,7 @@ public final class GPTModel implements Trainable, Persistable {
 
     private final Embedding tokEmb;
     private final PositionalEmbedding posEmb;
-    private final TransformerBlock[] blocks;
+    private final TransformerStack stack;
     private final LayerNorm1D lnF;
     private final Linear lmHead;
 
@@ -36,10 +37,14 @@ public final class GPTModel implements Trainable, Persistable {
         this.tokEmb = new Embedding(cfg.vocabSize(), cfg.dModel(), rnd);
         this.posEmb = new PositionalEmbedding(cfg.maxSeqLen(), cfg.dModel(), rnd);
 
-        this.blocks = new TransformerBlock[cfg.nLayers()];
-        for (int i = 0; i < cfg.nLayers(); i++) {
-            blocks[i] = new TransformerBlock(cfg.dModel(), cfg.nHeads(), cfg.dFF(), rnd);
-        }
+        this.stack = new TransformerBuilder()
+                .dModel(cfg.dModel())
+                .nHeads(cfg.nHeads())
+                .dFF(cfg.dFF())
+                .nLayers(cfg.nLayers())
+                .seed(seed)
+                .random(rnd)
+                .build();
 
         this.lnF = new LayerNorm1D(cfg.dModel());
         this.lmHead = new Linear(cfg.dModel(), cfg.vocabSize(), rnd);
@@ -51,11 +56,7 @@ public final class GPTModel implements Trainable, Persistable {
         Tensor pos = posEmb.forward(seqLen);
 
         Tensor x = tok.add(pos);
-
-        for (TransformerBlock b : blocks) {
-            x = b.forward(x);
-        }
-
+        x = stack.forward(x);
         x = lnF.forward(x);
         return lmHead.forward(x); // logits [seqLen x vocab]
     }
@@ -63,10 +64,7 @@ public final class GPTModel implements Trainable, Persistable {
     public void backward(Tensor dLogits) {
         Tensor g = lmHead.backward(dLogits);
         g = lnF.backward(g);
-
-        for (int i = blocks.length - 1; i >= 0; i--) {
-            g = blocks[i].backward(g);
-        }
+        g = stack.backward(g);
 
         tokEmb.backward(g);
         posEmb.backward(g);
@@ -77,7 +75,7 @@ public final class GPTModel implements Trainable, Persistable {
         List<Parameter> ps = new ArrayList<>();
         ps.addAll(tokEmb.parameters());
         ps.addAll(posEmb.parameters());
-        for (TransformerBlock b : blocks) ps.addAll(b.parameters());
+        ps.addAll(stack.parameters());
         ps.addAll(lnF.parameters());
         ps.addAll(lmHead.parameters());
         return ps;
