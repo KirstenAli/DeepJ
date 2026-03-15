@@ -20,7 +20,7 @@ DeepJ focuses on:
 
 Add the GitHub Packages repository and dependency to your `pom.xml`.
 
-``` xml
+```xml
 <repositories>
     <repository>
         <id>github</id>
@@ -29,11 +29,11 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
 </repositories>
 
 <dependencies>
-    <dependency>
-        <groupId>io.github.kirstenali</groupId>
-        <artifactId>deepj</artifactId>
-        <version>0.1.11-alpha</version>
-    </dependency>
+<dependency>
+    <groupId>io.github.kirstenali</groupId>
+    <artifactId>deepj</artifactId>
+    <version>0.1.11-alpha</version>
+</dependency>
 </dependencies>
 ```
 
@@ -43,7 +43,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
 
 Train a small feed-forward neural network.
 
-``` java
+```java
 Tensor x = new Tensor(new double[][]{
         {1, 0, 0},
         {0, 1, 0},
@@ -59,29 +59,29 @@ Tensor y = new Tensor(new double[][]{
 Random rnd = new Random(42);
 
 FNN mlp = new FNN(
-        3,
-        new int[]{16, 16},
-        3,
+        3,                 // inputSize
+        new int[]{16, 16}, // hiddenSizes
+        3,                 // outputSize
         GELU::new,
-        null,
+        null,              // outputActivation
         rnd
 );
 
 Trainer trainer = SupervisedTraining.trainer(
         mlp,
         new MSELoss(),
-        AdamW.defaultAdamW(3e-3),
+        AdamW.defaultAdamW(3e-3), // lr
         x,
         y,
-        123L
+        123L                      // seed
 );
 
 trainer.train(
-        3000,
-        0.98,
-        1e-6,
-        200,
-        3
+        3000, // maxSteps
+        3,    // batchSize (full batch here)
+        200,  // logEvery
+        0.98, // emaBeta
+        1e-6  // targetEmaLoss
 );
 ```
 
@@ -89,7 +89,7 @@ trainer.train(
 
 Create a stack of decoder blocks using the builder.
 
-``` java
+```java
 TransformerStack stack = new TransformerBuilder()
         .dModel(128)
         .nHeads(4)
@@ -104,37 +104,46 @@ TransformerStack stack = new TransformerBuilder()
 
 Train a small GPT-style language model.
 
-``` java
+```java
 Path corpus = Path.of("sample_data/sample_corpus.txt");
 
 Tokenizer tok = new ByteTokenizer();
-TextDataset ds = TextDataset.fromFile(corpus, tok, 64, 123);
+TextDataset ds = TextDataset.fromFile(
+        corpus,
+        tok,
+        64,   // seqLen
+        123   // seed
+);
 
 GPTConfig cfg = new GPTConfig(
         tok.vocabSize(),
-        64,
-        128,
-        4,
-        2,
-        4 * 128
+        64,    // maxSeqLen
+        128,   // dModel
+        4,     // nHeads
+        2,     // nLayers
+        4 * 128 // dFF
 );
 
 GPTModel model = new GPTModel(cfg, 42);
 
-Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-3);
+Trainer trainer = CausalLMTraining.trainer(
+        model,
+        ds,
+        1e-3 // lr
+);
 
 trainer.train(
-        10_000,
-        16,
-        50,
-        0.98,
-        0.25
+        10_000, // maxSteps
+        16,     // batchSize
+        50,     // logEvery
+        0.98,   // emaBeta
+        0.25    // targetEmaLoss
 );
 ```
 
 Generate text:
 
-``` java
+```java
 String prompt = "Mara wrote down the rhythm, ";
 
 String out = TextGenerator.generate(
@@ -142,10 +151,10 @@ String out = TextGenerator.generate(
         tok,
         cfg,
         prompt,
-        64,
-        0.1,
-        0,
-        1234L
+        64,    // maxNewTokens
+        0.1,   // temperature
+        0,     // topK
+        1234L  // seed
 );
 
 System.out.println("\n=== Generated ===");
@@ -172,7 +181,7 @@ This allows you to:
 To launch the UI, extend `BaseChatApp` and provide your own
 `ChatService`.
 
-``` java
+```java
 public class ChatApp extends BaseChatApp {
 
     @Override
@@ -197,7 +206,7 @@ Your service controls:
 
 Example implementation using DeepJ GPT:
 
-``` java
+```java
 public class GPTChatService implements ChatService {
 
     private GPTModel model;
@@ -205,16 +214,19 @@ public class GPTChatService implements ChatService {
 
     private final GPTConfig config = new GPTConfig(
             ByteTokenizer.VOCAB_SIZE,
-            128,
-            256,
-            4,
-            4,
-            1024
+            128,  // maxSeqLen
+            256,  // dModel
+            4,    // nHeads
+            4,    // nLayers
+            1024  // dFF
     );
 
     @Override
     public void loadModel(Path modelPath) throws Exception {
-        model = new GPTModel(config, 42);
+        model = new GPTModel(
+                config,
+                42      // seed
+        );
         model.load(modelPath);
     }
 
@@ -242,10 +254,10 @@ public class GPTChatService implements ChatService {
 
 ### Example UI Flow
 
-1.  User selects a trained `.bin` model\
-2.  `ChatService.loadModel()` loads the model\
-3.  User enters a prompt\
-4.  The UI calls `chatService.generate(...)`\
+1.  User selects a trained `.bin` model
+2.  `ChatService.loadModel()` loads the model
+3.  User enters a prompt
+4.  The UI calls `chatService.generate(...)`
 5.  Generated text appears in the chat window
 
 ## 📄 License
