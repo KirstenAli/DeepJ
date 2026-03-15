@@ -1,6 +1,6 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">DeepJ logo</title>
-  <desc id="desc">A lightweight, GitHub-friendly logo for the DeepJ Java Transformer library featuring a stylized D and J connected by attention nodes.</desc>
+  <title id="title">DeepJ logo mathematically centered</title>
+  <desc id="desc">DeepJ logo with mathematically centered artwork, including background card and border.</desc>
 
   <defs>
     <linearGradient id="bg" x1="84" y1="72" x2="428" y2="440" gradientUnits="userSpaceOnUse">
@@ -24,7 +24,7 @@
   <rect x="48" y="48" width="416" height="416" rx="108" fill="url(#bg)"/>
   <rect x="56" y="56" width="400" height="400" rx="100" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
 
-  <g filter="url(#shadow)">
+  <g transform="translate(5,-10)" filter="url(#shadow)">
     <path d="M150 144H228C292.065 144 344 195.935 344 260C344 324.065 292.065 376 228 376H150V144Z"
           fill="none" stroke="url(#accent)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
 
