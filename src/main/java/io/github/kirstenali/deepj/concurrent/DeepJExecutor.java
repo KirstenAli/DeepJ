@@ -8,7 +8,7 @@ import java.util.function.IntConsumer;
 
 public final class DeepJExecutor {
 
-    private static volatile int parallelThreshold = 128;
+    private static volatile int parallelThreshold = 64;
     private static final AtomicInteger tid = new AtomicInteger(1);
 
     private static ThreadFactory daemonFactory() {
