@@ -18,7 +18,7 @@ import java.nio.file.Path;
 public final class TrainSmallGPT {
 
     public static void main(String[] args) throws Exception {
-        Path corpus = Path.of("sample_data/AllCombined.txt");
+        Path corpus = Path.of("sample_data/deepj_qa_corpus_128mb.txt");
 
         Tokenizer tok = new ByteTokenizer();
         TextDataset ds = TextDataset.fromFile(corpus, tok, 128, 123);
