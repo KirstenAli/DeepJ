@@ -24,7 +24,7 @@ public final class GPTChatService implements ChatService {
                 128,
                 256,
                 4,
-                4,
+                5,
                 1024
         );
     }

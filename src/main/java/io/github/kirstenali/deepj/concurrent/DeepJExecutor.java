@@ -23,10 +23,6 @@ public final class DeepJExecutor {
         return Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
     }
 
-    private static int defaultParallelThreshold(int threads) {
-        return Math.min(4096, Math.max(256, threads * 128));
-    }
-
     private static ThreadPoolExecutor newExecutor(int nThreads) {
         ThreadPoolExecutor p = new ThreadPoolExecutor(
                 nThreads, nThreads,
@@ -160,39 +156,6 @@ public final class DeepJExecutor {
             cancelled.set(true);
             Thread.currentThread().interrupt();
             throw new RuntimeException(ie);
-        }
-    }
-
-    public static Range range(int startInclusive, int endExclusive) {
-        return new Range(startInclusive, endExclusive);
-    }
-
-    public static final class Range {
-        private final int startInclusive;
-        private final int endExclusive;
-        private boolean parallel;
-
-        private Range(int startInclusive, int endExclusive) {
-            this.startInclusive = startInclusive;
-            this.endExclusive = endExclusive;
-        }
-
-        public Range parallel() {
-            this.parallel = true;
-            return this;
-        }
-
-        public Range sequential() {
-            this.parallel = false;
-            return this;
-        }
-
-        public void forEach(IntConsumer body) {
-            if (!parallel) {
-                for (int i = startInclusive; i < endExclusive; i++) body.accept(i);
-            } else {
-                DeepJExecutor.forRange(startInclusive, endExclusive, body);
-            }
         }
     }
 }
