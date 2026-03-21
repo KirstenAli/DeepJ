@@ -25,11 +25,11 @@ public final class TrainSmallGPT {
 
         GPTConfig cfg = new GPTConfig(
                 tok.vocabSize(),
-                128,     // maxSeqLen
-                256,    // dModel
-                4,      // nHeads
-                4,      // nLayers
-                1024 // dFF
+                128,  // maxSeqLen
+                256,             // dModel
+                4,               // nHeads
+                5,               // nLayers
+                1024             // dFF
         );
 
         GPTModel model = new GPTModel(cfg, 42);
