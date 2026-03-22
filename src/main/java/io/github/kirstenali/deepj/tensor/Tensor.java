@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
+import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+
 import java.util.Random;
 
 public class Tensor {
