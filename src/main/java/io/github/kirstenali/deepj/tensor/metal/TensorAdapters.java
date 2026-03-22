@@ -1,4 +1,6 @@
-package io.github.kirstenali.deepj.tensor;
+package io.github.kirstenali.deepj.tensor.metal;
+
+import io.github.kirstenali.deepj.tensor.Tensor;
 
 final class TensorAdapters {
 
