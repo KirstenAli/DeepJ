@@ -112,7 +112,7 @@ static void runMatmulF32(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_io_github_kirstenali_deepj_tensor_MetalNative_matmulF32(
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_matmulF32(
         JNIEnv* env,
         jclass,
         jfloatArray aArr,
