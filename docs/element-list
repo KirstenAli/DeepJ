@@ -10,6 +10,8 @@ io.github.kirstenali.deepj.models.gpt
 io.github.kirstenali.deepj.optimisers
 io.github.kirstenali.deepj.persistence
 io.github.kirstenali.deepj.tensor
+io.github.kirstenali.deepj.tensor.cpu
+io.github.kirstenali.deepj.tensor.metal
 io.github.kirstenali.deepj.tokenizers
 io.github.kirstenali.deepj.tokenizers.bpe
 io.github.kirstenali.deepj.training

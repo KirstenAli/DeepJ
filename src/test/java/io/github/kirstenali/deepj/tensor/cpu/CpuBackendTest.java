@@ -1,5 +1,6 @@
-package io.github.kirstenali.deepj.tensor;
+package io.github.kirstenali.deepj.tensor.cpu;
 
+import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

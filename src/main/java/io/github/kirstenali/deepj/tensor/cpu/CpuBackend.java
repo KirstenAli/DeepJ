@@ -1,6 +1,8 @@
-package io.github.kirstenali.deepj.tensor;
+package io.github.kirstenali.deepj.tensor.cpu;
 
 import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
+import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorBackend;
 
 import java.util.Random;
 
