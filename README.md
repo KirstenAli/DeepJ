@@ -327,6 +327,40 @@ if (MetalBackend.isGpuAvailable()) {
 }
 ```
 
+### GPU-resident tensor design
+
+DeepJ uses a **lazy, GPU-resident** execution model. When the Metal backend
+is active, tensors stay on the GPU between operations — data is only
+transferred when absolutely necessary:
+
+```
+CPU                              GPU
+ │                                │
+ │  Tensor.setBackend(metal)      │
+ │                                │
+ │  a = random(512, 512)     ──upload──▶  GPU buffer A
+ │  b = random(512, 512)     ──upload──▶  GPU buffer B
+ │                                │
+ │  c = a.matmul(b)               │       record op  (no execution yet)
+ │  d = c.relu()                  │       record op  (no execution yet)
+ │  e = d.softmaxRows()           │       record op  (no execution yet)
+ │                                │
+ │  e.materialize()               │       flush all 3 ops in one batch
+ │                           ◀──download── GPU buffer E
+ │  read e.data[][]               │
+```
+
+Key points:
+
+-   **No round-trips:** intermediate results (`c`, `d`) never leave the GPU
+-   **Batched execution:** all recorded ops flush in a single GPU command buffer
+-   **Automatic materialization:** reading `data[][]` or calling `materialize()` triggers the flush
+-   **Staleness tracking:** each tensor knows whether its CPU or GPU copy is current via `GpuBuffer.cpuStale` / `needsUpload` flags
+-   **Zero-copy reuse:** a tensor's GPU buffer persists across operations — subsequent ops reuse it without re-uploading
+
+This means a full forward + backward pass can record hundreds of GPU ops
+and execute them in just 2–3 native calls, minimising driver overhead.
+
 ## ⚡ Metal GPU Performance
 
 
