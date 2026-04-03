@@ -260,11 +260,75 @@ public class GPTChatService implements ChatService {
 4.  The UI calls `chatService.generate(...)`
 5.  Generated text appears in the chat window
 
+## 🖥️ Metal GPU Backend (macOS)
+
+DeepJ ships with an optional **Metal GPU backend** for macOS Apple Silicon.
+All tensor operations automatically dispatch to the GPU when the input is
+large enough, with seamless CPU ↔ GPU data transfer.
+
+### Enabling the backend
+
+```java
+import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
+
+MetalBackend metal = new MetalBackend();
+Tensor.setBackend(metal);
+
+System.out.println("GPU available: " + MetalBackend.isGpuAvailable());
+```
+
+That's it — every `Tensor` operation now routes through Metal when beneficial.
+
+### Tuning GPU dispatch thresholds
+
+The backend only dispatches to the GPU when the workload is large enough
+to offset the overhead. You can tune the thresholds:
+
+```java
+MetalBackend metal = new MetalBackend();
+
+// Matmul: minimum m*k*n work units (default: 1,048,576)
+metal.setMatmulGpuThreshold(128L * 128 * 64);
+
+// Element-wise: minimum total elements (default: 4,096)
+metal.setElementwiseGpuThreshold(4096);
+
+// Set to 0 to force everything to GPU
+metal.setMatmulGpuThreshold(0);
+metal.setElementwiseGpuThreshold(0);
+
+Tensor.setBackend(metal);
+```
+
+### Debugging dispatch decisions
+
+Enable logging to see which ops go to CPU vs GPU:
+
+```java
+metal.setLogDispatches(true);
+// prints to stderr:
+// [Metal] matmul [256x256]·[256x128] work=8,388,608 → GPU
+// [Metal] add [64x64] n=4,096 → GPU
+// [Metal] sqrt [32x32] n=1,024 → CPU
+```
+
+### Falling back to CPU
+
+If Metal is not available (non-macOS, no Apple Silicon), the backend
+automatically falls back to CPU for every operation — no code changes needed.
+You can also check availability at runtime:
+
+```java
+if (MetalBackend.isGpuAvailable()) {
+    Tensor.setBackend(new MetalBackend());
+} else {
+    System.out.println("Metal not available, using CPU backend");
+}
+```
+
 ## ⚡ Metal GPU Performance
 
-DeepJ includes an optional **Metal GPU backend** for macOS (Apple Silicon).
-When enabled, tensor operations are dispatched to the GPU via a lazy
-compute-graph with automatic CPU ↔ GPU transfer.
 
 Below are CPU vs GPU timings for all tensor operations on a
 **512 × 512** matrix (262,144 elements), measured on an Apple M1.
