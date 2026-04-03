@@ -7,22 +7,15 @@ public class Sigmoid implements ActivationFunction {
 
     @Override
     public Tensor forward(Tensor input) {
-        output = new Tensor(input.rows, input.cols);
-        for (int r = 0; r < input.rows; r++)
-            for (int c = 0; c < input.cols; c++)
-                output.data[r][c] = 1.0 / (1.0 + Math.exp(-input.data[r][c]));
+        output = input.sigmoidActivation();
         return output;
     }
 
     @Override
     public Tensor backward(Tensor gradOutput) {
-        Tensor grad = new Tensor(output.rows, output.cols);
-        for (int r = 0; r < output.rows; r++) {
-            for (int c = 0; c < output.cols; c++) {
-                double sig = output.data[r][c];
-                grad.data[r][c] = gradOutput.data[r][c] * sig * (1.0 - sig);
-            }
-        }
-        return grad;
+        // d_sigmoid = sigmoid * (1 - sigmoid) * grad
+        Tensor ones = Tensor.ones(output.rows, output.cols);
+        Tensor oneMinusSig = ones.subtract(output);
+        return gradOutput.multiply(output).multiply(oneMinusSig);
     }
 }

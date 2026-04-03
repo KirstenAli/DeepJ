@@ -3,7 +3,8 @@ package io.github.kirstenali.deepj.tensor;
 import java.util.Random;
 
 public interface TensorBackend {
-    // factories (static-style)
+
+    // ── factories ──────────────────────────────────────────────────────
     Tensor zeros(int rows, int cols);
     Tensor ones(int rows, int cols);
     Tensor random(int rows, int cols, Random rand);
@@ -12,7 +13,7 @@ public interface TensorBackend {
     Tensor unflattenToTensor(double[] flat, int rows, int cols);
     double[] flattenTensor(Tensor t);
 
-    // ops (instance-style)
+    // ── element-wise binary ────────────────────────────────────────────
     Tensor matmul(Tensor a, Tensor b);
 
     Tensor add(Tensor a, Tensor b);
@@ -20,23 +21,8 @@ public interface TensorBackend {
     Tensor multiply(Tensor a, Tensor b);
     Tensor divide(Tensor a, Tensor b);
 
+    // ── broadcast ──────────────────────────────────────────────────────
     Tensor addRowVector(Tensor a, Tensor rowVector);
-
-    Tensor sumRows(Tensor a);
-
-    Tensor clamp(Tensor a, double min, double max);
-
-    Tensor transpose(Tensor a);
-
-    Tensor multiplyScalar(Tensor a, double scalar);
-    Tensor addScalar(Tensor a, double scalar);
-    Tensor divideScalar(Tensor a, double scalar);
-
-    Tensor meanAlongRows(Tensor a);
-    Tensor varianceAlongRows(Tensor a);
-
-    Tensor sumAlongRows(Tensor a);
-    Tensor sumAlongCols(Tensor a);
 
     Tensor addBroadcastCols(Tensor a, Tensor colVector);
     Tensor divideBroadcastCols(Tensor a, Tensor colVector);
@@ -46,11 +32,81 @@ public interface TensorBackend {
     Tensor addBroadcastRows(Tensor a, Tensor rowVector);
     Tensor multiplyBroadcastRows(Tensor a, Tensor rowVector);
 
-    Tensor sqrt(Tensor a);
-    Tensor pow(Tensor a, double exponent);
+    // ── scalar ops ─────────────────────────────────────────────────────
+    Tensor multiplyScalar(Tensor a, double scalar);
+    Tensor addScalar(Tensor a, double scalar);
+    Tensor divideScalar(Tensor a, double scalar);
+
+    // ── reductions ─────────────────────────────────────────────────────
+    Tensor sumRows(Tensor a);
+    Tensor sumAlongRows(Tensor a);
+    Tensor sumAlongCols(Tensor a);
+    Tensor meanAlongRows(Tensor a);
+    Tensor varianceAlongRows(Tensor a);
+    Tensor maxAlongRows(Tensor a);
 
     double sum(Tensor a);
     double sumAbs(Tensor a);
 
+    // ── unary math ─────────────────────────────────────────────────────
+    Tensor clamp(Tensor a, double min, double max);
+    Tensor transpose(Tensor a);
+    Tensor sqrt(Tensor a);
+    Tensor pow(Tensor a, double exponent);
+    Tensor neg(Tensor a);
+    Tensor exp(Tensor a);
+    Tensor log(Tensor a);
+
+    // ── activation element-wise ────────────────────────────────────────
+    Tensor tanh(Tensor a);
+    Tensor sigmoid(Tensor a);
+    Tensor relu(Tensor a);
+    Tensor reluBackward(Tensor input, Tensor gradOutput);
+    Tensor gelu(Tensor a);
+    Tensor geluBackward(Tensor input, Tensor gradOutput);
+
+    // ── row-wise compound ──────────────────────────────────────────────
+    Tensor softmaxRows(Tensor logits);
+    Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut);
+
+    // ── fused high-level ops ───────────────────────────────────────────
+    double crossEntropyLoss(Tensor logits, int[] targets);
+    Tensor crossEntropyGradient(Tensor logits, int[] targets);
+
+    /**
+     * In-place AdamW update.  Mutates w, mt, vt.
+     */
+    void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
+                     double lr, double beta1, double beta2, double eps,
+                     double weightDecay, double bc1, double bc2);
+
+    /**
+     * LayerNorm backward through normalization (given dXHat, xHat, std).
+     */
+    Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
+
+    // ── data accessors (for code that must touch elements) ─────────────
+    double get(Tensor t, int r, int c);
+    void set(Tensor t, int r, int c, double value);
+    Tensor getRow(Tensor t, int row);
+    void setRow(Tensor t, int row, Tensor source, int srcRow);
+
+    /** Gather rows by index (for embedding lookup). */
+    Tensor sliceRows(Tensor t, int[] rowIndices, int cols);
+
+    /** Scatter-add: target.data[indices[i]] += grad.data[i] (for embedding backward). */
+    void scatterAddRows(Tensor target, int[] indices, Tensor grad);
+
+    /** Sample random rows from t. */
+    Tensor sampleRows(Tensor t, int n, Random rnd);
+
+    // ── debug ──────────────────────────────────────────────────────────
     void print(Tensor t, String label);
+
+    // ── lazy execution support ─────────────────────────────────────────
+    /**
+     * Materialize a tensor: flush any pending GPU computation and download
+     * the result to the tensor's CPU data[][]. Default is a no-op (for CpuBackend).
+     */
+    default void materializeTensor(Tensor t) { /* no-op for eager backends */ }
 }
