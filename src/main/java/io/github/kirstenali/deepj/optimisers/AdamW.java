@@ -84,37 +84,12 @@ public final class AdamW implements ParameterOptimizer {
         Tensor mt = m.computeIfAbsent(p, __ -> Tensor.zeros(w.rows, w.cols));
         Tensor vt = v.computeIfAbsent(p, __ -> Tensor.zeros(w.rows, w.cols));
 
-        applyAdamWUpdate(w, g, mt, vt, bc1, bc2);
+        Tensor.adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
     }
 
     private void validateParamShapes(Tensor w, Tensor g) {
         if (w.rows != g.rows || w.cols != g.cols) {
             throw new IllegalArgumentException("grad shape must match param shape");
-        }
-    }
-
-    private void applyAdamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt, double bc1, double bc2) {
-        for (int r = 0; r < w.rows; r++) {
-            for (int c = 0; c < w.cols; c++) {
-                double grad = g.data[r][c];
-
-                double mNew = beta1 * mt.data[r][c] + (1.0 - beta1) * grad;
-                double vNew = beta2 * vt.data[r][c] + (1.0 - beta2) * (grad * grad);
-
-                mt.data[r][c] = mNew;
-                vt.data[r][c] = vNew;
-
-                double mHat = mNew / bc1;
-                double vHat = vNew / bc2;
-
-                double update = (lr * mHat) / (Math.sqrt(vHat) + eps);
-
-                if (weightDecay != 0.0) {
-                    update += lr * weightDecay * w.data[r][c];
-                }
-
-                w.data[r][c] -= update;
-            }
         }
     }
 }

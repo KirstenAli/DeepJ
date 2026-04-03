@@ -45,7 +45,7 @@ public final class LayerNorm1D implements Layer {
     public Tensor backward(Tensor gradOut) {
         accumulateParameterGrads(gradOut);
         Tensor dXHat = gradOut.multiplyBroadcastRows(gamma.value);
-        return backwardNormalization(dXHat);
+        return Tensor.layerNormBackward(dXHat, xHat, std, dim);
     }
 
     private void validateInput(Tensor x) {
@@ -75,31 +75,6 @@ public final class LayerNorm1D implements Layer {
         beta.grad = beta.grad.add(gradOut.sumRows());
     }
 
-    private Tensor backwardNormalization(Tensor dXHat) {
-        int n = dim;
-        Tensor dX = new Tensor(x.rows, x.cols);
-
-        for (int r = 0; r < x.rows; r++) {
-            double stdR = std.data[r][0];
-            double invStd = 1.0 / stdR;
-            double sumD = 0.0;
-            double sumDXHatXHat = 0.0;
-
-            for (int c = 0; c < n; c++) {
-                double d = dXHat.data[r][c];
-                sumD += d;
-                sumDXHatXHat += d * xHat.data[r][c];
-            }
-
-            for (int c = 0; c < n; c++) {
-                double d = dXHat.data[r][c];
-                double xh = xHat.data[r][c];
-                dX.data[r][c] = invStd * (d - sumD / n - xh * (sumDXHatXHat / n));
-            }
-        }
-
-        return dX;
-    }
 
     @Override
     public List<Parameter> parameters() {

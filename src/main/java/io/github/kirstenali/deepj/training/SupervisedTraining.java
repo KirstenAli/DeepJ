@@ -39,8 +39,8 @@ public final class SupervisedTraining {
                 xb = xAll;
                 yb = yAll;
             } else {
-                xb = sampleRows(xAll, batchSize, rnd);
-                yb = sampleRows(yAll, batchSize, rnd);
+                xb = Tensor.sampleRows(xAll, batchSize, rnd);
+                yb = Tensor.sampleRows(yAll, batchSize, rnd);
             }
 
             Tensor pred = model.forward(xb);
@@ -54,14 +54,5 @@ public final class SupervisedTraining {
 
             return loss;
         });
-    }
-
-    private static Tensor sampleRows(Tensor t, int batchSize, Random rnd) {
-        Tensor out = new Tensor(batchSize, t.cols);
-        for (int i = 0; i < batchSize; i++) {
-            int r = rnd.nextInt(t.rows);
-            if (t.cols >= 0) System.arraycopy(t.data[r], 0, out.data[i], 0, t.cols);
-        }
-        return out;
     }
 }

@@ -29,7 +29,7 @@ public final class ModelSerializer {
 
                 for (int r = 0; r < t.rows; r++) {
                     for (int c = 0; c < t.cols; c++) {
-                        out.writeDouble(t.data[r][c]);
+                        out.writeDouble(t.get(r, c));
                     }
                 }
             }
@@ -57,7 +57,7 @@ public final class ModelSerializer {
 
                 for (int r = 0; r < rows; r++) {
                     for (int c = 0; c < cols; c++) {
-                        t.data[r][c] = in.readDouble();
+                        t.set(r, c, in.readDouble());
                     }
                 }
             }

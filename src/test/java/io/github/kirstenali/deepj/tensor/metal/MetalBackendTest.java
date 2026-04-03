@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -20,12 +21,22 @@ public final class MetalBackendTest {
 
     private static TensorBackend cpu;
     private static TensorBackend gpu;
+    private static TensorBackend previousBackend;
 
     @BeforeAll
     static void setUp() {
         Assumptions.assumeTrue(MetalNative.AVAILABLE, "Metal native library not available");
         cpu = new CpuBackend();
         gpu = new MetalBackend();
+        previousBackend = Tensor.backend();
+        Tensor.setBackend(gpu); // so materialize() routes through MetalBackend
+    }
+
+    @AfterAll
+    static void tearDown() {
+        if (previousBackend != null) {
+            Tensor.setBackend(previousBackend);
+        }
     }
 
     private static Tensor randomTensor(int rows, int cols, long seed) {
@@ -56,6 +67,7 @@ public final class MetalBackendTest {
         b.data[2][1] = 12;
 
         Tensor c = gpu.matmul(a, b);
+        c.materialize(); // lazy GPU op — must materialize before reading data
         assertEquals(2, c.rows);
         assertEquals(2, c.cols);
         assertEquals(58.0, c.data[0][0], 1e-6);
@@ -86,6 +98,8 @@ public final class MetalBackendTest {
     private static void assertTensorClose(Tensor expected, Tensor actual, double atol, double rtol) {
         assertEquals(expected.rows, actual.rows, "rows mismatch");
         assertEquals(expected.cols, actual.cols, "cols mismatch");
+        expected.materialize();
+        actual.materialize();
 
         for (int r = 0; r < expected.rows; r++) {
             for (int c = 0; c < expected.cols; c++) {

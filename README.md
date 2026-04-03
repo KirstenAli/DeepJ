@@ -32,7 +32,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.1.13-alpha</version>
+        <version>0.2.0-alpha</version>
     </dependency>
 </dependencies>
 ```
@@ -259,6 +259,76 @@ public class GPTChatService implements ChatService {
 3.  User enters a prompt
 4.  The UI calls `chatService.generate(...)`
 5.  Generated text appears in the chat window
+
+## ⚡ Metal GPU Performance
+
+DeepJ includes an optional **Metal GPU backend** for macOS (Apple Silicon).
+When enabled, tensor operations are dispatched to the GPU via a lazy
+compute-graph with automatic CPU ↔ GPU transfer.
+
+Below are CPU vs GPU timings for all tensor operations on a
+**512 × 512** matrix (262,144 elements), measured on an Apple M1.
+
+| Operation | CPU (ms) | GPU (ms) | Speedup |
+|---|---:|---:|---:|
+| **matmul** | 24.701 | 0.051 | **481.18×** |
+| **matmul (rect)** | 6.566 | 0.132 | **49.57×** |
+| add | 0.435 | 0.048 | 9.15× |
+| subtract | 0.170 | 0.048 | 3.52× |
+| multiply | 0.243 | 0.051 | 4.79× |
+| divide | 0.361 | 0.052 | 6.93× |
+| multiplyScalar | 0.445 | 0.129 | 3.46× |
+| addScalar | 0.205 | 0.185 | 1.11× |
+| divideScalar | 0.204 | 0.194 | 1.05× |
+| addRowVector | 0.189 | 0.175 | 1.08× |
+| addBroadcastCols | 0.090 | 0.085 | 1.06× |
+| subtractBroadcastCols | 0.112 | 0.086 | 1.30× |
+| multiplyBroadcastCols | 0.085 | 0.087 | 0.98× |
+| divideBroadcastCols | 0.088 | 0.089 | 0.99× |
+| addBroadcastRows | 0.085 | 0.085 | 1.00× |
+| multiplyBroadcastRows | 0.094 | 0.089 | 1.06× |
+| sumRows | 0.219 | 0.034 | 6.44× |
+| sumAlongRows | 0.083 | 0.064 | 1.29× |
+| sumAlongCols | 0.033 | 0.033 | 1.01× |
+| meanAlongRows | 0.072 | 0.069 | 1.04× |
+| varianceAlongRows | 0.157 | 0.155 | 1.01× |
+| maxAlongRows | 0.043 | 0.042 | 1.02× |
+| sum (scalar) | 0.142 | 0.142 | 1.00× |
+| sumAbs (scalar) | 0.153 | 0.151 | 1.01× |
+| **sqrt** | 0.318 | 0.046 | **6.89×** |
+| pow (^2) | 0.192 | 0.195 | 0.98× |
+| neg | 0.134 | 0.139 | 0.96× |
+| **exp** | 0.331 | 0.048 | **6.88×** |
+| **log** | 0.299 | 0.051 | **5.88×** |
+| clamp | 0.111 | 0.104 | 1.07× |
+| transpose | 0.125 | 0.121 | 1.03× |
+| **tanh** | 0.438 | 0.046 | **9.61×** |
+| **sigmoid** | 0.303 | 0.053 | **5.69×** |
+| relu | 0.185 | 0.048 | 3.81× |
+| reluBackward | 0.111 | 0.050 | 2.24× |
+| **gelu** | 0.507 | 0.049 | **10.39×** |
+| **geluBackward** | 0.683 | 0.129 | **5.29×** |
+| softmaxRows | 0.451 | 0.125 | 3.60× |
+| softmaxBackward | 0.236 | 0.237 | 0.99× |
+| crossEntropyLoss | 0.468 | 0.275 | 1.71× |
+| crossEntropyGradient | 0.862 | 0.757 | 1.14× |
+| adamWUpdate | 0.255 | 0.281 | 0.91× |
+| layerNormBackward | 0.254 | 0.205 | 1.24× |
+| sliceRows | 0.042 | 0.041 | 1.02× |
+| scatterAddRows | 0.121 | 0.121 | 1.00× |
+
+> **Key takeaway:** GPU-accelerated ops (matmul, activations, unary math)
+> see **3×–481× speedups**. Ops that currently fall back to CPU show ~1×
+> (no overhead from the dispatch layer).
+
+Run the benchmark yourself:
+
+```bash
+mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
+    "-Djunit.jupiter.conditions.deactivate=org.junit.*" \
+    -Dperf.size=512 -Dperf.iters.cpu=5 -Dperf.iters.gpu=10 \
+    -Dsurefire.useFile=false
+```
 
 ## 📄 License
 

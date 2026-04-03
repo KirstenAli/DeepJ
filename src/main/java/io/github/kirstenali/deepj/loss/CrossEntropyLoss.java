@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.loss;
 
-import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 /**
@@ -33,12 +32,7 @@ public final class CrossEntropyLoss implements LossFunction {
      */
     public static double loss(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
-
-        double lossSum = 0.0;
-        for (int i = 0; i < logits.rows; i++) {
-            lossSum += computeRowLoss(logits, i, targets[i]);
-        }
-        return lossSum / logits.rows;
+        return logits.crossEntropyLoss(targets);
     }
 
     /**
@@ -46,15 +40,7 @@ public final class CrossEntropyLoss implements LossFunction {
      */
     public static Tensor gradient(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
-
-        Tensor grad = new Tensor(logits.rows, logits.cols);
-
-        for (int i = 0; i < logits.rows; i++) {
-            Softmax.computeSoftmaxRow(logits.data[i], grad.data[i]);
-            grad.data[i][targets[i]] -= 1.0;
-        }
-
-        return grad.divideScalar(logits.rows);
+        return logits.crossEntropyGradient(targets);
     }
 
     /**
@@ -69,7 +55,7 @@ public final class CrossEntropyLoss implements LossFunction {
 
         int[] y = new int[actual.rows];
         for (int i = 0; i < actual.rows; i++) {
-            y[i] = (int) Math.round(actual.data[i][0]);
+            y[i] = (int) Math.round(actual.get(i, 0));
         }
         return y;
     }
@@ -80,18 +66,11 @@ public final class CrossEntropyLoss implements LossFunction {
     public static Tensor fromIntTargets(int[] targets) {
         Tensor t = new Tensor(targets.length, 1);
         for (int i = 0; i < targets.length; i++) {
-            t.data[i][0] = targets[i];
+            t.set(i, 0, targets[i]);
         }
         return t;
     }
 
-    private static double computeRowLoss(Tensor logits, int row, int target) {
-        double[] logitRow = logits.data[row];
-        double max = Softmax.findMax(logitRow);
-        double sumExp = Softmax.computeExpSum(logitRow, max);
-        double logDen = Math.log(sumExp) + max;
-        return logDen - logitRow[target];
-    }
 
     private static void checkTargets(Tensor logits, int[] targets) {
         if (logits == null) {

@@ -4,6 +4,8 @@ import io.github.kirstenali.deepj.models.gpt.GPTConfig;
 import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.models.gpt.TextGenerator;
+import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
@@ -18,6 +20,15 @@ import java.nio.file.Path;
 public final class TrainSmallGPT {
 
     public static void main(String[] args) throws Exception {
+        MetalBackend metal = new MetalBackend();
+        // ── Tune these to control CPU/GPU boundary ──────────────────
+        // Lower = more GPU work.  Set to 0 to force everything to GPU.
+        metal.setMatmulGpuThreshold(128L * 128 * 64);   // default 1,048,576
+        metal.setElementwiseGpuThreshold(4096);          // default 4,096
+        metal.setLogDispatches(true);  // prints CPU/GPU decisions to stderr
+        Tensor.setBackend(metal);
+
+        System.out.println("Metal GPU available: " + MetalBackend.isGpuAvailable());
         Path corpus = Path.of("sample_data/llm_training_dataset_1227_examples.txt");
 
         Tokenizer tok = new ByteTokenizer();
@@ -39,6 +50,10 @@ public final class TrainSmallGPT {
         Path checkpointDir = Path.of("checkpoints");
 
         Trainer.StepHook checkpointHook = (step, loss, ema) -> {
+            // Turn off dispatch logging after first step
+            if (step == 0) {
+                metal.setLogDispatches(false);
+            }
             if (step > 0 && step % 500 == 0) {
                 model.save(checkpointDir.resolve("small-gpt-" + step + ".bin"));
             }

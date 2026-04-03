@@ -27,23 +27,14 @@ public final class Embedding implements Trainable {
 
     public Tensor forward(int[] ids) {
         this.lastIds = ids;
-        Tensor out = new Tensor(ids.length, dModel);
-        for (int i = 0; i < ids.length; i++) {
-            int id = ids[i];
+        for (int id : ids) {
             if (id < 0 || id >= vocabSize) throw new IllegalArgumentException("Token id out of range: " + id);
-            System.arraycopy(weight.value.data[id], 0, out.data[i], 0, dModel);
         }
-        return out;
+        return Tensor.sliceRows(weight.value, ids, dModel);
     }
 
     public void backward(Tensor gradOut) {
-        // accumulate dW for the rows used
-        for (int i = 0; i < lastIds.length; i++) {
-            int id = lastIds[i];
-            for (int j = 0; j < dModel; j++) {
-                weight.grad.data[id][j] += gradOut.data[i][j];
-            }
-        }
+        Tensor.scatterAddRows(weight.grad, lastIds, gradOut);
     }
 
     public Parameter weight() {

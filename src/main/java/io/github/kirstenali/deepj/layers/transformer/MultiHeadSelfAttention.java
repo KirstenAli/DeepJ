@@ -70,7 +70,7 @@ public final class MultiHeadSelfAttention implements Layer {
         Tensor scores = computeScaledDotProductScores(qh, kh, x.rows);
 
         if (causalMask) {
-            applyCausalMaskInPlace(scores, x.rows);
+            scores = applyCausalMask(scores, x.rows);
         }
 
         attnProb = softmax.forward(scores);
@@ -121,56 +121,50 @@ public final class MultiHeadSelfAttention implements Layer {
     }
 
     private Tensor computeScaledDotProductScores(Tensor qh, Tensor kh, int seqLen) {
-        Tensor scores = new Tensor(nHeads * seqLen, seqLen);
+        // qh, kh: [nHeads*seqLen x headDim]
+        // For each head block: scores_block = qh_block * kh_block^T, then scale
+        // We compute this as a block-diagonal matmul by iterating heads
+        Tensor scores = Tensor.zeros(nHeads * seqLen, seqLen);
         double scale = 1.0 / Math.sqrt(headDim);
 
         for (int h = 0; h < nHeads; h++) {
-            int rowBase = h * seqLen;
-            int kBase = h * seqLen;
+            // Extract head blocks as sub-tensors
+            Tensor qBlock = extractBlock(qh, h * seqLen, seqLen, headDim);
+            Tensor kBlock = extractBlock(kh, h * seqLen, seqLen, headDim);
 
-            for (int i = 0; i < seqLen; i++) {
-                for (int j = 0; j < seqLen; j++) {
-                    double dot = 0.0;
-                    for (int d = 0; d < headDim; d++) {
-                        dot += qh.data[rowBase + i][d] * kh.data[kBase + j][d];
-                    }
-                    scores.data[rowBase + i][j] = dot * scale;
-                }
-            }
+            // scores_block = qBlock * kBlock^T * scale
+            Tensor block = qBlock.matmul(kBlock.transpose()).multiplyScalar(scale);
+
+            // Copy block into scores
+            insertBlock(scores, block, h * seqLen, seqLen, seqLen);
         }
 
         return scores;
     }
 
-    private void applyCausalMaskInPlace(Tensor scores, int seqLen) {
+    private Tensor applyCausalMask(Tensor scores, int seqLen) {
         Tensor mask = Tensor.causalMask(seqLen);
 
+        // Apply mask to each head block
+        Tensor result = Tensor.zeros(scores.rows, scores.cols);
         for (int h = 0; h < nHeads; h++) {
-            int rowBase = h * seqLen;
-            for (int i = 0; i < seqLen; i++) {
-                for (int j = 0; j < seqLen; j++) {
-                    scores.data[rowBase + i][j] += mask.data[i][j];
-                }
-            }
+            Tensor block = extractBlock(scores, h * seqLen, seqLen, seqLen);
+            Tensor masked = block.add(mask);
+            insertBlock(result, masked, h * seqLen, seqLen, seqLen);
         }
+        return result;
     }
 
     private Tensor applyAttentionToValues(Tensor attnProb, Tensor vh, int seqLen) {
-        Tensor outH = new Tensor(nHeads * seqLen, headDim);
+        // attnProb: [nHeads*seqLen x seqLen], vh: [nHeads*seqLen x headDim]
+        Tensor outH = Tensor.zeros(nHeads * seqLen, headDim);
 
         for (int h = 0; h < nHeads; h++) {
-            int rowBase = h * seqLen;
-            int vBase = h * seqLen;
+            Tensor aBlock = extractBlock(attnProb, h * seqLen, seqLen, seqLen);
+            Tensor vBlock = extractBlock(vh, h * seqLen, seqLen, headDim);
 
-            for (int i = 0; i < seqLen; i++) {
-                for (int d = 0; d < headDim; d++) {
-                    double sum = 0.0;
-                    for (int j = 0; j < seqLen; j++) {
-                        sum += attnProb.data[rowBase + i][j] * vh.data[vBase + j][d];
-                    }
-                    outH.data[rowBase + i][d] = sum;
-                }
-            }
+            Tensor block = aBlock.matmul(vBlock);
+            insertBlock(outH, block, h * seqLen, seqLen, headDim);
         }
 
         return outH;
@@ -182,28 +176,21 @@ public final class MultiHeadSelfAttention implements Layer {
     }
 
     private AttentionBackwardResult backwardAttentionAndValues(Tensor dOutH, Tensor vh, int seqLen) {
-        Tensor dAttn = new Tensor(nHeads * seqLen, seqLen);
-        Tensor dVh = new Tensor(nHeads * seqLen, headDim);
+        Tensor dAttn = Tensor.zeros(nHeads * seqLen, seqLen);
+        Tensor dVh = Tensor.zeros(nHeads * seqLen, headDim);
 
         for (int h = 0; h < nHeads; h++) {
-            int rowBase = h * seqLen;
-            int vBase = h * seqLen;
+            Tensor doBlock = extractBlock(dOutH, h * seqLen, seqLen, headDim);
+            Tensor vBlock = extractBlock(vh, h * seqLen, seqLen, headDim);
+            Tensor aBlock = extractBlock(attnProb, h * seqLen, seqLen, seqLen);
 
-            for (int i = 0; i < seqLen; i++) {
-                for (int j = 0; j < seqLen; j++) {
-                    double sum = 0.0;
-                    for (int d = 0; d < headDim; d++) {
-                        sum += dOutH.data[rowBase + i][d] * vh.data[vBase + j][d];
-                    }
-                    dAttn.data[rowBase + i][j] = sum;
-                }
+            // dAttn_block = doBlock * vBlock^T
+            Tensor dAttnBlock = doBlock.matmul(vBlock.transpose());
+            insertBlock(dAttn, dAttnBlock, h * seqLen, seqLen, seqLen);
 
-                for (int j = 0; j < seqLen; j++) {
-                    for (int d = 0; d < headDim; d++) {
-                        dVh.data[vBase + j][d] += attnProb.data[rowBase + i][j] * dOutH.data[rowBase + i][d];
-                    }
-                }
-            }
+            // dVh_block = aBlock^T * doBlock
+            Tensor dVhBlock = aBlock.transpose().matmul(doBlock);
+            insertBlock(dVh, dVhBlock, h * seqLen, seqLen, headDim);
         }
 
         Tensor dScores = softmax.backward(dAttn)
@@ -215,22 +202,21 @@ public final class MultiHeadSelfAttention implements Layer {
     private QueryKeyBackwardResult backwardQueriesAndKeys(
             Tensor dScores, Tensor qh, Tensor kh, int seqLen
     ) {
-        Tensor dQh = new Tensor(nHeads * seqLen, headDim);
-        Tensor dKh = new Tensor(nHeads * seqLen, headDim);
+        Tensor dQh = Tensor.zeros(nHeads * seqLen, headDim);
+        Tensor dKh = Tensor.zeros(nHeads * seqLen, headDim);
 
         for (int h = 0; h < nHeads; h++) {
-            int rowBase = h * seqLen;
-            int kBase = h * seqLen;
+            Tensor dsBlock = extractBlock(dScores, h * seqLen, seqLen, seqLen);
+            Tensor qBlock = extractBlock(qh, h * seqLen, seqLen, headDim);
+            Tensor kBlock = extractBlock(kh, h * seqLen, seqLen, headDim);
 
-            for (int i = 0; i < seqLen; i++) {
-                for (int j = 0; j < seqLen; j++) {
-                    double g = dScores.data[rowBase + i][j];
-                    for (int d = 0; d < headDim; d++) {
-                        dQh.data[rowBase + i][d] += g * kh.data[kBase + j][d];
-                        dKh.data[kBase + j][d] += g * qh.data[rowBase + i][d];
-                    }
-                }
-            }
+            // dQh_block = dsBlock * kBlock
+            Tensor dQhBlock = dsBlock.matmul(kBlock);
+            insertBlock(dQh, dQhBlock, h * seqLen, seqLen, headDim);
+
+            // dKh_block = dsBlock^T * qBlock
+            Tensor dKhBlock = dsBlock.transpose().matmul(qBlock);
+            insertBlock(dKh, dKhBlock, h * seqLen, seqLen, headDim);
         }
 
         return new QueryKeyBackwardResult(dQh, dKh);
@@ -242,32 +228,66 @@ public final class MultiHeadSelfAttention implements Layer {
         Wv.grad = Wv.grad.add(x.transpose().matmul(dV));
     }
 
+    /**
+     * Split [seqLen x dModel] into [nHeads*seqLen x headDim] via row/col reindexing.
+     */
     private Tensor splitHeads(Tensor t) {
         int seqLen = t.rows;
-        Tensor out = new Tensor(nHeads * seqLen, headDim);
+        Tensor out = Tensor.zeros(nHeads * seqLen, headDim);
 
         for (int i = 0; i < seqLen; i++) {
+            Tensor srcRow = t.getRow(i);
             for (int h = 0; h < nHeads; h++) {
-                int row = h * seqLen + i;
-                int colBase = h * headDim;
-                System.arraycopy(t.data[i], colBase, out.data[row], 0, headDim);
+                int dstRow = h * seqLen + i;
+                // Copy cols [h*headDim .. (h+1)*headDim) from srcRow into out row dstRow
+                for (int d = 0; d < headDim; d++) {
+                    out.set(dstRow, d, srcRow.get(0, h * headDim + d));
+                }
             }
         }
         return out;
     }
 
+    /**
+     * Merge [nHeads*seqLen x headDim] back into [seqLen x dModel].
+     */
     private Tensor mergeHeads(Tensor t, int seqLen) {
-        Tensor out = new Tensor(seqLen, dModel);
+        Tensor out = Tensor.zeros(seqLen, dModel);
 
         for (int i = 0; i < seqLen; i++) {
             for (int h = 0; h < nHeads; h++) {
-                int row = h * seqLen + i;
-                int colBase = h * headDim;
-                System.arraycopy(t.data[row], 0, out.data[i], colBase, headDim);
+                int srcRow = h * seqLen + i;
+                for (int d = 0; d < headDim; d++) {
+                    out.set(i, h * headDim + d, t.get(srcRow, d));
+                }
             }
         }
 
         return out;
+    }
+
+    /**
+     * Extract a sub-block: rows [rowStart .. rowStart+numRows), all cols [0..numCols).
+     */
+    private Tensor extractBlock(Tensor t, int rowStart, int numRows, int numCols) {
+        Tensor block = Tensor.zeros(numRows, numCols);
+        for (int r = 0; r < numRows; r++) {
+            for (int c = 0; c < numCols; c++) {
+                block.set(r, c, t.get(rowStart + r, c));
+            }
+        }
+        return block;
+    }
+
+    /**
+     * Insert a block into target at row offset.
+     */
+    private void insertBlock(Tensor target, Tensor block, int rowStart, int numRows, int numCols) {
+        for (int r = 0; r < numRows; r++) {
+            for (int c = 0; c < numCols; c++) {
+                target.set(rowStart + r, c, block.get(r, c));
+            }
+        }
     }
 
     @Override

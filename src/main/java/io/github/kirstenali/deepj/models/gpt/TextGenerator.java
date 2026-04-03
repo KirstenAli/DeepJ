@@ -36,7 +36,8 @@ public final class TextGenerator {
         for (int i = 0; i < maxNewTokens; i++) {
             int[] context = last(ids, cfg.maxSeqLen());
             Tensor logits = model.forward(context); // [seqLen x vocab]
-            double[] lastLogits = logits.data[logits.rows - 1];
+            Tensor lastRow = logits.getRow(logits.rows - 1);
+            double[] lastLogits = Tensor.flattenTensor(lastRow);
             int next = sampleFromLogits(lastLogits, temperature, topK, rnd);
             ids = append(ids, next);
         }
