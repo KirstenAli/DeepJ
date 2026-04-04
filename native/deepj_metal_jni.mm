@@ -743,6 +743,14 @@ static constexpr int OP_SOFTMAX_BACKWARD = 18;
 static constexpr int OP_LAYERNORM_BACKWARD = 19;
 static constexpr int OP_ADAMW_UPDATE   = 20;
 
+static id<MTLBuffer> requireBuffer(int id, const char* opName) {
+    auto it = gBufferPool.find(id);
+    if (it == gBufferPool.end() || it->second == nil) {
+        throw std::runtime_error(std::string(opName) + ": missing GPU buffer id=" + std::to_string(id));
+    }
+    return it->second;
+}
+
 // Helper: encode a softmax 3-pass into an existing compute encoder
 static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &enc,
                                id<MTLCommandBuffer> cmdBuf,
@@ -1058,6 +1066,11 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                 case OP_ADAMW_UPDATE: {
                     int wId = cmd[pos+1], gId = cmd[pos+2], mtId = cmd[pos+3], vtId = cmd[pos+4];
 
+                    id<MTLBuffer> wBuf = requireBuffer(wId, "OP_ADAMW_UPDATE");
+                    id<MTLBuffer> gBuf = requireBuffer(gId, "OP_ADAMW_UPDATE");
+                    id<MTLBuffer> mtBuf = requireBuffer(mtId, "OP_ADAMW_UPDATE");
+                    id<MTLBuffer> vtBuf = requireBuffer(vtId, "OP_ADAMW_UPDATE");
+
                     auto bitsToFloat = [](int bits) {
                         float v;
                         std::memcpy(&v, &bits, sizeof(float));
@@ -1089,10 +1102,10 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
 
                     if (!enc) enc = [cmdBuf computeCommandEncoder];
                     [enc setComputePipelineState:ctx->adamWUpdatePSO];
-                    [enc setBuffer:gBufferPool[wId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[gId]  offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[mtId] offset:0 atIndex:2];
-                    [enc setBuffer:gBufferPool[vtId] offset:0 atIndex:3];
+                    [enc setBuffer:wBuf              offset:0 atIndex:0];
+                    [enc setBuffer:gBuf              offset:0 atIndex:1];
+                    [enc setBuffer:mtBuf             offset:0 atIndex:2];
+                    [enc setBuffer:vtBuf             offset:0 atIndex:3];
                     [enc setBuffer:paramsBuf         offset:0 atIndex:4];
                     NSUInteger tpg = MIN((NSUInteger)n, ctx->adamWUpdatePSO.maxTotalThreadsPerThreadgroup);
                     [enc dispatchThreads:MTLSizeMake(n, 1, 1)

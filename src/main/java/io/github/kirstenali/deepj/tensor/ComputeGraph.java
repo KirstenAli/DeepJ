@@ -59,6 +59,19 @@ public final class ComputeGraph {
         this.runtime = Objects.requireNonNull(runtime, "runtime");
     }
 
+    // -- Scheduling helpers --------------------------------------------------
+
+    /** Queue a GPU buffer allocation for the next flush. */
+    private void scheduleAlloc(int id, int floatCount) {
+        pendingAllocs.add(new int[]{id, floatCount});
+    }
+
+    /** Queue a CPU-to-GPU data upload for the next flush. */
+    private void scheduleUpload(int id, float[] data) {
+        pendingUploadIds.add(new int[]{id});
+        pendingUploadData.add(data);
+    }
+
     // -- Buffer management ---------------------------------------------------
 
     /**
@@ -69,8 +82,7 @@ public final class ComputeGraph {
         if (t.getGpuTag() instanceof GpuBuffer existing) {
             bufIdToTensor.put(existing.id, new WeakReference<>(t));
             if (existing.needsUpload) {
-                pendingUploadIds.add(new int[]{existing.id});
-                pendingUploadData.add(TensorAdapters.packF32(t));
+                scheduleUpload(existing.id, TensorAdapters.packF32(t));
                 existing.needsUpload = false;
                 existing.cpuStale = false;
             }
@@ -80,9 +92,8 @@ public final class ComputeGraph {
         GpuBuffer buf = new GpuBuffer(id, t.rows, t.cols, true);
         buf.allocatedOnGpu = false;
 
-        pendingAllocs.add(new int[]{id, buf.floatCount()});
-        pendingUploadIds.add(new int[]{id});
-        pendingUploadData.add(TensorAdapters.packF32(t));
+        scheduleAlloc(id, buf.floatCount());
+        scheduleUpload(id, TensorAdapters.packF32(t));
 
         t.setGpuTag(buf);
         bufIdToTensor.put(id, new WeakReference<>(t));
@@ -97,8 +108,7 @@ public final class ComputeGraph {
         GpuBuffer buf = new GpuBuffer(id, rows, cols, false);
         buf.cpuStale = true;
         buf.allocatedOnGpu = false;
-
-        pendingAllocs.add(new int[]{id, buf.floatCount()});
+        scheduleAlloc(id, buf.floatCount());
         return buf;
     }
 
@@ -250,40 +260,32 @@ public final class ComputeGraph {
     private void allocatePendingBuffers() {
         if (pendingAllocs.isEmpty()) return;
 
-        int[] ids   = new int[pendingAllocs.size()];
-        int[] sizes = new int[pendingAllocs.size()];
-        for (int i = 0; i < pendingAllocs.size(); i++) {
+        int count = pendingAllocs.size();
+        int[] ids   = new int[count];
+        int[] sizes = new int[count];
+        for (int i = 0; i < count; i++) {
             ids[i]   = pendingAllocs.get(i)[0];
             sizes[i] = pendingAllocs.get(i)[1];
         }
-        runtime.allocBuffers(ids, sizes, ids.length);
+        runtime.allocBuffers(ids, sizes, count);
+        markAllocatedBuffers();
+        pendingAllocs.clear();
+    }
 
+    /** Mark every tracked GpuBuffer as allocated on the GPU side. */
+    private void markAllocatedBuffers() {
         for (var ref : bufIdToTensor.values()) {
-            Tensor entry = ref.get();
-            if (entry != null && entry.getGpuTag() instanceof GpuBuffer gb) {
+            Tensor t = ref.get();
+            if (t != null && t.getGpuTag() instanceof GpuBuffer gb) {
                 gb.allocatedOnGpu = true;
             }
         }
-        pendingAllocs.clear();
     }
 
     private void releaseOrphanedBuffers() {
         if (bufIdToTensor.isEmpty()) return;
 
-        List<Integer> orphanIds = new ArrayList<>();
-        for (var entry : bufIdToTensor.entrySet()) {
-            int id = entry.getKey();
-            Tensor t = entry.getValue().get();
-            if (t == null) {
-                if (isBufferReferencedByPendingOps(id)) continue;
-                orphanIds.add(id);
-                continue;
-            }
-            if (!(t.getGpuTag() instanceof GpuBuffer gb) || gb.id != id) {
-                if (isBufferReferencedByPendingOps(id)) continue;
-                orphanIds.add(id);
-            }
-        }
+        List<Integer> orphanIds = collectOrphanIds();
         if (orphanIds.isEmpty()) return;
 
         for (int id : orphanIds) {
@@ -295,66 +297,71 @@ public final class ComputeGraph {
         runtime.releaseBuffers(ids, ids.length);
     }
 
+    /** Collect IDs of buffers whose owning Tensor no longer references them. */
+    private List<Integer> collectOrphanIds() {
+        List<Integer> orphanIds = new ArrayList<>();
+        for (var entry : bufIdToTensor.entrySet()) {
+            int id = entry.getKey();
+            Tensor t = entry.getValue().get();
+            if (isOrphanedBuffer(id, t) && !isBufferReferencedByPendingOps(id)) {
+                orphanIds.add(id);
+            }
+        }
+        return orphanIds;
+    }
+
+    /** Returns true when {@code t} is gone or no longer points at buffer {@code id}. */
+    private boolean isOrphanedBuffer(int id, Tensor t) {
+        if (t == null) return true;
+        return !(t.getGpuTag() instanceof GpuBuffer gb) || gb.id != id;
+    }
+
+    // -- Op stream traversal helpers -----------------------------------------
+
+    /**
+     * Returns the total number of ints consumed by {@code op} in the command stream,
+     * or {@code -1} for an unknown op.
+     */
+    private static int getOpStride(int op) {
+        return switch (op) {
+            case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID, OP_RELU, OP_GELU -> 4;
+            case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE,
+                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS -> 5;
+            case OP_SOFTMAX_BACKWARD -> 6;
+            case OP_MATMUL, OP_LAYERNORM_BACKWARD -> 7;
+            case OP_ADAMW_UPDATE -> 13;
+            default -> -1;
+        };
+    }
+
+    /**
+     * Returns {@code true} if any buffer-ID slot at {@code pos} in the command stream
+     * contains {@code bufferId}.
+     */
+    private boolean opReferencesBuffer(int pos, int op, int bufferId) {
+        return switch (op) {
+            case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID,
+                 OP_RELU, OP_GELU, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS ->
+                cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId;
+            case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE,
+                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MATMUL, OP_SOFTMAX_BACKWARD ->
+                cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
+                        || cmdStream[pos + 3] == bufferId;
+            case OP_LAYERNORM_BACKWARD, OP_ADAMW_UPDATE ->
+                cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
+                        || cmdStream[pos + 3] == bufferId || cmdStream[pos + 4] == bufferId;
+            default -> false;
+        };
+    }
+
     private boolean isBufferReferencedByPendingOps(int bufferId) {
         int pos = 0;
         while (pos < cmdPos) {
             int op = cmdStream[pos];
-            switch (op) {
-                case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_RELU_BACKWARD, OP_GELU_BACKWARD -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId || cmdStream[pos + 3] == bufferId) {
-                        return true;
-                    }
-                    pos += 5;
-                }
-                case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID, OP_RELU, OP_GELU -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId) {
-                        return true;
-                    }
-                    pos += 4;
-                }
-                case OP_MULTIPLY_SCALAR -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId) {
-                        return true;
-                    }
-                    pos += 5;
-                }
-                case OP_MATMUL -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId || cmdStream[pos + 3] == bufferId) {
-                        return true;
-                    }
-                    pos += 7;
-                }
-                case OP_SOFTMAX_ROWS -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId) {
-                        return true;
-                    }
-                    pos += 5;
-                }
-                case OP_SOFTMAX_BACKWARD -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId || cmdStream[pos + 3] == bufferId) {
-                        return true;
-                    }
-                    pos += 6;
-                }
-                case OP_LAYERNORM_BACKWARD -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
-                            || cmdStream[pos + 3] == bufferId || cmdStream[pos + 4] == bufferId) {
-                        return true;
-                    }
-                    pos += 7;
-                }
-                case OP_ADAMW_UPDATE -> {
-                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
-                            || cmdStream[pos + 3] == bufferId || cmdStream[pos + 4] == bufferId) {
-                        return true;
-                    }
-                    pos += 13;
-                }
-                default -> {
-                    // Unknown op: be conservative and avoid reclaiming anything this flush.
-                    return true;
-                }
-            }
+            int stride = getOpStride(op);
+            if (stride < 0) return true; // unknown op: be conservative
+            if (opReferencesBuffer(pos, op, bufferId)) return true;
+            pos += stride;
         }
         return false;
     }
@@ -378,9 +385,7 @@ public final class ComputeGraph {
         if (pendingUploadIds.isEmpty()) return;
 
         for (int i = 0; i < pendingUploadIds.size(); i++) {
-            int bufId    = pendingUploadIds.get(i)[0];
-            float[] data = pendingUploadData.get(i);
-            runtime.uploadBuffer(bufId, data);
+            runtime.uploadBuffer(pendingUploadIds.get(i)[0], pendingUploadData.get(i));
         }
         pendingUploadIds.clear();
         pendingUploadData.clear();

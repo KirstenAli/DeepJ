@@ -11,7 +11,7 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  */
 public final class Trainer {
 
-    private static final int DEFAULT_RELEASE_EVERY_STEPS = 1;
+    private static final int DEFAULT_RELEASE_EVERY_STEPS = 25;
 
     @FunctionalInterface
     public interface StepFunction {
@@ -37,6 +37,10 @@ public final class Trainer {
         return stepFn.trainStep(batchSize);
     }
 
+    /**
+     * Train until maxSteps or until EMA loss goes below targetEmaLoss (if provided).
+     * Uses the default periodic backend release cadence.
+     */
     public TrainingResult train(
             int maxSteps,
             int batchSize,
@@ -60,6 +64,7 @@ public final class Trainer {
 
     /**
      * Train until maxSteps or until EMA loss goes below targetEmaLoss (if provided).
+     * Uses the default periodic backend release cadence.
      */
     public TrainingResult train(
             int maxSteps,

@@ -93,7 +93,10 @@ public final class MetalBackendTest {
 
     @Test
     void softmaxBackwardMatchesCpu() {
-        MetalBackend gpuBackend = new MetalBackend(1L, 1L, false);
+        MetalBackend gpuBackend = new MetalBackend();
+        gpuBackend.setMatmulGpuThreshold(1L);
+        gpuBackend.setElementwiseGpuThreshold(1L);
+        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
@@ -125,7 +128,10 @@ public final class MetalBackendTest {
 
     @Test
     void layerNormBackwardMatchesCpu() {
-        MetalBackend gpuBackend = new MetalBackend(1L, 1L, false);
+        MetalBackend gpuBackend = new MetalBackend();
+        gpuBackend.setMatmulGpuThreshold(1L);
+        gpuBackend.setElementwiseGpuThreshold(1L);
+        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
@@ -161,7 +167,10 @@ public final class MetalBackendTest {
 
     @Test
     void crossEntropyGradientMatchesCpu() {
-        MetalBackend gpuBackend = new MetalBackend(1L, 1L, false);
+        MetalBackend gpuBackend = new MetalBackend();
+        gpuBackend.setMatmulGpuThreshold(1L);
+        gpuBackend.setElementwiseGpuThreshold(1L);
+        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
@@ -192,6 +201,89 @@ public final class MetalBackendTest {
                 IllegalArgumentException.class,
                 () -> gpu.crossEntropyGradient(logits, badTargets));
         assertTrue(ex.getMessage().contains("targets length"));
+    }
+
+    @Test
+    void adamWUpdateMatchesCpu_singleStep() {
+        MetalBackend gpuBackend = new MetalBackend();
+        gpuBackend.setMatmulGpuThreshold(1L);
+        gpuBackend.setElementwiseGpuThreshold(1L);
+        gpuBackend.setLogDispatches(false);
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor wCpu = randomTensor(32, 64, 71L);
+            Tensor gCpu = randomTensor(32, 64, 72L);
+            Tensor mtCpu = new Tensor(32, 64);
+            Tensor vtCpu = new Tensor(32, 64);
+
+            Tensor wGpu = new Tensor(wCpu.data);
+            Tensor gGpu = new Tensor(gCpu.data);
+            Tensor mtGpu = new Tensor(32, 64);
+            Tensor vtGpu = new Tensor(32, 64);
+
+            double lr = 1e-3;
+            double beta1 = 0.9;
+            double beta2 = 0.999;
+            double eps = 1e-8;
+            double weightDecay = 0.01;
+            double bc1 = 1.0 - beta1;
+            double bc2 = 1.0 - beta2;
+
+            cpu.adamWUpdate(wCpu, gCpu, mtCpu, vtCpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            gpuBackend.adamWUpdate(wGpu, gGpu, mtGpu, vtGpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+
+            assertTensorClose(wCpu, wGpu, 1e-4, 1e-4);
+            assertTensorClose(mtCpu, mtGpu, 1e-4, 1e-4);
+            assertTensorClose(vtCpu, vtGpu, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void adamWUpdateMatchesCpu_multipleSteps() {
+        MetalBackend gpuBackend = new MetalBackend();
+        gpuBackend.setMatmulGpuThreshold(1L);
+        gpuBackend.setElementwiseGpuThreshold(1L);
+        gpuBackend.setLogDispatches(false);
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor wCpu = randomTensor(16, 48, 81L);
+            Tensor mtCpu = new Tensor(16, 48);
+            Tensor vtCpu = new Tensor(16, 48);
+
+            Tensor wGpu = new Tensor(wCpu.data);
+            Tensor mtGpu = new Tensor(16, 48);
+            Tensor vtGpu = new Tensor(16, 48);
+
+            double lr = 1e-3;
+            double beta1 = 0.9;
+            double beta2 = 0.999;
+            double eps = 1e-8;
+            double weightDecay = 0.01;
+
+            for (int step = 1; step <= 5; step++) {
+                Tensor gCpu = randomTensor(16, 48, 90L + step);
+                Tensor gGpu = new Tensor(gCpu.data);
+                double bc1 = 1.0 - Math.pow(beta1, step);
+                double bc2 = 1.0 - Math.pow(beta2, step);
+
+                cpu.adamWUpdate(wCpu, gCpu, mtCpu, vtCpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+                gpuBackend.adamWUpdate(wGpu, gGpu, mtGpu, vtGpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            }
+
+            assertTensorClose(wCpu, wGpu, 1e-4, 1e-4);
+            assertTensorClose(mtCpu, mtGpu, 1e-4, 1e-4);
+            assertTensorClose(vtCpu, vtGpu, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
     }
 
     private static void assertTensorClose(Tensor expected, Tensor actual, double atol, double rtol) {

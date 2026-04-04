@@ -371,11 +371,143 @@ class ComputeGraphTest {
                 ComputeGraph.OP_RELU, ComputeGraph.OP_RELU_BACKWARD,
                 ComputeGraph.OP_GELU, ComputeGraph.OP_GELU_BACKWARD,
                 ComputeGraph.OP_SOFTMAX_ROWS, ComputeGraph.OP_SOFTMAX_BACKWARD,
-                ComputeGraph.OP_LAYERNORM_BACKWARD
+                ComputeGraph.OP_LAYERNORM_BACKWARD, ComputeGraph.OP_ADAMW_UPDATE   // was missing
         };
-        assertEquals(19, codes.length);
+        assertEquals(20, codes.length);
         assertEquals(codes.length, java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
+    }
+
+    // ── recordAdamWUpdate ──────────────────────────────────────────
+
+    @Test
+    void recordAdamWUpdateMakesGraphNonEmpty() {
+        GpuBuffer w  = graph.newOutputBuffer(4, 4);
+        GpuBuffer g  = graph.newOutputBuffer(4, 4);
+        GpuBuffer mt = graph.newOutputBuffer(4, 4);
+        GpuBuffer vt = graph.newOutputBuffer(4, 4);
+
+        graph.recordAdamWUpdate(w, g, mt, vt, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f, 16);
+
+        assertFalse(graph.isEmpty());
+    }
+
+    @Test
+    void recordAdamWUpdateEncodesThirteenInts() {
+        GpuBuffer w  = graph.newOutputBuffer(1, 4);
+        GpuBuffer g  = graph.newOutputBuffer(1, 4);
+        GpuBuffer mt = graph.newOutputBuffer(1, 4);
+        GpuBuffer vt = graph.newOutputBuffer(1, 4);
+
+        graph.recordAdamWUpdate(w, g, mt, vt, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f, 4);
+        graph.flush();
+
+        assertEquals(1, runtime.flushCalls.size());
+        int len    = runtime.flushCalls.get(0).cmdStreamLength();
+        int[] stream = runtime.flushCalls.get(0).cmdStream();
+        assertEquals(13, len, "AdamW op must encode exactly 13 ints");
+        assertEquals(ComputeGraph.OP_ADAMW_UPDATE,         stream[0]);
+        assertEquals(w.id,                                 stream[1]);
+        assertEquals(g.id,                                 stream[2]);
+        assertEquals(mt.id,                                stream[3]);
+        assertEquals(vt.id,                                stream[4]);
+        assertEquals(Float.floatToRawIntBits(1e-3f),       stream[5]);
+        assertEquals(Float.floatToRawIntBits(0.9f),        stream[6]);
+        assertEquals(Float.floatToRawIntBits(0.999f),      stream[7]);
+        assertEquals(Float.floatToRawIntBits(1e-8f),       stream[8]);
+        assertEquals(Float.floatToRawIntBits(0.01f),       stream[9]);
+        assertEquals(Float.floatToRawIntBits(0.9f),        stream[10]);
+        assertEquals(Float.floatToRawIntBits(0.999f),      stream[11]);
+        assertEquals(4,                                    stream[12]);
+    }
+
+    // ── markAllocatedBuffers ───────────────────────────────────────
+
+    @Test
+    void flushMarksBuffersAsAllocatedOnGpu() {
+        Tensor t      = new Tensor(new double[][]{{1.0}});
+        GpuBuffer in  = graph.ensureGpuBuffer(t);
+        GpuBuffer out = graph.newOutputBuffer(1, 1);
+        // createOutputTensor registers 'out' in the tracking map so markAllocatedBuffers can reach it
+        graph.createOutputTensor(out);
+
+        assertFalse(in.allocatedOnGpu,  "should not be allocated before flush");
+        assertFalse(out.allocatedOnGpu, "should not be allocated before flush");
+
+        graph.recordUnary(ComputeGraph.OP_NEG, in, out);
+        graph.flush();
+
+        assertTrue(in.allocatedOnGpu,  "input buffer should be marked allocated after flush");
+        assertTrue(out.allocatedOnGpu, "output buffer should be marked allocated after flush");
+    }
+
+    // ── flush edge cases ───────────────────────────────────────────
+
+    @Test
+    void flushWithPendingAllocsButNoOpsAllocatesWithoutExecuting() {
+        // newOutputBuffer queues an alloc but we record no ops
+        graph.newOutputBuffer(2, 4);
+        assertTrue(graph.isEmpty(), "no ops recorded");
+
+        graph.flush();
+
+        assertEquals(1, runtime.allocCalls.size(),  "pending alloc should have been submitted");
+        assertTrue(runtime.flushCalls.isEmpty(),     "no ops → no flushOps call");
+    }
+
+    // ── orphan buffer detection ────────────────────────────────────
+
+    @Test
+    void bufferWhoseTagWasReplacedIsReleasedOnFlush() {
+        Tensor t      = new Tensor(new double[][]{{1.0}});
+        GpuBuffer old = graph.ensureGpuBuffer(t);
+        graph.flush(); // allocate and upload
+
+        // Attach tensor to a brand-new buffer — old becomes orphaned
+        GpuBuffer replacement = graph.newOutputBuffer(1, 1);
+        t.setGpuTag(replacement);
+
+        int releasesBefore = runtime.releaseCalls.size();
+        graph.flush();
+
+        assertEquals(releasesBefore + 1, runtime.releaseCalls.size(),
+                "one release call should follow the flush");
+        int oldId     = old.id;
+        boolean found = java.util.Arrays.stream(
+                        runtime.releaseCalls.get(runtime.releaseCalls.size() - 1).ids())
+                .anyMatch(id -> id == oldId);
+        assertTrue(found, "the orphaned buffer id must appear in the release call");
+    }
+
+    @Test
+    void bufferWithClearedGpuTagIsReleasedOnFlush() {
+        Tensor t = new Tensor(new double[][]{{2.0}});
+        GpuBuffer buf = graph.ensureGpuBuffer(t);
+        graph.flush();
+
+        t.setGpuTag(null); // tensor disowned the buffer
+        int releasesBefore = runtime.releaseCalls.size();
+        graph.flush();
+
+        assertEquals(releasesBefore + 1, runtime.releaseCalls.size(),
+                "buffer with no owning tensor must be released");
+        int bufId     = buf.id;
+        boolean found = java.util.Arrays.stream(
+                        runtime.releaseCalls.get(runtime.releaseCalls.size() - 1).ids())
+                .anyMatch(id -> id == bufId);
+        assertTrue(found, "the released id must match the detached buffer");
+    }
+
+    // ── releaseAll clears tensor GPU tags ──────────────────────────
+
+    @Test
+    void releaseAllClearsTensorGpuTags() {
+        Tensor t = new Tensor(new double[][]{{3.0}});
+        graph.ensureGpuBuffer(t);
+
+        assertNotNull(t.getGpuTag(), "gpu tag should be set before releaseAll");
+        graph.releaseAll();
+        assertNull(t.getGpuTag(), "gpu tag should be null after releaseAll");
     }
 
     // ═══════════════════════════════════════════════════════════════

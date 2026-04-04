@@ -35,38 +35,7 @@ final class MetalNative {
         }
     }
 
-    // ── matmul ─────────────────────────────────────────────────────────
-    static native void matmulF32(float[] a, float[] b, float[] out, int m, int n, int k);
-
-    // ── element-wise binary ────────────────────────────────────────────
-    static native void addF32(float[] a, float[] b, float[] out, int n);
-    static native void subtractF32(float[] a, float[] b, float[] out, int n);
-    static native void multiplyF32(float[] a, float[] b, float[] out, int n);
-    static native void divideF32(float[] a, float[] b, float[] out, int n);
-
-    // ── scalar ops ─────────────────────────────────────────────────────
-    static native void multiplyScalarF32(float[] a, float[] out, float scalar, int n);
-
-    // ── unary math ─────────────────────────────────────────────────────
-    static native void sqrtF32(float[] a, float[] out, int n);
-    static native void negF32(float[] a, float[] out, int n);
-    static native void expF32(float[] a, float[] out, int n);
-    static native void logF32(float[] a, float[] out, int n);
-
-    // ── activations ────────────────────────────────────────────────────
-    static native void tanhF32(float[] a, float[] out, int n);
-    static native void sigmoidF32(float[] a, float[] out, int n);
-    static native void reluF32(float[] a, float[] out, int n);
-    static native void reluBackwardF32(float[] input, float[] gradOutput, float[] out, int n);
-    static native void geluF32(float[] a, float[] out, int n);
-    static native void geluBackwardF32(float[] input, float[] gradOutput, float[] out, int n);
-
-    // ── row-wise compound ──────────────────────────────────────────────
-    static native void softmaxRowsF32(float[] a, float[] out, int rows, int cols);
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  Lazy graph execution: persistent GPU buffers + batch op flush
-    // ═══════════════════════════════════════════════════════════════════
+    // ── Lazy graph execution: persistent GPU buffers + batch op flush ──
 
     /** Allocate multiple GPU buffers in one call. ids[i] → buffer of sizes[i] floats. */
     static native void nativeAllocBuffers(int[] ids, int[] sizes, int count);

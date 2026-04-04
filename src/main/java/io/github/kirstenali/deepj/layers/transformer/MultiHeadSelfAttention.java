@@ -13,10 +13,6 @@ import java.util.Random;
 /**
  * Multi-head causal self-attention for a single sequence (no batch dimension).
  * Input/Output shape: [seqLen x dModel]
-
- * Notes:
- *  - This implementation is intentionally explicit (loops) to keep the code dependency-free.
- *  - For real throughput, replace inner loops with vectorized / native kernels.
  */
 public final class MultiHeadSelfAttention implements Layer {
 

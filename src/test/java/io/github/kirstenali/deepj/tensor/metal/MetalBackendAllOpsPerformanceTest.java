@@ -41,7 +41,11 @@ public final class MetalBackendAllOpsPerformanceTest {
         Assumptions.assumeTrue(MetalNative.AVAILABLE, "Metal native library not available");
         cpu = new CpuBackend();
         // Force GPU dispatch for all sizes by setting thresholds to 0
-        gpu = new MetalBackend(0L, 0L, false);
+        MetalBackend metal = new MetalBackend();
+        metal.setMatmulGpuThreshold(0L);
+        metal.setElementwiseGpuThreshold(0L);
+        metal.setLogDispatches(false);
+        gpu = metal;
 
         previousBackend = Tensor.backend();
         Tensor.setBackend(gpu);
