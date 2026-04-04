@@ -259,11 +259,89 @@
       gap: 32px;
       align-items: start;
     }
-    @media (max-width: 700px) {
+
+    /* ── Hamburger button ─────────────────────────────────── */
+    .nav-toggle {
+      display: none;
+      background: none; border: none; cursor: pointer;
+      flex-direction: column; gap: 5px; padding: 4px;
+    }
+    .nav-toggle span {
+      display: block; width: 22px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+    .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav-toggle.open span:nth-child(2) { opacity: 0; }
+    .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* ── Table scroll wrapper ─────────────────────────────── */
+    .table-scroll {
+      width: 100%; overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Tablet ───────────────────────────────────────────── */
+    @media (max-width: 840px) {
+      .card-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
       .two-col { grid-template-columns: 1fr; }
-      .hero h1 { font-size: 2.4rem; }
-      nav ul { gap: 16px; }
-      nav a { font-size: 0.8rem; }
+      section { padding: 60px 0; }
+    }
+
+    /* ── Mobile ───────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .container { padding: 0 16px; }
+
+      /* Nav → hamburger */
+      .nav-toggle { display: flex; }
+      nav ul {
+        display: none;
+        flex-direction: column;
+        position: absolute; top: 60px; left: 0; right: 0;
+        background: rgba(15, 23, 42, 0.97);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 24px;
+        gap: 16px;
+      }
+      nav ul.open { display: flex; }
+      nav a { font-size: 0.95rem; }
+
+      /* Hero */
+      .hero { padding: 120px 0 64px; }
+      .hero img { width: 80px; margin-bottom: 20px; }
+      .hero h1 { font-size: 2.2rem; }
+      .hero p { font-size: 1.05rem; margin-bottom: 28px; }
+      .hero-buttons { flex-direction: column; align-items: center; gap: 10px; }
+      .btn { width: 100%; max-width: 280px; justify-content: center; padding: 14px 20px; }
+
+      /* Sections */
+      section { padding: 48px 0; }
+      h2 { font-size: 1.6rem; }
+      h3 { font-size: 1.1rem; }
+      .section-desc { font-size: 0.92rem; }
+
+      /* Cards → single column */
+      .card-grid { grid-template-columns: 1fr; gap: 14px; }
+      .card { padding: 20px; }
+
+      /* Code */
+      pre { padding: 14px 12px; font-size: 0.78rem; border-radius: 8px; }
+      .diagram { padding: 16px 12px; font-size: 0.72rem; }
+
+      /* Tables */
+      .pkg-table, .bench-table { font-size: 0.8rem; }
+      .pkg-table th, .pkg-table td,
+      .bench-table th, .bench-table td { padding: 8px 10px; }
+    }
+
+    /* ── Very small phones ────────────────────────────────── */
+    @media (max-width: 380px) {
+      .hero h1 { font-size: 1.8rem; }
+      .hero p { font-size: 0.95rem; }
+      .badge { font-size: 0.7rem; padding: 4px 8px; }
+      pre { font-size: 0.72rem; }
     }
 
     /* ── Footer ───────────────────────────────────────────── */
@@ -302,6 +380,9 @@
       <img src="deepj_logo.svg" alt="DeepJ">
       DeepJ
     </a>
+    <button class="nav-toggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
     <ul>
       <li><a href="#features">Features</a></li>
       <li><a href="#architecture">Architecture</a></li>
@@ -409,6 +490,7 @@
     <div class="section-label label-amber">Under the hood</div>
     <h2>Architecture</h2>
     <p class="section-desc">DeepJ is organised into focused, single-responsibility packages.</p>
+    <div class="table-scroll">
     <table class="pkg-table">
       <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -430,6 +512,7 @@
         <tr><td><code>chatui</code></td><td><code>BaseChatApp</code>, <code>ChatService</code></td></tr>
       </tbody>
     </table>
+    </div>
 
     <h3>Key Interfaces</h3>
     <div class="diagram">Trainable              — exposes parameters() + zeroGrad()
@@ -569,7 +652,9 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
     <div class="section-label label-amber">Performance</div>
     <h2>Metal GPU Benchmarks</h2>
     <p class="section-desc">CPU vs GPU timings on a <strong>512 × 512</strong> matrix (262,144 elements), measured on Apple Silicon.</p>
+    <div class="table-scroll">
     <table class="bench-table">
+      <!-- ...existing table content... -->
       <thead><tr><th>Operation</th><th>CPU (ms)</th><th>GPU (ms)</th><th>Speedup</th></tr></thead>
       <tbody>
         <tr><td>matmul</td><td>23.348</td><td>0.160</td><td><span class="speedup-high">146×</span></td></tr>
@@ -595,6 +680,7 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
         <tr><td>layerNormBackward</td><td>1.015</td><td>0.058</td><td><span class="speedup">17×</span></td></tr>
       </tbody>
     </table>
+    </div>
   </div>
 </section>
 
@@ -614,12 +700,28 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
   </div>
 </footer>
 
-<!-- ═══ Scroll reveal ═════════════════════════════════════ -->
+<!-- ═══ Scroll reveal + hamburger toggle ══════════════════ -->
 <script>
+  // Scroll reveal
   const observer = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.12 });
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Hamburger menu
+  const toggle = document.querySelector('.nav-toggle');
+  const navUl  = document.querySelector('nav ul');
+  toggle.addEventListener('click', () => {
+    toggle.classList.toggle('open');
+    navUl.classList.toggle('open');
+  });
+  // Close menu when a link is tapped
+  navUl.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      toggle.classList.remove('open');
+      navUl.classList.remove('open');
+    });
+  });
 </script>
 
 </body>
