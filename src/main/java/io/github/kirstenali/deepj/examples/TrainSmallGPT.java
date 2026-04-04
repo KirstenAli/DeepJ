@@ -37,7 +37,7 @@ public final class TrainSmallGPT {
                 512,  // dModel
                 4,    // nHeads
                 5,    // nLayers
-                2024 // dFF
+                1025 // dFF
         );
 
         GPTModel model = new GPTModel(cfg, 42);
@@ -59,7 +59,7 @@ public final class TrainSmallGPT {
                 1,
                 0.98,
                 0.01,
-                1,
+                10,
                 checkpointHook
         );
 

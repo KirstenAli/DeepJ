@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.tensor;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 /**
@@ -46,7 +47,7 @@ public final class ComputeGraph {
     private final List<int[]> pendingAllocs = new ArrayList<>();
     private final List<int[]> pendingUploadIds = new ArrayList<>();
     private final List<float[]> pendingUploadData = new ArrayList<>();
-    private final Map<Integer, Tensor> bufIdToTensor = new HashMap<>();
+    private final Map<Integer, WeakReference<Tensor>> bufIdToTensor = new HashMap<>();
 
     /**
      * Create a ComputeGraph backed by the given GPU runtime.
@@ -65,6 +66,7 @@ public final class ComputeGraph {
      */
     public GpuBuffer ensureGpuBuffer(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer existing) {
+            bufIdToTensor.put(existing.id, new WeakReference<>(t));
             if (existing.needsUpload) {
                 pendingUploadIds.add(new int[]{existing.id});
                 pendingUploadData.add(TensorAdapters.packF32(t));
@@ -82,7 +84,7 @@ public final class ComputeGraph {
         pendingUploadData.add(TensorAdapters.packF32(t));
 
         t.setGpuTag(buf);
-        bufIdToTensor.put(id, t);
+        bufIdToTensor.put(id, new WeakReference<>(t));
         return buf;
     }
 
@@ -105,7 +107,7 @@ public final class ComputeGraph {
     public Tensor createOutputTensor(GpuBuffer buf) {
         Tensor t = new Tensor(buf.rows, buf.cols);
         t.setGpuTag(buf);
-        bufIdToTensor.put(buf.id, t);
+        bufIdToTensor.put(buf.id, new WeakReference<>(t));
         return t;
     }
 
@@ -207,11 +209,15 @@ public final class ComputeGraph {
      * After flush, GPU buffers hold computed results; CPU data is stale.
      */
     public void flush() {
-        if (opCount == 0 && pendingAllocs.isEmpty()) return;
+        if (opCount == 0 && pendingAllocs.isEmpty()) {
+            releaseOrphanedBuffers();
+            return;
+        }
 
         allocatePendingBuffers();
         uploadPendingData();
         executePendingOps();
+        releaseOrphanedBuffers();
     }
 
     /** Batch-allocate all GPU buffers that were requested since the last flush. */
@@ -226,12 +232,112 @@ public final class ComputeGraph {
         }
         runtime.allocBuffers(ids, sizes, ids.length);
 
-        for (var entry : bufIdToTensor.values()) {
-            if (entry.getGpuTag() instanceof GpuBuffer gb) {
+        for (var ref : bufIdToTensor.values()) {
+            Tensor entry = ref.get();
+            if (entry != null && entry.getGpuTag() instanceof GpuBuffer gb) {
                 gb.allocatedOnGpu = true;
             }
         }
         pendingAllocs.clear();
+    }
+
+    private void releaseOrphanedBuffers() {
+        if (bufIdToTensor.isEmpty()) return;
+
+        List<Integer> orphanIds = new ArrayList<>();
+        for (var entry : bufIdToTensor.entrySet()) {
+            int id = entry.getKey();
+            Tensor t = entry.getValue().get();
+            if (t == null) {
+                if (isBufferReferencedByPendingOps(id)) continue;
+                orphanIds.add(id);
+                continue;
+            }
+            if (!(t.getGpuTag() instanceof GpuBuffer gb) || gb.id != id) {
+                if (isBufferReferencedByPendingOps(id)) continue;
+                orphanIds.add(id);
+            }
+        }
+        if (orphanIds.isEmpty()) return;
+
+        for (int id : orphanIds) {
+            removePendingForId(id);
+            bufIdToTensor.remove(id);
+        }
+
+        int[] ids = orphanIds.stream().mapToInt(Integer::intValue).toArray();
+        runtime.releaseBuffers(ids, ids.length);
+    }
+
+    private boolean isBufferReferencedByPendingOps(int bufferId) {
+        int pos = 0;
+        while (pos < cmdPos) {
+            int op = cmdStream[pos];
+            switch (op) {
+                case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_RELU_BACKWARD, OP_GELU_BACKWARD -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId || cmdStream[pos + 3] == bufferId) {
+                        return true;
+                    }
+                    pos += 5;
+                }
+                case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID, OP_RELU, OP_GELU -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId) {
+                        return true;
+                    }
+                    pos += 4;
+                }
+                case OP_MULTIPLY_SCALAR -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId) {
+                        return true;
+                    }
+                    pos += 5;
+                }
+                case OP_MATMUL -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId || cmdStream[pos + 3] == bufferId) {
+                        return true;
+                    }
+                    pos += 7;
+                }
+                case OP_SOFTMAX_ROWS -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId) {
+                        return true;
+                    }
+                    pos += 5;
+                }
+                case OP_SOFTMAX_BACKWARD -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId || cmdStream[pos + 3] == bufferId) {
+                        return true;
+                    }
+                    pos += 6;
+                }
+                case OP_LAYERNORM_BACKWARD -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
+                            || cmdStream[pos + 3] == bufferId || cmdStream[pos + 4] == bufferId) {
+                        return true;
+                    }
+                    pos += 7;
+                }
+                default -> {
+                    // Unknown op: be conservative and avoid reclaiming anything this flush.
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void removePendingForId(int id) {
+        for (int i = pendingAllocs.size() - 1; i >= 0; i--) {
+            if (pendingAllocs.get(i)[0] == id) {
+                pendingAllocs.remove(i);
+            }
+        }
+        for (int i = pendingUploadIds.size() - 1; i >= 0; i--) {
+            if (pendingUploadIds.get(i)[0] == id) {
+                pendingUploadIds.remove(i);
+                pendingUploadData.remove(i);
+            }
+        }
     }
 
     /** Upload all CPU tensor data that is queued for transfer to the GPU. */
@@ -281,7 +387,8 @@ public final class ComputeGraph {
     }
 
     private void clearTensorGpuTags() {
-        for (Tensor t : bufIdToTensor.values()) {
+        for (WeakReference<Tensor> ref : bufIdToTensor.values()) {
+            Tensor t = ref.get();
             if (t != null) t.setGpuTag(null);
         }
     }
