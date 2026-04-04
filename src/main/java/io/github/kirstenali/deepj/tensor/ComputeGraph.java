@@ -248,10 +248,25 @@ public final class ComputeGraph {
      * Release all GPU buffers and reset the graph completely.
      */
     public void releaseAll() {
+        clearTensorGpuTags();
+        releaseNativeBuffers();
+        resetGraphState();
+    }
+
+    private void clearTensorGpuTags() {
+        for (Tensor t : bufIdToTensor.values()) {
+            if (t != null) t.setGpuTag(null);
+        }
+    }
+
+    private void releaseNativeBuffers() {
         if (!bufIdToTensor.isEmpty()) {
             int[] ids = bufIdToTensor.keySet().stream().mapToInt(Integer::intValue).toArray();
             runtime.releaseBuffers(ids, ids.length);
         }
+    }
+
+    private void resetGraphState() {
         bufIdToTensor.clear();
         pendingAllocs.clear();
         pendingUploadIds.clear();

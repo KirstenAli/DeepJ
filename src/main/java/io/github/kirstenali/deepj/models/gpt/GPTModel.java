@@ -48,6 +48,8 @@ public final class GPTModel implements Trainable, Persistable {
 
         this.lnF = new LayerNorm1D(cfg.dModel());
         this.lmHead = new Linear(cfg.dModel(), cfg.vocabSize(), rnd);
+
+        applyInitScale(cfg.initScale());
     }
 
     public Tensor forward(int[] inputIds) {
@@ -79,5 +81,16 @@ public final class GPTModel implements Trainable, Persistable {
         ps.addAll(lnF.parameters());
         ps.addAll(lmHead.parameters());
         return ps;
+    }
+
+    public double gradClipNorm() {
+        return cfg.gradClipNorm();
+    }
+
+    private void applyInitScale(double factor) {
+        if (factor == 1.0) return;
+        for (Parameter p : parameters()) {
+            p.value = p.value.multiplyScalar(factor);
+        }
     }
 }

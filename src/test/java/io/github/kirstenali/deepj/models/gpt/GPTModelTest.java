@@ -1,8 +1,6 @@
 package io.github.kirstenali.deepj.models.gpt;
 
 import io.github.kirstenali.deepj.TestSupport;
-import io.github.kirstenali.deepj.models.gpt.GPTConfig;
-import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.Test;
@@ -10,6 +8,59 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class GPTModelTest {
+
+    @Test
+    void config_defaultsIncludeStabilityKnobs() {
+        GPTConfig cfg = new GPTConfig(11, 8, 4, 2, 1, 8);
+        assertEquals(1.0, cfg.initScale(), 1e-12);
+        assertEquals(1.0, cfg.gradClipNorm(), 1e-12);
+    }
+
+    @Test
+    void model_appliesInitScaleFromConfig() {
+        GPTConfig base = new GPTConfig(11, 8, 4, 2, 1, 8, 1.0, 1.0);
+        GPTConfig scaled = new GPTConfig(11, 8, 4, 2, 1, 8, 0.2, 1.0);
+
+        GPTModel mBase = new GPTModel(base, 1234L);
+        GPTModel mScaled = new GPTModel(scaled, 1234L);
+
+        double baseAbs = mBase.parameters().get(0).value.sumAbs();
+        double scaledAbs = mScaled.parameters().get(0).value.sumAbs();
+
+        assertTrue(baseAbs > 0.0);
+        assertEquals(0.2, scaledAbs / baseAbs, 1e-6);
+        assertEquals(1.0, mBase.gradClipNorm(), 1e-12);
+    }
+
+    @Test
+    void config_rejectsInvalidStabilityKnobs() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 0.0, 1.0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, Double.NaN, 1.0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 1.0, 0.0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 1.0, Double.NaN));
+    }
+
+    @Test
+    void config_rejectsInvalidCoreParams() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(0, 8, 4, 2, 1, 8));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 0, 4, 2, 1, 8));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 0, 2, 1, 8));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 4, 0, 1, 8));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 4, 2, 0, 8));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 4, 2, 1, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GPTConfig(11, 8, 5, 2, 1, 8));
+    }
 
     @Test
     void forward_producesLogitsOfShape_seqLenByVocab() {
