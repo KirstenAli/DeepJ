@@ -42,9 +42,6 @@ public final class MetalBackendAllOpsPerformanceTest {
         cpu = new CpuBackend();
         // Force GPU dispatch for all sizes by setting thresholds to 0
         MetalBackend metal = new MetalBackend();
-        metal.setMatmulGpuThreshold(0L);
-        metal.setElementwiseGpuThreshold(0L);
-        metal.setLogDispatches(false);
         gpu = metal;
 
         previousBackend = Tensor.backend();

@@ -94,9 +94,6 @@ public final class MetalBackendTest {
     @Test
     void softmaxBackwardMatchesCpu() {
         MetalBackend gpuBackend = new MetalBackend();
-        gpuBackend.setMatmulGpuThreshold(1L);
-        gpuBackend.setElementwiseGpuThreshold(1L);
-        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
@@ -129,9 +126,6 @@ public final class MetalBackendTest {
     @Test
     void layerNormBackwardMatchesCpu() {
         MetalBackend gpuBackend = new MetalBackend();
-        gpuBackend.setMatmulGpuThreshold(1L);
-        gpuBackend.setElementwiseGpuThreshold(1L);
-        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
@@ -168,9 +162,6 @@ public final class MetalBackendTest {
     @Test
     void crossEntropyGradientMatchesCpu() {
         MetalBackend gpuBackend = new MetalBackend();
-        gpuBackend.setMatmulGpuThreshold(1L);
-        gpuBackend.setElementwiseGpuThreshold(1L);
-        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
@@ -206,9 +197,6 @@ public final class MetalBackendTest {
     @Test
     void adamWUpdateMatchesCpu_singleStep() {
         MetalBackend gpuBackend = new MetalBackend();
-        gpuBackend.setMatmulGpuThreshold(1L);
-        gpuBackend.setElementwiseGpuThreshold(1L);
-        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
@@ -246,9 +234,6 @@ public final class MetalBackendTest {
     @Test
     void adamWUpdateMatchesCpu_multipleSteps() {
         MetalBackend gpuBackend = new MetalBackend();
-        gpuBackend.setMatmulGpuThreshold(1L);
-        gpuBackend.setElementwiseGpuThreshold(1L);
-        gpuBackend.setLogDispatches(false);
         TensorBackend oldBackend = Tensor.backend();
         Tensor.setBackend(gpuBackend);
 
