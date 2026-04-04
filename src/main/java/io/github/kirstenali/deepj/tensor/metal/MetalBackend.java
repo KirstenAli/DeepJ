@@ -351,12 +351,37 @@ public final class MetalBackend implements TensorBackend {
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             double lr, double beta1, double beta2, double eps,
                             double weightDecay, double bc1, double bc2) {
-        ensureCpu(w, g, mt, vt);
-        cpuFallback.adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
-        // After CPU update, invalidate any stale GPU buffer for w
-        if (w.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
-        if (mt.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
-        if (vt.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
+        Tensor.requireSameShape(w, g, "adamWUpdate");
+        Tensor.requireSameShape(w, mt, "adamWUpdate");
+        Tensor.requireSameShape(w, vt, "adamWUpdate");
+
+        if (!useGpuEW(w, "adamWUpdate")) {
+            ensureCpu(w, g, mt, vt);
+            cpuFallback.adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            // After CPU update, invalidate any stale GPU buffer for w
+            if (w.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
+            if (mt.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
+            if (vt.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
+            return;
+        }
+
+        GpuBuffer gw = gpuIn(w);
+        GpuBuffer gg = gpuIn(g);
+        GpuBuffer gmt = gpuIn(mt);
+        GpuBuffer gvt = gpuIn(vt);
+        graph.recordAdamWUpdate(
+                gw, gg, gmt, gvt,
+                (float) lr, (float) beta1, (float) beta2, (float) eps,
+                (float) weightDecay, (float) bc1, (float) bc2,
+                w.rows * w.cols
+        );
+
+        gw.cpuStale = true;
+        gw.needsUpload = false;
+        gmt.cpuStale = true;
+        gmt.needsUpload = false;
+        gvt.cpuStale = true;
+        gvt.needsUpload = false;
     }
 
     @Override

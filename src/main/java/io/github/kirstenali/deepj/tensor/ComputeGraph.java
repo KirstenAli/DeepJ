@@ -35,6 +35,7 @@ public final class ComputeGraph {
     public static final int OP_SOFTMAX_ROWS    = 17;
     public static final int OP_SOFTMAX_BACKWARD= 18;
     public static final int OP_LAYERNORM_BACKWARD = 19;
+    public static final int OP_ADAMW_UPDATE    = 20;
 
     private final GpuRuntime runtime;
 
@@ -200,6 +201,31 @@ public final class ComputeGraph {
         opCount++;
     }
 
+    /**
+     * Record in-place AdamW update:
+     * [OP_ADAMW_UPDATE, wId, gId, mtId, vtId,
+     *  lrBits, beta1Bits, beta2Bits, epsBits, weightDecayBits, bc1Bits, bc2Bits, n]
+     */
+    public void recordAdamWUpdate(GpuBuffer w, GpuBuffer g, GpuBuffer mt, GpuBuffer vt,
+                                  float lr, float beta1, float beta2, float eps,
+                                  float weightDecay, float bc1, float bc2, int n) {
+        ensureCapacity(13);
+        cmdStream[cmdPos++] = OP_ADAMW_UPDATE;
+        cmdStream[cmdPos++] = w.id;
+        cmdStream[cmdPos++] = g.id;
+        cmdStream[cmdPos++] = mt.id;
+        cmdStream[cmdPos++] = vt.id;
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(lr);
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(beta1);
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(beta2);
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(eps);
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(weightDecay);
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(bc1);
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(bc2);
+        cmdStream[cmdPos++] = n;
+        opCount++;
+    }
+
     public boolean isEmpty() { return opCount == 0; }
 
     // -- Flush: execute everything in one command buffer ---------------------
@@ -316,6 +342,13 @@ public final class ComputeGraph {
                         return true;
                     }
                     pos += 7;
+                }
+                case OP_ADAMW_UPDATE -> {
+                    if (cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
+                            || cmdStream[pos + 3] == bufferId || cmdStream[pos + 4] == bufferId) {
+                        return true;
+                    }
+                    pos += 13;
                 }
                 default -> {
                     // Unknown op: be conservative and avoid reclaiming anything this flush.

@@ -36,6 +36,7 @@ struct MetalContext {
     id<MTLComputePipelineState> softmaxNormPSO;
     id<MTLComputePipelineState> softmaxBackwardPSO;
     id<MTLComputePipelineState> layerNormBackwardPSO;
+    id<MTLComputePipelineState> adamWUpdatePSO;
 };
 
 static MetalContext* gCtx = nullptr;
@@ -246,6 +247,40 @@ kernel void kernel_layernorm_backward(device const float* dXHat [[buffer(0)]],
         out[base + c] = invStd * (d - sumD * invCols - xh * (sumDXHatXHat * invCols));
     }
 }
+
+struct AdamWParams {
+    float lr;
+    float beta1;
+    float beta2;
+    float eps;
+    float weightDecay;
+    float bc1;
+    float bc2;
+};
+
+kernel void kernel_adamw_update(device float* w            [[buffer(0)]],
+                                device const float* g      [[buffer(1)]],
+                                device float* mt           [[buffer(2)]],
+                                device float* vt           [[buffer(3)]],
+                                device const AdamWParams* p[[buffer(4)]],
+                                uint id [[thread_position_in_grid]]) {
+    float grad = g[id];
+
+    float mNew = p->beta1 * mt[id] + (1.0f - p->beta1) * grad;
+    float vNew = p->beta2 * vt[id] + (1.0f - p->beta2) * (grad * grad);
+
+    mt[id] = mNew;
+    vt[id] = vNew;
+
+    float mHat = mNew / p->bc1;
+    float vHat = vNew / p->bc2;
+
+    float update = (p->lr * mHat) / (sqrt(vHat) + p->eps);
+    if (p->weightDecay != 0.0f) {
+        update += p->lr * p->weightDecay * w[id];
+    }
+    w[id] -= update;
+}
 )";
 
 static void throwJavaRuntimeException(JNIEnv* env, const char* msg) {
@@ -320,6 +355,7 @@ static MetalContext* getContext() {
         gCtx->softmaxNormPSO    = makePSO(library, @"kernel_softmax_norm");
         gCtx->softmaxBackwardPSO= makePSO(library, @"kernel_softmax_backward");
         gCtx->layerNormBackwardPSO = makePSO(library, @"kernel_layernorm_backward");
+        gCtx->adamWUpdatePSO    = makePSO(library, @"kernel_adamw_update");
     }
     return gCtx;
 }
@@ -705,6 +741,7 @@ static constexpr int OP_GELU_BACKWARD  = 16;
 static constexpr int OP_SOFTMAX_ROWS   = 17;
 static constexpr int OP_SOFTMAX_BACKWARD = 18;
 static constexpr int OP_LAYERNORM_BACKWARD = 19;
+static constexpr int OP_ADAMW_UPDATE   = 20;
 
 // Helper: encode a softmax 3-pass into an existing compute encoder
 static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &enc,
@@ -1014,6 +1051,53 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc dispatchThreads:MTLSizeMake(rows, 1, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 7;
+                    break;
+                }
+
+                // ── AdamW update (in-place): [op, w, g, mt, vt, lr, b1, b2, eps, wd, bc1, bc2, n] ──
+                case OP_ADAMW_UPDATE: {
+                    int wId = cmd[pos+1], gId = cmd[pos+2], mtId = cmd[pos+3], vtId = cmd[pos+4];
+
+                    auto bitsToFloat = [](int bits) {
+                        float v;
+                        std::memcpy(&v, &bits, sizeof(float));
+                        return v;
+                    };
+
+                    struct AdamWParamsHost {
+                        float lr;
+                        float beta1;
+                        float beta2;
+                        float eps;
+                        float weightDecay;
+                        float bc1;
+                        float bc2;
+                    } params;
+
+                    params.lr = bitsToFloat(cmd[pos+5]);
+                    params.beta1 = bitsToFloat(cmd[pos+6]);
+                    params.beta2 = bitsToFloat(cmd[pos+7]);
+                    params.eps = bitsToFloat(cmd[pos+8]);
+                    params.weightDecay = bitsToFloat(cmd[pos+9]);
+                    params.bc1 = bitsToFloat(cmd[pos+10]);
+                    params.bc2 = bitsToFloat(cmd[pos+11]);
+                    int n = cmd[pos+12];
+
+                    id<MTLBuffer> paramsBuf = [ctx->device newBufferWithBytes:&params
+                                              length:sizeof(AdamWParamsHost)
+                                              options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->adamWUpdatePSO];
+                    [enc setBuffer:gBufferPool[wId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[gId]  offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[mtId] offset:0 atIndex:2];
+                    [enc setBuffer:gBufferPool[vtId] offset:0 atIndex:3];
+                    [enc setBuffer:paramsBuf         offset:0 atIndex:4];
+                    NSUInteger tpg = MIN((NSUInteger)n, ctx->adamWUpdatePSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 13;
                     break;
                 }
 
