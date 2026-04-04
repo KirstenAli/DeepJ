@@ -32,7 +32,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.3.0-alpha</version>
+        <version>0.4.0-alpha</version>
     </dependency>
 </dependencies>
 ```
