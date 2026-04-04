@@ -32,6 +32,8 @@ public final class ComputeGraph {
     public static final int OP_GELU            = 15;
     public static final int OP_GELU_BACKWARD   = 16;
     public static final int OP_SOFTMAX_ROWS    = 17;
+    public static final int OP_SOFTMAX_BACKWARD= 18;
+    public static final int OP_LAYERNORM_BACKWARD = 19;
 
     private final GpuRuntime runtime;
 
@@ -165,6 +167,31 @@ public final class ComputeGraph {
         ensureCapacity(5);
         cmdStream[cmdPos++] = OP_SOFTMAX_ROWS;
         cmdStream[cmdPos++] = in.id;
+        cmdStream[cmdPos++] = out.id;
+        cmdStream[cmdPos++] = rows;
+        cmdStream[cmdPos++] = cols;
+        opCount++;
+    }
+
+    /** Record softmax backward: [OP_SOFTMAX_BACKWARD, gradId, softmaxId, outId, rows, cols] */
+    public void recordSoftmaxBackward(GpuBuffer gradOutput, GpuBuffer softmaxOut, GpuBuffer out, int rows, int cols) {
+        ensureCapacity(6);
+        cmdStream[cmdPos++] = OP_SOFTMAX_BACKWARD;
+        cmdStream[cmdPos++] = gradOutput.id;
+        cmdStream[cmdPos++] = softmaxOut.id;
+        cmdStream[cmdPos++] = out.id;
+        cmdStream[cmdPos++] = rows;
+        cmdStream[cmdPos++] = cols;
+        opCount++;
+    }
+
+    /** Record layer norm backward: [OP_LAYERNORM_BACKWARD, dXHatId, xHatId, stdId, outId, rows, cols] */
+    public void recordLayerNormBackward(GpuBuffer dXHat, GpuBuffer xHat, GpuBuffer std, GpuBuffer out, int rows, int cols) {
+        ensureCapacity(7);
+        cmdStream[cmdPos++] = OP_LAYERNORM_BACKWARD;
+        cmdStream[cmdPos++] = dXHat.id;
+        cmdStream[cmdPos++] = xHat.id;
+        cmdStream[cmdPos++] = std.id;
         cmdStream[cmdPos++] = out.id;
         cmdStream[cmdPos++] = rows;
         cmdStream[cmdPos++] = cols;

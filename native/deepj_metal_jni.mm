@@ -34,6 +34,8 @@ struct MetalContext {
     id<MTLComputePipelineState> softmaxMaxPSO;
     id<MTLComputePipelineState> softmaxExpSumPSO;
     id<MTLComputePipelineState> softmaxNormPSO;
+    id<MTLComputePipelineState> softmaxBackwardPSO;
+    id<MTLComputePipelineState> layerNormBackwardPSO;
 };
 
 static MetalContext* gCtx = nullptr;
@@ -198,6 +200,52 @@ kernel void kernel_softmax_norm(device float* out          [[buffer(0)]],
     uint row = id / cols;
     out[id] = out[id] / rowSum[row];
 }
+
+kernel void kernel_softmax_backward(device const float* gradOutput [[buffer(0)]],
+                                    device const float* softmaxOut [[buffer(1)]],
+                                    device float* out              [[buffer(2)]],
+                                    device const uint* dims        [[buffer(3)]],
+                                    uint row [[thread_position_in_grid]]) {
+    uint cols = dims[0];
+    uint base = row * cols;
+
+    float dot = 0.0f;
+    for (uint c = 0; c < cols; c++) {
+        dot += gradOutput[base + c] * softmaxOut[base + c];
+    }
+
+    for (uint c = 0; c < cols; c++) {
+        float s = softmaxOut[base + c];
+        out[base + c] = s * (gradOutput[base + c] - dot);
+    }
+}
+
+kernel void kernel_layernorm_backward(device const float* dXHat [[buffer(0)]],
+                                      device const float* xHat  [[buffer(1)]],
+                                      device const float* std   [[buffer(2)]],
+                                      device float* out         [[buffer(3)]],
+                                      device const uint* dims   [[buffer(4)]],
+                                      uint row [[thread_position_in_grid]]) {
+    uint cols = dims[0];
+    uint base = row * cols;
+
+    float invStd = 1.0f / std[row];
+    float sumD = 0.0f;
+    float sumDXHatXHat = 0.0f;
+
+    for (uint c = 0; c < cols; c++) {
+        float d = dXHat[base + c];
+        sumD += d;
+        sumDXHatXHat += d * xHat[base + c];
+    }
+
+    float invCols = 1.0f / (float)cols;
+    for (uint c = 0; c < cols; c++) {
+        float d = dXHat[base + c];
+        float xh = xHat[base + c];
+        out[base + c] = invStd * (d - sumD * invCols - xh * (sumDXHatXHat * invCols));
+    }
+}
 )";
 
 static void throwJavaRuntimeException(JNIEnv* env, const char* msg) {
@@ -270,6 +318,8 @@ static MetalContext* getContext() {
         gCtx->softmaxMaxPSO     = makePSO(library, @"kernel_softmax_max");
         gCtx->softmaxExpSumPSO  = makePSO(library, @"kernel_softmax_expsum");
         gCtx->softmaxNormPSO    = makePSO(library, @"kernel_softmax_norm");
+        gCtx->softmaxBackwardPSO= makePSO(library, @"kernel_softmax_backward");
+        gCtx->layerNormBackwardPSO = makePSO(library, @"kernel_layernorm_backward");
     }
     return gCtx;
 }
@@ -653,6 +703,8 @@ static constexpr int OP_RELU_BACKWARD  = 14;
 static constexpr int OP_GELU           = 15;
 static constexpr int OP_GELU_BACKWARD  = 16;
 static constexpr int OP_SOFTMAX_ROWS   = 17;
+static constexpr int OP_SOFTMAX_BACKWARD = 18;
+static constexpr int OP_LAYERNORM_BACKWARD = 19;
 
 // Helper: encode a softmax 3-pass into an existing compute encoder
 static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &enc,
@@ -917,6 +969,51 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                                        gBufferPool[inId], gBufferPool[outId],
                                        rows, cols);
                     pos += 5;
+                    break;
+                }
+
+                // ── Softmax backward: [op, grad, softmax, out, rows, cols] ──
+                case OP_SOFTMAX_BACKWARD: {
+                    int gradId = cmd[pos+1], softmaxId = cmd[pos+2], outId = cmd[pos+3];
+                    int rows = cmd[pos+4], cols = cmd[pos+5];
+                    uint32_t colsVal = (uint32_t)cols;
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:&colsVal
+                                             length:sizeof(uint32_t)
+                                             options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->softmaxBackwardPSO];
+                    [enc setBuffer:gBufferPool[gradId]    offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[softmaxId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
+                    NSUInteger tpg = MIN((NSUInteger)rows, ctx->softmaxBackwardPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(rows, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 6;
+                    break;
+                }
+
+                // ── LayerNorm backward: [op, dXHat, xHat, std, out, rows, cols] ──
+                case OP_LAYERNORM_BACKWARD: {
+                    int dXHatId = cmd[pos+1], xHatId = cmd[pos+2], stdId = cmd[pos+3], outId = cmd[pos+4];
+                    int rows = cmd[pos+5], cols = cmd[pos+6];
+                    uint32_t colsVal = (uint32_t)cols;
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:&colsVal
+                                             length:sizeof(uint32_t)
+                                             options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->layerNormBackwardPSO];
+                    [enc setBuffer:gBufferPool[dXHatId] offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[xHatId]  offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[stdId]   offset:0 atIndex:2];
+                    [enc setBuffer:gBufferPool[outId]   offset:0 atIndex:3];
+                    [enc setBuffer:dimsBuf              offset:0 atIndex:4];
+                    NSUInteger tpg = MIN((NSUInteger)rows, ctx->layerNormBackwardPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(rows, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 7;
                     break;
                 }
 

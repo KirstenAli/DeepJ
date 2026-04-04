@@ -309,9 +309,19 @@ public final class MetalBackend implements TensorBackend {
         return gpuOut(logits.rows, logits.cols, gOut);
     }
 
-    @Override public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
-        ensureCpu(gradOutput, softmaxOut);
-        return cpuFallback.softmaxBackward(gradOutput, softmaxOut);
+    @Override
+    public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
+        Tensor.requireSameShape(gradOutput, softmaxOut, "softmaxBackward");
+        if (!useGpuEW(gradOutput, "softmaxBackward")) {
+            ensureCpu(gradOutput, softmaxOut);
+            return cpuFallback.softmaxBackward(gradOutput, softmaxOut);
+        }
+
+        GpuBuffer gGrad = gpuIn(gradOutput);
+        GpuBuffer gSoftmax = gpuIn(softmaxOut);
+        GpuBuffer gOut = graph.newOutputBuffer(gradOutput.rows, gradOutput.cols);
+        graph.recordSoftmaxBackward(gGrad, gSoftmax, gOut, gradOutput.rows, gradOutput.cols);
+        return gpuOut(gradOutput.rows, gradOutput.cols, gOut);
     }
 
     // ── fused (CPU fallback — materialization needed) ──────────────
@@ -331,9 +341,28 @@ public final class MetalBackend implements TensorBackend {
         if (vt.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
     }
 
-    @Override public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
-        ensureCpu(dXHat, xHat, std);
-        return cpuFallback.layerNormBackward(dXHat, xHat, std, dim);
+    @Override
+    public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
+        Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
+        if (dim != dXHat.cols) {
+            ensureCpu(dXHat, xHat, std);
+            return cpuFallback.layerNormBackward(dXHat, xHat, std, dim);
+        }
+        if (std.rows != dXHat.rows || std.cols != 1) {
+            throw new IllegalArgumentException("Shape mismatch for layerNormBackward std: expected "
+                    + dXHat.rows + "x1 but got " + std.rows + "x" + std.cols);
+        }
+        if (!useGpuEW(dXHat, "layerNormBackward")) {
+            ensureCpu(dXHat, xHat, std);
+            return cpuFallback.layerNormBackward(dXHat, xHat, std, dim);
+        }
+
+        GpuBuffer gDXHat = gpuIn(dXHat);
+        GpuBuffer gXHat = gpuIn(xHat);
+        GpuBuffer gStd = gpuIn(std);
+        GpuBuffer gOut = graph.newOutputBuffer(dXHat.rows, dXHat.cols);
+        graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.rows, dXHat.cols);
+        return gpuOut(dXHat.rows, dXHat.cols, gOut);
     }
 
     // ── data accessors ─────────────────────────────────────────────

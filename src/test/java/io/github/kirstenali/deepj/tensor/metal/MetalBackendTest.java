@@ -12,11 +12,7 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Metal backend tests are intentionally limited to matmul.
- *
- * <p>All other {@link TensorBackend} ops are delegated to {@link CpuBackend}.
- */
+/** Basic correctness checks for selected Metal backend ops against CPU references. */
 public final class MetalBackendTest {
 
     private static TensorBackend cpu;
@@ -93,6 +89,74 @@ public final class MetalBackendTest {
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> gpu.matmul(a, b));
         assertTrue(ex.getMessage().contains("Shape mismatch"));
+    }
+
+    @Test
+    void softmaxBackwardMatchesCpu() {
+        MetalBackend gpuBackend = new MetalBackend(1L, 1L, false);
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor gradOutput = randomTensor(32, 64, 10L);
+            Tensor logits = randomTensor(32, 64, 11L);
+            Tensor softmaxOut = cpu.softmaxRows(logits);
+
+            Tensor expected = cpu.softmaxBackward(gradOutput, softmaxOut);
+            Tensor actual = gpuBackend.softmaxBackward(gradOutput, softmaxOut);
+
+            assertTensorClose(expected, actual, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void softmaxBackwardRejectsShapeMismatch() {
+        Tensor gradOutput = randomTensor(2, 3, 21L);
+        Tensor softmaxOut = randomTensor(3, 2, 22L);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> gpu.softmaxBackward(gradOutput, softmaxOut));
+        assertTrue(ex.getMessage().contains("Shape mismatch"));
+    }
+
+    @Test
+    void layerNormBackwardMatchesCpu() {
+        MetalBackend gpuBackend = new MetalBackend(1L, 1L, false);
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor dXHat = randomTensor(16, 32, 31L);
+            Tensor xHat = randomTensor(16, 32, 32L);
+            Tensor std = new Tensor(16, 1);
+            for (int r = 0; r < std.rows; r++) {
+                std.data[r][0] = 0.5 + Math.abs(xHat.data[r][0]);
+            }
+
+            Tensor expected = cpu.layerNormBackward(dXHat, xHat, std, dXHat.cols);
+            Tensor actual = gpuBackend.layerNormBackward(dXHat, xHat, std, dXHat.cols);
+
+            assertTensorClose(expected, actual, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void layerNormBackwardRejectsStdShapeMismatch() {
+        Tensor dXHat = randomTensor(4, 8, 41L);
+        Tensor xHat = randomTensor(4, 8, 42L);
+        Tensor badStd = randomTensor(4, 2, 43L);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> gpu.layerNormBackward(dXHat, xHat, badStd, dXHat.cols));
+        assertTrue(ex.getMessage().contains("layerNormBackward std"));
     }
 
     private static void assertTensorClose(Tensor expected, Tensor actual, double atol, double rtol) {

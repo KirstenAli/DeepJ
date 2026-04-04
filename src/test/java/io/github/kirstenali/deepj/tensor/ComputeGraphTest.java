@@ -154,6 +154,27 @@ class ComputeGraphTest {
         assertFalse(graph.isEmpty());
     }
 
+    @Test
+    void recordSoftmaxBackwardMakesGraphNonEmpty() {
+        GpuBuffer grad = graph.newOutputBuffer(4, 8);
+        GpuBuffer probs = graph.newOutputBuffer(4, 8);
+        GpuBuffer out = graph.newOutputBuffer(4, 8);
+
+        graph.recordSoftmaxBackward(grad, probs, out, 4, 8);
+        assertFalse(graph.isEmpty());
+    }
+
+    @Test
+    void recordLayerNormBackwardMakesGraphNonEmpty() {
+        GpuBuffer dXHat = graph.newOutputBuffer(4, 8);
+        GpuBuffer xHat = graph.newOutputBuffer(4, 8);
+        GpuBuffer std = graph.newOutputBuffer(4, 1);
+        GpuBuffer out = graph.newOutputBuffer(4, 8);
+
+        graph.recordLayerNormBackward(dXHat, xHat, std, out, 4, 8);
+        assertFalse(graph.isEmpty());
+    }
+
     // ── flush pipeline ─────────────────────────────────────────────
 
     @Test
@@ -349,9 +370,10 @@ class ComputeGraphTest {
                 ComputeGraph.OP_TANH, ComputeGraph.OP_SIGMOID,
                 ComputeGraph.OP_RELU, ComputeGraph.OP_RELU_BACKWARD,
                 ComputeGraph.OP_GELU, ComputeGraph.OP_GELU_BACKWARD,
-                ComputeGraph.OP_SOFTMAX_ROWS
+                ComputeGraph.OP_SOFTMAX_ROWS, ComputeGraph.OP_SOFTMAX_BACKWARD,
+                ComputeGraph.OP_LAYERNORM_BACKWARD
         };
-        assertEquals(17, codes.length);
+        assertEquals(19, codes.length);
         assertEquals(codes.length, java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
     }
