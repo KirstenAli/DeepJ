@@ -37,9 +37,7 @@ public final class TrainSmallGPT {
                 512,  // dModel
                 4,    // nHeads
                 5,    // nLayers
-                1024, // dFF
-                0.2,  // initScale
-                1.0   // gradClipNorm
+                2024 // dFF
         );
 
         GPTModel model = new GPTModel(cfg, 42);

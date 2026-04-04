@@ -79,11 +79,7 @@ public final class CrossEntropyLoss implements LossFunction {
         if (targets == null) {
             throw new IllegalArgumentException("targets is null");
         }
-        if (targets.length != logits.rows) {
-            throw new IllegalArgumentException(
-                    "targets length " + targets.length + " must match logits rows " + logits.rows
-            );
-        }
+        Tensor.requireTargetsMatchRows(logits, targets);
         for (int t : targets) {
             if (t < 0 || t >= logits.cols) {
                 throw new IllegalArgumentException(

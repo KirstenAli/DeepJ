@@ -160,4 +160,11 @@ public class Tensor {
                             " vs " + b.rows + "x" + b.cols);
         }
     }
+
+    public static void requireTargetsMatchRows(Tensor logits, int[] targets) {
+        if (targets.length != logits.rows) {
+            throw new IllegalArgumentException(
+                    "targets length " + targets.length + " must match logits rows " + logits.rows);
+        }
+    }
 }

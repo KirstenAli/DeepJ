@@ -12,7 +12,7 @@ public record GPTConfig(
 ) {
 
     public GPTConfig(int vocabSize, int maxSeqLen, int dModel, int nHeads, int nLayers, int dFF) {
-        this(vocabSize, maxSeqLen, dModel, nHeads, nLayers, dFF, 1.0, 1.0);
+        this(vocabSize, maxSeqLen, dModel, nHeads, nLayers, dFF, 0.2, 1.0);
     }
 
     public GPTConfig {

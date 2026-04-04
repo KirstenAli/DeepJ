@@ -327,7 +327,25 @@ public final class MetalBackend implements TensorBackend {
     // ── fused (CPU fallback — materialization needed) ──────────────
 
     @Override public double crossEntropyLoss(Tensor logits, int[] targets) { ensureCpu(logits); return cpuFallback.crossEntropyLoss(logits, targets); }
-    @Override public Tensor crossEntropyGradient(Tensor logits, int[] targets) { ensureCpu(logits); return cpuFallback.crossEntropyGradient(logits, targets); }
+
+    @Override
+    public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
+        Tensor.requireTargetsMatchRows(logits, targets);
+
+        if (!useGpuEW(logits, "crossEntropyGradient")) {
+            ensureCpu(logits);
+            return cpuFallback.crossEntropyGradient(logits, targets);
+        }
+
+        Tensor probs = softmaxRows(logits);
+        Tensor oneHot = new Tensor(logits.rows, logits.cols);
+        for (int r = 0; r < logits.rows; r++) {
+            oneHot.data[r][targets[r]] = 1.0;
+        }
+
+        Tensor grad = subtract(probs, oneHot);
+        return multiplyScalar(grad, 1.0 / logits.rows);
+    }
 
     @Override
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,

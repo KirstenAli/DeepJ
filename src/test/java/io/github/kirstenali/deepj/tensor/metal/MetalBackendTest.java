@@ -159,6 +159,41 @@ public final class MetalBackendTest {
         assertTrue(ex.getMessage().contains("layerNormBackward std"));
     }
 
+    @Test
+    void crossEntropyGradientMatchesCpu() {
+        MetalBackend gpuBackend = new MetalBackend(1L, 1L, false);
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor logits = randomTensor(32, 64, 51L);
+            int[] targets = new int[logits.rows];
+            Random rnd = new Random(52L);
+            for (int r = 0; r < targets.length; r++) {
+                targets[r] = rnd.nextInt(logits.cols);
+            }
+
+            Tensor expected = cpu.crossEntropyGradient(logits, targets);
+            Tensor actual = gpuBackend.crossEntropyGradient(logits, targets);
+
+            assertTensorClose(expected, actual, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void crossEntropyGradientRejectsTargetLengthMismatch() {
+        Tensor logits = randomTensor(4, 8, 61L);
+        int[] badTargets = new int[]{0, 1, 2};
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> gpu.crossEntropyGradient(logits, badTargets));
+        assertTrue(ex.getMessage().contains("targets length"));
+    }
+
     private static void assertTensorClose(Tensor expected, Tensor actual, double atol, double rtol) {
         assertEquals(expected.rows, actual.rows, "rows mismatch");
         assertEquals(expected.cols, actual.cols, "cols mismatch");

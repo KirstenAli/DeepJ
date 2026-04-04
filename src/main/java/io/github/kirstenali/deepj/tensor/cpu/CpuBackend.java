@@ -731,10 +731,7 @@ public final class CpuBackend implements TensorBackend {
 
     @Override
     public double crossEntropyLoss(Tensor logits, int[] targets) {
-        if (targets.length != logits.rows) {
-            throw new IllegalArgumentException(
-                    "targets length " + targets.length + " must match logits rows " + logits.rows);
-        }
+        Tensor.requireTargetsMatchRows(logits, targets);
 
         double lossSum = 0.0;
         for (int i = 0; i < logits.rows; i++) {
@@ -755,10 +752,7 @@ public final class CpuBackend implements TensorBackend {
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
-        if (targets.length != logits.rows) {
-            throw new IllegalArgumentException(
-                    "targets length " + targets.length + " must match logits rows " + logits.rows);
-        }
+        Tensor.requireTargetsMatchRows(logits, targets);
 
         Tensor grad = new Tensor(logits.rows, logits.cols);
 
