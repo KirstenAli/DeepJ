@@ -140,7 +140,7 @@ trainer.train(
         50,     // logEvery
         0.98,   // emaBeta
         0.25,   // targetEmaLoss
-        25      // releaseEverySteps
+        25      // releaseEverySteps (periodically free backend GPU/native resources)
 );
 ```
 
