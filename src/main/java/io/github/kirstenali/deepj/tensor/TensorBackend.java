@@ -103,6 +103,35 @@ public interface TensorBackend {
     // ── debug ──────────────────────────────────────────────────────────
     void print(Tensor t, String label);
 
+    // ── in-place operations (write result back into first argument) ─
+    //
+    // Default implementations allocate a temporary tensor and copy.
+    // CpuBackend overrides these for true zero-allocation in-place.
+
+    default void addInPlace(Tensor a, Tensor b)              { copyInto(add(a, b), a); }
+    default void subtractInPlace(Tensor a, Tensor b)          { copyInto(subtract(a, b), a); }
+    default void multiplyInPlace(Tensor a, Tensor b)          { copyInto(multiply(a, b), a); }
+    default void divideInPlace(Tensor a, Tensor b)            { copyInto(divide(a, b), a); }
+
+    default void multiplyScalarInPlace(Tensor a, double s)    { copyInto(multiplyScalar(a, s), a); }
+    default void addScalarInPlace(Tensor a, double s)         { copyInto(addScalar(a, s), a); }
+    default void divideScalarInPlace(Tensor a, double s)      { copyInto(divideScalar(a, s), a); }
+
+    default void sqrtInPlace(Tensor a)     { copyInto(sqrt(a), a); }
+    default void negInPlace(Tensor a)      { copyInto(neg(a), a); }
+    default void expInPlace(Tensor a)      { copyInto(exp(a), a); }
+    default void logInPlace(Tensor a)      { copyInto(log(a), a); }
+    default void reluInPlace(Tensor a)     { copyInto(relu(a), a); }
+    default void geluInPlace(Tensor a)     { copyInto(gelu(a), a); }
+    default void tanhInPlace(Tensor a)     { copyInto(tanh(a), a); }
+    default void sigmoidInPlace(Tensor a)  { copyInto(sigmoid(a), a); }
+
+    /** Copy src data into dst (same shape). Used by default in-place implementations. */
+    private static void copyInto(Tensor src, Tensor dst) {
+        for (int r = 0; r < src.rows; r++)
+            System.arraycopy(src.data[r], 0, dst.data[r], 0, src.cols);
+    }
+
     // ── lazy execution support ─────────────────────────────────────────
     /**
      * Materialize a tensor: flush any pending GPU computation and download

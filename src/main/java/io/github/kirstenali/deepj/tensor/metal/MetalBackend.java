@@ -10,82 +10,25 @@ public final class MetalBackend implements TensorBackend {
     private final CpuBackend cpuFallback = new CpuBackend();
     private final ComputeGraph graph = new ComputeGraph(new MetalGpuRuntime());
 
-    private long matmulGpuThreshold;
-    private long elementwiseGpuThreshold;
-    private boolean logDispatches;
-
-    /**
-     * Create a MetalBackend with default thresholds.
-     * Matmul: 1,048,576 (m*k*n work units).
-     * Element-wise: 4,096 total elements.
-     */
-    public MetalBackend() {
-        this(128L * 128 * 64, 4096, false);
-    }
-
-    /**
-     * Create a MetalBackend with custom thresholds.
-     *
-     * @param matmulGpuThreshold      minimum m*k*n work for matmul GPU dispatch
-     * @param elementwiseGpuThreshold minimum element count for element-wise GPU dispatch
-     * @param logDispatches           if true, print CPU/GPU dispatch decisions to stderr
-     */
-    public MetalBackend(long matmulGpuThreshold, long elementwiseGpuThreshold, boolean logDispatches) {
-        this.matmulGpuThreshold = matmulGpuThreshold;
-        this.elementwiseGpuThreshold = elementwiseGpuThreshold;
-        this.logDispatches = logDispatches;
-    }
-
-    /** Returns true if the Metal native library was loaded successfully. */
-    public static boolean isGpuAvailable() { return MetalNative.AVAILABLE; }
-
-    public void setMatmulGpuThreshold(long threshold)      { this.matmulGpuThreshold = threshold; }
-    public void setElementwiseGpuThreshold(long threshold)  { this.elementwiseGpuThreshold = threshold; }
-    public void setLogDispatches(boolean log)               { this.logDispatches = log; }
-
-
-    // ── Threshold checks ──────────────────────────────────────────
-
-    private boolean useGpu(long work, String op, int rows, int cols) {
-        boolean gpu = MetalNative.AVAILABLE && work >= elementwiseGpuThreshold;
-        if (logDispatches) {
-            System.err.printf("[Metal] %s [%dx%d] n=%,d → %s%n", op, rows, cols, work, gpu ? "GPU" : "CPU");
-        }
-        return gpu;
-    }
-
-    private boolean useGpuMatmul(Tensor a, Tensor b) {
-        long work = (long) a.rows * a.cols * b.cols;
-        boolean gpu = MetalNative.AVAILABLE && work >= matmulGpuThreshold;
-        if (logDispatches) {
-            System.err.printf("[Metal] matmul [%dx%d]·[%dx%d] work=%,d → %s%n",
-                    a.rows, a.cols, b.rows, b.cols, work, gpu ? "GPU" : "CPU");
-        }
-        return gpu;
-    }
-
-    private boolean useGpuEW(Tensor a, String op) {
-        return useGpu((long) a.rows * a.cols, op, a.rows, a.cols);
-    }
 
     // ── Lazy helpers ──────────────────────────────────────────────
 
     /** Ensure input tensor has a GpuBuffer; upload from CPU if needed. */
     private GpuBuffer gpuIn(Tensor t) { return graph.ensureGpuBuffer(t); }
 
-    /** Allocate a GPU output buffer and create a result Tensor. */
-    private Tensor gpuOut(int rows, int cols, GpuBuffer buf) {
+    /** Wrap a GPU output buffer in a tracked Tensor. */
+    private Tensor gpuOut(GpuBuffer buf) {
         return graph.createOutputTensor(buf);
     }
 
-    /** Force-materialize a tensor to CPU before a CPU-fallback op. */
+    /** Force-materialize a tensor to CPU before a CPU-only op. */
     private void ensureCpu(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer gb && gb.cpuStale) {
             graph.materialize(t);
         }
     }
 
-    /** Materialize multiple tensors before CPU fallback. */
+    /** Materialize multiple tensors before a CPU-only op. */
     private void ensureCpu(Tensor... tensors) {
         for (Tensor t : tensors) ensureCpu(t);
     }
@@ -106,65 +49,57 @@ public final class MetalBackend implements TensorBackend {
     @Override public Tensor unflattenToTensor(double[] flat, int rows, int cols) { return cpuFallback.unflattenToTensor(flat, rows, cols); }
     @Override public double[] flattenTensor(Tensor t) { ensureCpu(t); return cpuFallback.flattenTensor(t); }
 
-    // ── LAZY element-wise binary ───────────────────────────────────
+    // ── LAZY matmul ────────────────────────────────────────────────
 
     @Override
     public Tensor matmul(Tensor a, Tensor b) {
         if (a.cols != b.rows) throw new IllegalArgumentException(
                 "Shape mismatch for matmul: " + a.rows + "x" + a.cols + " vs " + b.rows + "x" + b.cols);
-        if (!useGpuMatmul(a, b)) { ensureCpu(a, b); return cpuFallback.matmul(a, b); }
-
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, b.cols);
         graph.recordMatmul(ga, gb, gOut, a.rows, b.cols, a.cols);
-        return gpuOut(a.rows, b.cols, gOut);
+        return gpuOut(gOut);
     }
+
+    // ── LAZY element-wise binary ───────────────────────────────────
 
     @Override
     public Tensor add(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "add");
-        if (!useGpuEW(a, "add")) { ensureCpu(a, b); return cpuFallback.add(a, b); }
-
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordBinary(ComputeGraph.OP_ADD, ga, gb, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor subtract(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "subtract");
-        if (!useGpuEW(a, "subtract")) { ensureCpu(a, b); return cpuFallback.subtract(a, b); }
-
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordBinary(ComputeGraph.OP_SUBTRACT, ga, gb, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor multiply(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "multiply");
-        if (!useGpuEW(a, "multiply")) { ensureCpu(a, b); return cpuFallback.multiply(a, b); }
-
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordBinary(ComputeGraph.OP_MULTIPLY, ga, gb, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor divide(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "divide");
-        if (!useGpuEW(a, "divide")) { ensureCpu(a, b); return cpuFallback.divide(a, b); }
-
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordBinary(ComputeGraph.OP_DIVIDE, ga, gb, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
-    // ── broadcast (CPU fallback — small tensors) ───────────────────
+    // ── broadcast (CPU only — no GPU kernel) ──────────────────────
 
     @Override public Tensor addRowVector(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.addRowVector(a, v); }
     @Override public Tensor addBroadcastCols(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.addBroadcastCols(a, v); }
@@ -174,22 +109,20 @@ public final class MetalBackend implements TensorBackend {
     @Override public Tensor addBroadcastRows(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.addBroadcastRows(a, v); }
     @Override public Tensor multiplyBroadcastRows(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.multiplyBroadcastRows(a, v); }
 
-    // ── scalar ops ─────────────────────────────────────────────────
+    // ── LAZY scalar ops ────────────────────────────────────────────
 
     @Override
     public Tensor multiplyScalar(Tensor a, double scalar) {
-        if (!useGpuEW(a, "multiplyScalar")) { ensureCpu(a); return cpuFallback.multiplyScalar(a, scalar); }
-
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordMultiplyScalar(ga, gOut, (float) scalar);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override public Tensor addScalar(Tensor a, double scalar) { ensureCpu(a); return cpuFallback.addScalar(a, scalar); }
     @Override public Tensor divideScalar(Tensor a, double scalar) { ensureCpu(a); return cpuFallback.divideScalar(a, scalar); }
 
-    // ── reductions (CPU fallback — need materialization) ───────────
+    // ── reductions (CPU only — need materialization) ───────────────
 
     @Override public Tensor sumRows(Tensor a) { ensureCpu(a); return cpuFallback.sumRows(a); }
     @Override public Tensor sumAlongRows(Tensor a) { ensureCpu(a); return cpuFallback.sumAlongRows(a); }
@@ -200,143 +133,173 @@ public final class MetalBackend implements TensorBackend {
     @Override public double sum(Tensor a) { ensureCpu(a); return cpuFallback.sum(a); }
     @Override public double sumAbs(Tensor a) { ensureCpu(a); return cpuFallback.sumAbs(a); }
 
-    // ── unary math ─────────────────────────────────────────────────
+    // ── unary math — CPU only ──────────────────────────────────────
 
     @Override public Tensor clamp(Tensor a, double min, double max) { ensureCpu(a); return cpuFallback.clamp(a, min, max); }
     @Override public Tensor transpose(Tensor a) { ensureCpu(a); return cpuFallback.transpose(a); }
     @Override public Tensor pow(Tensor a, double exponent) { ensureCpu(a); return cpuFallback.pow(a, exponent); }
 
+    // ── LAZY unary math ────────────────────────────────────────────
+
     @Override
     public Tensor sqrt(Tensor a) {
-        if (!useGpuEW(a, "sqrt")) { ensureCpu(a); return cpuFallback.sqrt(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_SQRT, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor neg(Tensor a) {
-        if (!useGpuEW(a, "neg")) { ensureCpu(a); return cpuFallback.neg(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_NEG, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor exp(Tensor a) {
-        if (!useGpuEW(a, "exp")) { ensureCpu(a); return cpuFallback.exp(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_EXP, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor log(Tensor a) {
-        if (!useGpuEW(a, "log")) { ensureCpu(a); return cpuFallback.log(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_LOG, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     // ── LAZY activations ───────────────────────────────────────────
 
     @Override
     public Tensor tanh(Tensor a) {
-        if (!useGpuEW(a, "tanh")) { ensureCpu(a); return cpuFallback.tanh(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_TANH, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor sigmoid(Tensor a) {
-        if (!useGpuEW(a, "sigmoid")) { ensureCpu(a); return cpuFallback.sigmoid(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_SIGMOID, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor relu(Tensor a) {
-        if (!useGpuEW(a, "relu")) { ensureCpu(a); return cpuFallback.relu(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_RELU, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor reluBackward(Tensor input, Tensor gradOutput) {
-        if (!useGpuEW(input, "reluBackward")) { ensureCpu(input, gradOutput); return cpuFallback.reluBackward(input, gradOutput); }
         GpuBuffer gi = gpuIn(input), gg = gpuIn(gradOutput);
         GpuBuffer gOut = graph.newOutputBuffer(input.rows, input.cols);
         graph.recordBinary(ComputeGraph.OP_RELU_BACKWARD, gi, gg, gOut);
-        return gpuOut(input.rows, input.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor gelu(Tensor a) {
-        if (!useGpuEW(a, "gelu")) { ensureCpu(a); return cpuFallback.gelu(a); }
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordUnary(ComputeGraph.OP_GELU, ga, gOut);
-        return gpuOut(a.rows, a.cols, gOut);
+        return gpuOut(gOut);
     }
 
     @Override
     public Tensor geluBackward(Tensor input, Tensor gradOutput) {
-        if (!useGpuEW(input, "geluBackward")) { ensureCpu(input, gradOutput); return cpuFallback.geluBackward(input, gradOutput); }
         GpuBuffer gi = gpuIn(input), gg = gpuIn(gradOutput);
         GpuBuffer gOut = graph.newOutputBuffer(input.rows, input.cols);
         graph.recordBinary(ComputeGraph.OP_GELU_BACKWARD, gi, gg, gOut);
-        return gpuOut(input.rows, input.cols, gOut);
+        return gpuOut(gOut);
     }
 
     // ── LAZY softmax ───────────────────────────────────────────────
 
     @Override
     public Tensor softmaxRows(Tensor logits) {
-        if (!useGpuEW(logits, "softmaxRows")) { ensureCpu(logits); return cpuFallback.softmaxRows(logits); }
         GpuBuffer ga = gpuIn(logits);
         GpuBuffer gOut = graph.newOutputBuffer(logits.rows, logits.cols);
         graph.recordSoftmaxRows(ga, gOut, logits.rows, logits.cols);
-        return gpuOut(logits.rows, logits.cols, gOut);
+        return gpuOut(gOut);
     }
 
-    @Override public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
-        ensureCpu(gradOutput, softmaxOut);
-        return cpuFallback.softmaxBackward(gradOutput, softmaxOut);
+    @Override
+    public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
+        Tensor.requireSameShape(gradOutput, softmaxOut, "softmaxBackward");
+        GpuBuffer gGrad = gpuIn(gradOutput);
+        GpuBuffer gSoftmax = gpuIn(softmaxOut);
+        GpuBuffer gOut = graph.newOutputBuffer(gradOutput.rows, gradOutput.cols);
+        graph.recordSoftmaxBackward(gGrad, gSoftmax, gOut, gradOutput.rows, gradOutput.cols);
+        return gpuOut(gOut);
     }
 
-    // ── fused (CPU fallback — materialization needed) ──────────────
+    // ── fused ops ──────────────────────────────────────────────────
 
     @Override public double crossEntropyLoss(Tensor logits, int[] targets) { ensureCpu(logits); return cpuFallback.crossEntropyLoss(logits, targets); }
-    @Override public Tensor crossEntropyGradient(Tensor logits, int[] targets) { ensureCpu(logits); return cpuFallback.crossEntropyGradient(logits, targets); }
+
+    @Override
+    public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
+        Tensor.requireTargetsMatchRows(logits, targets);
+        Tensor probs = softmaxRows(logits);
+        Tensor oneHot = new Tensor(logits.rows, logits.cols);
+        for (int r = 0; r < logits.rows; r++) {
+            oneHot.data[r][targets[r]] = 1.0;
+        }
+        Tensor grad = subtract(probs, oneHot);
+        return multiplyScalar(grad, 1.0 / logits.rows);
+    }
 
     @Override
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             double lr, double beta1, double beta2, double eps,
                             double weightDecay, double bc1, double bc2) {
-        ensureCpu(w, g, mt, vt);
-        cpuFallback.adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
-        // After CPU update, invalidate any stale GPU buffer for w
-        if (w.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
-        if (mt.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
-        if (vt.getGpuTag() instanceof GpuBuffer gb) { gb.needsUpload = true; gb.cpuStale = false; }
+        Tensor.requireSameShape(w, g, "adamWUpdate");
+        Tensor.requireSameShape(w, mt, "adamWUpdate");
+        Tensor.requireSameShape(w, vt, "adamWUpdate");
+
+        GpuBuffer gw = gpuIn(w);
+        GpuBuffer gg = gpuIn(g);
+        GpuBuffer gmt = gpuIn(mt);
+        GpuBuffer gvt = gpuIn(vt);
+        graph.recordAdamWUpdate(
+                gw, gg, gmt, gvt,
+                (float) lr, (float) beta1, (float) beta2, (float) eps,
+                (float) weightDecay, (float) bc1, (float) bc2,
+                w.rows * w.cols
+        );
+
+        gw.cpuStale  = true;  gw.needsUpload  = false;
+        gmt.cpuStale = true;  gmt.needsUpload = false;
+        gvt.cpuStale = true;  gvt.needsUpload = false;
     }
 
-    @Override public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
-        ensureCpu(dXHat, xHat, std);
-        return cpuFallback.layerNormBackward(dXHat, xHat, std, dim);
+    @Override
+    public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
+        Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
+        if (dim != dXHat.cols) throw new IllegalArgumentException(
+                "layerNormBackward: dim=" + dim + " must equal tensor cols=" + dXHat.cols);
+        if (std.rows != dXHat.rows || std.cols != 1) throw new IllegalArgumentException(
+                "layerNormBackward: std must be " + dXHat.rows + "x1 but got " + std.rows + "x" + std.cols);
+
+        GpuBuffer gDXHat = gpuIn(dXHat);
+        GpuBuffer gXHat  = gpuIn(xHat);
+        GpuBuffer gStd   = gpuIn(std);
+        GpuBuffer gOut   = graph.newOutputBuffer(dXHat.rows, dXHat.cols);
+        graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.rows, dXHat.cols);
+        return gpuOut(gOut);
     }
 
-    // ── data accessors ─────────────────────────────────────────────
+    // ── data accessors (CPU only) ──────────────────────────────────
 
     @Override public double get(Tensor t, int r, int c) { ensureCpu(t); return cpuFallback.get(t, r, c); }
     @Override public void set(Tensor t, int r, int c, double value) { ensureCpu(t); cpuFallback.set(t, r, c, value); }

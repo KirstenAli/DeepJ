@@ -1,4 +1,3 @@
-
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -84,6 +83,28 @@ public class TrainerTest {
                     0.9,
                     null,
                     0
+            );
+        } finally {
+            Tensor.setBackend(previous);
+        }
+
+        Assertions.assertEquals(1, releaseCalls.get());
+    }
+
+    @Test
+    void train_withDefaultReleaseCadence_releasesFinallyOnly_forShortRuns() {
+        AtomicInteger releaseCalls = new AtomicInteger(0);
+        TensorBackend previous = Tensor.backend();
+        Tensor.setBackend(countingBackend(releaseCalls));
+
+        try {
+            Trainer t = new Trainer((bs) -> 1.0);
+            t.train(
+                    10,
+                    1,
+                    1000,
+                    0.9,
+                    null
             );
         } finally {
             Tensor.setBackend(previous);

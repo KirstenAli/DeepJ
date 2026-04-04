@@ -12,11 +12,7 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Metal backend tests are intentionally limited to matmul.
- *
- * <p>All other {@link TensorBackend} ops are delegated to {@link CpuBackend}.
- */
+/** Basic correctness checks for selected Metal backend ops against CPU references. */
 public final class MetalBackendTest {
 
     private static TensorBackend cpu;
@@ -93,6 +89,186 @@ public final class MetalBackendTest {
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> gpu.matmul(a, b));
         assertTrue(ex.getMessage().contains("Shape mismatch"));
+    }
+
+    @Test
+    void softmaxBackwardMatchesCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor gradOutput = randomTensor(32, 64, 10L);
+            Tensor logits = randomTensor(32, 64, 11L);
+            Tensor softmaxOut = cpu.softmaxRows(logits);
+
+            Tensor expected = cpu.softmaxBackward(gradOutput, softmaxOut);
+            Tensor actual = gpuBackend.softmaxBackward(gradOutput, softmaxOut);
+
+            assertTensorClose(expected, actual, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void softmaxBackwardRejectsShapeMismatch() {
+        Tensor gradOutput = randomTensor(2, 3, 21L);
+        Tensor softmaxOut = randomTensor(3, 2, 22L);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> gpu.softmaxBackward(gradOutput, softmaxOut));
+        assertTrue(ex.getMessage().contains("Shape mismatch"));
+    }
+
+    @Test
+    void layerNormBackwardMatchesCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor dXHat = randomTensor(16, 32, 31L);
+            Tensor xHat = randomTensor(16, 32, 32L);
+            Tensor std = new Tensor(16, 1);
+            for (int r = 0; r < std.rows; r++) {
+                std.data[r][0] = 0.5 + Math.abs(xHat.data[r][0]);
+            }
+
+            Tensor expected = cpu.layerNormBackward(dXHat, xHat, std, dXHat.cols);
+            Tensor actual = gpuBackend.layerNormBackward(dXHat, xHat, std, dXHat.cols);
+
+            assertTensorClose(expected, actual, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void layerNormBackwardRejectsStdShapeMismatch() {
+        Tensor dXHat = randomTensor(4, 8, 41L);
+        Tensor xHat = randomTensor(4, 8, 42L);
+        Tensor badStd = randomTensor(4, 2, 43L);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> gpu.layerNormBackward(dXHat, xHat, badStd, dXHat.cols));
+        assertTrue(ex.getMessage().contains("layerNormBackward: std"));
+    }
+
+    @Test
+    void crossEntropyGradientMatchesCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor logits = randomTensor(32, 64, 51L);
+            int[] targets = new int[logits.rows];
+            Random rnd = new Random(52L);
+            for (int r = 0; r < targets.length; r++) {
+                targets[r] = rnd.nextInt(logits.cols);
+            }
+
+            Tensor expected = cpu.crossEntropyGradient(logits, targets);
+            Tensor actual = gpuBackend.crossEntropyGradient(logits, targets);
+
+            assertTensorClose(expected, actual, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void crossEntropyGradientRejectsTargetLengthMismatch() {
+        Tensor logits = randomTensor(4, 8, 61L);
+        int[] badTargets = new int[]{0, 1, 2};
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> gpu.crossEntropyGradient(logits, badTargets));
+        assertTrue(ex.getMessage().contains("targets length"));
+    }
+
+    @Test
+    void adamWUpdateMatchesCpu_singleStep() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor wCpu = randomTensor(32, 64, 71L);
+            Tensor gCpu = randomTensor(32, 64, 72L);
+            Tensor mtCpu = new Tensor(32, 64);
+            Tensor vtCpu = new Tensor(32, 64);
+
+            Tensor wGpu = new Tensor(wCpu.data);
+            Tensor gGpu = new Tensor(gCpu.data);
+            Tensor mtGpu = new Tensor(32, 64);
+            Tensor vtGpu = new Tensor(32, 64);
+
+            double lr = 1e-3;
+            double beta1 = 0.9;
+            double beta2 = 0.999;
+            double eps = 1e-8;
+            double weightDecay = 0.01;
+            double bc1 = 1.0 - beta1;
+            double bc2 = 1.0 - beta2;
+
+            cpu.adamWUpdate(wCpu, gCpu, mtCpu, vtCpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            gpuBackend.adamWUpdate(wGpu, gGpu, mtGpu, vtGpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+
+            assertTensorClose(wCpu, wGpu, 1e-4, 1e-4);
+            assertTensorClose(mtCpu, mtGpu, 1e-4, 1e-4);
+            assertTensorClose(vtCpu, vtGpu, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void adamWUpdateMatchesCpu_multipleSteps() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor wCpu = randomTensor(16, 48, 81L);
+            Tensor mtCpu = new Tensor(16, 48);
+            Tensor vtCpu = new Tensor(16, 48);
+
+            Tensor wGpu = new Tensor(wCpu.data);
+            Tensor mtGpu = new Tensor(16, 48);
+            Tensor vtGpu = new Tensor(16, 48);
+
+            double lr = 1e-3;
+            double beta1 = 0.9;
+            double beta2 = 0.999;
+            double eps = 1e-8;
+            double weightDecay = 0.01;
+
+            for (int step = 1; step <= 5; step++) {
+                Tensor gCpu = randomTensor(16, 48, 90L + step);
+                Tensor gGpu = new Tensor(gCpu.data);
+                double bc1 = 1.0 - Math.pow(beta1, step);
+                double bc2 = 1.0 - Math.pow(beta2, step);
+
+                cpu.adamWUpdate(wCpu, gCpu, mtCpu, vtCpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+                gpuBackend.adamWUpdate(wGpu, gGpu, mtGpu, vtGpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            }
+
+            assertTensorClose(wCpu, wGpu, 1e-4, 1e-4);
+            assertTensorClose(mtCpu, mtGpu, 1e-4, 1e-4);
+            assertTensorClose(vtCpu, vtGpu, 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
     }
 
     private static void assertTensorClose(Tensor expected, Tensor actual, double atol, double rtol) {

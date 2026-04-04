@@ -12,7 +12,7 @@ public class GPTModelTest {
     @Test
     void config_defaultsIncludeStabilityKnobs() {
         GPTConfig cfg = new GPTConfig(11, 8, 4, 2, 1, 8);
-        assertEquals(1.0, cfg.initScale(), 1e-12);
+        assertEquals(0.2, cfg.initScale(), 1e-12);
         assertEquals(1.0, cfg.gradClipNorm(), 1e-12);
     }
 

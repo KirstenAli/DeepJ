@@ -12,14 +12,14 @@ public class DeepJExecutorTest {
     void forRange_runsAllIterationsExactlyOnce_sequentialAndParallel() {
         AtomicInteger sum = new AtomicInteger(0);
 
-        // sequential path
-        DeepJExecutor.setParallelThreshold(Integer.MAX_VALUE);
+        // sequential path (parallel disabled)
+        DeepJExecutor.setParallelEnabled(false);
         DeepJExecutor.forRange(0, 100, sum::addAndGet);
         Assertions.assertEquals(4950, sum.get());
 
-        // parallel path (force)
+        // parallel path (parallel enabled)
         sum.set(0);
-        DeepJExecutor.setParallelThreshold(1);
+        DeepJExecutor.setParallelEnabled(true);
         DeepJExecutor.setNumThreads(Math.max(2, DeepJExecutor.getNumThreads()));
         DeepJExecutor.forRange(0, 100, sum::addAndGet);
         Assertions.assertEquals(4950, sum.get());
