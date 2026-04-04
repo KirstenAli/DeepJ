@@ -14,7 +14,9 @@ DeepJ focuses on:
 -   easy experimentation
 -   clean Java implementations of modern architectures
 
-📚 **Documentation:** https://kirstenali.github.io/DeepJ/
+📚 **Javadoc:** https://kirstenali.github.io/DeepJ/
+
+---
 
 ## 🚀 Installation
 
@@ -37,11 +39,306 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
 </dependencies>
 ```
 
+---
+
+## 🏗️ Architecture
+
+DeepJ is organised into focused packages:
+
+| Package | Purpose |
+|---|---|
+| `tensor` | N-d tensors, `TensorBackend` abstraction, `ComputeGraph` lazy execution |
+| `tensor.cpu` | `CpuBackend` — parallel CPU implementation with in-place helpers |
+| `tensor.metal` | `MetalBackend` — Apple Silicon GPU via Metal JNI |
+| `concurrent` | `DeepJExecutor` — thread-pool for CPU parallelism |
+| `layers` | `Layer` interface, `Linear` projection, `FNN` (MLP) |
+| `layers.transformer` | `TransformerBlock`, multi-head attention, layer norm |
+| `transformer` | `TransformerBuilder`, `TransformerStack` |
+| `transformer.embeddings` | `Embedding` (token lookup), `PositionalEmbedding` (learnable) |
+| `activations` | `ActivationFunction` interface + GELU, ReLU, Sigmoid, Tanh, Softmax |
+| `loss` | `LossFunction` interface + MSELoss, CrossEntropyLoss |
+| `optimisers` | `ParameterOptimizer` interface, `AdamW`, `Parameter` |
+| `training` | `Trainer` loop, `Trainable`, `SupervisedTraining`, `CausalLMTraining` |
+| `models.gpt` | `GPTModel`, `GPTConfig`, `TextGenerator` |
+| `tokenizers` | `Tokenizer` interface, `ByteTokenizer`, BPE pipeline |
+| `data` | `TextDataset`, `Batch` |
+| `persistence` | `Persistable` interface, `ModelSerializer` (binary save/load) |
+| `chatui` | `BaseChatApp`, `ChatService` — optional JavaFX chat interface |
+
+### Key interfaces
+
+```
+Trainable              — exposes parameters() + zeroGrad()
+    └── Layer          — forward(Tensor) / backward(Tensor)
+Persistable            — save(Path) / load(Path) via ModelSerializer
+TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
+LossFunction           — loss() + gradient()
+ParameterOptimizer     — step(List<Parameter>)
+Tokenizer              — encode(String) / decode(int[]) / vocabSize()
+```
+
+---
+
+## 📐 Design Decisions
+
+### Backend abstraction
+
+Every tensor operation routes through a pluggable `TensorBackend`.
+The default is `CpuBackend`; swap to `MetalBackend` for GPU acceleration:
+
+```java
+Tensor.setBackend(new MetalBackend());  // all ops now use Metal
+Tensor.setBackend(new CpuBackend());    // back to CPU
+```
+
+No other code changes — models, training loops, and layers are
+backend-agnostic.
+
+### Lazy GPU execution
+
+When the Metal backend is active, ops are **recorded**, not executed
+immediately. A flat `int[]` command stream accumulates op codes and
+buffer IDs. Everything flushes in a single native call:
+
+```
+record matmul  →  record relu  →  record softmax  →  flush (one GPU dispatch)
+```
+
+Tensors stay GPU-resident between ops — data only transfers on
+`materialize()` or when a CPU-only op needs it.
+
+### Zero-allocation in-place ops (CPU)
+
+On the CPU backend, every element-wise op has an in-place variant that
+writes the result back into the input tensor — **no `new Tensor()`
+allocation**:
+
+```java
+// Allocating (returns a new tensor):
+Tensor result = a.sqrt();
+
+// In-place (mutates a, zero allocation):
+a.sqrtInPlace();
+
+// Chaining:
+gradient.multiplyScalarInPlace(0.5).addInPlace(bias).reluInPlace();
+```
+
+`CpuBackend` overrides every in-place method for true zero-allocation —
+the function writes directly into the input's `data[][]`, no temporary
+tensor is created. Other backends (e.g. `MetalBackend`) inherit working
+default implementations that allocate a temporary internally.
+
+### CPU parallelism
+
+`DeepJExecutor.forRange()` splits work across a daemon thread pool.
+Enabled by default; toggle with a flag:
+
+```java
+DeepJExecutor.setParallelEnabled(false);  // single-threaded
+DeepJExecutor.setParallelEnabled(true);   // multi-threaded (default)
+DeepJExecutor.setNumThreads(8);           // override thread count
+```
+
+---
+
+## 📊 Tensor
+
+`Tensor` is a 2-D matrix of `double` values — the core data type for
+every operation in DeepJ. All methods route through the active
+`TensorBackend`, so the same code runs on CPU or GPU.
+
+### Creating tensors
+
+```java
+// Zero-filled
+Tensor a = new Tensor(3, 4);              // 3 rows × 4 cols, all zeros
+
+// From data
+Tensor b = new Tensor(new double[][]{
+        {1, 2, 3},
+        {4, 5, 6}
+});                                        // 2 × 3, deep-copied
+
+// Static factories
+Tensor z = Tensor.zeros(4, 4);
+Tensor o = Tensor.ones(4, 4);
+Tensor r = Tensor.random(4, 4, new Random(42));  // Gaussian × 0.1
+Tensor m = Tensor.causalMask(8);                  // 8 × 8, upper triangle = -1e9
+```
+
+### Shape
+
+```java
+a.rows   // number of rows
+a.cols   // number of columns
+a.data   // raw double[][] (trigger materialize() first if on GPU)
+```
+
+### Operations by category
+
+#### Element-wise binary (same shape required)
+
+```java
+a.add(b)        a.subtract(b)        a.multiply(b)        a.divide(b)
+a.matmul(b)     // [m×k] · [k×n] → [m×n]
+```
+
+#### Scalar
+
+```java
+a.multiplyScalar(2.0)     a.addScalar(1.0)     a.divideScalar(3.0)
+```
+
+#### Broadcast
+
+```java
+// Row vector [1×cols] broadcast across all rows
+a.addRowVector(rv)        a.addBroadcastRows(rv)     a.multiplyBroadcastRows(rv)
+
+// Column vector [rows×1] broadcast across all cols
+a.addBroadcastCols(cv)    a.subtractBroadcastCols(cv)
+a.multiplyBroadcastCols(cv)    a.divideBroadcastCols(cv)
+```
+
+#### Unary math
+
+```java
+a.sqrt()    a.neg()     a.exp()     a.log()
+a.pow(2.0)  a.clamp(0, 1)           a.transpose()
+```
+
+#### Activations
+
+```java
+a.reluActivation()    a.geluActivation()    a.tanhActivation()    a.sigmoidActivation()
+a.reluBackward(grad)  a.geluBackward(grad)
+```
+
+#### Reductions
+
+```java
+a.sumRows()          // [1 × cols] — sum each column across rows
+a.sumAlongRows()     // [rows × 1] — sum each row
+a.sumAlongCols()     // [1 × cols]
+a.meanAlongRows()    // [rows × 1]
+a.varianceAlongRows() // [rows × 1]
+a.maxAlongRows()     // [rows × 1]
+a.sum()              // scalar — total sum
+a.sumAbs()           // scalar — total absolute sum
+```
+
+#### Row-wise compound
+
+```java
+a.softmaxRows()                  // row-wise softmax
+a.softmaxBackward(softmaxOut)    // softmax backward
+a.crossEntropyLoss(targets)      // scalar loss
+a.crossEntropyGradient(targets)  // gradient tensor
+```
+
+#### Data access (triggers materialization on GPU)
+
+```java
+a.get(r, c)                     // read one element
+a.set(r, c, value)              // write one element
+a.getRow(r)                     // [1 × cols] copy
+Tensor.sliceRows(t, indices, cols)   // gather rows by index
+Tensor.scatterAddRows(t, indices, g) // scatter-add (in-place)
+Tensor.sampleRows(t, n, rnd)        // random row sample
+```
+
+### In-place ops (zero allocation on CPU)
+
+Every element-wise op has an `*InPlace` variant that mutates the tensor
+and returns `this` for chaining:
+
+```java
+a.sqrtInPlace();
+a.multiplyScalarInPlace(0.5).addInPlace(b).reluInPlace();
+```
+
+Full list: `addInPlace`, `subtractInPlace`, `multiplyInPlace`,
+`divideInPlace`, `multiplyScalarInPlace`, `addScalarInPlace`,
+`divideScalarInPlace`, `sqrtInPlace`, `negInPlace`, `expInPlace`,
+`logInPlace`, `reluInPlace`, `geluInPlace`, `tanhInPlace`,
+`sigmoidInPlace`.
+
+### GPU materialization
+
+When the Metal backend is active, `data[][]` may be stale. Call
+`materialize()` before reading raw data, or use accessor methods
+(`get`, `set`, `getRow`, `sum`, `print`) which materialise automatically:
+
+```java
+a.materialize();         // flush GPU ops, download result
+double v = a.get(0, 0); // auto-materialises
+a.print("my tensor");   // auto-materialises
+```
+
+### Flatten / unflatten
+
+```java
+double[] flat = Tensor.flattenTensor(a);                 // row-major flat array
+Tensor t = Tensor.unflattenToTensor(flat, rows, cols);   // back to 2-D
+```
+
+---
+
+## ⚙️ Concurrency (`DeepJExecutor`)
+
+All CPU-side tensor parallelism flows through a single class:
+`DeepJExecutor`. It manages a daemon thread pool and exposes one
+primitive — `forRange(start, end, body)` — used by every `CpuBackend`
+operation.
+
+### How it works
+
+```
+forRange(0, rows, r -> { process row r })
+        │
+        ├── parallel disabled or 1 thread?  → run sequentially on caller thread
+        │
+        └── otherwise → split [0, rows) into chunks, submit to thread pool
+                         wait for all chunks via CountDownLatch
+                         fail-fast: if any chunk throws, cancel the rest
+```
+
+### Configuration
+
+```java
+import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
+
+// Toggle parallelism
+DeepJExecutor.setParallelEnabled(true);   // default
+DeepJExecutor.setParallelEnabled(false);  // useful for debugging
+
+// Check state
+boolean on = DeepJExecutor.isParallelEnabled();
+
+// Override thread count (default: availableProcessors - 1)
+DeepJExecutor.setNumThreads(4);
+int n = DeepJExecutor.getNumThreads();
+
+// Clean shutdown (optional — daemon threads exit with the JVM)
+DeepJExecutor.shutdown();
+```
+
+### Design notes
+
+-   **Daemon threads** — the pool never prevents JVM exit
+-   **Core timeout** — idle threads expire after 30 seconds
+-   **Fail-fast** — an `AtomicBoolean` flag cancels remaining chunks
+    if any chunk throws a `RuntimeException`
+-   **O(1) memory** — chunk boundaries are computed on the fly, not stored
+
+---
+
 ## 📚 Examples
 
-### Classic ANN-style MLP (FNN)
+### Classic MLP (FNN)
 
-Train a small feed-forward neural network.
+Train a small feed-forward neural network with supervised training.
 
 ```java
 Tensor x = new Tensor(new double[][]{
@@ -85,22 +382,26 @@ trainer.train(
 );
 ```
 
-### Transformer stack builder
+### Transformer stack
 
 Create a stack of decoder blocks using the builder.
 
 ```java
 TransformerStack stack = new TransformerBuilder()
-        .dModel(128)
-        .nHeads(4)
-        .dFF(512)
-        .nLayers(4)
-        .ffnActivation(GELU::new)
-        .seed(42)
+        .dModel(128)          // model dimension
+        .nHeads(4)            // attention heads
+        .dFF(512)             // feed-forward inner dimension
+        .nLayers(4)           // number of decoder blocks
+        .ffnActivation(GELU::new) // activation inside FFN (default: GELU)
+        .seed(42)             // weight initialisation seed
         .build();
 ```
 
-### Tiny GPT training + generation
+Each block contains multi-head self-attention, layer norm, and an FFN.
+The stack implements `Layer`, so you can call `forward()` / `backward()`
+and collect `parameters()` like any other layer.
+
+### GPT training + generation
 
 Train a small GPT-style language model.
 
@@ -173,6 +474,460 @@ System.out.println("\n=== Generated ===");
 System.out.println(out);
 ```
 
+---
+
+## 🧱 Layers
+
+All layers implement the `Layer` interface — `forward(Tensor)`,
+`backward(Tensor)`, and `parameters()` for optimizer access.
+
+### Linear
+
+Fully-connected projection: `y = xW + b`.
+
+```java
+Linear fc = new Linear(
+        128,  // inputSize
+        64,   // outputSize
+        rnd   // Random for weight init
+);
+
+Tensor y = fc.forward(x);       // [n x 64]
+Tensor dX = fc.backward(gradY); // backprop, accumulates W.grad and b.grad
+```
+
+### FNN (MLP)
+
+Stack of `Linear` → activation → `Linear` → activation → … → `Linear`.
+
+```java
+FNN mlp = new FNN(
+        784,               // inputSize
+        new int[]{256, 128}, // hiddenSizes
+        10,                // outputSize
+        GELU::new,         // hiddenActivation (factory — each layer gets its own)
+        null,              // outputActivation (none)
+        rnd
+);
+
+Tensor out = mlp.forward(x);
+Tensor dX = mlp.backward(gradOut);
+List<Parameter> params = mlp.parameters(); // all W and b from every Linear
+```
+
+### Transformer layers
+
+| Class | Description |
+|---|---|
+| `LayerNorm1D` | Layer norm over feature dimension with trainable γ/β |
+| `MultiHeadSelfAttention` | Multi-head causal self-attention (`[seqLen × dModel]`) |
+| `TransformerBlock` | Pre-LN decoder block: `x + Attn(LN(x))`, then `x + FFN(LN(x))` |
+
+Use individually or via `TransformerBuilder`:
+
+```java
+// Individual block
+TransformerBlock block = new TransformerBlock(
+        512,       // dModel
+        8,         // nHeads
+        2048,      // dFF
+        GELU::new, // FFN activation
+        rnd
+);
+
+Tensor out = block.forward(x);   // [seqLen x dModel]
+Tensor dX = block.backward(grad);
+
+// Or stack via builder
+TransformerStack stack = new TransformerBuilder()
+        .dModel(512).nHeads(8).dFF(2048).nLayers(6)
+        .ffnActivation(GELU::new).seed(42)
+        .build();
+```
+
+### Custom layers
+
+Implement `Layer` to create your own:
+
+```java
+public class MyLayer implements Layer {
+    @Override public Tensor forward(Tensor input)      { /* ... */ }
+    @Override public Tensor backward(Tensor gradOutput) { /* ... */ }
+    @Override public List<Parameter> parameters()       { return List.of(); }
+}
+```
+
+Any `Layer` works with `SupervisedTraining`, `AdamW`, and `ModelSerializer`
+out of the box.
+
+---
+
+## 🔧 Transformer (`TransformerBuilder` / `TransformerStack`)
+
+`TransformerBuilder` assembles a `TransformerStack` — a sequential
+chain of `TransformerBlock`s that implements `Layer`.
+
+### Builder methods
+
+| Method | Default | Description |
+|---|---|---|
+| `.dModel(int)` | required | Model / embedding dimension |
+| `.nHeads(int)` | required | Number of attention heads (`dModel` must be divisible) |
+| `.dFF(int)` | required | Feed-forward inner dimension |
+| `.nLayers(int)` | required | Number of decoder blocks |
+| `.ffnActivation(Supplier)` | `GELU::new` | Activation inside each FFN |
+| `.seed(long)` | `42` | Weight initialisation seed |
+| `.random(Random)` | — | Provide your own `Random` (overrides seed) |
+
+### TransformerStack
+
+`TransformerStack` is a `record` that implements `Layer`:
+
+```java
+TransformerStack stack = new TransformerBuilder()
+        .dModel(256).nHeads(4).dFF(1024).nLayers(6)
+        .ffnActivation(GELU::new).seed(42)
+        .build();
+
+Tensor out = stack.forward(x);          // [seqLen x dModel]
+Tensor dX  = stack.backward(gradOut);   // backprop through all blocks in reverse
+List<Parameter> ps = stack.parameters(); // all block parameters
+```
+
+The stack is used internally by `GPTModel` and can also be used
+standalone for custom architectures.
+
+---
+
+## 🤖 Models
+
+### GPTModel
+
+Decoder-only GPT-style transformer. Composes token embeddings,
+positional embeddings, a `TransformerStack`, final layer norm, and a
+linear head.
+
+```java
+GPTConfig cfg = new GPTConfig(
+        vocabSize,    // number of tokens
+        maxSeqLen,    // context window length
+        dModel,       // model dimension
+        nHeads,       // attention heads
+        nLayers,      // decoder blocks
+        dFF           // FFN inner dimension
+);
+
+GPTModel model = new GPTModel(cfg, 42); // seed
+```
+
+#### GPTConfig
+
+| Field | Default | Description |
+|---|---|---|
+| `vocabSize` | required | Token vocabulary size |
+| `maxSeqLen` | required | Maximum sequence length |
+| `dModel` | required | Embedding / model dimension |
+| `nHeads` | required | Attention heads (`dModel % nHeads == 0`) |
+| `nLayers` | required | Number of transformer blocks |
+| `dFF` | required | Feed-forward inner dimension |
+| `initScale` | `0.2` | Multiply all initial weights by this factor |
+| `gradClipNorm` | `1.0` | Global gradient clipping threshold |
+
+The 6-arg constructor uses defaults for `initScale` and `gradClipNorm`.
+The full 8-arg constructor allows overriding both.
+
+#### Forward / backward
+
+```java
+Tensor logits = model.forward(inputIds);   // int[] → [seqLen x vocabSize]
+model.backward(dLogits);                    // backprop through entire model
+List<Parameter> params = model.parameters(); // all trainable weights
+```
+
+#### Architecture
+
+```
+inputIds
+  → token embedding + positional embedding
+  → TransformerStack (nLayers × TransformerBlock)
+  → LayerNorm
+  → Linear head → logits [seqLen × vocabSize]
+```
+
+### TextGenerator
+
+Autoregressive sampling from a trained `GPTModel`:
+
+```java
+String out = TextGenerator.generate(
+        model,    // trained GPTModel
+        tok,      // Tokenizer
+        cfg,      // GPTConfig
+        "Hello",  // prompt
+        200,      // maxNewTokens
+        0.8,      // temperature (lower = more deterministic)
+        20,       // topK (0 = full vocab)
+        42L       // seed
+);
+```
+
+Internally it runs an autoregressive loop: encode prompt → forward →
+sample from top-k logits with temperature → append token → repeat.
+
+---
+
+## 🔤 Tokenizers
+
+DeepJ provides a `Tokenizer` interface with two implementations:
+
+### ByteTokenizer
+
+256-token byte-level tokenizer. No training needed — every byte maps
+to a token. Good for quick experiments.
+
+```java
+Tokenizer tok = new ByteTokenizer();   // vocabSize = 256
+int[] ids = tok.encode("hello");
+String text = tok.decode(ids);
+```
+
+### BPE tokenizer
+
+Full byte-pair encoding pipeline: train a merge table from text, then
+encode/decode with subword tokens.
+
+```java
+// Train a BPE model from a corpus
+BPEModel bpe = new BPETrainer().train(corpusText, 1000);  // target vocab size
+
+// Or from a file
+BPEModel bpe = new BPETrainer().trainFromFile(Path.of("corpus.txt"), 1000);
+
+// Wrap as a Tokenizer
+Tokenizer tok = new BPETokenizer(bpe);
+int[] ids = tok.encode("hello world");
+String text = tok.decode(ids);
+```
+
+---
+
+## 📂 Data Loading
+
+### TextDataset
+
+Simple in-memory dataset that tokenises a text file and samples random
+contiguous chunks for causal language model training.
+
+```java
+// From a file
+TextDataset ds = TextDataset.fromFile(
+        Path.of("corpus.txt"),
+        tok,    // any Tokenizer
+        256,    // seqLen – context window length
+        123     // seed
+);
+
+// Or from pre-tokenised ids
+TextDataset ds = new TextDataset(tokenIds, 256, 123);
+
+// Sample a batch
+Batch batch = ds.nextBatch(4);  // batchSize = 4
+// batch.x() → int[4][256] (input ids)
+// batch.y() → int[4][256] (target ids, shifted by 1)
+```
+
+Each batch contains `x` (input tokens) and `y` (next-token targets),
+both shaped `[batchSize][seqLen]`.
+
+---
+
+## 🏋️ Training
+
+### Trainer
+
+`Trainer` is a reusable training loop that delegates each step to a
+pluggable `StepFunction`. It handles EMA loss tracking, logging,
+periodic GPU resource release, and early stopping.
+
+#### StepFunction
+
+The core contract — one optimisation step, returns the loss:
+
+```java
+@FunctionalInterface
+public interface StepFunction {
+    double trainStep(int batchSize);
+}
+```
+
+You can write your own or use the factories below.
+
+#### `train()` overloads
+
+```java
+// Minimal (uses default releaseEverySteps=25, no hook)
+trainer.train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss);
+
+// With custom GPU release cadence
+trainer.train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, releaseEverySteps);
+
+// With step hook (default release cadence)
+trainer.train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, stepHook);
+
+// Full control
+trainer.train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, releaseEverySteps, stepHook);
+```
+
+#### What the loop does
+
+```
+for each step:
+    1. call stepFn.trainStep(batchSize)  → loss
+    2. update EMA loss
+    3. log if step % logEvery == 0
+    4. call stepHook (if provided)
+    5. releaseResources if step % releaseEverySteps == 0
+    6. early-stop if ema <= targetEmaLoss
+finally:
+    releaseResources (always, even on exception)
+```
+
+### SupervisedTraining
+
+Factory for Tensor-in / Tensor-out models (FNN, etc.). Each step:
+
+1.  `zeroGrad()`
+2.  Sample a mini-batch from `(x, y)` (or use all rows if `batchSize ≥ rows`)
+3.  `forward()` → `loss()` → `gradient()` → `backward()`
+4.  `opt.step(parameters())`
+
+```java
+Trainer trainer = SupervisedTraining.trainer(
+        model,                    // any Layer (FNN, custom, etc.)
+        new MSELoss(),            // or CrossEntropyLoss
+        AdamW.defaultAdamW(1e-3), // optimizer
+        x, y,                     // training data
+        42L                       // seed
+);
+```
+
+### CausalLMTraining
+
+Factory for autoregressive language models (GPT). Each step:
+
+1.  `zeroGrad()`
+2.  Sample a `Batch` from `TextDataset`
+3.  For each sequence in the batch: `forward()` → `crossEntropyLoss()` → `backward()`
+4.  Average gradients across the batch
+5.  Global gradient clipping (using `cfg.gradClipNorm()`)
+6.  `opt.step(parameters())`
+
+```java
+Trainer trainer = CausalLMTraining.trainer(model, dataset, 1e-4);
+```
+
+### StepHook
+
+Hook into every training step for checkpointing, custom logging, etc.:
+
+```java
+Trainer.StepHook hook = (step, loss, ema) -> {
+    if (step % 500 == 0) model.save(Path.of("ckpt-" + step + ".bin"));
+};
+```
+
+### TrainingResult
+
+`trainer.train()` returns a `TrainingResult` record:
+
+```java
+TrainingResult result = trainer.train(...);
+result.steps();    // total steps completed
+result.lastLoss(); // loss on the final step
+result.emaLoss();  // exponential moving average loss at finish
+```
+
+---
+
+## 🧮 Optimizers
+
+### AdamW
+
+AdamW with per-parameter state, bias correction, and weight decay.
+
+```java
+// With defaults (beta1=0.9, beta2=0.999, eps=1e-8, weightDecay=0.01)
+AdamW opt = AdamW.defaultAdamW(1e-3);
+
+// Full control
+AdamW opt = new AdamW(1e-3, 0.9, 0.999, 1e-8, 0.01);
+
+// Step
+opt.step(model.parameters());
+```
+
+---
+
+## 📉 Loss Functions
+
+| Class | Formula | Use case |
+|---|---|---|
+| `MSELoss` | mean((pred − actual)²) | Regression, autoencoders |
+| `CrossEntropyLoss` | −log(softmax(pred)[target]) | Classification |
+
+```java
+LossFunction loss = new MSELoss();
+double l = loss.loss(predicted, actual);
+Tensor grad = loss.gradient(predicted, actual);
+```
+
+---
+
+## 🔥 Activations
+
+DeepJ provides an `ActivationFunction` interface with `forward()` /
+`backward()`. Five implementations are included:
+
+| Class | Function |
+|---|---|
+| `GELU` | Gaussian Error Linear Unit |
+| `ReLU` | max(0, x) |
+| `Sigmoid` | 1 / (1 + e⁻ˣ) |
+| `Tanh` | hyperbolic tangent |
+| `Softmax` | row-wise softmax |
+
+Activations are passed as factories (`Supplier<ActivationFunction>`)
+so each layer gets its own instance — no shared state during backprop:
+
+```java
+FNN mlp = new FNN(inputSize, hiddenSizes, outputSize, GELU::new, null, rnd);
+
+TransformerStack stack = new TransformerBuilder()
+        .ffnActivation(ReLU::new)  // swap activation
+        // ...
+        .build();
+```
+
+---
+
+## 💾 Persistence
+
+Any model implementing `Persistable` (e.g. `GPTModel`) gets
+binary save/load for free via `ModelSerializer`:
+
+```java
+// Save all parameters to a binary file
+model.save(Path.of("model.bin"));
+
+// Load parameters back (model structure must match)
+model.load(Path.of("model.bin"));
+```
+
+The serializer writes raw `double` values in order — compact and fast,
+no external format dependencies.
+
+---
+
 ## 🖥️ Metal GPU Backend (macOS)
 
 DeepJ ships with an optional **Metal GPU backend** for macOS Apple Silicon.
@@ -229,64 +984,41 @@ Key points:
 A full forward + backward pass records hundreds of GPU ops and executes them
 in just 2–3 native calls, minimising driver overhead.
 
+---
+
 ## ⚡ Metal GPU Performance
 
-
 Below are CPU vs GPU timings for all tensor operations on a
-**512 x 512** matrix (262,144 elements), measured on Apple Silicon
+**512 × 512** matrix (262,144 elements), measured on Apple Silicon
 with `-Dperf.iters.cpu=3` and `-Dperf.iters.gpu=10`.
+CPU timings use the default multithreaded `DeepJExecutor` (parallel enabled).
 
 | Operation | CPU (ms) | GPU (ms) | Speedup |
 |---|---:|---:|---:|
-| matmul | 23.348 | 0.160 | 146.04x |
-| matmul (rect) | 7.441 | 0.123 | 60.36x |
-| add | 0.303 | 0.087 | 3.48x |
-| subtract | 0.403 | 0.166 | 2.43x |
-| multiply | 0.336 | 0.053 | 6.35x |
-| divide | 0.287 | 0.047 | 6.18x |
-| multiplyScalar | 0.441 | 0.064 | 6.92x |
-| addScalar | 0.335 | 0.226 | 1.48x |
-| divideScalar | 0.413 | 0.142 | 2.91x |
-| addRowVector | 0.326 | 0.140 | 2.33x |
-| addBroadcastCols | 0.132 | 0.144 | 0.91x |
-| subtractBroadcastCols | 0.339 | 0.119 | 2.85x |
-| multiplyBroadcastCols | 0.128 | 0.132 | 0.97x |
-| divideBroadcastCols | 0.179 | 0.129 | 1.39x |
-| addBroadcastRows | 0.114 | 0.098 | 1.16x |
-| multiplyBroadcastRows | 0.555 | 0.106 | 5.22x |
-| sumRows | 0.490 | 0.034 | 14.63x |
-| sumAlongRows | 0.327 | 0.078 | 4.18x |
-| sumAlongCols | 0.034 | 0.034 | 1.00x |
-| meanAlongRows | 0.124 | 0.105 | 1.18x |
-| varianceAlongRows | 0.237 | 0.230 | 1.03x |
-| maxAlongRows | 0.060 | 0.060 | 1.01x |
-| sum (scalar) | 0.476 | 0.148 | 3.22x |
-| sumAbs (scalar) | 0.152 | 0.151 | 1.01x |
-| sqrt | 0.709 | 0.069 | 10.22x |
-| pow (^2) | 0.241 | 0.232 | 1.04x |
-| neg | 0.609 | 0.142 | 4.29x |
-| exp | 0.446 | 0.059 | 7.59x |
-| log | 0.405 | 0.055 | 7.40x |
-| clamp | 0.126 | 0.122 | 1.03x |
-| transpose | 0.159 | 0.158 | 1.00x |
-| tanh | 0.631 | 0.168 | 3.75x |
-| sigmoid | 0.478 | 0.048 | 9.95x |
-| relu | 0.118 | 0.054 | 2.19x |
-| reluBackward | 0.135 | 0.051 | 2.66x |
-| gelu | 0.696 | 0.052 | 13.49x |
-| geluBackward | 0.940 | 0.059 | 15.91x |
-| softmaxRows | 1.721 | 0.049 | 35.20x |
-| softmaxBackward | 1.043 | 0.054 | 19.23x |
-| crossEntropyLoss | 0.511 | 0.357 | 1.43x |
-| crossEntropyGradient | 1.010 | 0.067 | 14.97x |
-| adamWUpdate | 1.066 | 0.001 | 1706.07x |
-| layerNormBackward | 1.015 | 0.058 | 17.36x |
-| sliceRows | 0.035 | 0.037 | 0.95x |
-| scatterAddRows | 0.123 | 0.122 | 1.01x |
+| matmul | 23.348 | 0.160 | 146.04× |
+| matmul (rect) | 7.441 | 0.123 | 60.36× |
+| add | 0.303 | 0.087 | 3.48× |
+| subtract | 0.403 | 0.166 | 2.43× |
+| multiply | 0.336 | 0.053 | 6.35× |
+| divide | 0.287 | 0.047 | 6.18× |
+| multiplyScalar | 0.441 | 0.064 | 6.92× |
+| sqrt | 0.709 | 0.069 | 10.22× |
+| neg | 0.609 | 0.142 | 4.29× |
+| exp | 0.446 | 0.059 | 7.59× |
+| log | 0.405 | 0.055 | 7.40× |
+| tanh | 0.631 | 0.168 | 3.75× |
+| sigmoid | 0.478 | 0.048 | 9.95× |
+| relu | 0.118 | 0.054 | 2.19× |
+| gelu | 0.696 | 0.052 | 13.49× |
+| geluBackward | 0.940 | 0.059 | 15.91× |
+| softmaxRows | 1.721 | 0.049 | 35.20× |
+| softmaxBackward | 1.043 | 0.054 | 19.23× |
+| crossEntropyGradient | 1.010 | 0.067 | 14.97× |
+| adamWUpdate | 1.066 | 0.001 | 1706.07× |
+| layerNormBackward | 1.015 | 0.058 | 17.36× |
 
-> **Key takeaway:** most high-throughput math ops see clear Metal speedups,
-> while a few broadcast/indexing paths remain around parity (or slightly
-> CPU-favored) depending on tensor shape and dispatch overhead.
+> **Key takeaway:** most compute-heavy ops see clear Metal speedups.
+> Broadcast/indexing ops remain around parity — they run on CPU by design.
 
 Run the benchmark yourself:
 
@@ -297,25 +1029,17 @@ mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
     -Dsurefire.useFile=false
 ```
 
+---
+
 ## 💬 Chat UI
 
-DeepJ also includes an **optional JavaFX chat interface** for
-interacting with trained models.
+DeepJ includes an optional **JavaFX chat interface** for interacting
+with trained models. The UI is model-agnostic — you provide your own
+`ChatService` implementation.
 
-The UI is **model-agnostic**, meaning you provide your own
-implementation of the `ChatService` interface.
+### Launching
 
-This allows you to:
-
--   control how models are loaded
--   configure tokenizers
--   customize generation settings
--   plug in completely different model types
-
-### Using the Chat UI
-
-To launch the UI, extend `BaseChatApp` and provide your own
-`ChatService`.
+Extend `BaseChatApp` and provide your service:
 
 ```java
 public class ChatApp extends BaseChatApp {
@@ -331,16 +1055,9 @@ public class ChatApp extends BaseChatApp {
 }
 ```
 
-### Implementing a ChatService
+### Implementing ChatService
 
-Your service controls:
-
--   model configuration
--   tokenizer choice
--   model loading
--   generation behaviour
-
-Example implementation using DeepJ GPT:
+Your service controls model loading, tokenization, and generation:
 
 ```java
 public class GPTChatService implements ChatService {
@@ -359,10 +1076,7 @@ public class GPTChatService implements ChatService {
 
     @Override
     public void loadModel(Path modelPath) throws Exception {
-        model = new GPTModel(
-                config,
-                42      // seed
-        );
+        model = new GPTModel(config, 42);
         model.load(modelPath);
     }
 
@@ -372,29 +1086,29 @@ public class GPTChatService implements ChatService {
     }
 
     @Override
-    public String generate(String prompt, int maxTokens, double temperature, int topK, long seed) {
+    public String getLoadedModelName() {
+        return "my-gpt";
+    }
 
+    @Override
+    public String generate(String prompt, int maxTokens, double temperature, int topK, long seed) {
         return TextGenerator.generate(
-                model,
-                tokenizer,
-                config,
-                prompt,
-                maxTokens,
-                temperature,
-                topK,
-                seed
+                model, tokenizer, config, prompt,
+                maxTokens, temperature, topK, seed
         );
     }
 }
 ```
 
-### Example UI Flow
+### UI flow
 
 1.  User selects a trained `.bin` model
 2.  `ChatService.loadModel()` loads the model
 3.  User enters a prompt
 4.  The UI calls `chatService.generate(...)`
 5.  Generated text appears in the chat window
+
+---
 
 ## 📄 License
 

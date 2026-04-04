@@ -8,7 +8,7 @@ import java.util.function.IntConsumer;
 
 public final class DeepJExecutor {
 
-    private static volatile int parallelThreshold = 64;
+    private static volatile boolean parallelEnabled = true;
     private static final AtomicInteger tid = new AtomicInteger(1);
 
     private static ThreadFactory daemonFactory() {
@@ -51,14 +51,13 @@ public final class DeepJExecutor {
         return exec.getCorePoolSize();
     }
 
-    public static void setParallelThreshold(int n) {
-        if (n < 0) throw new IllegalArgumentException("threshold must be >= 0");
-        parallelThreshold = n;
+    public static void setParallelEnabled(boolean enabled) {
+        parallelEnabled = enabled;
     }
 
-    /** Current minimum iteration count before DeepJ uses parallel execution. */
-    public static int getParallelThreshold() {
-        return parallelThreshold;
+    /** Whether DeepJ uses parallel execution for eligible loops. */
+    public static boolean isParallelEnabled() {
+        return parallelEnabled;
     }
 
     /**
@@ -83,7 +82,7 @@ public final class DeepJExecutor {
         if (n <= 0) return;
 
         int threads = exec.getCorePoolSize();
-        if (threads <= 1 || n < parallelThreshold) {
+        if (threads <= 1 || !parallelEnabled) {
             for (int i = startInclusive; i < endExclusive; i++) body.accept(i);
             return;
         }

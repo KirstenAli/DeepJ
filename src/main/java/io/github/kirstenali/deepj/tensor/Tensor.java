@@ -107,6 +107,25 @@ public class Tensor {
     public Tensor geluActivation() { return backend().gelu(this); }
     public Tensor geluBackward(Tensor gradOutput) { return backend().geluBackward(this, gradOutput); }
 
+    // ── in-place ops (zero allocation, mutates this, returns this) ──
+    public Tensor addInPlace(Tensor b)           { backend().addInPlace(this, b); return this; }
+    public Tensor subtractInPlace(Tensor b)      { backend().subtractInPlace(this, b); return this; }
+    public Tensor multiplyInPlace(Tensor b)      { backend().multiplyInPlace(this, b); return this; }
+    public Tensor divideInPlace(Tensor b)        { backend().divideInPlace(this, b); return this; }
+
+    public Tensor multiplyScalarInPlace(double s) { backend().multiplyScalarInPlace(this, s); return this; }
+    public Tensor addScalarInPlace(double s)      { backend().addScalarInPlace(this, s); return this; }
+    public Tensor divideScalarInPlace(double s)   { backend().divideScalarInPlace(this, s); return this; }
+
+    public Tensor sqrtInPlace()    { backend().sqrtInPlace(this); return this; }
+    public Tensor negInPlace()     { backend().negInPlace(this); return this; }
+    public Tensor expInPlace()     { backend().expInPlace(this); return this; }
+    public Tensor logInPlace()     { backend().logInPlace(this); return this; }
+    public Tensor reluInPlace()    { backend().reluInPlace(this); return this; }
+    public Tensor geluInPlace()    { backend().geluInPlace(this); return this; }
+    public Tensor tanhInPlace()    { backend().tanhInPlace(this); return this; }
+    public Tensor sigmoidInPlace() { backend().sigmoidInPlace(this); return this; }
+
     // ── row-wise compound ───────────────────────────────────────────
     public Tensor softmaxRows() { return backend().softmaxRows(this); }
     public Tensor softmaxBackward(Tensor softmaxOut) { return backend().softmaxBackward(this, softmaxOut); }

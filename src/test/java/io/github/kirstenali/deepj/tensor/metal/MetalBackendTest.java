@@ -156,7 +156,7 @@ public final class MetalBackendTest {
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
                 () -> gpu.layerNormBackward(dXHat, xHat, badStd, dXHat.cols));
-        assertTrue(ex.getMessage().contains("layerNormBackward std"));
+        assertTrue(ex.getMessage().contains("layerNormBackward: std"));
     }
 
     @Test
