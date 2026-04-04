@@ -374,11 +374,11 @@ Trainer trainer = SupervisedTraining.trainer(
 );
 
 trainer.train(
-        3000, // maxSteps
-        3,    // batchSize
-        200,  // logEvery
-        0.98, // emaBeta
-        1e-6  // targetEmaLoss
+        3000, // maxSteps         – stop after 3 000 gradient updates
+        3,    // batchSize        – rows sampled per step
+        200,  // logEvery         – print loss every 200 steps
+        0.98, // emaBeta          – smoothing factor for the moving-average loss
+        1e-6  // targetEmaLoss    – early-stop when smoothed loss falls below this
 );
 ```
 
@@ -441,12 +441,12 @@ Trainer.StepHook checkpointHook = (step, loss, ema) -> {
 };
 
 trainer.train(
-        10_000_000,    // maxSteps
-        2,             // batchSize
-        1,             // logEvery
-        0.98,          // emaBeta
-        0.01,          // targetEmaLoss
-        25,            // releaseEverySteps – free orphaned GPU buffers every N steps
+        10_000_000,    // maxSteps            – stop after 10 M gradient updates
+        2,             // batchSize           – sequences per step
+        1,             // logEvery            – print loss every step
+        0.98,          // emaBeta             – smoothing factor for the moving-average loss
+        0.01,          // targetEmaLoss       – early-stop when smoothed loss falls below this
+        25,            // releaseEverySteps   – free orphaned GPU buffers every 25 steps
         checkpointHook // called after each step
 );
 
@@ -464,10 +464,10 @@ String out = TextGenerator.generate(
         tok,           // tokenizer
         cfg,           // config
         prompt,        // prompt text
-        200,           // maxNewTokens
-        0.1,           // temperature
-        20,            // topK
-        1234L          // seed
+        200,           // maxNewTokens   – generate up to 200 tokens after the prompt
+        0.1,           // temperature    – low = more deterministic, high = more random
+        20,            // topK           – sample from the 20 most likely tokens (0 = full vocab)
+        1234L          // seed           – for reproducible sampling
 );
 
 System.out.println("\n=== Generated ===");
@@ -664,10 +664,10 @@ String out = TextGenerator.generate(
         tok,      // Tokenizer
         cfg,      // GPTConfig
         "Hello",  // prompt
-        200,      // maxNewTokens
-        0.8,      // temperature (lower = more deterministic)
-        20,       // topK (0 = full vocab)
-        42L       // seed
+        200,      // maxNewTokens   – generate up to 200 tokens after the prompt
+        0.8,      // temperature    – low = more deterministic, high = more random
+        20,       // topK           – sample from the 20 most likely tokens (0 = full vocab)
+        42L       // seed           – for reproducible sampling
 );
 ```
 
