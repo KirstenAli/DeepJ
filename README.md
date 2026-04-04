@@ -32,7 +32,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.2.0-alpha</version>
+        <version>0.3.0-alpha</version>
     </dependency>
 </dependencies>
 ```
@@ -121,7 +121,9 @@ GPTConfig cfg = new GPTConfig(
         128,    // dModel
         4,      // nHeads
         2,      // nLayers
-        4 * 128 // dFF
+        4 * 128, // dFF
+        1.0,     // initScale
+        1.0      // gradClipNorm
 );
 
 GPTModel model = new GPTModel(cfg, 42);
@@ -137,7 +139,8 @@ trainer.train(
         16,     // batchSize
         50,     // logEvery
         0.98,   // emaBeta
-        0.25    // targetEmaLoss
+        0.25,   // targetEmaLoss
+        25      // releaseEverySteps
 );
 ```
 
@@ -160,105 +163,6 @@ String out = TextGenerator.generate(
 System.out.println("\n=== Generated ===");
 System.out.println(out);
 ```
-
-## 💬 Chat UI
-
-DeepJ also includes an **optional JavaFX chat interface** for
-interacting with trained models.
-
-The UI is **model-agnostic**, meaning you provide your own
-implementation of the `ChatService` interface.
-
-This allows you to:
-
--   control how models are loaded
--   configure tokenizers
--   customize generation settings
--   plug in completely different model types
-
-### Using the Chat UI
-
-To launch the UI, extend `BaseChatApp` and provide your own
-`ChatService`.
-
-```java
-public class ChatApp extends BaseChatApp {
-
-    @Override
-    protected ChatService createChatService() {
-        return new GPTChatService();
-    }
-
-    public static void main(String[] args) {
-        launch();
-    }
-}
-```
-
-### Implementing a ChatService
-
-Your service controls:
-
--   model configuration
--   tokenizer choice
--   model loading
--   generation behaviour
-
-Example implementation using DeepJ GPT:
-
-```java
-public class GPTChatService implements ChatService {
-
-    private GPTModel model;
-    private final Tokenizer tokenizer = new ByteTokenizer();
-
-    private final GPTConfig config = new GPTConfig(
-            ByteTokenizer.VOCAB_SIZE,
-            128,  // maxSeqLen
-            256,  // dModel
-            4,    // nHeads
-            4,    // nLayers
-            1024  // dFF
-    );
-
-    @Override
-    public void loadModel(Path modelPath) throws Exception {
-        model = new GPTModel(
-                config, 
-                42      // seed
-        );
-        model.load(modelPath);
-    }
-
-    @Override
-    public boolean isModelLoaded() {
-        return model != null;
-    }
-
-    @Override
-    public String generate(String prompt, int maxTokens, double temperature, int topK, long seed) {
-
-        return TextGenerator.generate(
-                model,
-                tokenizer,
-                config,
-                prompt,
-                maxTokens,
-                temperature,
-                topK,
-                seed
-        );
-    }
-}
-```
-
-### Example UI Flow
-
-1.  User selects a trained `.bin` model
-2.  `ChatService.loadModel()` loads the model
-3.  User enters a prompt
-4.  The UI calls `chatService.generate(...)`
-5.  Generated text appears in the chat window
 
 ## 🖥️ Metal GPU Backend (macOS)
 
@@ -427,6 +331,105 @@ mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
     -Dperf.size=512 -Dperf.iters.cpu=5 -Dperf.iters.gpu=10 \
     -Dsurefire.useFile=false
 ```
+
+## 💬 Chat UI
+
+DeepJ also includes an **optional JavaFX chat interface** for
+interacting with trained models.
+
+The UI is **model-agnostic**, meaning you provide your own
+implementation of the `ChatService` interface.
+
+This allows you to:
+
+-   control how models are loaded
+-   configure tokenizers
+-   customize generation settings
+-   plug in completely different model types
+
+### Using the Chat UI
+
+To launch the UI, extend `BaseChatApp` and provide your own
+`ChatService`.
+
+```java
+public class ChatApp extends BaseChatApp {
+
+    @Override
+    protected ChatService createChatService() {
+        return new GPTChatService();
+    }
+
+    public static void main(String[] args) {
+        launch();
+    }
+}
+```
+
+### Implementing a ChatService
+
+Your service controls:
+
+-   model configuration
+-   tokenizer choice
+-   model loading
+-   generation behaviour
+
+Example implementation using DeepJ GPT:
+
+```java
+public class GPTChatService implements ChatService {
+
+    private GPTModel model;
+    private final Tokenizer tokenizer = new ByteTokenizer();
+
+    private final GPTConfig config = new GPTConfig(
+            ByteTokenizer.VOCAB_SIZE,
+            128,  // maxSeqLen
+            256,  // dModel
+            4,    // nHeads
+            4,    // nLayers
+            1024  // dFF
+    );
+
+    @Override
+    public void loadModel(Path modelPath) throws Exception {
+        model = new GPTModel(
+                config,
+                42      // seed
+        );
+        model.load(modelPath);
+    }
+
+    @Override
+    public boolean isModelLoaded() {
+        return model != null;
+    }
+
+    @Override
+    public String generate(String prompt, int maxTokens, double temperature, int topK, long seed) {
+
+        return TextGenerator.generate(
+                model,
+                tokenizer,
+                config,
+                prompt,
+                maxTokens,
+                temperature,
+                topK,
+                seed
+        );
+    }
+}
+```
+
+### Example UI Flow
+
+1.  User selects a trained `.bin` model
+2.  `ChatService.loadModel()` loads the model
+3.  User enters a prompt
+4.  The UI calls `chatService.generate(...)`
+5.  Generated text appears in the chat window
 
 ## 📄 License
 

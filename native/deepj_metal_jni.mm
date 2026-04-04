@@ -655,7 +655,7 @@ static constexpr int OP_GELU_BACKWARD  = 16;
 static constexpr int OP_SOFTMAX_ROWS   = 17;
 
 // Helper: encode a softmax 3-pass into an existing compute encoder
-static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder>& enc,
+static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &enc,
                                id<MTLCommandBuffer> cmdBuf,
                                MetalContext* ctx,
                                id<MTLBuffer> bufIn, id<MTLBuffer> bufOut,
@@ -772,6 +772,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
     }
     env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
 }
+
 
 // ── nativeFlushOps: batch execute all ops in one MTLCommandBuffer ──────
 

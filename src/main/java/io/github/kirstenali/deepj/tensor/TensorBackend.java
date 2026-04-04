@@ -109,4 +109,10 @@ public interface TensorBackend {
      * the result to the tensor's CPU data[][]. Default is a no-op (for CpuBackend).
      */
     default void materializeTensor(Tensor t) { /* no-op for eager backends */ }
+
+    /**
+     * Release backend-owned resources (GPU buffers, native handles, etc.).
+     * Default is a no-op for backends without external resources.
+     */
+    default void releaseResources() { /* no-op for eager backends */ }
 }

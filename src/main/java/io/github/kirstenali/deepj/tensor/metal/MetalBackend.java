@@ -43,6 +43,7 @@ public final class MetalBackend implements TensorBackend {
     public void setElementwiseGpuThreshold(long threshold)  { this.elementwiseGpuThreshold = threshold; }
     public void setLogDispatches(boolean log)               { this.logDispatches = log; }
 
+
     // ── Threshold checks ──────────────────────────────────────────
 
     private boolean useGpu(long work, String op, int rows, int cols) {
@@ -348,4 +349,9 @@ public final class MetalBackend implements TensorBackend {
     // ── debug ──────────────────────────────────────────────────────
 
     @Override public void print(Tensor t, String label) { ensureCpu(t); cpuFallback.print(t, label); }
+
+    @Override
+    public void releaseResources() {
+        graph.releaseAll();
+    }
 }

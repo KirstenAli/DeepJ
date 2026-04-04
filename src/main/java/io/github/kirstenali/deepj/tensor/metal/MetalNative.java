@@ -86,4 +86,5 @@ final class MetalNative {
      * Buffer IDs in the stream reference previously allocated GPU buffers.
      */
     static native void nativeFlushOps(int[] cmdStream, int cmdStreamLength);
+
 }

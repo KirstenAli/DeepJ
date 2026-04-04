@@ -21,39 +21,34 @@ public final class TrainSmallGPT {
 
     public static void main(String[] args) throws Exception {
         MetalBackend metal = new MetalBackend();
-        // ── Tune these to control CPU/GPU boundary ──────────────────
-        // Lower = more GPU work.  Set to 0 to force everything to GPU.
-        metal.setMatmulGpuThreshold(128L * 128 * 64);   // default 1,048,576
-        metal.setElementwiseGpuThreshold(4096);          // default 4,096
-        metal.setLogDispatches(true);  // prints CPU/GPU decisions to stderr
+        // Lower thresholds = more GPU work. Set to 0 to force all eligible ops to GPU.
+        metal.setMatmulGpuThreshold(128L * 128 * 64);
+        metal.setElementwiseGpuThreshold(4096);
         Tensor.setBackend(metal);
 
-        System.out.println("Metal GPU available: " + MetalBackend.isGpuAvailable());
         Path corpus = Path.of("sample_data/llm_training_dataset_1227_examples.txt");
 
         Tokenizer tok = new ByteTokenizer();
-        TextDataset ds = TextDataset.fromFile(corpus, tok, 128, 123);
+        TextDataset ds = TextDataset.fromFile(corpus, tok, 256, 123);
 
         GPTConfig cfg = new GPTConfig(
                 tok.vocabSize(),
-                128,  // maxSeqLen
-                256,             // dModel
-                4,               // nHeads
-                5,               // nLayers
-                1024             // dFF
+                256,  // maxSeqLen
+                512,  // dModel
+                4,    // nHeads
+                5,    // nLayers
+                1024, // dFF
+                0.2,  // initScale
+                1.0   // gradClipNorm
         );
 
         GPTModel model = new GPTModel(cfg, 42);
 
-        Trainer trainer = CausalLMTraining.trainer(model, ds, 3e-4);
+        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4);
 
         Path checkpointDir = Path.of("checkpoints");
 
         Trainer.StepHook checkpointHook = (step, loss, ema) -> {
-            // Turn off dispatch logging after first step
-            if (step == 0) {
-                metal.setLogDispatches(false);
-            }
             if (step > 0 && step % 500 == 0) {
                 model.save(checkpointDir.resolve("small-gpt-" + step + ".bin"));
             }
@@ -62,10 +57,11 @@ public final class TrainSmallGPT {
         // Train until target EMA loss or max steps.
         trainer.train(
                 10_000_000,
-                16,
-                50,
+                2,
+                1,
                 0.98,
                 0.01,
+                1,
                 checkpointHook
         );
 
