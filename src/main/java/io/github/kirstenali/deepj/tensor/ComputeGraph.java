@@ -36,6 +36,19 @@ public final class ComputeGraph {
     public static final int OP_SOFTMAX_BACKWARD= 18;
     public static final int OP_LAYERNORM_BACKWARD = 19;
     public static final int OP_ADAMW_UPDATE    = 20;
+    public static final int OP_ADD_SCALAR      = 21;
+    public static final int OP_DIVIDE_SCALAR   = 22;
+    public static final int OP_TRANSPOSE       = 23;
+    public static final int OP_ADD_ROW_VECTOR  = 24;
+    public static final int OP_ADD_BROADCAST_COLS = 25;
+    public static final int OP_SUBTRACT_BROADCAST_COLS = 26;
+    public static final int OP_DIVIDE_BROADCAST_COLS = 27;
+    public static final int OP_MULTIPLY_BROADCAST_ROWS = 28;
+    public static final int OP_SUM_ROWS        = 29;
+    public static final int OP_MEAN_ALONG_ROWS = 30;
+    public static final int OP_VARIANCE_ALONG_ROWS = 31;
+    public static final int OP_MULTIPLY_BROADCAST_COLS = 32;
+    public static final int OP_SUM_ALONG_ROWS = 33;
 
     private final GpuRuntime runtime;
 
@@ -172,6 +185,63 @@ public final class ComputeGraph {
         cmdStream[cmdPos++] = out.id;
         cmdStream[cmdPos++] = Float.floatToRawIntBits(scalar);
         cmdStream[cmdPos++] = out.floatCount();
+        opCount++;
+    }
+
+    /** Record scalar add/divide: [opCode, inId, outId, scalarBits, n] */
+    public void recordScalarUnary(int opCode, GpuBuffer in, GpuBuffer out, float scalar) {
+        ensureCapacity(5);
+        cmdStream[cmdPos++] = opCode;
+        cmdStream[cmdPos++] = in.id;
+        cmdStream[cmdPos++] = out.id;
+        cmdStream[cmdPos++] = Float.floatToRawIntBits(scalar);
+        cmdStream[cmdPos++] = out.floatCount();
+        opCount++;
+    }
+
+    /** Record transpose: [OP_TRANSPOSE, inId, outId, rows, cols] */
+    public void recordTranspose(GpuBuffer in, GpuBuffer out, int rows, int cols) {
+        ensureCapacity(5);
+        cmdStream[cmdPos++] = OP_TRANSPOSE;
+        cmdStream[cmdPos++] = in.id;
+        cmdStream[cmdPos++] = out.id;
+        cmdStream[cmdPos++] = rows;
+        cmdStream[cmdPos++] = cols;
+        opCount++;
+    }
+
+    /** Record row broadcast: [opCode, aId, rowVecId, outId, rows, cols] */
+    public void recordRowBroadcast(int opCode, GpuBuffer a, GpuBuffer rowVec, GpuBuffer out, int rows, int cols) {
+        ensureCapacity(6);
+        cmdStream[cmdPos++] = opCode;
+        cmdStream[cmdPos++] = a.id;
+        cmdStream[cmdPos++] = rowVec.id;
+        cmdStream[cmdPos++] = out.id;
+        cmdStream[cmdPos++] = rows;
+        cmdStream[cmdPos++] = cols;
+        opCount++;
+    }
+
+    /** Record col broadcast: [opCode, aId, colVecId, outId, rows, cols] */
+    public void recordColBroadcast(int opCode, GpuBuffer a, GpuBuffer colVec, GpuBuffer out, int rows, int cols) {
+        ensureCapacity(6);
+        cmdStream[cmdPos++] = opCode;
+        cmdStream[cmdPos++] = a.id;
+        cmdStream[cmdPos++] = colVec.id;
+        cmdStream[cmdPos++] = out.id;
+        cmdStream[cmdPos++] = rows;
+        cmdStream[cmdPos++] = cols;
+        opCount++;
+    }
+
+    /** Record row/col reduction: [opCode, inId, outId, rows, cols] */
+    public void recordReduction(int opCode, GpuBuffer in, GpuBuffer out, int rows, int cols) {
+        ensureCapacity(5);
+        cmdStream[cmdPos++] = opCode;
+        cmdStream[cmdPos++] = in.id;
+        cmdStream[cmdPos++] = out.id;
+        cmdStream[cmdPos++] = rows;
+        cmdStream[cmdPos++] = cols;
         opCount++;
     }
 
@@ -326,8 +396,14 @@ public final class ComputeGraph {
         return switch (op) {
             case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID, OP_RELU, OP_GELU -> 4;
             case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE,
-                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS -> 5;
-            case OP_SOFTMAX_BACKWARD -> 6;
+                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS,
+                 OP_ADD_SCALAR, OP_DIVIDE_SCALAR, OP_TRANSPOSE,
+                 OP_SUM_ROWS, OP_MEAN_ALONG_ROWS, OP_VARIANCE_ALONG_ROWS,
+                 OP_SUM_ALONG_ROWS -> 5;
+            case OP_SOFTMAX_BACKWARD,
+                 OP_ADD_ROW_VECTOR, OP_ADD_BROADCAST_COLS, OP_SUBTRACT_BROADCAST_COLS,
+                 OP_DIVIDE_BROADCAST_COLS, OP_MULTIPLY_BROADCAST_ROWS,
+                 OP_MULTIPLY_BROADCAST_COLS -> 6;
             case OP_MATMUL, OP_LAYERNORM_BACKWARD -> 7;
             case OP_ADAMW_UPDATE -> 13;
             default -> -1;
@@ -341,10 +417,16 @@ public final class ComputeGraph {
     private boolean opReferencesBuffer(int pos, int op, int bufferId) {
         return switch (op) {
             case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID,
-                 OP_RELU, OP_GELU, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS ->
+                 OP_RELU, OP_GELU, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS,
+                 OP_ADD_SCALAR, OP_DIVIDE_SCALAR, OP_TRANSPOSE,
+                 OP_SUM_ROWS, OP_MEAN_ALONG_ROWS, OP_VARIANCE_ALONG_ROWS,
+                 OP_SUM_ALONG_ROWS ->
                 cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId;
             case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE,
-                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MATMUL, OP_SOFTMAX_BACKWARD ->
+                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MATMUL, OP_SOFTMAX_BACKWARD,
+                 OP_ADD_ROW_VECTOR, OP_ADD_BROADCAST_COLS, OP_SUBTRACT_BROADCAST_COLS,
+                 OP_DIVIDE_BROADCAST_COLS, OP_MULTIPLY_BROADCAST_ROWS,
+                 OP_MULTIPLY_BROADCAST_COLS ->
                 cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
                         || cmdStream[pos + 3] == bufferId;
             case OP_LAYERNORM_BACKWARD, OP_ADAMW_UPDATE ->
@@ -419,9 +501,30 @@ public final class ComputeGraph {
      * Release all GPU buffers and reset the graph completely.
      */
     public void releaseAll() {
+        materializeTrackedTensors();
         clearTensorGpuTags();
         releaseNativeBuffers();
         resetGraphState();
+    }
+
+    /**
+     * Before dropping GPU buffers, pull any stale tracked tensors back to CPU so
+     * periodic release does not discard GPU-only updates (e.g., optimizer steps).
+     */
+    private void materializeTrackedTensors() {
+        flush();
+        for (WeakReference<Tensor> ref : bufIdToTensor.values()) {
+            Tensor t = ref.get();
+            if (t == null) continue;
+            if (!(t.getGpuTag() instanceof GpuBuffer gb)) continue;
+            if (!gb.cpuStale) continue;
+
+            float[] flat = new float[gb.floatCount()];
+            runtime.downloadBuffer(gb.id, flat);
+            TensorAdapters.unpackF32Into(flat, t);
+            gb.cpuStale = false;
+            gb.needsUpload = false;
+        }
     }
 
     private void clearTensorGpuTags() {

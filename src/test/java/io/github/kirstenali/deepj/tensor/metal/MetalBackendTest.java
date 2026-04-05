@@ -92,6 +92,53 @@ public final class MetalBackendTest {
     }
 
     @Test
+    void broadcastAndScalarOpsMatchCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor a = randomTensor(8, 16, 100L);
+            Tensor row = randomTensor(1, 16, 101L);
+            Tensor col = randomTensor(8, 1, 102L);
+
+            assertTensorClose(cpu.addRowVector(a, row), gpuBackend.addRowVector(a, row), 1e-4, 1e-4);
+            assertTensorClose(cpu.addBroadcastCols(a, col), gpuBackend.addBroadcastCols(a, col), 1e-4, 1e-4);
+            assertTensorClose(cpu.subtractBroadcastCols(a, col), gpuBackend.subtractBroadcastCols(a, col), 1e-4, 1e-4);
+            assertTensorClose(cpu.divideBroadcastCols(a, col), gpuBackend.divideBroadcastCols(a, col), 1e-4, 1e-4);
+            assertTensorClose(cpu.multiplyBroadcastCols(a, col), gpuBackend.multiplyBroadcastCols(a, col), 1e-4, 1e-4);
+            assertTensorClose(cpu.multiplyBroadcastRows(a, row), gpuBackend.multiplyBroadcastRows(a, row), 1e-4, 1e-4);
+
+            assertTensorClose(cpu.addScalar(a, 0.25), gpuBackend.addScalar(a, 0.25), 1e-4, 1e-4);
+            assertTensorClose(cpu.divideScalar(a, 1.5), gpuBackend.divideScalar(a, 1.5), 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void reductionsAndTransposeMatchCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor a = randomTensor(32, 24, 111L);
+
+            assertTensorClose(cpu.transpose(a), gpuBackend.transpose(a), 1e-4, 1e-4);
+            assertTensorClose(cpu.sumRows(a), gpuBackend.sumRows(a), 1e-4, 1e-4);
+            assertTensorClose(cpu.sumAlongRows(a), gpuBackend.sumAlongRows(a), 1e-4, 1e-4);
+            assertTensorClose(cpu.sumAlongCols(a), gpuBackend.sumAlongCols(a), 1e-4, 1e-4);
+            assertTensorClose(cpu.meanAlongRows(a), gpuBackend.meanAlongRows(a), 1e-4, 1e-4);
+            assertTensorClose(cpu.varianceAlongRows(a), gpuBackend.varianceAlongRows(a), 1e-4, 1e-4);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
     void softmaxBackwardMatchesCpu() {
         MetalBackend gpuBackend = new MetalBackend();
         TensorBackend oldBackend = Tensor.backend();

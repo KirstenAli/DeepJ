@@ -371,11 +371,35 @@ class ComputeGraphTest {
                 ComputeGraph.OP_RELU, ComputeGraph.OP_RELU_BACKWARD,
                 ComputeGraph.OP_GELU, ComputeGraph.OP_GELU_BACKWARD,
                 ComputeGraph.OP_SOFTMAX_ROWS, ComputeGraph.OP_SOFTMAX_BACKWARD,
-                ComputeGraph.OP_LAYERNORM_BACKWARD, ComputeGraph.OP_ADAMW_UPDATE   // was missing
+                ComputeGraph.OP_LAYERNORM_BACKWARD, ComputeGraph.OP_ADAMW_UPDATE,
+                ComputeGraph.OP_ADD_SCALAR, ComputeGraph.OP_DIVIDE_SCALAR,
+                ComputeGraph.OP_TRANSPOSE, ComputeGraph.OP_ADD_ROW_VECTOR,
+                ComputeGraph.OP_ADD_BROADCAST_COLS, ComputeGraph.OP_SUBTRACT_BROADCAST_COLS,
+                ComputeGraph.OP_DIVIDE_BROADCAST_COLS, ComputeGraph.OP_MULTIPLY_BROADCAST_ROWS,
+                ComputeGraph.OP_SUM_ROWS, ComputeGraph.OP_MEAN_ALONG_ROWS,
+                ComputeGraph.OP_VARIANCE_ALONG_ROWS, ComputeGraph.OP_MULTIPLY_BROADCAST_COLS,
+                ComputeGraph.OP_SUM_ALONG_ROWS
         };
-        assertEquals(20, codes.length);
+        assertEquals(33, codes.length);
         assertEquals(codes.length, java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
+    }
+
+    @Test
+    void releaseAllMaterializesStaleTrackedTensor() {
+        Tensor t = new Tensor(new double[][]{{1.0}});
+        GpuBuffer buf = graph.ensureGpuBuffer(t);
+        graph.flush();
+
+        // Simulate a GPU-only in-place update before release.
+        buf.cpuStale = true;
+        runtime.downloadResult = new float[]{42.0f};
+
+        graph.releaseAll();
+
+        assertEquals(42.0, t.data[0][0], 1e-6, "releaseAll should preserve latest GPU value");
+        assertNull(t.getGpuTag(), "releaseAll should still clear GPU tags");
+        assertFalse(buf.cpuStale, "buffer state should be marked fresh after forced materialization");
     }
 
     // ── recordAdamWUpdate ──────────────────────────────────────────

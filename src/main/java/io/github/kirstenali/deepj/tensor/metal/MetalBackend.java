@@ -10,6 +10,20 @@ public final class MetalBackend implements TensorBackend {
     private final CpuBackend cpuFallback = new CpuBackend();
     private final ComputeGraph graph = new ComputeGraph(new MetalGpuRuntime());
 
+    private static void requireRowVector(Tensor rowVector, Tensor target) {
+        if (rowVector.rows != 1 || rowVector.cols != target.cols) {
+            throw new IllegalArgumentException(
+                    "Expected row vector 1x" + target.cols + " but got " + rowVector.rows + "x" + rowVector.cols);
+        }
+    }
+
+    private static void requireColVector(Tensor colVector, Tensor target) {
+        if (colVector.rows != target.rows || colVector.cols != 1) {
+            throw new IllegalArgumentException(
+                    "Expected col vector " + target.rows + "x1 but got " + colVector.rows + "x" + colVector.cols);
+        }
+    }
+
 
     // ── Lazy helpers ──────────────────────────────────────────────
 
@@ -99,15 +113,66 @@ public final class MetalBackend implements TensorBackend {
         return gpuOut(gOut);
     }
 
-    // ── broadcast (CPU only — no GPU kernel) ──────────────────────
+    // ── LAZY broadcast ──────────────────────────────────────────────
 
-    @Override public Tensor addRowVector(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.addRowVector(a, v); }
-    @Override public Tensor addBroadcastCols(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.addBroadcastCols(a, v); }
-    @Override public Tensor divideBroadcastCols(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.divideBroadcastCols(a, v); }
-    @Override public Tensor subtractBroadcastCols(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.subtractBroadcastCols(a, v); }
-    @Override public Tensor multiplyBroadcastCols(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.multiplyBroadcastCols(a, v); }
-    @Override public Tensor addBroadcastRows(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.addBroadcastRows(a, v); }
-    @Override public Tensor multiplyBroadcastRows(Tensor a, Tensor v) { ensureCpu(a, v); return cpuFallback.multiplyBroadcastRows(a, v); }
+    @Override
+    public Tensor addRowVector(Tensor a, Tensor v) {
+        requireRowVector(v, a);
+        GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordRowBroadcast(ComputeGraph.OP_ADD_ROW_VECTOR, ga, gv, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor addBroadcastCols(Tensor a, Tensor v) {
+        requireColVector(v, a);
+        GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordColBroadcast(ComputeGraph.OP_ADD_BROADCAST_COLS, ga, gv, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor divideBroadcastCols(Tensor a, Tensor v) {
+        requireColVector(v, a);
+        GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordColBroadcast(ComputeGraph.OP_DIVIDE_BROADCAST_COLS, ga, gv, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor subtractBroadcastCols(Tensor a, Tensor v) {
+        requireColVector(v, a);
+        GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordColBroadcast(ComputeGraph.OP_SUBTRACT_BROADCAST_COLS, ga, gv, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor multiplyBroadcastCols(Tensor a, Tensor v) {
+        requireColVector(v, a);
+        GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordColBroadcast(ComputeGraph.OP_MULTIPLY_BROADCAST_COLS, ga, gv, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor addBroadcastRows(Tensor a, Tensor v) {
+        return addRowVector(a, v);
+    }
+
+    @Override
+    public Tensor multiplyBroadcastRows(Tensor a, Tensor v) {
+        requireRowVector(v, a);
+        GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordRowBroadcast(ComputeGraph.OP_MULTIPLY_BROADCAST_ROWS, ga, gv, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
 
     // ── LAZY scalar ops ────────────────────────────────────────────
 
@@ -119,16 +184,61 @@ public final class MetalBackend implements TensorBackend {
         return gpuOut(gOut);
     }
 
-    @Override public Tensor addScalar(Tensor a, double scalar) { ensureCpu(a); return cpuFallback.addScalar(a, scalar); }
-    @Override public Tensor divideScalar(Tensor a, double scalar) { ensureCpu(a); return cpuFallback.divideScalar(a, scalar); }
+    @Override
+    public Tensor addScalar(Tensor a, double scalar) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, (float) scalar);
+        return gpuOut(gOut);
+    }
 
-    // ── reductions (CPU only — need materialization) ───────────────
+    @Override
+    public Tensor divideScalar(Tensor a, double scalar) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, (float) scalar);
+        return gpuOut(gOut);
+    }
 
-    @Override public Tensor sumRows(Tensor a) { ensureCpu(a); return cpuFallback.sumRows(a); }
-    @Override public Tensor sumAlongRows(Tensor a) { ensureCpu(a); return cpuFallback.sumAlongRows(a); }
-    @Override public Tensor sumAlongCols(Tensor a) { ensureCpu(a); return cpuFallback.sumAlongCols(a); }
-    @Override public Tensor meanAlongRows(Tensor a) { ensureCpu(a); return cpuFallback.meanAlongRows(a); }
-    @Override public Tensor varianceAlongRows(Tensor a) { ensureCpu(a); return cpuFallback.varianceAlongRows(a); }
+    // ── LAZY reductions ─────────────────────────────────────────────
+
+    @Override
+    public Tensor sumRows(Tensor a) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(1, a.cols);
+        graph.recordReduction(ComputeGraph.OP_SUM_ROWS, ga, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor sumAlongRows(Tensor a) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, 1);
+        graph.recordReduction(ComputeGraph.OP_SUM_ALONG_ROWS, ga, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor sumAlongCols(Tensor a) {
+        return sumRows(a);
+    }
+
+    @Override
+    public Tensor meanAlongRows(Tensor a) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, 1);
+        graph.recordReduction(ComputeGraph.OP_MEAN_ALONG_ROWS, ga, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor varianceAlongRows(Tensor a) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, 1);
+        graph.recordReduction(ComputeGraph.OP_VARIANCE_ALONG_ROWS, ga, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
     @Override public Tensor maxAlongRows(Tensor a) { ensureCpu(a); return cpuFallback.maxAlongRows(a); }
     @Override public double sum(Tensor a) { ensureCpu(a); return cpuFallback.sum(a); }
     @Override public double sumAbs(Tensor a) { ensureCpu(a); return cpuFallback.sumAbs(a); }
@@ -136,7 +246,13 @@ public final class MetalBackend implements TensorBackend {
     // ── unary math — CPU only ──────────────────────────────────────
 
     @Override public Tensor clamp(Tensor a, double min, double max) { ensureCpu(a); return cpuFallback.clamp(a, min, max); }
-    @Override public Tensor transpose(Tensor a) { ensureCpu(a); return cpuFallback.transpose(a); }
+    @Override
+    public Tensor transpose(Tensor a) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.cols, a.rows);
+        graph.recordTranspose(ga, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
     @Override public Tensor pow(Tensor a, double exponent) { ensureCpu(a); return cpuFallback.pow(a, exponent); }
 
     // ── LAZY unary math ────────────────────────────────────────────
