@@ -47,7 +47,7 @@ DeepJ is organised into focused packages:
 
 | Package | Purpose |
 |---|---|
-| `tensor` | N-d tensors, `TensorBackend` abstraction, `ComputeGraph` lazy execution |
+| `tensor` | 2-D tensors, `TensorBackend` abstraction, `ComputeGraph` lazy execution |
 | `tensor.cpu` | `CpuBackend` — parallel CPU implementation with in-place helpers |
 | `tensor.metal` | `MetalBackend` — Apple Silicon GPU via Metal JNI |
 | `concurrent` | `DeepJExecutor` — thread-pool for CPU parallelism |
@@ -87,7 +87,7 @@ Every tensor operation routes through a pluggable `TensorBackend`.
 The default is `CpuBackend`; swap to `MetalBackend` for GPU acceleration:
 
 ```java
-Tensor.setBackend(new MetalBackend());  // all ops now use Metal
+Tensor.setBackend(new MetalBackend());  // GPU-backed where kernels exist; otherwise CPU fallback
 Tensor.setBackend(new CpuBackend());    // back to CPU
 ```
 
@@ -104,8 +104,9 @@ buffer IDs. Everything flushes in a single native call:
 record matmul  →  record relu  →  record softmax  →  flush (one GPU dispatch)
 ```
 
-Tensors stay GPU-resident between ops — data only transfers on
-`materialize()` or when a CPU-only op needs it.
+Tensors stay GPU-resident between ops — data only transfers on explicit
+materialization/accessor calls (`materialize`, `get`, `set`, etc.) or
+when a CPU-fallback op needs it.
 
 ### Zero-allocation in-place ops (CPU)
 
@@ -786,10 +787,13 @@ for each step:
     2. update EMA loss
     3. log if step % logEvery == 0
     4. call stepHook (if provided)
-    5. releaseResources if step % releaseEverySteps == 0
+    5. releaseResources if step > 0 && step % releaseEverySteps == 0
     6. early-stop if ema <= targetEmaLoss
 finally:
     releaseResources (always, even on exception)
+
+When using `MetalBackend`, `releaseResources()` materializes tracked stale
+tensors before buffers are cleared so optimizer/model state is preserved.
 ```
 
 ### SupervisedTraining
@@ -931,9 +935,11 @@ no external format dependencies.
 ## 🖥️ Metal GPU Backend (macOS)
 
 DeepJ ships with an optional **Metal GPU backend** for macOS Apple Silicon.
-All GPU-capable tensor operations always dispatch to Metal — there are no
-size thresholds or CPU fallbacks for those ops. CPU ↔ GPU data transfer is
-handled automatically and only happens when necessary.
+GPU kernels cover core training-path ops (matmul, element-wise math,
+softmax/softmax backward, layernorm backward, AdamW update, and several
+broadcast/reduction ops). Ops without Metal kernels still fall back to CPU.
+CPU ↔ GPU transfer is automatic and only happens when materialization is
+required.
 
 ### Enabling the backend
 
@@ -945,9 +951,9 @@ MetalBackend metal = new MetalBackend();
 Tensor.setBackend(metal);
 ```
 
-That's it — every supported `Tensor` operation now routes through Metal.
-Operations without a GPU kernel (broadcasts, reductions, indexing) continue
-to run on the CPU and materialise automatically as needed.
+That's it — all `Tensor` operations route through the same backend entrypoint.
+If a Metal kernel exists, the op is recorded for GPU execution; otherwise it
+falls back to CPU with on-demand materialization.
 
 ### GPU-resident tensor design
 
@@ -974,12 +980,12 @@ CPU                              GPU
 
 Key points:
 
--   **No round-trips:** intermediate results (`c`, `d`) never leave the GPU
+-   **No round-trips (GPU-supported chains):** intermediate results (`c`, `d`) stay on GPU
 -   **Batched execution:** all recorded ops flush in a single GPU command buffer
--   **Automatic materialization:** reading `data[][]` or calling `materialize()` triggers the flush
+-   **Materialization on demand:** call `materialize()` (or use accessors like `get`, `set`, `print`) before reading CPU data
 -   **Staleness tracking:** each tensor knows whether its CPU or GPU copy is current via `GpuBuffer.cpuStale` / `needsUpload` flags
 -   **Zero-copy reuse:** a tensor's GPU buffer persists across operations — subsequent ops reuse it without re-uploading
--   **CPU-only ops** (broadcasts, reductions, indexing) materialise tensors on demand and delegate to the CPU backend
+-   **CPU-fallback ops** materialise tensors on demand and delegate to `CpuBackend`
 
 A full forward + backward pass records hundreds of GPU ops and executes them
 in just 2–3 native calls, minimising driver overhead.
