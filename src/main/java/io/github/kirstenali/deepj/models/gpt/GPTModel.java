@@ -5,7 +5,7 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.training.Trainable;
 import io.github.kirstenali.deepj.transformer.TransformerStack;
-import io.github.kirstenali.deepj.transformer.TransformerBuilder;
+import io.github.kirstenali.deepj.transformer.GPTTransformerBuilder;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 import io.github.kirstenali.deepj.layers.transformer.norm.LayerNorm1D;
 import io.github.kirstenali.deepj.layers.Linear;
@@ -37,7 +37,7 @@ public final class GPTModel implements Trainable, Persistable {
         this.tokEmb = new Embedding(cfg.vocabSize(), cfg.dModel(), rnd);
         this.posEmb = new PositionalEmbedding(cfg.maxSeqLen(), cfg.dModel(), rnd);
 
-        this.stack = new TransformerBuilder()
+        this.stack = new GPTTransformerBuilder()
                 .dModel(cfg.dModel())
                 .nHeads(cfg.nHeads())
                 .dFF(cfg.dFF())
