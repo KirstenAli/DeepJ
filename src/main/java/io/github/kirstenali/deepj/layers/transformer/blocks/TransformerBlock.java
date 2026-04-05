@@ -1,6 +1,8 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.blocks;
 
 import io.github.kirstenali.deepj.layers.FNN;
+import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention;
+import io.github.kirstenali.deepj.layers.transformer.norm.LayerNorm1D;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.GELU;

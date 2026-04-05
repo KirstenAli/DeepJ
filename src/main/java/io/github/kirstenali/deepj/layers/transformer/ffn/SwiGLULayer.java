@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.ffn;
 
 import io.github.kirstenali.deepj.activations.SiLU;
 import io.github.kirstenali.deepj.layers.Layer;

@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.TestSupport;
-import io.github.kirstenali.deepj.layers.transformer.LlamaTransformerBlock;
-import io.github.kirstenali.deepj.layers.transformer.RoPEMultiHeadSelfAttention;
+import io.github.kirstenali.deepj.layers.transformer.blocks.LlamaTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.attention.RoPEMultiHeadSelfAttention;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;

@@ -1,4 +1,6 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.norm;
+
+import io.github.kirstenali.deepj.layers.transformer.norm.LayerNorm1D;
 
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;

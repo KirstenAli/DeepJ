@@ -7,7 +7,7 @@ import io.github.kirstenali.deepj.training.Trainable;
 import io.github.kirstenali.deepj.transformer.TransformerStack;
 import io.github.kirstenali.deepj.transformer.TransformerBuilder;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
-import io.github.kirstenali.deepj.layers.transformer.LayerNorm1D;
+import io.github.kirstenali.deepj.layers.transformer.norm.LayerNorm1D;
 import io.github.kirstenali.deepj.layers.Linear;
 import io.github.kirstenali.deepj.transformer.embeddings.PositionalEmbedding;
 

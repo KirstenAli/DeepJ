@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;

@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.Softmax;

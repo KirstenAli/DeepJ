@@ -1,4 +1,6 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.norm;
+
+import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
 
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.optimisers.Parameter;

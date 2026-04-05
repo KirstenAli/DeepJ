@@ -1,4 +1,6 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.attention;
+
+import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention;
 
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.loss.MSELoss;

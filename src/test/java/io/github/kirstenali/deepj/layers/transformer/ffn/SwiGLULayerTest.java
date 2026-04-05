@@ -1,4 +1,6 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.ffn;
+
+import io.github.kirstenali.deepj.layers.transformer.ffn.SwiGLULayer;
 
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.loss.MSELoss;

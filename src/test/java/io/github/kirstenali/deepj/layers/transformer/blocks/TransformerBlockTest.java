@@ -1,4 +1,6 @@
-package io.github.kirstenali.deepj.layers.transformer;
+package io.github.kirstenali.deepj.layers.transformer.blocks;
+
+import io.github.kirstenali.deepj.layers.transformer.blocks.TransformerBlock;
 
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.loss.MSELoss;

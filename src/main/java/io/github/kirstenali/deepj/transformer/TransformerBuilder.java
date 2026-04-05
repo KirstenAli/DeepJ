@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.transformer;
 
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.GELU;
-import io.github.kirstenali.deepj.layers.transformer.TransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.blocks.TransformerBlock;
 
 import java.util.ArrayList;
 import java.util.List;
