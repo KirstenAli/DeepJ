@@ -10,12 +10,18 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * CPU vs Metal GPU timing comparison for <b>all</b> TensorBackend operations.
+ * CPU vs Metal GPU chained-pipeline performance benchmarks.
+ *
+ * <p>Multiple lazy GPU ops are recorded into a single command buffer, then
+ * one {@code materialize()} flushes them all at once.  This matches how the
+ * GPU actually runs during training and is where the real speedup shows:
+ * command-buffer batching amortises per-kernel dispatch overhead.
  *
  * <p>Not a rigorous benchmark (use JMH for that). Disabled by default to keep CI stable.
  * Run manually with:
  * <pre>
- *   mvn test -Dtest=MetalBackendAllOpsPerformanceTest -Djunit.jupiter.conditions.deactivate=org.junit.jupiter.api.condition.* \
+ *   mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
+ *       -Djunit.jupiter.conditions.deactivate=org.junit.jupiter.api.condition.* \
  *       -DskipTests=false -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10
  * </pre>
  */
@@ -27,7 +33,7 @@ public final class MetalBackendAllOpsPerformanceTest {
     private static TensorBackend gpu;
     private static TensorBackend previousBackend;
 
-    private static int N;       // matrix dimension (N x N)
+    private static int N;       // matrix dimension (N × N)
     private static int IT_CPU;
     private static int IT_GPU;
 
@@ -40,9 +46,7 @@ public final class MetalBackendAllOpsPerformanceTest {
     static void setUp() {
         Assumptions.assumeTrue(MetalNative.AVAILABLE, "Metal native library not available");
         cpu = new CpuBackend();
-        // Force GPU dispatch for all sizes by setting thresholds to 0
-        MetalBackend metal = new MetalBackend();
-        gpu = metal;
+        gpu = new MetalBackend();
 
         previousBackend = Tensor.backend();
         Tensor.setBackend(gpu);
@@ -52,7 +56,7 @@ public final class MetalBackendAllOpsPerformanceTest {
         IT_GPU = intProp("perf.iters.gpu", 10);
 
         System.out.println("\n╔══════════════════════════════════════════════════════════════════╗");
-        System.out.println("║       DeepJ — CPU vs Metal GPU Performance (all ops)           ║");
+        System.out.println("║  DeepJ — CPU vs Metal GPU Chained-Pipeline Performance         ║");
         System.out.println("╠══════════════════════════════════════════════════════════════════╣");
         System.out.printf( "║  Matrix size : %d × %d  (%,d elements)%n", N, N, (long) N * N);
         System.out.printf( "║  CPU iters   : %d   GPU iters: %d%n", IT_CPU, IT_GPU);
@@ -69,15 +73,6 @@ public final class MetalBackendAllOpsPerformanceTest {
 
     private static Tensor rand(int rows, int cols, long seed) {
         return cpu.random(rows, cols, new Random(seed));
-    }
-
-    private static Tensor randPositive(int rows, int cols, long seed) {
-        Tensor t = rand(rows, cols, seed);
-        // Make all values positive (for log, sqrt, divide safety)
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
-                t.data[r][c] = Math.abs(t.data[r][c]) + 0.01;
-        return t;
     }
 
     private static int intProp(String key, int def) {
@@ -98,9 +93,7 @@ public final class MetalBackendAllOpsPerformanceTest {
     }
 
     private void bench(String label, Runnable cpuOp, Runnable gpuOp) {
-        // warm-up
-        for (int i = 0; i < 3; i++) { cpuOp.run(); gpuOp.run(); }
-
+        for (int i = 0; i < 3; i++) { cpuOp.run(); gpuOp.run(); }  // warm-up
         long cpuNs = bestOfNanos(cpuOp, IT_CPU);
         long gpuNs = bestOfNanos(gpuOp, IT_GPU);
         results.put(label, new long[]{cpuNs, gpuNs});
@@ -109,362 +102,357 @@ public final class MetalBackendAllOpsPerformanceTest {
         double gpuMs = gpuNs / 1_000_000.0;
         double speedup = cpuMs / gpuMs;
         String arrow = speedup >= 1.0 ? "🟢" : "🔴";
-        System.out.printf("  %-28s CPU: %9.3f ms   GPU: %9.3f ms   speedup: %7.2fx  %s%n",
+        System.out.printf("  %-40s CPU: %9.3f ms   GPU: %9.3f ms   speedup: %7.2fx  %s%n",
                 label, cpuMs, gpuMs, speedup, arrow);
     }
 
     private static void printSummary() {
-        System.out.println("\n┌────────────────────────────────┬────────────┬────────────┬──────────┐");
-        System.out.println("│ Operation                      │   CPU (ms) │   GPU (ms) │ Speedup  │");
-        System.out.println("├────────────────────────────────┼────────────┼────────────┼──────────┤");
+        System.out.println("\n┌──────────────────────────────────────────┬────────────┬────────────┬──────────┐");
+        System.out.println("│ Pipeline                                 │   CPU (ms) │   GPU (ms) │ Speedup  │");
+        System.out.println("├──────────────────────────────────────────┼────────────┼────────────┼──────────┤");
         for (var entry : results.entrySet()) {
             double cpuMs = entry.getValue()[0] / 1_000_000.0;
             double gpuMs = entry.getValue()[1] / 1_000_000.0;
-            System.out.printf("│ %-30s │ %10.3f │ %10.3f │ %7.2fx │%n",
+            System.out.printf("│ %-40s │ %10.3f │ %10.3f │ %7.2fx │%n",
                     entry.getKey(), cpuMs, gpuMs, cpuMs / gpuMs);
         }
-        System.out.println("└────────────────────────────────┴────────────┴────────────┴──────────┘\n");
+        System.out.println("└──────────────────────────────────────────┴────────────┴────────────┴──────────┘\n");
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  MATMUL
-    // ═══════════════════════════════════════════════════════════════
+    // ╔═════════════════════════════════════════════════════════════════╗
+    // ║  MIXED CHAINS  (matmul + element-wise, scaling with depth)     ║
+    // ╚═════════════════════════════════════════════════════════════════╝
 
+    /**
+     * 5 ops (1 matmul + 4 elem-wise) → 1 materialize.
+     * matmul → add → gelu → multiplyScalar → exp
+     */
     @Test @Order(1)
-    void matmul() {
-        Tensor a = rand(N, N, 1L), b = rand(N, N, 2L);
-        bench("matmul", () -> cpu.matmul(a, b), () -> gpu.matmul(a, b));
+    void chain_mixed5() {
+        Tensor a = rand(N, N, 70L), b = rand(N, N, 71L);
+        bench("5 mixed ops (1 matmul)",
+                () -> {
+                    Tensor t = cpu.matmul(a, b);
+                    t = cpu.add(t, a);
+                    t = cpu.gelu(t);
+                    t = cpu.multiplyScalar(t, 0.5);
+                    cpu.exp(t);
+                },
+                () -> {
+                    Tensor t = gpu.matmul(a, b);
+                    t = gpu.add(t, a);
+                    t = gpu.gelu(t);
+                    t = gpu.multiplyScalar(t, 0.5);
+                    gpu.exp(t).materialize();
+                });
     }
 
+    /**
+     * 10 ops (2 matmuls + 8 elem-wise) → 1 materialize.
+     */
     @Test @Order(2)
-    void matmul_rectangular() {
-        Tensor a = rand(N, N / 2, 3L), b = rand(N / 2, N, 4L);
-        bench("matmul (rect)", () -> cpu.matmul(a, b), () -> gpu.matmul(a, b));
+    void chain_mixed10() {
+        Tensor a = rand(N, N, 72L), b = rand(N, N, 73L);
+        bench("10 mixed ops (2 matmuls)",
+                () -> {
+                    Tensor t = cpu.matmul(a, b);
+                    t = cpu.gelu(t);
+                    t = cpu.multiplyScalar(t, 0.5);
+                    t = cpu.subtract(t, b);
+                    t = cpu.relu(t);
+                    t = cpu.matmul(t, a);
+                    t = cpu.sigmoid(t);
+                    t = cpu.multiply(t, b);
+                    t = cpu.tanh(t);
+                    cpu.neg(t);
+                },
+                () -> {
+                    Tensor t = gpu.matmul(a, b);
+                    t = gpu.gelu(t);
+                    t = gpu.multiplyScalar(t, 0.5);
+                    t = gpu.subtract(t, b);
+                    t = gpu.relu(t);
+                    t = gpu.matmul(t, a);
+                    t = gpu.sigmoid(t);
+                    t = gpu.multiply(t, b);
+                    t = gpu.tanh(t);
+                    gpu.neg(t).materialize();
+                });
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  ELEMENT-WISE BINARY
-    // ═══════════════════════════════════════════════════════════════
+    /**
+     * 20 ops (4 matmuls + 16 elem-wise) → 1 materialize.
+     * Dispatch overhead fully amortised; matmuls dominate CPU time.
+     */
+    @Test @Order(3)
+    void chain_mixed20() {
+        Tensor a = rand(N, N, 74L), b = rand(N, N, 75L);
+        bench("20 mixed ops (4 matmuls)",
+                () -> {
+                    Tensor t = cpu.matmul(a, b);
+                    for (int i = 0; i < 19; i++) {
+                        t = switch (i % 5) {
+                            case 0 -> cpu.gelu(t);
+                            case 1 -> cpu.matmul(t, a);
+                            case 2 -> cpu.add(t, b);
+                            case 3 -> cpu.sigmoid(t);
+                            default -> cpu.subtract(t, a);
+                        };
+                    }
+                },
+                () -> {
+                    Tensor t = gpu.matmul(a, b);
+                    for (int i = 0; i < 19; i++) {
+                        t = switch (i % 5) {
+                            case 0 -> gpu.gelu(t);
+                            case 1 -> gpu.matmul(t, a);
+                            case 2 -> gpu.add(t, b);
+                            case 3 -> gpu.sigmoid(t);
+                            default -> gpu.subtract(t, a);
+                        };
+                    }
+                    t.materialize();
+                });
+    }
 
+    /**
+     * 50 ops (10 matmuls + 40 elem-wise) → 1 materialize.
+     * Deep pipeline — shows full batching advantage at scale.
+     */
+    @Test @Order(4)
+    void chain_mixed50() {
+        Tensor a = rand(N, N, 76L), b = rand(N, N, 77L);
+        bench("50 mixed ops (10 matmuls)",
+                () -> {
+                    Tensor t = cpu.matmul(a, b);
+                    for (int i = 0; i < 49; i++) {
+                        t = switch (i % 5) {
+                            case 0 -> cpu.gelu(t);
+                            case 1 -> cpu.matmul(t, a);
+                            case 2 -> cpu.add(t, b);
+                            case 3 -> cpu.sigmoid(t);
+                            default -> cpu.subtract(t, a);
+                        };
+                    }
+                },
+                () -> {
+                    Tensor t = gpu.matmul(a, b);
+                    for (int i = 0; i < 49; i++) {
+                        t = switch (i % 5) {
+                            case 0 -> gpu.gelu(t);
+                            case 1 -> gpu.matmul(t, a);
+                            case 2 -> gpu.add(t, b);
+                            case 3 -> gpu.sigmoid(t);
+                            default -> gpu.subtract(t, a);
+                        };
+                    }
+                    t.materialize();
+                });
+    }
+
+    // ╔═════════════════════════════════════════════════════════════════╗
+    // ║  MODEL-LAYER PIPELINES                                         ║
+    // ╚═════════════════════════════════════════════════════════════════╝
+
+    /**
+     * Linear-layer forward: matmul → add → gelu  (3 GPU ops → 1 materialize).
+     * Bias is pre-expanded to N×N so the add stays on GPU.
+     */
     @Test @Order(10)
-    void add() {
-        Tensor a = rand(N, N, 5L), b = rand(N, N, 6L);
-        bench("add", () -> cpu.add(a, b), () -> gpu.add(a, b));
+    void chain_linearForward() {
+        Tensor x = rand(N, N, 76L), W = rand(N, N, 77L);
+        Tensor bias = rand(N, N, 78L);
+        bench("linear fwd (3 ops)",
+                () -> {
+                    Tensor h = cpu.matmul(x, W);
+                    h = cpu.add(h, bias);
+                    cpu.gelu(h);
+                },
+                () -> {
+                    Tensor h = gpu.matmul(x, W);
+                    h = gpu.add(h, bias);
+                    gpu.gelu(h).materialize();
+                });
     }
 
+    /**
+     * Self-attention scores: Q·K → scale → softmax → ·V  (4 GPU ops → 1 materialize).
+     */
     @Test @Order(11)
-    void subtract() {
-        Tensor a = rand(N, N, 7L), b = rand(N, N, 8L);
-        bench("subtract", () -> cpu.subtract(a, b), () -> gpu.subtract(a, b));
+    void chain_attentionForward() {
+        Tensor Q = rand(N, N, 79L), K = rand(N, N, 80L), V = rand(N, N, 81L);
+        double scale = 1.0 / Math.sqrt(N);
+        bench("attention fwd (4 ops)",
+                () -> {
+                    Tensor scores = cpu.matmul(Q, K);
+                    scores = cpu.multiplyScalar(scores, scale);
+                    Tensor probs  = cpu.softmaxRows(scores);
+                    cpu.matmul(probs, V);
+                },
+                () -> {
+                    Tensor scores = gpu.matmul(Q, K);
+                    scores = gpu.multiplyScalar(scores, scale);
+                    Tensor probs  = gpu.softmaxRows(scores);
+                    gpu.matmul(probs, V).materialize();
+                });
     }
 
+    /**
+     * Forward + loss gradient: matmul → gelu → matmul → crossEntropyGradient.
+     * crossEntropyGradient internally chains softmaxRows + subtract + multiplyScalar,
+     * so the GPU records ~6 kernels total before the single materialize.
+     */
     @Test @Order(12)
-    void multiply() {
-        Tensor a = rand(N, N, 9L), b = rand(N, N, 10L);
-        bench("multiply", () -> cpu.multiply(a, b), () -> gpu.multiply(a, b));
+    void chain_forwardAndLossGrad() {
+        Tensor x = rand(N, N, 82L), W1 = rand(N, N, 83L), W2 = rand(N, N, 84L);
+        int[] targets = randomTargets(N, N, 85L);
+        bench("fwd + loss grad (6 ops)",
+                () -> {
+                    Tensor h = cpu.matmul(x, W1);
+                    h = cpu.gelu(h);
+                    Tensor logits = cpu.matmul(h, W2);
+                    cpu.crossEntropyGradient(logits, targets);
+                },
+                () -> {
+                    Tensor h = gpu.matmul(x, W1);
+                    h = gpu.gelu(h);
+                    Tensor logits = gpu.matmul(h, W2);
+                    gpu.crossEntropyGradient(logits, targets).materialize();
+                });
     }
 
+    /**
+     * Two-layer backward pass through linear layers:
+     *   softmaxBackward → matmul(dLogits, W2) → geluBackward →
+     *   matmul(dH, W1) → subtract → multiplyScalar
+     * (6 GPU ops including 2 matmuls → 1 materialize).
+     */
     @Test @Order(13)
-    void divide() {
-        Tensor a = rand(N, N, 11L), b = randPositive(N, N, 12L);
-        bench("divide", () -> cpu.divide(a, b), () -> gpu.divide(a, b));
+    void chain_backward() {
+        Tensor grad   = rand(N, N, 86L);
+        Tensor smOut  = cpu.softmaxRows(rand(N, N, 87L));
+        Tensor W1     = rand(N, N, 88L);
+        Tensor W2     = rand(N, N, 89L);
+        Tensor hPreAct = rand(N, N, 90L);
+        Tensor offset = rand(N, N, 91L);
+        bench("backward (6 ops, 2 matmuls)",
+                () -> {
+                    Tensor d = cpu.softmaxBackward(grad, smOut);
+                    d = cpu.matmul(d, W2);
+                    d = cpu.geluBackward(hPreAct, d);
+                    d = cpu.matmul(d, W1);
+                    d = cpu.subtract(d, offset);
+                    cpu.multiplyScalar(d, 0.5);
+                },
+                () -> {
+                    Tensor d = gpu.softmaxBackward(grad, smOut);
+                    d = gpu.matmul(d, W2);
+                    d = gpu.geluBackward(hPreAct, d);
+                    d = gpu.matmul(d, W1);
+                    d = gpu.subtract(d, offset);
+                    gpu.multiplyScalar(d, 0.5).materialize();
+                });
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  SCALAR OPS
-    // ═══════════════════════════════════════════════════════════════
+    // ╔═════════════════════════════════════════════════════════════════╗
+    // ║  FULL TRAINING-STEP PIPELINES                                  ║
+    // ╚═════════════════════════════════════════════════════════════════╝
 
+    /**
+     * Mini training step: forward + softmax + scale + 2× adamW.
+     * ~9 GPU ops recorded, 1 materialize at the end.
+     */
     @Test @Order(20)
-    void multiplyScalar() {
-        Tensor a = rand(N, N, 13L);
-        bench("multiplyScalar", () -> cpu.multiplyScalar(a, 2.5), () -> gpu.multiplyScalar(a, 2.5));
+    void chain_miniTrainStep() {
+        Tensor x  = rand(N, N, 91L);
+        Tensor W1 = rand(N, N, 92L), W2 = rand(N, N, 93L);
+        Tensor g1 = rand(N, N, 94L), g2 = rand(N, N, 95L);
+
+        Tensor m1 = cpu.zeros(N, N), v1 = cpu.zeros(N, N);
+        Tensor m2 = cpu.zeros(N, N), v2 = cpu.zeros(N, N);
+
+        Tensor W1G = clone(W1), W2G = clone(W2);
+        Tensor g1G = clone(g1), g2G = clone(g2);
+        Tensor m1G = cpu.zeros(N, N), v1G = cpu.zeros(N, N);
+        Tensor m2G = cpu.zeros(N, N), v2G = cpu.zeros(N, N);
+
+        bench("mini train step (9 ops)",
+                () -> {
+                    Tensor h = cpu.matmul(x, W1);
+                    h = cpu.gelu(h);
+                    Tensor logits = cpu.matmul(h, W2);
+                    cpu.softmaxRows(logits);
+                    cpu.multiplyScalar(logits, 0.1);
+                    cpu.adamWUpdate(W1, g1, m1, v1, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    cpu.adamWUpdate(W2, g2, m2, v2, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                },
+                () -> {
+                    Tensor h = gpu.matmul(x, W1G);
+                    h = gpu.gelu(h);
+                    Tensor logits = gpu.matmul(h, W2G);
+                    gpu.softmaxRows(logits);
+                    gpu.multiplyScalar(logits, 0.1);
+                    gpu.adamWUpdate(W1G, g1G, m1G, v1G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    gpu.adamWUpdate(W2G, g2G, m2G, v2G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    W1G.materialize();
+                });
     }
 
+    /**
+     * Full forward + backward + optimise (two linear layers).
+     *   Forward:  matmul → gelu → matmul → crossEntropyGradient (3 internal)
+     *   Backward: matmul → geluBackward → matmul
+     *   Optimise: 2× adamWUpdate
+     * Total: ~13 GPU ops recorded, 1 materialize.
+     */
     @Test @Order(21)
-    void addScalar() {
-        Tensor a = rand(N, N, 14L);
-        bench("addScalar", () -> cpu.addScalar(a, 1.0), () -> gpu.addScalar(a, 1.0));
-    }
+    void chain_fullTrainStep() {
+        Tensor x  = rand(N, N, 96L);
+        Tensor W1 = rand(N, N, 97L), W2 = rand(N, N, 98L);
+        int[] targets = randomTargets(N, N, 99L);
+        Tensor hPreAct = rand(N, N, 100L);
 
-    @Test @Order(22)
-    void divideScalar() {
-        Tensor a = rand(N, N, 15L);
-        bench("divideScalar", () -> cpu.divideScalar(a, 3.0), () -> gpu.divideScalar(a, 3.0));
-    }
+        Tensor m1 = cpu.zeros(N, N), v1 = cpu.zeros(N, N);
+        Tensor m2 = cpu.zeros(N, N), v2 = cpu.zeros(N, N);
 
-    // ═══════════════════════════════════════════════════════════════
-    //  BROADCAST OPS
-    // ═══════════════════════════════════════════════════════════════
+        Tensor W1G = clone(W1), W2G = clone(W2);
+        Tensor hPreActG = clone(hPreAct);
+        Tensor m1G = cpu.zeros(N, N), v1G = cpu.zeros(N, N);
+        Tensor m2G = cpu.zeros(N, N), v2G = cpu.zeros(N, N);
 
-    @Test @Order(30)
-    void addRowVector() {
-        Tensor a = rand(N, N, 16L), v = rand(1, N, 17L);
-        bench("addRowVector", () -> cpu.addRowVector(a, v), () -> gpu.addRowVector(a, v));
-    }
-
-    @Test @Order(31)
-    void addBroadcastCols() {
-        Tensor a = rand(N, N, 18L), v = rand(N, 1, 19L);
-        bench("addBroadcastCols", () -> cpu.addBroadcastCols(a, v), () -> gpu.addBroadcastCols(a, v));
-    }
-
-    @Test @Order(32)
-    void subtractBroadcastCols() {
-        Tensor a = rand(N, N, 20L), v = rand(N, 1, 21L);
-        bench("subtractBroadcastCols", () -> cpu.subtractBroadcastCols(a, v), () -> gpu.subtractBroadcastCols(a, v));
-    }
-
-    @Test @Order(33)
-    void multiplyBroadcastCols() {
-        Tensor a = rand(N, N, 22L), v = rand(N, 1, 23L);
-        bench("multiplyBroadcastCols", () -> cpu.multiplyBroadcastCols(a, v), () -> gpu.multiplyBroadcastCols(a, v));
-    }
-
-    @Test @Order(34)
-    void divideBroadcastCols() {
-        Tensor a = rand(N, N, 24L), v = randPositive(N, 1, 25L);
-        bench("divideBroadcastCols", () -> cpu.divideBroadcastCols(a, v), () -> gpu.divideBroadcastCols(a, v));
-    }
-
-    @Test @Order(35)
-    void addBroadcastRows() {
-        Tensor a = rand(N, N, 26L), v = rand(1, N, 27L);
-        bench("addBroadcastRows", () -> cpu.addBroadcastRows(a, v), () -> gpu.addBroadcastRows(a, v));
-    }
-
-    @Test @Order(36)
-    void multiplyBroadcastRows() {
-        Tensor a = rand(N, N, 28L), v = rand(1, N, 29L);
-        bench("multiplyBroadcastRows", () -> cpu.multiplyBroadcastRows(a, v), () -> gpu.multiplyBroadcastRows(a, v));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  REDUCTIONS
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test @Order(40)
-    void sumRows() {
-        Tensor a = rand(N, N, 30L);
-        bench("sumRows", () -> cpu.sumRows(a), () -> gpu.sumRows(a));
-    }
-
-    @Test @Order(41)
-    void sumAlongRows() {
-        Tensor a = rand(N, N, 31L);
-        bench("sumAlongRows", () -> cpu.sumAlongRows(a), () -> gpu.sumAlongRows(a));
-    }
-
-    @Test @Order(42)
-    void sumAlongCols() {
-        Tensor a = rand(N, N, 32L);
-        bench("sumAlongCols", () -> cpu.sumAlongCols(a), () -> gpu.sumAlongCols(a));
-    }
-
-    @Test @Order(43)
-    void meanAlongRows() {
-        Tensor a = rand(N, N, 33L);
-        bench("meanAlongRows", () -> cpu.meanAlongRows(a), () -> gpu.meanAlongRows(a));
-    }
-
-    @Test @Order(44)
-    void varianceAlongRows() {
-        Tensor a = rand(N, N, 34L);
-        bench("varianceAlongRows", () -> cpu.varianceAlongRows(a), () -> gpu.varianceAlongRows(a));
-    }
-
-    @Test @Order(45)
-    void maxAlongRows() {
-        Tensor a = rand(N, N, 35L);
-        bench("maxAlongRows", () -> cpu.maxAlongRows(a), () -> gpu.maxAlongRows(a));
-    }
-
-    @Test @Order(46)
-    void sum() {
-        Tensor a = rand(N, N, 36L);
-        bench("sum (scalar)", () -> cpu.sum(a), () -> gpu.sum(a));
-    }
-
-    @Test @Order(47)
-    void sumAbs() {
-        Tensor a = rand(N, N, 37L);
-        bench("sumAbs (scalar)", () -> cpu.sumAbs(a), () -> gpu.sumAbs(a));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  UNARY MATH
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test @Order(50)
-    void sqrt() {
-        Tensor a = randPositive(N, N, 38L);
-        bench("sqrt", () -> cpu.sqrt(a), () -> gpu.sqrt(a));
-    }
-
-    @Test @Order(51)
-    void pow() {
-        Tensor a = randPositive(N, N, 39L);
-        bench("pow (^2)", () -> cpu.pow(a, 2.0), () -> gpu.pow(a, 2.0));
-    }
-
-    @Test @Order(52)
-    void neg() {
-        Tensor a = rand(N, N, 40L);
-        bench("neg", () -> cpu.neg(a), () -> gpu.neg(a));
-    }
-
-    @Test @Order(53)
-    void exp() {
-        Tensor a = rand(N, N, 41L);
-        bench("exp", () -> cpu.exp(a), () -> gpu.exp(a));
-    }
-
-    @Test @Order(54)
-    void log() {
-        Tensor a = randPositive(N, N, 42L);
-        bench("log", () -> cpu.log(a), () -> gpu.log(a));
-    }
-
-    @Test @Order(55)
-    void clamp() {
-        Tensor a = rand(N, N, 43L);
-        bench("clamp", () -> cpu.clamp(a, -0.5, 0.5), () -> gpu.clamp(a, -0.5, 0.5));
-    }
-
-    @Test @Order(56)
-    void transpose() {
-        Tensor a = rand(N, N, 44L);
-        bench("transpose", () -> cpu.transpose(a), () -> gpu.transpose(a));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  ACTIVATIONS
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test @Order(60)
-    void tanh() {
-        Tensor a = rand(N, N, 45L);
-        bench("tanh", () -> cpu.tanh(a), () -> gpu.tanh(a));
-    }
-
-    @Test @Order(61)
-    void sigmoid() {
-        Tensor a = rand(N, N, 46L);
-        bench("sigmoid", () -> cpu.sigmoid(a), () -> gpu.sigmoid(a));
-    }
-
-    @Test @Order(62)
-    void relu() {
-        Tensor a = rand(N, N, 47L);
-        bench("relu", () -> cpu.relu(a), () -> gpu.relu(a));
-    }
-
-    @Test @Order(63)
-    void reluBackward() {
-        Tensor input = rand(N, N, 48L), grad = rand(N, N, 49L);
-        bench("reluBackward", () -> cpu.reluBackward(input, grad), () -> gpu.reluBackward(input, grad));
-    }
-
-    @Test @Order(64)
-    void gelu() {
-        Tensor a = rand(N, N, 50L);
-        bench("gelu", () -> cpu.gelu(a), () -> gpu.gelu(a));
-    }
-
-    @Test @Order(65)
-    void geluBackward() {
-        Tensor input = rand(N, N, 51L), grad = rand(N, N, 52L);
-        bench("geluBackward", () -> cpu.geluBackward(input, grad), () -> gpu.geluBackward(input, grad));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  SOFTMAX
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test @Order(70)
-    void softmaxRows() {
-        Tensor a = rand(N, N, 53L);
-        bench("softmaxRows", () -> cpu.softmaxRows(a), () -> gpu.softmaxRows(a));
-    }
-
-    @Test @Order(71)
-    void softmaxBackward() {
-        Tensor grad = rand(N, N, 54L);
-        Tensor smOut = cpu.softmaxRows(rand(N, N, 55L));
-        bench("softmaxBackward", () -> cpu.softmaxBackward(grad, smOut), () -> gpu.softmaxBackward(grad, smOut));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  FUSED / HIGH-LEVEL OPS
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test @Order(80)
-    void crossEntropyLoss() {
-        int vocabSize = N;
-        int batchSize = Math.min(N, 128);
-        Tensor logits = rand(batchSize, vocabSize, 56L);
-        int[] targets = randomTargets(batchSize, vocabSize, 57L);
-        bench("crossEntropyLoss", () -> cpu.crossEntropyLoss(logits, targets), () -> gpu.crossEntropyLoss(logits, targets));
-    }
-
-    @Test @Order(81)
-    void crossEntropyGradient() {
-        int vocabSize = N;
-        int batchSize = Math.min(N, 128);
-        Tensor logits = rand(batchSize, vocabSize, 58L);
-        int[] targets = randomTargets(batchSize, vocabSize, 59L);
-        bench("crossEntropyGradient", () -> cpu.crossEntropyGradient(logits, targets), () -> gpu.crossEntropyGradient(logits, targets));
-    }
-
-    @Test @Order(82)
-    void adamWUpdate() {
-        Tensor w  = rand(N, N, 60L);
-        Tensor g  = rand(N, N, 61L);
-        Tensor mt = cpu.zeros(N, N);
-        Tensor vt = cpu.zeros(N, N);
-
-        // Clone for GPU so they start from the same state
-        Tensor wG  = clone(w);
-        Tensor gG  = clone(g);
-        Tensor mtG = cpu.zeros(N, N);
-        Tensor vtG = cpu.zeros(N, N);
-
-        bench("adamWUpdate",
-                () -> cpu.adamWUpdate(w, g, mt, vt, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999),
-                () -> gpu.adamWUpdate(wG, gG, mtG, vtG, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999));
-    }
-
-    @Test @Order(83)
-    void layerNormBackward() {
-        int dim = N;
-        Tensor dXHat = rand(N, dim, 62L);
-        Tensor xHat  = rand(N, dim, 63L);
-        Tensor std   = randPositive(N, 1, 64L);
-        bench("layerNormBackward", () -> cpu.layerNormBackward(dXHat, xHat, std, dim), () -> gpu.layerNormBackward(dXHat, xHat, std, dim));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  DATA ACCESSORS / INDEXING
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test @Order(90)
-    void sliceRows() {
-        int vocabSize = N;
-        Tensor embeddings = rand(vocabSize, N, 65L);
-        int[] indices = randomTargets(Math.min(128, N), vocabSize, 66L);
-        bench("sliceRows", () -> cpu.sliceRows(embeddings, indices, N), () -> gpu.sliceRows(embeddings, indices, N));
-    }
-
-    @Test @Order(91)
-    void scatterAddRows() {
-        int vocabSize = N;
-        int seqLen = Math.min(128, N);
-        Tensor target1 = cpu.zeros(vocabSize, N);
-        Tensor target2 = cpu.zeros(vocabSize, N);
-        Tensor grad = rand(seqLen, N, 67L);
-        int[] indices = randomTargets(seqLen, vocabSize, 68L);
-        bench("scatterAddRows",
-                () -> cpu.scatterAddRows(target1, indices, grad),
-                () -> gpu.scatterAddRows(target2, indices, grad));
+        bench("full train step (13 ops)",
+                () -> {
+                    // forward
+                    Tensor h = cpu.matmul(x, W1);
+                    h = cpu.gelu(h);
+                    Tensor logits = cpu.matmul(h, W2);
+                    // loss gradient (softmax + subtract + scale)
+                    Tensor dLogits = cpu.crossEntropyGradient(logits, targets);
+                    // backward
+                    Tensor dH = cpu.matmul(dLogits, W2);
+                    dH = cpu.geluBackward(hPreAct, dH);
+                    Tensor dX = cpu.matmul(dH, W1);
+                    // optimise
+                    cpu.adamWUpdate(W1, dX, m1, v1, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    cpu.adamWUpdate(W2, dLogits, m2, v2, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                },
+                () -> {
+                    // forward
+                    Tensor h = gpu.matmul(x, W1G);
+                    h = gpu.gelu(h);
+                    Tensor logits = gpu.matmul(h, W2G);
+                    // loss gradient (softmax + subtract + scale — all lazy)
+                    Tensor dLogits = gpu.crossEntropyGradient(logits, targets);
+                    // backward
+                    Tensor dH = gpu.matmul(dLogits, W2G);
+                    dH = gpu.geluBackward(hPreActG, dH);
+                    Tensor dX = gpu.matmul(dH, W1G);
+                    // optimise — still lazy
+                    gpu.adamWUpdate(W1G, dX, m1G, v1G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    gpu.adamWUpdate(W2G, dLogits, m2G, v2G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    // single flush
+                    W1G.materialize();
+                });
     }
 
     // ═══════════════════════════════════════════════════════════════

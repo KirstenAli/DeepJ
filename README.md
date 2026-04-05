@@ -34,7 +34,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.4.1-alpha</version>
+        <version>0.4.2-alpha</version>
     </dependency>
 </dependencies>
 ```
@@ -988,37 +988,29 @@ in just 2–3 native calls, minimising driver overhead.
 
 ## ⚡ Metal GPU Performance
 
-Below are CPU vs GPU timings for all tensor operations on a
-**512 × 512** matrix (262,144 elements), measured on Apple Silicon
-with `-Dperf.iters.cpu=3` and `-Dperf.iters.gpu=10`.
+Chained-pipeline benchmarks on a **512 × 512** matrix (262,144 elements),
+measured on Apple Silicon with `-Dperf.iters.cpu=3` and `-Dperf.iters.gpu=10`.
+Multiple lazy GPU ops are recorded into one command buffer, then a single
+`materialize()` flushes them all — matching how the GPU runs during training.
 CPU timings use the default multithreaded `DeepJExecutor` (parallel enabled).
 
-| Operation | CPU (ms) | GPU (ms) | Speedup |
+| Pipeline | CPU (ms) | GPU (ms) | Speedup |
 |---|---:|---:|---:|
-| matmul | 23.348 | 0.160 | 146.04× |
-| matmul (rect) | 7.441 | 0.123 | 60.36× |
-| add | 0.303 | 0.087 | 3.48× |
-| subtract | 0.403 | 0.166 | 2.43× |
-| multiply | 0.336 | 0.053 | 6.35× |
-| divide | 0.287 | 0.047 | 6.18× |
-| multiplyScalar | 0.441 | 0.064 | 6.92× |
-| sqrt | 0.709 | 0.069 | 10.22× |
-| neg | 0.609 | 0.142 | 4.29× |
-| exp | 0.446 | 0.059 | 7.59× |
-| log | 0.405 | 0.055 | 7.40× |
-| tanh | 0.631 | 0.168 | 3.75× |
-| sigmoid | 0.478 | 0.048 | 9.95× |
-| relu | 0.118 | 0.054 | 2.19× |
-| gelu | 0.696 | 0.052 | 13.49× |
-| geluBackward | 0.940 | 0.059 | 15.91× |
-| softmaxRows | 1.721 | 0.049 | 35.20× |
-| softmaxBackward | 1.043 | 0.054 | 19.23× |
-| crossEntropyGradient | 1.010 | 0.067 | 14.97× |
-| adamWUpdate | 1.066 | 0.001 | 1706.07× |
-| layerNormBackward | 1.015 | 0.058 | 17.36× |
+| 5 mixed ops (1 matmul) | 19.296 | 1.686 | 11.45× |
+| 10 mixed ops (2 matmuls) | 40.876 | 1.750 | 23.35× |
+| 20 mixed ops (4 matmuls) | 104.231 | 3.147 | 33.12× |
+| 50 mixed ops (10 matmuls) | 226.345 | 6.902 | 32.80× |
+| linear fwd (3 ops) | 18.967 | 1.358 | 13.96× |
+| attention fwd (4 ops) | 40.332 | 1.594 | 25.30× |
+| fwd + loss grad (6 ops) | 40.645 | 2.013 | 20.19× |
+| backward (6 ops, 2 matmuls) | 42.140 | 1.736 | 24.28× |
+| mini train step (9 ops) | 46.088 | 2.014 | 22.89× |
+| full train step (13 ops) | 85.293 | 2.383 | 35.79× |
 
-> **Key takeaway:** most compute-heavy ops see clear Metal speedups.
-> Broadcast/indexing ops remain around parity — they run on CPU by design.
+> **Key takeaway:** the lazy compute graph batches many GPU kernels into a
+> single command buffer. As chain depth grows the speedup climbs — a full
+> forward + backward + optimise step runs **~36× faster** on Metal vs
+> multithreaded CPU.
 
 Run the benchmark yourself:
 
