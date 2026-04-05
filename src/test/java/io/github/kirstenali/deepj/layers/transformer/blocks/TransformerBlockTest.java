@@ -1,7 +1,5 @@
 package io.github.kirstenali.deepj.layers.transformer.blocks;
 
-import io.github.kirstenali.deepj.layers.transformer.blocks.TransformerBlock;
-
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -18,7 +16,7 @@ public class TransformerBlockTest {
     @Test
     void forward_isIdentity_whenAllTrainableParametersAreZero() {
         int dModel = 4;
-        TransformerBlock block = new TransformerBlock(dModel, 2, 8, new Random(1));
+        GPTTransformerBlock block = new GPTTransformerBlock(dModel, 2, 8, new Random(1));
 
         // Zero ALL trainable params. With residual connections, this should yield y == x.
         for (Parameter p : block.parameters()) {
@@ -37,7 +35,7 @@ public class TransformerBlockTest {
 
     @Test
     void backward_returnsSameShape_andAccumulatesSomeGradients() {
-        TransformerBlock block = new TransformerBlock(4, 2, 8, new Random(2));
+        GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(2));
 
         Tensor x = new Tensor(new double[][]{
                 { 0.2, -0.1,  0.3,  0.0},
@@ -59,7 +57,7 @@ public class TransformerBlockTest {
 
     @Test
     void learning_can_reduce_mse_loss_within_a_few_steps() {
-        TransformerBlock block = new TransformerBlock(4, 2, 8, new Random(3));
+        GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(3));
         AdamW opt = new AdamW(0.01, 0.9, 0.999, 1e-8, 0.0);
 
         Tensor x = new Tensor(new double[][]{
@@ -85,7 +83,7 @@ public class TransformerBlockTest {
         assertTrue(improved, "Expected MSE loss to decrease within a few optimizer steps");
     }
 
-    private static double trainOneStepMSE(TransformerBlock block, AdamW opt, Tensor x, Tensor target) {
+    private static double trainOneStepMSE(GPTTransformerBlock block, AdamW opt, Tensor x, Tensor target) {
         Tensor y = block.forward(x);
 
         MSELoss mse = new MSELoss();

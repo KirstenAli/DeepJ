@@ -2,14 +2,11 @@ package io.github.kirstenali.deepj.layers.transformer.blocks;
 
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadLatentAttention;
-import io.github.kirstenali.deepj.layers.transformer.ffn.SwiGLULayer;
+import io.github.kirstenali.deepj.layers.transformer.SwiGLULayer;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
-import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 /**
@@ -23,7 +20,7 @@ import java.util.Random;
  * {@link MultiHeadLatentAttention} instead of RoPE-MHA, giving a smaller
  * KV cache footprint during inference.
  */
-public final class DeepSeekTransformerBlock implements Layer {
+public final class DeepSeekTransformerBlock extends AbstractTransformerBlock {
 
     private final RMSNorm1D             ln1;
     private final RMSNorm1D             ln2;
@@ -49,6 +46,11 @@ public final class DeepSeekTransformerBlock implements Layer {
     }
 
     @Override
+    protected Layer[] subLayers() {
+        return new Layer[]{ ln1, ln2, attn, mlp };
+    }
+
+    @Override
     public Tensor forward(Tensor x) {
         Tensor x2 = x.add(attn.forward(ln1.forward(x)));
         return x2.add(mlp.forward(ln2.forward(x2)));
@@ -62,15 +64,4 @@ public final class DeepSeekTransformerBlock implements Layer {
         Tensor gAttn = attn.backward(gX2);
         return gX2.add(ln1.backward(gAttn));
     }
-
-    @Override
-    public List<Parameter> parameters() {
-        List<Parameter> ps = new ArrayList<>();
-        ps.addAll(ln1.parameters());
-        ps.addAll(ln2.parameters());
-        ps.addAll(attn.parameters());
-        ps.addAll(mlp.parameters());
-        return ps;
-    }
 }
-

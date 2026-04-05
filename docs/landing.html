@@ -400,7 +400,7 @@
   <div class="container">
     <img src="deepj_logo.svg" alt="DeepJ logo">
     <h1>DeepJ</h1>
-    <p>A lightweight, pure-Java GPT library — build, train, and experiment with Transformer models, zero dependencies.</p>
+    <p>A lightweight, pure-Java Transformer library — build, train, and experiment with GPT, Llama, and DeepSeek-style models, zero dependencies.</p>
     <div class="badges">
       <span class="badge badge-blue">☕ Pure Java</span>
       <span class="badge badge-green">🔧 Zero Dependencies</span>
@@ -423,7 +423,7 @@
     <pre><code>&lt;<span class="kw">dependency</span>&gt;
     &lt;<span class="kw">groupId</span>&gt;<span class="str">io.github.kirstenali</span>&lt;/<span class="kw">groupId</span>&gt;
     &lt;<span class="kw">artifactId</span>&gt;<span class="str">deepj</span>&lt;/<span class="kw">artifactId</span>&gt;
-    &lt;<span class="kw">version</span>&gt;<span class="num">0.4.6-alpha</span>&lt;/<span class="kw">version</span>&gt;
+    &lt;<span class="kw">version</span>&gt;<span class="num">0.4.7-alpha</span>&lt;/<span class="kw">version</span>&gt;
 &lt;/<span class="kw">dependency</span>&gt;</code></pre>
   </div>
 </section>
@@ -448,12 +448,12 @@
       <div class="card">
         <div class="card-icon icon-amber">🦙</div>
         <h3>Modern Architectures</h3>
-        <p>RoPE, RMSNorm, SwiGLU, and a ready-made <code>LlamaTransformerBlock</code> — the same primitives used by Llama, Mistral, and Qwen.</p>
+        <p>RoPE, RMSNorm, SwiGLU, MLA — ready-made <code>LlamaTransformerBlock</code> and <code>DeepSeekTransformerBlock</code> with the same primitives used by Llama, Mistral, Qwen, and DeepSeek.</p>
       </div>
       <div class="card">
         <div class="card-icon icon-blue">🤖</div>
-        <h3>GPT Model</h3>
-        <p>Decoder-only GPT with token &amp; positional embeddings, configurable depth, and autoregressive text generation.</p>
+        <h3>Three Model Families</h3>
+        <p>GPT (LayerNorm + MHSA), Llama (RMSNorm + RoPE + SwiGLU), and DeepSeek (MLA for 8× smaller KV cache). All share one <code>TextGenerator</code> and one <code>TransformerConfig</code> interface.</p>
       </div>
       <div class="card">
         <div class="card-icon icon-green">⚡</div>
@@ -499,14 +499,20 @@
         <tr><td><code>tensor.metal</code></td><td><code>MetalBackend</code> — Apple Silicon GPU via Metal JNI</td></tr>
         <tr><td><code>concurrent</code></td><td><code>DeepJExecutor</code> — thread-pool for CPU parallelism</td></tr>
         <tr><td><code>layers</code></td><td><code>Layer</code> interface, <code>Linear</code> projection, <code>FNN</code> (MLP)</td></tr>
-        <tr><td><code>layers.transformer</code></td><td><code>TransformerBlock</code>, <code>LlamaTransformerBlock</code>, <code>MultiHeadSelfAttention</code>, <code>RoPEMultiHeadSelfAttention</code>, <code>LayerNorm1D</code>, <code>RMSNorm1D</code>, <code>SwiGLULayer</code></td></tr>
+        <tr><td><code>layers.transformer</code></td><td><code>SwiGLULayer</code> — gated FFN used by Llama / DeepSeek style blocks</td></tr>
+        <tr><td><code>layers.transformer.attention</code></td><td><code>MultiHeadSelfAttention</code>, <code>RoPEMultiHeadSelfAttention</code>, <code>MultiHeadLatentAttention</code> (MLA)</td></tr>
+        <tr><td><code>layers.transformer.norm</code></td><td><code>LayerNorm1D</code>, <code>RMSNorm1D</code></td></tr>
+        <tr><td><code>layers.transformer.blocks</code></td><td><code>GPTTransformerBlock</code>, <code>LlamaTransformerBlock</code>, <code>DeepSeekTransformerBlock</code></td></tr>
         <tr><td><code>transformer</code></td><td><code>TransformerBuilder</code>, <code>TransformerStack</code></td></tr>
         <tr><td><code>transformer.embeddings</code></td><td><code>Embedding</code> (token lookup), <code>PositionalEmbedding</code> (learnable), <code>RotaryEmbedding</code> (RoPE)</td></tr>
         <tr><td><code>activations</code></td><td>GELU, SiLU, ReLU, Sigmoid, Tanh, Softmax</td></tr>
         <tr><td><code>loss</code></td><td>MSELoss, CrossEntropyLoss</td></tr>
         <tr><td><code>optimisers</code></td><td>AdamW, <code>Parameter</code></td></tr>
         <tr><td><code>training</code></td><td><code>Trainer</code>, <code>SupervisedTraining</code>, <code>CausalLMTraining</code></td></tr>
-        <tr><td><code>models.gpt</code></td><td><code>GPTModel</code>, <code>GPTConfig</code>, <code>TextGenerator</code></td></tr>
+        <tr><td><code>models</code></td><td><code>TransformerConfig</code> (shared interface), <code>TextGenerator</code></td></tr>
+        <tr><td><code>models.gpt</code></td><td><code>GPTModel</code>, <code>GPTConfig</code></td></tr>
+        <tr><td><code>models.llama</code></td><td><code>LlamaModel</code>, <code>LlamaConfig</code></td></tr>
+        <tr><td><code>models.deepseek</code></td><td><code>DeepSeekModel</code>, <code>DeepSeekConfig</code></td></tr>
         <tr><td><code>tokenizers</code></td><td><code>ByteTokenizer</code>, BPE pipeline</td></tr>
         <tr><td><code>persistence</code></td><td><code>ModelSerializer</code> — binary save/load</td></tr>
         <tr><td><code>chatui</code></td><td><code>BaseChatApp</code>, <code>ChatService</code></td></tr>
@@ -517,13 +523,16 @@
     <h3>Key Interfaces</h3>
     <div class="diagram">Trainable              — exposes parameters() + zeroGrad()
     └── Layer          — forward(Tensor) / backward(Tensor)
-            ├── TransformerBlock          (GPT-style: LayerNorm + MHSA + GELU FFN)
-            │       └── LlamaTransformerBlock  (RMSNorm + RoPE-MHSA + SwiGLU)
+            ├── GPTTransformerBlock          (GPT-style: LayerNorm + MHSA + GELU FFN)
+            ├── LlamaTransformerBlock     (RMSNorm + RoPE-MHSA + SwiGLU)
+            ├── DeepSeekTransformerBlock  (RMSNorm + MLA + SwiGLU)
             ├── MultiHeadSelfAttention    (base — template-method hooks)
             │       └── RoPEMultiHeadSelfAttention
+            ├── MultiHeadLatentAttention  (MLA — low-rank Q/KV compression)
             ├── LayerNorm1D  /  RMSNorm1D
             └── SwiGLULayer  (gate · up · down projections)
 Persistable            — save(Path) / load(Path) via ModelSerializer
+TransformerConfig      — shared config interface (vocabSize, dModel, nHeads …)
 TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
 LossFunction           — loss() + gradient()
 ParameterOptimizer     — step(List&lt;Parameter&gt;)
@@ -640,30 +649,33 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
         <span class="num">1234L</span>    <span class="cmt">// seed</span>
 );</code></pre>
 
+    <h3 style="margin-top: 40px;">GPT Transformer Block (direct use)</h3>
+    <pre><code><span class="cmt">// GPT-style block — LayerNorm + MHSA + configurable FFN</span>
+<span class="typ">GPTTransformerBlock</span> block = <span class="kw">new</span> <span class="typ">GPTTransformerBlock</span>(
+        <span class="num">512</span>,       <span class="cmt">// dModel</span>
+        <span class="num">8</span>,         <span class="cmt">// nHeads</span>
+        <span class="num">2048</span>,      <span class="cmt">// dFF</span>
+        <span class="typ">GELU</span>::<span class="fn">new</span>, <span class="cmt">// FFN activation</span>
+        rnd
+);
+
+<span class="typ">Tensor</span> out = block.<span class="fn">forward</span>(x);    <span class="cmt">// [seqLen × dModel]</span>
+<span class="typ">Tensor</span> dX  = block.<span class="fn">backward</span>(grad); <span class="cmt">// backprop gradient</span></code></pre>
+
     <h3 style="margin-top: 40px;">Transformer Builder</h3>
-    <pre><code><span class="typ">TransformerStack</span> stack = <span class="kw">new</span> <span class="typ">TransformerBuilder</span>()
+    <pre><code><span class="cmt">// GPT-style stack — default block type, no extra params needed</span>
+<span class="typ">TransformerStack</span> stack = <span class="kw">new</span> <span class="typ">TransformerBuilder</span>()
         .<span class="fn">dModel</span>(<span class="num">128</span>)              <span class="cmt">// model dimension</span>
         .<span class="fn">nHeads</span>(<span class="num">4</span>)               <span class="cmt">// attention heads</span>
         .<span class="fn">dFF</span>(<span class="num">512</span>)                <span class="cmt">// feed-forward inner dimension</span>
         .<span class="fn">nLayers</span>(<span class="num">4</span>)              <span class="cmt">// number of decoder blocks</span>
         .<span class="fn">ffnActivation</span>(<span class="typ">GELU</span>::<span class="fn">new</span>)
         .<span class="fn">seed</span>(<span class="num">42</span>)
-        .<span class="fn">build</span>();</code></pre>
+        .<span class="fn">build</span>();                 <span class="cmt">// blockType defaults to BlockType.GPT</span></code></pre>
 
-    <h3 style="margin-top: 40px;">Llama-style Block (RoPE + RMSNorm + SwiGLU)</h3>
-    <pre><code><span class="cmt">// One line — RMSNorm, RoPE attention, and SwiGLU wired together</span>
-<span class="typ">LlamaTransformerBlock</span> block = <span class="kw">new</span> <span class="typ">LlamaTransformerBlock</span>(
-        <span class="num">512</span>,   <span class="cmt">// dModel</span>
-        <span class="num">8</span>,     <span class="cmt">// nHeads</span>
-        <span class="num">1408</span>,  <span class="cmt">// dFF  (≈ 8/3 × dModel)</span>
-        <span class="num">2048</span>,  <span class="cmt">// maxSeqLen — RoPE table size</span>
-        rnd
-);
 
-<span class="typ">Tensor</span> out = block.<span class="fn">forward</span>(x);    <span class="cmt">// [seqLen × dModel]</span>
-<span class="typ">Tensor</span> dX  = block.<span class="fn">backward</span>(grad);
-
-<span class="cmt">// Extending attention — override two hooks, inherit everything else</span>
+    <h3 style="margin-top: 40px;">Extending Attention</h3>
+    <pre><code><span class="cmt">// Override two hooks, inherit all attention mechanics and backprop</span>
 <span class="kw">public class</span> <span class="typ">MyAttention</span> <span class="kw">extends</span> <span class="typ">MultiHeadSelfAttention</span> {
     <span class="kw">protected</span> <span class="typ">Tensor</span> <span class="fn">transformQueryKey</span>(<span class="typ">Tensor</span> heads, <span class="kw">int</span> seqLen) {
         <span class="kw">return</span> myTransform(heads, seqLen, nHeads);

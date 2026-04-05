@@ -22,7 +22,7 @@ import java.util.Random;
  * <p>Typical usage inside a Llama-style block:
  * <pre>{@code
  * RotaryEmbedding rope = new RotaryEmbedding(dModel / nHeads, maxSeqLen);
- * new TransformerBlock(
+ * new GPTTransformerBlock(
  *     new RMSNorm1D(dModel),
  *     new RMSNorm1D(dModel),
  *     new RoPEMultiHeadSelfAttention(dModel, nHeads, true, rope, rnd),

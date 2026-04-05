@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.layers.transformer.ffn;
+package io.github.kirstenali.deepj.layers.transformer;
 
 import io.github.kirstenali.deepj.activations.SiLU;
 import io.github.kirstenali.deepj.layers.Layer;
@@ -30,8 +30,8 @@ import java.util.Random;
  *   dX         = gateProj.backward(dGate) + upProj.backward(dUp)
  * </pre>
  *
- * <p>Designed as a drop-in replacement for {@link io.github.kirstenali.deepj.layers.FNN} inside
- * a {@link TransformerBlock} via the injectable constructor.
+ * <p>Used as the feed-forward component in {@link io.github.kirstenali.deepj.layers.transformer.blocks.LlamaTransformerBlock}
+ * and {@link io.github.kirstenali.deepj.layers.transformer.blocks.DeepSeekTransformerBlock}.
  */
 public final class SwiGLULayer implements Layer {
 

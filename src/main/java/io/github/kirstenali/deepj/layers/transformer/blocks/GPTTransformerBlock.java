@@ -7,36 +7,62 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.GELU;
 import io.github.kirstenali.deepj.layers.Layer;
-import io.github.kirstenali.deepj.optimisers.Parameter;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;
 
 /**
- * Pre-LN Transformer block:
- *   x = x + Attn(LN(x))
- *   x = x + MLP(LN(x))
+ * Pre-LN GPT-style Transformer block:
+ * <pre>
+ *   x = x + Attn( LayerNorm(x) )
+ *   x = x + MLP(  LayerNorm(x) )
+ * </pre>
+ *
+ * <p>Composes {@link LayerNorm1D}, {@link MultiHeadSelfAttention}, and an {@link FNN}
+ * (feed-forward network with a configurable activation — default: GELU).
  */
-public final class TransformerBlock implements Layer {
+public class GPTTransformerBlock extends AbstractTransformerBlock {
 
     private final LayerNorm1D ln1;
     private final LayerNorm1D ln2;
     private final MultiHeadSelfAttention attn;
     private final FNN mlp;
 
-    public TransformerBlock(int dModel, int nHeads, int dFF, Random rnd) {
+    /**
+     * Convenience constructor using GELU activation.
+     *
+     * @param dModel  model dimension
+     * @param nHeads  attention heads (must divide dModel)
+     * @param dFF     feed-forward inner dimension
+     * @param rnd     random source for weight initialisation
+     */
+    public GPTTransformerBlock(int dModel, int nHeads, int dFF, Random rnd) {
         this(dModel, nHeads, dFF, GELU::new, rnd);
     }
 
-    public TransformerBlock(int dModel, int nHeads, int dFF, Supplier<ActivationFunction> ffnActivationFactory, Random rnd) {
+    /**
+     * Full constructor.
+     *
+     * @param dModel                model dimension
+     * @param nHeads                attention heads (must divide dModel)
+     * @param dFF                   feed-forward inner dimension
+     * @param ffnActivationFactory  factory for the FFN hidden activation (e.g. {@code GELU::new})
+     * @param rnd                   random source for weight initialisation
+     */
+    public GPTTransformerBlock(int dModel, int nHeads, int dFF,
+                               Supplier<ActivationFunction> ffnActivationFactory, Random rnd) {
         this.ln1 = new LayerNorm1D(dModel);
         this.ln2 = new LayerNorm1D(dModel);
         this.attn = new MultiHeadSelfAttention(dModel, nHeads, true, rnd);
         this.mlp = new FNN(dModel, new int[]{ dFF }, dModel, ffnActivationFactory, null, rnd);
     }
 
+    @Override
+    protected Layer[] subLayers() {
+        return new Layer[]{ ln1, ln2, attn, mlp };
+    }
+
+    @Override
     public Tensor forward(Tensor x) {
         Tensor ln1Out = ln1.forward(x);
         Tensor attnOut = attn.forward(ln1Out);
@@ -65,15 +91,5 @@ public final class TransformerBlock implements Layer {
         Tensor gX_from_ln1 = ln1.backward(gLn1Out);
 
         return gX.add(gX_from_ln1);
-    }
-
-    @Override
-    public List<Parameter> parameters() {
-        List<Parameter> ps = new ArrayList<>();
-        ps.addAll(ln1.parameters());
-        ps.addAll(ln2.parameters());
-        ps.addAll(attn.parameters());
-        ps.addAll(mlp.parameters());
-        return ps;
     }
 }
