@@ -4,8 +4,8 @@
 
 # DeepJ
 
-A lightweight Java library for building and experimenting with
-**Transformer-based neural networks**.
+A lightweight Java library for building, training, and experimenting with
+**GPT-based models in pure Java**.
 
 DeepJ focuses on:
 
