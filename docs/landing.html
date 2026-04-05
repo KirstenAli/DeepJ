@@ -453,7 +453,7 @@
       <div class="card">
         <div class="card-icon icon-blue">⚡</div>
         <h3>Metal GPU Backend</h3>
-        <p>Lazy, GPU-resident execution on Apple Silicon. Ops record into a command stream and flush in one batch — up to 1700× speedup.</p>
+        <p>Lazy, GPU-resident execution on Apple Silicon. Ops record into a command stream and flush in one batch — up to 36× faster than multithreaded CPU.</p>
       </div>
       <div class="card">
         <div class="card-icon icon-green">🏋️</div>
@@ -651,33 +651,23 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
   <div class="container reveal">
     <div class="section-label label-amber">Performance</div>
     <h2>Metal GPU Benchmarks</h2>
-    <p class="section-desc">CPU vs GPU timings on a <strong>512 × 512</strong> matrix (262,144 elements), measured on Apple Silicon.</p>
+    <p class="section-desc">Chained-pipeline benchmarks on a <strong>512 × 512</strong> matrix (262,144 elements), measured on Apple Silicon.
+      Multiple lazy ops record into one command buffer, then a single <code>materialize()</code> flushes them all.
+      CPU timings use the default <strong>multithreaded</strong> <code>DeepJExecutor</code> (parallel enabled).</p>
     <div class="table-scroll">
     <table class="bench-table">
-      <!-- ...existing table content... -->
-      <thead><tr><th>Operation</th><th>CPU (ms)</th><th>GPU (ms)</th><th>Speedup</th></tr></thead>
+      <thead><tr><th>Pipeline</th><th>CPU (ms)</th><th>GPU (ms)</th><th>Speedup</th></tr></thead>
       <tbody>
-        <tr><td>matmul</td><td>23.348</td><td>0.160</td><td><span class="speedup-high">146×</span></td></tr>
-        <tr><td>matmul (rect)</td><td>7.441</td><td>0.123</td><td><span class="speedup-high">60×</span></td></tr>
-        <tr><td>add</td><td>0.303</td><td>0.087</td><td><span class="speedup">3.5×</span></td></tr>
-        <tr><td>subtract</td><td>0.403</td><td>0.166</td><td><span class="speedup">2.4×</span></td></tr>
-        <tr><td>multiply</td><td>0.336</td><td>0.053</td><td><span class="speedup">6.4×</span></td></tr>
-        <tr><td>divide</td><td>0.287</td><td>0.047</td><td><span class="speedup">6.2×</span></td></tr>
-        <tr><td>multiplyScalar</td><td>0.441</td><td>0.064</td><td><span class="speedup">6.9×</span></td></tr>
-        <tr><td>sqrt</td><td>0.709</td><td>0.069</td><td><span class="speedup">10×</span></td></tr>
-        <tr><td>neg</td><td>0.609</td><td>0.142</td><td><span class="speedup">4.3×</span></td></tr>
-        <tr><td>exp</td><td>0.446</td><td>0.059</td><td><span class="speedup">7.6×</span></td></tr>
-        <tr><td>log</td><td>0.405</td><td>0.055</td><td><span class="speedup">7.4×</span></td></tr>
-        <tr><td>tanh</td><td>0.631</td><td>0.168</td><td><span class="speedup">3.8×</span></td></tr>
-        <tr><td>sigmoid</td><td>0.478</td><td>0.048</td><td><span class="speedup">10×</span></td></tr>
-        <tr><td>relu</td><td>0.118</td><td>0.054</td><td><span class="speedup">2.2×</span></td></tr>
-        <tr><td>gelu</td><td>0.696</td><td>0.052</td><td><span class="speedup">13×</span></td></tr>
-        <tr><td>geluBackward</td><td>0.940</td><td>0.059</td><td><span class="speedup">16×</span></td></tr>
-        <tr><td>softmaxRows</td><td>1.721</td><td>0.049</td><td><span class="speedup-high">35×</span></td></tr>
-        <tr><td>softmaxBackward</td><td>1.043</td><td>0.054</td><td><span class="speedup">19×</span></td></tr>
-        <tr><td>crossEntropyGradient</td><td>1.010</td><td>0.067</td><td><span class="speedup">15×</span></td></tr>
-        <tr><td>adamWUpdate</td><td>1.066</td><td>0.001</td><td><span class="speedup-high">1706×</span></td></tr>
-        <tr><td>layerNormBackward</td><td>1.015</td><td>0.058</td><td><span class="speedup">17×</span></td></tr>
+        <tr><td>5 mixed ops (1 matmul)</td><td>19.296</td><td>1.686</td><td><span class="speedup">11×</span></td></tr>
+        <tr><td>10 mixed ops (2 matmuls)</td><td>40.876</td><td>1.750</td><td><span class="speedup-high">23×</span></td></tr>
+        <tr><td>20 mixed ops (4 matmuls)</td><td>104.231</td><td>3.147</td><td><span class="speedup-high">33×</span></td></tr>
+        <tr><td>50 mixed ops (10 matmuls)</td><td>226.345</td><td>6.902</td><td><span class="speedup-high">33×</span></td></tr>
+        <tr><td>linear fwd (3 ops)</td><td>18.967</td><td>1.358</td><td><span class="speedup">14×</span></td></tr>
+        <tr><td>attention fwd (4 ops)</td><td>40.332</td><td>1.594</td><td><span class="speedup-high">25×</span></td></tr>
+        <tr><td>fwd + loss grad (6 ops)</td><td>40.645</td><td>2.013</td><td><span class="speedup-high">20×</span></td></tr>
+        <tr><td>backward (6 ops, 2 matmuls)</td><td>42.140</td><td>1.736</td><td><span class="speedup-high">24×</span></td></tr>
+        <tr><td>mini train step (9 ops)</td><td>46.088</td><td>2.014</td><td><span class="speedup-high">23×</span></td></tr>
+        <tr><td>full train step (13 ops)</td><td>85.293</td><td>2.383</td><td><span class="speedup-high">36×</span></td></tr>
       </tbody>
     </table>
     </div>
