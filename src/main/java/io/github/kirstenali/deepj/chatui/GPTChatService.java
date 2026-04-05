@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.models.gpt.GPTConfig;
 import io.github.kirstenali.deepj.models.gpt.GPTModel;
-import io.github.kirstenali.deepj.models.gpt.TextGenerator;
+import io.github.kirstenali.deepj.models.TextGenerator;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 

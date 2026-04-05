@@ -4,7 +4,7 @@
 
 # DeepJ
 
-A lightweight, pure-Java GPT library — build, train, and experiment with Transformer models, zero dependencies.
+A lightweight, pure-Java Transformer library — build, train, and experiment with GPT, Llama, and DeepSeek-style models, zero dependencies.
 
 📚 **Javadoc:** https://kirstenali.github.io/DeepJ/
 
@@ -26,7 +26,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.4.6-alpha</version>
+        <version>0.4.7-alpha</version>
     </dependency>
 </dependencies>
 ```
@@ -44,14 +44,20 @@ DeepJ is organised into focused packages:
 | `tensor.metal` | `MetalBackend` — Apple Silicon GPU via Metal JNI |
 | `concurrent` | `DeepJExecutor` — thread-pool for CPU parallelism |
 | `layers` | `Layer` interface, `Linear` projection, `FNN` (MLP) |
-| `layers.transformer` | `TransformerBlock`, `LlamaTransformerBlock`, multi-head attention, `RoPEMultiHeadSelfAttention`, `LayerNorm1D`, `RMSNorm1D`, `SwiGLULayer` |
+| `layers.transformer` | `SwiGLULayer` — gated FFN used by Llama / DeepSeek style blocks |
+| `layers.transformer.attention` | `MultiHeadSelfAttention`, `RoPEMultiHeadSelfAttention`, `MultiHeadLatentAttention` (MLA) |
+| `layers.transformer.norm` | `LayerNorm1D`, `RMSNorm1D` |
+| `layers.transformer.blocks` | `GPTTransformerBlock`, `LlamaTransformerBlock`, `DeepSeekTransformerBlock` |
 | `transformer` | `TransformerBuilder`, `TransformerStack` |
 | `transformer.embeddings` | `Embedding` (token lookup), `PositionalEmbedding` (learnable), `RotaryEmbedding` (RoPE) |
 | `activations` | `ActivationFunction` interface + GELU, SiLU, ReLU, Sigmoid, Tanh, Softmax |
 | `loss` | `LossFunction` interface + MSELoss, CrossEntropyLoss |
 | `optimisers` | `ParameterOptimizer` interface, `AdamW`, `Parameter` |
 | `training` | `Trainer` loop, `Trainable`, `SupervisedTraining`, `CausalLMTraining` |
-| `models.gpt` | `GPTModel`, `GPTConfig`, `TextGenerator` |
+| `models` | `TransformerConfig` (shared config interface), `TextGenerator` |
+| `models.gpt` | `GPTModel`, `GPTConfig` |
+| `models.llama` | `LlamaModel`, `LlamaConfig` |
+| `models.deepseek` | `DeepSeekModel`, `DeepSeekConfig` |
 | `tokenizers` | `Tokenizer` interface, `ByteTokenizer`, BPE pipeline |
 | `data` | `TextDataset`, `Batch` |
 | `persistence` | `Persistable` interface, `ModelSerializer` (binary save/load) |
@@ -63,6 +69,7 @@ DeepJ is organised into focused packages:
 Trainable              — exposes parameters() + zeroGrad()
     └── Layer          — forward(Tensor) / backward(Tensor)
 Persistable            — save(Path) / load(Path) via ModelSerializer
+TransformerConfig      — shared config interface (vocabSize, dModel, nHeads, …)
 TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
 LossFunction           — loss() + gradient()
 ParameterOptimizer     — step(List<Parameter>)
@@ -377,22 +384,57 @@ trainer.train(
 
 ### Transformer stack
 
-Create a stack of decoder blocks using the builder.
+Create a stack of decoder blocks using the builder. Three architectures are
+supported via `BlockType` — default is `GPT`:
 
 ```java
-TransformerStack stack = new TransformerBuilder()
-        .dModel(128)          // model dimension
-        .nHeads(4)            // attention heads
-        .dFF(512)             // feed-forward inner dimension
-        .nLayers(4)           // number of decoder blocks
-        .ffnActivation(GELU::new) // activation inside FFN (default: GELU)
-        .seed(42)             // weight initialisation seed
+import io.github.kirstenali.deepj.transformer.TransformerBuilder.BlockType;
+
+// GPT-style (default) — LayerNorm + MHSA + GELU FFN
+TransformerStack gptStack = new TransformerBuilder()
+        .dModel(128).nHeads(4).dFF(512).nLayers(4)
+        .ffnActivation(GELU::new)  // activation inside FFN (GPT only, default: GELU)
+        .seed(42)
+        .build();
+
+// Llama-style — RMSNorm + RoPE attention + SwiGLU
+TransformerStack llamaStack = new TransformerBuilder()
+        .blockType(BlockType.LLAMA)
+        .dModel(512).nHeads(8).dFF(1408).nLayers(6)
+        .maxSeqLen(2048)     // required: RoPE table size
+        .seed(42)
+        .build();
+
+// DeepSeek-style — RMSNorm + MLA + SwiGLU (8× smaller KV cache)
+TransformerStack deepSeekStack = new TransformerBuilder()
+        .blockType(BlockType.DEEPSEEK)
+        .dModel(512).nHeads(8).dFF(1408).nLayers(6)
+        .maxSeqLen(2048)     // required: RoPE table size
+        .qRank(256)          // required: Q latent dim (e.g. dModel/2)
+        .kvRank(128)         // required: KV latent dim (e.g. dModel/4)
+        .seed(42)
         .build();
 ```
 
-Each block contains multi-head self-attention, layer norm, and an FFN.
-The stack implements `Layer`, so you can call `forward()` / `backward()`
+Each stack implements `Layer`, so you can call `forward()` / `backward()`
 and collect `parameters()` like any other layer.
+
+You can also construct individual blocks directly:
+
+```java
+// GPT-style block (LayerNorm + MHSA + configurable FFN)
+GPTTransformerBlock block = new GPTTransformerBlock(
+        512,       // dModel
+        8,         // nHeads
+        2048,      // dFF
+        GELU::new, // FFN activation
+        rnd
+);
+
+Tensor out = block.forward(x);   // [seqLen x dModel]
+Tensor dX  = block.backward(grad);
+```
+
 
 ### GPT training + generation
 
@@ -513,18 +555,20 @@ List<Parameter> params = mlp.parameters(); // all W and b from every Linear
 | Class | Description |
 |---|---|
 | `LayerNorm1D` | Layer norm over feature dimension with trainable γ/β |
-| `RMSNorm1D` | RMS norm — no mean subtraction, no β; used by Llama / Mistral / Qwen |
+| `RMSNorm1D` | RMS norm — no mean subtraction, no β; used by Llama / Mistral / Qwen / DeepSeek |
 | `MultiHeadSelfAttention` | Multi-head causal self-attention (`[seqLen × dModel]`). Extensible via template-method hooks |
 | `RoPEMultiHeadSelfAttention` | Extends `MultiHeadSelfAttention` with Rotary Positional Embedding (RoPE) |
-| `TransformerBlock` | Pre-LN GPT-style block: `x + Attn(LN(x))`, then `x + FFN(LN(x))` |
+| `MultiHeadLatentAttention` | MLA — compresses Q/K/V through low-rank bottlenecks; used by DeepSeek-V2/V3/R1 |
+| `GPTTransformerBlock` | Pre-LN GPT-style block: `x + Attn(LN(x))`, then `x + FFN(LN(x))` |
 | `LlamaTransformerBlock` | Pre-LN Llama-style block: RMSNorm + RoPE attention + SwiGLU |
-| `SwiGLULayer` | Gated feed-forward: `down(SiLU(gate(x)) · up(x))` — used by Llama / Mistral / Qwen |
+| `DeepSeekTransformerBlock` | Pre-LN DeepSeek-style block: RMSNorm + MLA + SwiGLU |
+| `SwiGLULayer` | Gated FFN: `down(SiLU(gate(x)) · up(x))` — used by Llama / Mistral / Qwen / DeepSeek |
 
 Use individually or via `TransformerBuilder`:
 
 ```java
-// Standard GPT-style block
-TransformerBlock block = new TransformerBlock(
+// GPT-style block — LayerNorm + MHSA + configurable FFN
+GPTTransformerBlock gptBlock = new GPTTransformerBlock(
         512,       // dModel
         8,         // nHeads
         2048,      // dFF
@@ -532,17 +576,28 @@ TransformerBlock block = new TransformerBlock(
         rnd
 );
 
-// Llama-style block — one line, everything wired internally
+// Llama-style block — RMSNorm + RoPE-MHSA + SwiGLU
 LlamaTransformerBlock llamaBlock = new LlamaTransformerBlock(
         512,   // dModel
         8,     // nHeads
         1408,  // dFF  (≈ 8/3 × dModel, typical Llama ratio)
-        2048,  // maxSeqLen  — RoPE table size
+        2048,  // maxSeqLen — RoPE table size
         rnd
 );
 
-Tensor out = llamaBlock.forward(x);   // [seqLen x dModel]
-Tensor dX  = llamaBlock.backward(grad);
+// DeepSeek-style block — RMSNorm + MLA + SwiGLU (8× smaller KV cache)
+DeepSeekTransformerBlock dsBlock = new DeepSeekTransformerBlock(
+        512,   // dModel
+        8,     // nHeads
+        256,   // qRank  — Q latent dimension (e.g. dModel/2)
+        128,   // kvRank — KV latent dimension (e.g. dModel/4); only cKV is cached
+        1408,  // dFF
+        2048,  // maxSeqLen — RoPE table size
+        rnd
+);
+
+Tensor out = dsBlock.forward(x);    // [seqLen x dModel]
+Tensor dX  = dsBlock.backward(grad);
 ```
 
 ### Extending `MultiHeadSelfAttention`
@@ -573,7 +628,9 @@ these two methods, inheriting all attention mechanics unchanged.
 ## 🔧 Transformer (`TransformerBuilder` / `TransformerStack`)
 
 `TransformerBuilder` assembles a `TransformerStack` — a sequential
-chain of `TransformerBlock`s that implements `Layer`.
+chain of transformer blocks that implements `Layer`. The default architecture
+is GPT-style (`BlockType.GPT`); set `.blockType()` to switch to Llama- or
+DeepSeek-style blocks.
 
 ### Builder methods
 
@@ -583,23 +640,47 @@ chain of `TransformerBlock`s that implements `Layer`.
 | `.nHeads(int)` | required | Number of attention heads (`dModel` must be divisible) |
 | `.dFF(int)` | required | Feed-forward inner dimension |
 | `.nLayers(int)` | required | Number of decoder blocks |
-| `.ffnActivation(Supplier)` | `GELU::new` | Activation inside each FFN |
+| `.blockType(BlockType)` | `BlockType.GPT` | Block architecture: `GPT`, `LLAMA`, or `DEEPSEEK` |
+| `.maxSeqLen(int)` | — | RoPE table size; **required** for `LLAMA` and `DEEPSEEK` |
+| `.qRank(int)` | — | Q latent dim for MLA; **required** for `DEEPSEEK` (e.g. `dModel/2`) |
+| `.kvRank(int)` | — | KV latent dim for MLA; **required** for `DEEPSEEK` (e.g. `dModel/4`) |
+| `.ffnActivation(Supplier)` | `GELU::new` | Activation inside each FFN (GPT only) |
 | `.seed(long)` | `42` | Weight initialisation seed |
 | `.random(Random)` | — | Provide your own `Random` (overrides seed) |
 
 ### TransformerStack
 
-`TransformerStack` is a `record` that implements `Layer`:
+`TransformerStack` is a `record` that implements `Layer`, holding a `List<Layer>` so it
+works with any of the three block types:
 
 ```java
-TransformerStack stack = new TransformerBuilder()
+// GPT-style (default)
+TransformerStack gptStack = new TransformerBuilder()
         .dModel(256).nHeads(4).dFF(1024).nLayers(6)
         .ffnActivation(GELU::new).seed(42)
         .build();
 
-Tensor out = stack.forward(x);          // [seqLen x dModel]
-Tensor dX  = stack.backward(gradOut);   // backprop through all blocks in reverse
-List<Parameter> ps = stack.parameters(); // all block parameters
+// Llama-style (RMSNorm + RoPE + SwiGLU)
+TransformerStack llamaStack = new TransformerBuilder()
+        .blockType(TransformerBuilder.BlockType.LLAMA)
+        .dModel(512).nHeads(8).dFF(1408).nLayers(6)
+        .maxSeqLen(2048)    // required: RoPE table size
+        .seed(42)
+        .build();
+
+// DeepSeek-style (RMSNorm + MLA + SwiGLU)
+TransformerStack deepSeekStack = new TransformerBuilder()
+        .blockType(TransformerBuilder.BlockType.DEEPSEEK)
+        .dModel(512).nHeads(8).dFF(1408).nLayers(6)
+        .maxSeqLen(2048)    // required: RoPE table size
+        .qRank(256)         // required: Q latent dim (e.g. dModel/2)
+        .kvRank(128)        // required: KV latent dim (e.g. dModel/4)
+        .seed(42)
+        .build();
+
+Tensor out = gptStack.forward(x);          // [seqLen x dModel]
+Tensor dX  = gptStack.backward(gradOut);   // backprop through all blocks in reverse
+List<Parameter> ps = gptStack.parameters(); // all block parameters
 ```
 
 The stack is used internally by `GPTModel` and can also be used
@@ -657,30 +738,149 @@ List<Parameter> params = model.parameters(); // all trainable weights
 ```
 inputIds
   → token embedding + positional embedding
-  → TransformerStack (nLayers × TransformerBlock)
+  → TransformerStack (nLayers × GPTTransformerBlock)
   → LayerNorm
   → Linear head → logits [seqLen × vocabSize]
 ```
 
 ### TextGenerator
 
-Autoregressive sampling from a trained `GPTModel`:
+Autoregressive sampling — works with `GPTModel`, `LlamaModel`, `DeepSeekModel`, or
+any `Function<int[], Tensor>` forwarder:
 
 ```java
-String out = TextGenerator.generate(
-        model,    // trained GPTModel
-        tok,      // Tokenizer
-        cfg,      // GPTConfig
-        "Hello",  // prompt
-        200,      // maxNewTokens   – generate up to 200 tokens after the prompt
-        0.8,      // temperature    – low = more deterministic, high = more random
-        20,       // topK           – sample from the 20 most likely tokens (0 = full vocab)
-        42L       // seed           – for reproducible sampling
-);
+// GPT
+String out = TextGenerator.generate(gptModel, tok, gptCfg, "Hello", 200, 0.8, 20, 42L);
+
+// Llama
+String out = TextGenerator.generate(llamaModel, tok, llamaCfg, "Hello", 200, 0.8, 20, 42L);
+
+// DeepSeek
+String out = TextGenerator.generate(deepSeekModel, tok, deepSeekCfg, "Hello", 200, 0.8, 20, 42L);
+
+// Generic — any model that maps int[] → [seqLen × vocabSize]
+String out = TextGenerator.generate(model::forward, cfg, tok, "Hello", 200, 0.8, 20, 42L);
 ```
 
 Internally it runs an autoregressive loop: encode prompt → forward →
 sample from top-k logits with temperature → append token → repeat.
+
+---
+
+### LlamaModel
+
+Llama-style decoder-only transformer. Differences from GPT: no positional
+embedding (RoPE handles position inside each attention block), `RMSNorm1D`
+for the final norm, and `LlamaTransformerBlock` (RMSNorm + RoPE-Attn + SwiGLU)
+instead of the classic GPT block.
+
+```java
+LlamaConfig cfg = new LlamaConfig(
+        vocabSize,
+        maxSeqLen,
+        dModel,
+        nHeads,
+        nLayers,
+        LlamaConfig.defaultDFF(dModel)  // ≈ 8/3 × dModel, rounded to multiple of 64
+);
+
+LlamaModel model = new LlamaModel(cfg, 42L);
+```
+
+#### LlamaConfig
+
+| Field | Default | Description |
+|---|---|---|
+| `vocabSize` | required | Token vocabulary size |
+| `maxSeqLen` | required | Maximum sequence length (RoPE table size) |
+| `dModel` | required | Embedding / model dimension |
+| `nHeads` | required | Attention heads (`dModel % nHeads == 0`) |
+| `nLayers` | required | Number of transformer blocks |
+| `dFF` | required | SwiGLU intermediate dimension |
+| `gradClipNorm` | `1.0` | Global gradient clipping threshold |
+
+`LlamaConfig.defaultDFF(dModel)` computes the standard Llama ratio
+(`round(8/3 × dModel)` rounded to the nearest multiple of 64).
+
+#### Architecture
+
+```
+inputIds
+  → token embedding                        (no positional embedding — RoPE handles position)
+  → nLayers × LlamaTransformerBlock
+      x = x + RoPE-Attn( RMSNorm(x) )
+      x = x + SwiGLU(    RMSNorm(x) )
+  → RMSNorm
+  → Linear head → logits [seqLen × vocabSize]
+```
+
+---
+
+### DeepSeekModel
+
+DeepSeek-style decoder-only transformer. The key difference from Llama is
+**Multi-Head Latent Attention (MLA)**: Q and K/V are first compressed through
+low-rank bottlenecks before attention is computed, dramatically reducing the
+KV-cache footprint during inference.
+
+```java
+DeepSeekConfig cfg = new DeepSeekConfig(
+        vocabSize,
+        maxSeqLen,
+        dModel,
+        nHeads,
+        nLayers,
+        dFF,
+        dModel / 2,   // qRank  — Q latent dimension
+        dModel / 4    // kvRank — KV latent dimension (controls KV-cache size)
+);
+
+DeepSeekModel model = new DeepSeekModel(cfg, 42L);
+```
+
+#### DeepSeekConfig
+
+| Field | Default | Description |
+|---|---|---|
+| `vocabSize` | required | Token vocabulary size |
+| `maxSeqLen` | required | Maximum sequence length |
+| `dModel` | required | Embedding / model dimension |
+| `nHeads` | required | Attention heads |
+| `nLayers` | required | Number of transformer blocks |
+| `dFF` | required | SwiGLU intermediate dimension |
+| `qRank` | required | Q latent dimension (e.g. `dModel/2`) |
+| `kvRank` | required | KV latent dimension (e.g. `dModel/4`) — only `cKV` is cached during inference |
+| `gradClipNorm` | `1.0` | Global gradient clipping threshold |
+
+#### MLA — how it works
+
+Standard MHA projects Q, K, V directly from `x` (shape `dModel × dModel` each).
+MLA uses low-rank compression instead:
+
+```
+cQ  = x · Wdq     [seqLen × qRank]    Q  compression
+Q   = cQ · Wuq    [seqLen × dModel]   Q  expansion  → RoPE → split heads
+
+cKV = x · Wdkv    [seqLen × kvRank]   shared KV compression
+K   = cKV · Wuk   [seqLen × dModel]   K  expansion  → RoPE → split heads
+V   = cKV · Wuv   [seqLen × dModel]   V  expansion  → split heads
+```
+
+During inference only `cKV` (`seqLen × kvRank`) needs to be cached per layer —
+not the full K and V tensors. With `kvRank = dModel/4` that is a 8× KV-cache
+reduction vs standard MHA.
+
+#### Architecture
+
+```
+inputIds
+  → token embedding
+  → nLayers × DeepSeekTransformerBlock
+      x = x + MLA(    RMSNorm(x) )
+      x = x + SwiGLU( RMSNorm(x) )
+  → RMSNorm
+  → Linear head → logits [seqLen × vocabSize]
+```
 
 ---
 

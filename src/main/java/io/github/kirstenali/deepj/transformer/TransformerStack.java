@@ -2,20 +2,21 @@ package io.github.kirstenali.deepj.transformer;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
-import io.github.kirstenali.deepj.layers.transformer.TransformerBlock;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A simple sequential stack of {@link TransformerBlock}s.
+ * A sequential stack of transformer blocks.
  *
- * <p>This exists to make transformer composition explicit (instead of reusing a generic Sequential).
+ * <p>Each block must implement {@link Layer} — forward, backward, and parameters.
+ * Supports {@link TransformerBuilder.BlockType#GPT GPT}, {@link TransformerBuilder.BlockType#LLAMA LLAMA},
+ * and {@link TransformerBuilder.BlockType#DEEPSEEK DEEPSEEK} blocks, or any custom {@link Layer}.
  */
-public record TransformerStack(List<TransformerBlock> blocks) implements Layer {
+public record TransformerStack(List<Layer> blocks) implements Layer {
 
-    public TransformerStack(List<TransformerBlock> blocks) {
+    public TransformerStack(List<Layer> blocks) {
         if (blocks == null) throw new IllegalArgumentException("blocks must not be null");
         if (blocks.isEmpty()) throw new IllegalArgumentException("blocks must be non-empty");
         this.blocks = List.copyOf(blocks);
@@ -24,7 +25,7 @@ public record TransformerStack(List<TransformerBlock> blocks) implements Layer {
     @Override
     public Tensor forward(Tensor x) {
         Tensor h = x;
-        for (TransformerBlock b : blocks) {
+        for (Layer b : blocks) {
             h = b.forward(h);
         }
         return h;
@@ -42,7 +43,7 @@ public record TransformerStack(List<TransformerBlock> blocks) implements Layer {
     @Override
     public List<Parameter> parameters() {
         List<Parameter> ps = new ArrayList<>();
-        for (TransformerBlock b : blocks) ps.addAll(b.parameters());
+        for (Layer b : blocks) ps.addAll(b.parameters());
         return ps;
     }
 }

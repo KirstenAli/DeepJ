@@ -1,0 +1,65 @@
+package io.github.kirstenali.deepj.layers.transformer.blocks;
+
+import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.transformer.attention.RoPEMultiHeadSelfAttention;
+import io.github.kirstenali.deepj.layers.transformer.SwiGLULayer;
+import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
+import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
+
+import java.util.Random;
+
+/**
+ * Pre-LN Transformer block wired for Llama / Mistral / Qwen / DeepSeek style:
+ * <pre>
+ *   x = x + RoPE-Attn( RMSNorm(x) )
+ *   x = x + SwiGLU(    RMSNorm(x) )
+ * </pre>
+ *
+ * <p>Composes {@link RMSNorm1D}, {@link RoPEMultiHeadSelfAttention}, and
+ * {@link SwiGLULayer}.
+ */
+public final class LlamaTransformerBlock extends AbstractTransformerBlock {
+
+    private final RMSNorm1D ln1;
+    private final RMSNorm1D ln2;
+    private final RoPEMultiHeadSelfAttention attn;
+    private final SwiGLULayer mlp;
+
+    /**
+     * @param dModel     model dimension
+     * @param nHeads     attention heads (must divide dModel)
+     * @param dFF        SwiGLU intermediate dimension (typically ≈ 8/3 × dModel)
+     * @param maxSeqLen  maximum sequence length for the RoPE table
+     * @param rnd        random source for weight initialisation
+     */
+    public LlamaTransformerBlock(int dModel, int nHeads, int dFF, int maxSeqLen, Random rnd) {
+        RotaryEmbedding rope = new RotaryEmbedding(dModel / nHeads, maxSeqLen);
+        this.ln1  = new RMSNorm1D(dModel);
+        this.ln2  = new RMSNorm1D(dModel);
+        this.attn = new RoPEMultiHeadSelfAttention(dModel, nHeads, true, rope, rnd);
+        this.mlp  = new SwiGLULayer(dModel, dFF, rnd);
+    }
+
+    @Override
+    protected Layer[] subLayers() {
+        return new Layer[]{ ln1, ln2, attn, mlp };
+    }
+
+    @Override
+    public Tensor forward(Tensor x) {
+        Tensor x2 = x.add(attn.forward(ln1.forward(x)));
+        return x2.add(mlp.forward(ln2.forward(x2)));
+    }
+
+    @Override
+    public Tensor backward(Tensor gradOut) {
+        // residual add2: y = x2 + mlp(ln2(x2))
+        Tensor gMlp = mlp.backward(gradOut);
+        Tensor gX2  = gradOut.add(ln2.backward(gMlp));
+
+        // residual add1: x2 = x + attn(ln1(x))
+        Tensor gAttn = attn.backward(gX2);
+        return gX2.add(ln1.backward(gAttn));
+    }
+}

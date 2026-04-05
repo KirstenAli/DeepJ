@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.TestSupport;
-import io.github.kirstenali.deepj.layers.transformer.LlamaTransformerBlock;
-import io.github.kirstenali.deepj.layers.transformer.RoPEMultiHeadSelfAttention;
+import io.github.kirstenali.deepj.layers.transformer.blocks.LlamaTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.attention.RoPEMultiHeadSelfAttention;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for {@link RotaryEmbedding} and its integration with
- * {@link MultiHeadSelfAttention} and {@link TransformerBlock}.
+ * {@link MultiHeadSelfAttention} and {@link GPTTransformerBlock}.
  *
  * <p>Covers:
  * <ul>
@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>Position 0 leaves vector unchanged (cos=1, sin=0)</li>
  *   <li>MHSA with RoPE: forward/backward shape contracts</li>
  *   <li>MHSA with RoPE: gradients are non-zero</li>
- *   <li>Llama-style TransformerBlock (RMSNorm + RoPE MHSA + SwiGLU): shape + learning</li>
+ *   <li>Llama-style GPTTransformerBlock (RMSNorm + RoPE MHSA + SwiGLU): shape + learning</li>
  *   <li>Guards: odd headDim throws, seqLen overflow throws</li>
  * </ul>
  */
