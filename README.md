@@ -4,8 +4,8 @@
 
 # DeepJ
 
-A lightweight Java library for building and experimenting with
-**Transformer-based neural networks**.
+A lightweight Java library for building, training, and experimenting with
+**GPT-based models in pure Java**.
 
 DeepJ focuses on:
 
@@ -34,7 +34,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.4.4-alpha</version>
+        <version>0.4.5-alpha</version>
     </dependency>
 </dependencies>
 ```
