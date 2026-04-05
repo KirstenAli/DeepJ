@@ -4,15 +4,7 @@
 
 # DeepJ
 
-A lightweight Java library for building, training, and experimenting with
-**GPT-based models in pure Java**.
-
-DeepJ focuses on:
-
--   simple APIs
--   minimal dependencies
--   easy experimentation
--   clean Java implementations of modern architectures
+A lightweight, pure-Java GPT library — build, train, and experiment with Transformer models, zero dependencies.
 
 📚 **Javadoc:** https://kirstenali.github.io/DeepJ/
 
