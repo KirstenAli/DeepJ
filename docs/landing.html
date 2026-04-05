@@ -443,42 +443,42 @@
       <div class="card">
         <div class="card-icon icon-green">🧱</div>
         <h3>Layer Primitives</h3>
-        <p>Linear, FNN (MLP), LayerNorm, Multi-Head Self-Attention, TransformerBlock — all with forward &amp; backward.</p>
+        <p>Linear, FNN, LayerNorm, RMSNorm, SwiGLU, Multi-Head Self-Attention — all with full forward &amp; backward.</p>
       </div>
       <div class="card">
-        <div class="card-icon icon-amber">🤖</div>
+        <div class="card-icon icon-amber">🦙</div>
+        <h3>Modern Architectures</h3>
+        <p>RoPE, RMSNorm, SwiGLU, and a ready-made <code>LlamaTransformerBlock</code> — the same primitives used by Llama, Mistral, and Qwen.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon icon-blue">🤖</div>
         <h3>GPT Model</h3>
         <p>Decoder-only GPT with token &amp; positional embeddings, configurable depth, and autoregressive text generation.</p>
       </div>
       <div class="card">
-        <div class="card-icon icon-blue">⚡</div>
+        <div class="card-icon icon-green">⚡</div>
         <h3>Metal GPU Backend</h3>
         <p>Lazy, GPU-resident execution on Apple Silicon. Ops record into a command stream and flush in one batch — up to 36× faster than multithreaded CPU.</p>
       </div>
       <div class="card">
-        <div class="card-icon icon-green">🏋️</div>
+        <div class="card-icon icon-amber">🏋️</div>
         <h3>Training Loop</h3>
         <p>Pluggable Trainer with EMA loss, early stopping, checkpointing hooks. Factories for supervised and causal LM training.</p>
       </div>
       <div class="card">
-        <div class="card-icon icon-amber">🔤</div>
+        <div class="card-icon icon-blue">🔤</div>
         <h3>Tokenizers</h3>
         <p>ByteTokenizer for quick experiments, full BPE pipeline for subword tokenization. Both implement the Tokenizer interface.</p>
       </div>
       <div class="card">
-        <div class="card-icon icon-blue">🧮</div>
+        <div class="card-icon icon-green">🧮</div>
         <h3>AdamW Optimizer</h3>
         <p>Per-parameter state, bias correction, weight decay. Works with any model exposing <code>parameters()</code>.</p>
       </div>
       <div class="card">
-        <div class="card-icon icon-green">💾</div>
+        <div class="card-icon icon-amber">💾</div>
         <h3>Binary Persistence</h3>
         <p>Save &amp; load model weights as compact binary files. No external format dependencies.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-amber">💬</div>
-        <h3>Chat UI</h3>
-        <p>Optional JavaFX chat interface. Load a trained model, type a prompt, and generate text — model-agnostic via ChatService.</p>
       </div>
     </div>
   </div>
@@ -499,10 +499,10 @@
         <tr><td><code>tensor.metal</code></td><td><code>MetalBackend</code> — Apple Silicon GPU via Metal JNI</td></tr>
         <tr><td><code>concurrent</code></td><td><code>DeepJExecutor</code> — thread-pool for CPU parallelism</td></tr>
         <tr><td><code>layers</code></td><td><code>Layer</code> interface, <code>Linear</code> projection, <code>FNN</code> (MLP)</td></tr>
-        <tr><td><code>layers.transformer</code></td><td><code>TransformerBlock</code>, multi-head attention, layer norm</td></tr>
+        <tr><td><code>layers.transformer</code></td><td><code>TransformerBlock</code>, <code>LlamaTransformerBlock</code>, <code>MultiHeadSelfAttention</code>, <code>RoPEMultiHeadSelfAttention</code>, <code>LayerNorm1D</code>, <code>RMSNorm1D</code>, <code>SwiGLULayer</code></td></tr>
         <tr><td><code>transformer</code></td><td><code>TransformerBuilder</code>, <code>TransformerStack</code></td></tr>
-        <tr><td><code>transformer.embeddings</code></td><td><code>Embedding</code> (token lookup), <code>PositionalEmbedding</code></td></tr>
-        <tr><td><code>activations</code></td><td>GELU, ReLU, Sigmoid, Tanh, Softmax</td></tr>
+        <tr><td><code>transformer.embeddings</code></td><td><code>Embedding</code> (token lookup), <code>PositionalEmbedding</code> (learnable), <code>RotaryEmbedding</code> (RoPE)</td></tr>
+        <tr><td><code>activations</code></td><td>GELU, SiLU, ReLU, Sigmoid, Tanh, Softmax</td></tr>
         <tr><td><code>loss</code></td><td>MSELoss, CrossEntropyLoss</td></tr>
         <tr><td><code>optimisers</code></td><td>AdamW, <code>Parameter</code></td></tr>
         <tr><td><code>training</code></td><td><code>Trainer</code>, <code>SupervisedTraining</code>, <code>CausalLMTraining</code></td></tr>
@@ -517,6 +517,12 @@
     <h3>Key Interfaces</h3>
     <div class="diagram">Trainable              — exposes parameters() + zeroGrad()
     └── Layer          — forward(Tensor) / backward(Tensor)
+            ├── TransformerBlock          (GPT-style: LayerNorm + MHSA + GELU FFN)
+            │       └── LlamaTransformerBlock  (RMSNorm + RoPE-MHSA + SwiGLU)
+            ├── MultiHeadSelfAttention    (base — template-method hooks)
+            │       └── RoPEMultiHeadSelfAttention
+            ├── LayerNorm1D  /  RMSNorm1D
+            └── SwiGLULayer  (gate · up · down projections)
 Persistable            — save(Path) / load(Path) via ModelSerializer
 TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
 LossFunction           — loss() + gradient()
@@ -643,6 +649,29 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
         .<span class="fn">ffnActivation</span>(<span class="typ">GELU</span>::<span class="fn">new</span>)
         .<span class="fn">seed</span>(<span class="num">42</span>)
         .<span class="fn">build</span>();</code></pre>
+
+    <h3 style="margin-top: 40px;">Llama-style Block (RoPE + RMSNorm + SwiGLU)</h3>
+    <pre><code><span class="cmt">// One line — RMSNorm, RoPE attention, and SwiGLU wired together</span>
+<span class="typ">LlamaTransformerBlock</span> block = <span class="kw">new</span> <span class="typ">LlamaTransformerBlock</span>(
+        <span class="num">512</span>,   <span class="cmt">// dModel</span>
+        <span class="num">8</span>,     <span class="cmt">// nHeads</span>
+        <span class="num">1408</span>,  <span class="cmt">// dFF  (≈ 8/3 × dModel)</span>
+        <span class="num">2048</span>,  <span class="cmt">// maxSeqLen — RoPE table size</span>
+        rnd
+);
+
+<span class="typ">Tensor</span> out = block.<span class="fn">forward</span>(x);    <span class="cmt">// [seqLen × dModel]</span>
+<span class="typ">Tensor</span> dX  = block.<span class="fn">backward</span>(grad);
+
+<span class="cmt">// Extending attention — override two hooks, inherit everything else</span>
+<span class="kw">public class</span> <span class="typ">MyAttention</span> <span class="kw">extends</span> <span class="typ">MultiHeadSelfAttention</span> {
+    <span class="kw">protected</span> <span class="typ">Tensor</span> <span class="fn">transformQueryKey</span>(<span class="typ">Tensor</span> heads, <span class="kw">int</span> seqLen) {
+        <span class="kw">return</span> myTransform(heads, seqLen, nHeads);
+    }
+    <span class="kw">protected</span> <span class="typ">Tensor</span> <span class="fn">transformQueryKeyBackward</span>(<span class="typ">Tensor</span> grad, <span class="kw">int</span> seqLen) {
+        <span class="kw">return</span> myInverse(grad, seqLen, nHeads);
+    }
+}</code></pre>
   </div>
 </section>
 

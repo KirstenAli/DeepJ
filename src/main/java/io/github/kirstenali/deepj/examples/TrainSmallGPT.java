@@ -29,16 +29,16 @@ public final class TrainSmallGPT {
         Path corpus = Path.of("sample_data/llm_training_dataset_1227_examples.txt");
 
         Tokenizer tok = new ByteTokenizer();
-        TextDataset ds = TextDataset.fromFile(corpus, tok, 512, 123);
+        TextDataset ds = TextDataset.fromFile(corpus, tok, 256, 123);
 
         // ── Model ─────────────────────────────────────────────────────────────
         GPTConfig cfg = new GPTConfig(
                 tok.vocabSize(),
-                512,  // maxSeqLen
-                1025,  // dModel
-                5,    // nHeads
-                7,    // nLayers
-                1025  // dFF
+                256,  // maxSeqLen
+                512,  // dModel
+                4,    // nHeads
+                5,    // nLayers
+                1024  // dFF
         );
 
         GPTModel model = new GPTModel(cfg, 42);
