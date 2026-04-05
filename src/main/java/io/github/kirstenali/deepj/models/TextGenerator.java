@@ -1,25 +1,64 @@
-package io.github.kirstenali.deepj.models.gpt;
+package io.github.kirstenali.deepj.models;
 
+import io.github.kirstenali.deepj.models.gpt.GPTConfig;
+import io.github.kirstenali.deepj.models.gpt.GPTModel;
+import io.github.kirstenali.deepj.models.llama.LlamaModel;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.util.Arrays;
 import java.util.Random;
+import java.util.function.Function;
 
 /**
- * Simple autoregressive text generation for {@link GPTModel}.
- * Byte-level tokens, temperature sampling, and optional top-k sampling.
+ * Autoregressive text generation for any decoder-only transformer model.
+ * Supports temperature sampling and optional top-k filtering.
  */
 public final class TextGenerator {
 
     private TextGenerator() {}
 
-    // ── Public API ─────────────────────────────────────────────────
+    // ── Model-specific convenience overloads ───────────────────────
 
     public static String generate(
-            GPTModel model,
+            GPTModel model, Tokenizer tok, GPTConfig cfg,
+            String prompt, int maxNewTokens, double temperature, int topK, long seed
+    ) {
+        return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
+    }
+
+    public static String generate(
+            LlamaModel model, Tokenizer tok, TransformerConfig cfg,
+            String prompt, int maxNewTokens, double temperature, int topK, long seed
+    ) {
+        return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
+    }
+
+    // ── Generic core ───────────────────────────────────────────────
+
+    /**
+     * Generate text using any model that maps {@code int[] ids → [seqLen × vocabSize]} logits.
+     */
+    public static String generate(
+            Function<int[], Tensor> forwarder,
+            TransformerConfig cfg,
             Tokenizer tok,
-            GPTConfig cfg,
+            String prompt,
+            int maxNewTokens,
+            double temperature,
+            int topK,
+            long seed
+    ) {
+        return generate(forwarder, cfg.maxSeqLen(), tok, prompt, maxNewTokens, temperature, topK, seed);
+    }
+
+    /**
+     * Generate text with an explicit {@code maxSeqLen} — useful when no config is available.
+     */
+    public static String generate(
+            Function<int[], Tensor> forwarder,
+            int maxSeqLen,
+            Tokenizer tok,
             String prompt,
             int maxNewTokens,
             double temperature,
@@ -32,7 +71,7 @@ public final class TextGenerator {
         int[] ids = tok.encode(prompt).clone();
 
         for (int i = 0; i < maxNewTokens; i++) {
-            int next = nextToken(model, cfg, ids, temperature, topK, rnd);
+            int next = nextToken(forwarder, maxSeqLen, ids, temperature, topK, rnd);
             ids = append(ids, next);
         }
 
@@ -41,38 +80,33 @@ public final class TextGenerator {
 
     // ── Autoregressive step ────────────────────────────────────────
 
-    /** Run one forward pass and sample the next token from the last position's logits. */
-    private static int nextToken(GPTModel model, GPTConfig cfg, int[] ids,
+    private static int nextToken(Function<int[], Tensor> forwarder, int maxSeqLen, int[] ids,
                                  double temperature, int topK, Random rnd) {
-        int[] context = last(ids, cfg.maxSeqLen());
-        Tensor logits = model.forward(context);                    // [seqLen x vocab]
+        int[] context = last(ids, maxSeqLen);
+        Tensor logits = forwarder.apply(context);
         double[] lastLogits = Tensor.flattenTensor(logits.getRow(logits.rows - 1));
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
     }
 
     // ── Sampling ───────────────────────────────────────────────────
 
-    /** Apply temperature, top-k filtering, and softmax, then draw one token. */
     private static int sampleFromLogits(double[] logits, double temperature, int topK, Random rnd) {
         int[] topIndices = topKIndices(logits, topK);
         double[] probs = stableSoftmax(logits, topIndices, temperature);
         return categoricalSample(topIndices, probs, rnd);
     }
 
-    /** Return the indices of the top-k logits in descending order (all indices if topK == 0). */
     private static int[] topKIndices(double[] logits, int topK) {
         int[] order = argsortDescending(logits);
         int k = (topK == 0) ? logits.length : Math.min(topK, logits.length);
         return Arrays.copyOf(order, k);
     }
 
-    /** Compute a numerically-stable softmax over the selected indices with temperature scaling. */
     private static double[] stableSoftmax(double[] logits, int[] indices, double temperature) {
         double max = findMaxScaledLogit(logits, indices, temperature);
         return computeProbs(logits, indices, temperature, max);
     }
 
-    /** Find the maximum temperature-scaled logit among the selected indices. */
     private static double findMaxScaledLogit(double[] logits, int[] indices, double temperature) {
         double max = Double.NEGATIVE_INFINITY;
         for (int idx : indices) {
@@ -82,7 +116,6 @@ public final class TextGenerator {
         return max;
     }
 
-    /** Exponentiate, accumulate sum, and normalize in two passes (same as original). */
     private static double[] computeProbs(double[] logits, int[] indices,
                                          double temperature, double max) {
         double[] probs = new double[indices.length];
@@ -96,8 +129,6 @@ public final class TextGenerator {
         return probs;
     }
 
-
-    /** Draw one index from a categorical distribution defined by probs. */
     private static int categoricalSample(int[] indices, double[] probs, Random rnd) {
         double r = rnd.nextDouble();
         double cum = 0.0;
@@ -113,7 +144,7 @@ public final class TextGenerator {
     private static void validateArgs(int maxNewTokens, double temperature, int topK) {
         if (maxNewTokens < 0) throw new IllegalArgumentException("maxNewTokens must be >= 0");
         if (temperature <= 0) throw new IllegalArgumentException("temperature must be > 0");
-        if (topK < 0) throw new IllegalArgumentException("topK must be >= 0");
+        if (topK < 0)         throw new IllegalArgumentException("topK must be >= 0");
     }
 
     // ── Array utilities ────────────────────────────────────────────
@@ -138,3 +169,4 @@ public final class TextGenerator {
         return out;
     }
 }
+

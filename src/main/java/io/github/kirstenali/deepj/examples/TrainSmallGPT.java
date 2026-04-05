@@ -3,7 +3,7 @@ package io.github.kirstenali.deepj.examples;
 import io.github.kirstenali.deepj.models.gpt.GPTConfig;
 import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.data.TextDataset;
-import io.github.kirstenali.deepj.models.gpt.TextGenerator;
+import io.github.kirstenali.deepj.models.TextGenerator;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
