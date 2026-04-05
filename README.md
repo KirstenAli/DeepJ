@@ -26,7 +26,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`.
     <dependency>
         <groupId>io.github.kirstenali</groupId>
         <artifactId>deepj</artifactId>
-        <version>0.4.5-alpha</version>
+        <version>0.4.6-alpha</version>
     </dependency>
 </dependencies>
 ```
@@ -44,10 +44,10 @@ DeepJ is organised into focused packages:
 | `tensor.metal` | `MetalBackend` — Apple Silicon GPU via Metal JNI |
 | `concurrent` | `DeepJExecutor` — thread-pool for CPU parallelism |
 | `layers` | `Layer` interface, `Linear` projection, `FNN` (MLP) |
-| `layers.transformer` | `TransformerBlock`, multi-head attention, layer norm |
+| `layers.transformer` | `TransformerBlock`, `LlamaTransformerBlock`, multi-head attention, `RoPEMultiHeadSelfAttention`, `LayerNorm1D`, `RMSNorm1D`, `SwiGLULayer` |
 | `transformer` | `TransformerBuilder`, `TransformerStack` |
-| `transformer.embeddings` | `Embedding` (token lookup), `PositionalEmbedding` (learnable) |
-| `activations` | `ActivationFunction` interface + GELU, ReLU, Sigmoid, Tanh, Softmax |
+| `transformer.embeddings` | `Embedding` (token lookup), `PositionalEmbedding` (learnable), `RotaryEmbedding` (RoPE) |
+| `activations` | `ActivationFunction` interface + GELU, SiLU, ReLU, Sigmoid, Tanh, Softmax |
 | `loss` | `LossFunction` interface + MSELoss, CrossEntropyLoss |
 | `optimisers` | `ParameterOptimizer` interface, `AdamW`, `Parameter` |
 | `training` | `Trainer` loop, `Trainable`, `SupervisedTraining`, `CausalLMTraining` |
@@ -513,13 +513,17 @@ List<Parameter> params = mlp.parameters(); // all W and b from every Linear
 | Class | Description |
 |---|---|
 | `LayerNorm1D` | Layer norm over feature dimension with trainable γ/β |
-| `MultiHeadSelfAttention` | Multi-head causal self-attention (`[seqLen × dModel]`) |
-| `TransformerBlock` | Pre-LN decoder block: `x + Attn(LN(x))`, then `x + FFN(LN(x))` |
+| `RMSNorm1D` | RMS norm — no mean subtraction, no β; used by Llama / Mistral / Qwen |
+| `MultiHeadSelfAttention` | Multi-head causal self-attention (`[seqLen × dModel]`). Extensible via template-method hooks |
+| `RoPEMultiHeadSelfAttention` | Extends `MultiHeadSelfAttention` with Rotary Positional Embedding (RoPE) |
+| `TransformerBlock` | Pre-LN GPT-style block: `x + Attn(LN(x))`, then `x + FFN(LN(x))` |
+| `LlamaTransformerBlock` | Pre-LN Llama-style block: RMSNorm + RoPE attention + SwiGLU |
+| `SwiGLULayer` | Gated feed-forward: `down(SiLU(gate(x)) · up(x))` — used by Llama / Mistral / Qwen |
 
 Use individually or via `TransformerBuilder`:
 
 ```java
-// Individual block
+// Standard GPT-style block
 TransformerBlock block = new TransformerBlock(
         512,       // dModel
         8,         // nHeads
@@ -528,30 +532,41 @@ TransformerBlock block = new TransformerBlock(
         rnd
 );
 
-Tensor out = block.forward(x);   // [seqLen x dModel]
-Tensor dX = block.backward(grad);
+// Llama-style block — one line, everything wired internally
+LlamaTransformerBlock llamaBlock = new LlamaTransformerBlock(
+        512,   // dModel
+        8,     // nHeads
+        1408,  // dFF  (≈ 8/3 × dModel, typical Llama ratio)
+        2048,  // maxSeqLen  — RoPE table size
+        rnd
+);
 
-// Or stack via builder
-TransformerStack stack = new TransformerBuilder()
-        .dModel(512).nHeads(8).dFF(2048).nLayers(6)
-        .ffnActivation(GELU::new).seed(42)
-        .build();
+Tensor out = llamaBlock.forward(x);   // [seqLen x dModel]
+Tensor dX  = llamaBlock.backward(grad);
 ```
 
-### Custom layers
+### Extending `MultiHeadSelfAttention`
 
-Implement `Layer` to create your own:
+`MultiHeadSelfAttention` is open for extension via two protected template-method
+hooks. Override them to apply any Q/K transform without touching the base class:
 
 ```java
-public class MyLayer implements Layer {
-    @Override public Tensor forward(Tensor input)      { /* ... */ }
-    @Override public Tensor backward(Tensor gradOutput) { /* ... */ }
-    @Override public List<Parameter> parameters()       { return List.of(); }
+public class MyAttention extends MultiHeadSelfAttention {
+
+    @Override
+    protected Tensor transformQueryKey(Tensor heads, int seqLen) {
+        return myTransform(heads, seqLen, nHeads); // forward transform
+    }
+
+    @Override
+    protected Tensor transformQueryKeyBackward(Tensor gradHeads, int seqLen) {
+        return myInverseTransform(gradHeads, seqLen, nHeads); // inverse
+    }
 }
 ```
 
-Any `Layer` works with `SupervisedTraining`, `AdamW`, and `ModelSerializer`
-out of the box.
+`RoPEMultiHeadSelfAttention` is the built-in example — it overrides only
+these two methods, inheriting all attention mechanics unchanged.
 
 ---
 
