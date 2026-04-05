@@ -89,15 +89,7 @@ public final class BPETrainer {
     }
 
     static List<Integer> toTokenIds(String piece, int endOfWordId) {
-        byte[] bytes = BPEBytes.utf8(piece);
-        List<Integer> word = new ArrayList<>(bytes.length + 1);
-
-        for (byte b : bytes) {
-            word.add(b & 0xFF);
-        }
-
-        word.add(endOfWordId);
-        return word;
+        return BPEBytes.toTokenIds(piece, endOfWordId);
     }
 
     private TokenPair findBestPair(List<List<Integer>> words, VocabularyState vocab) {
@@ -188,27 +180,9 @@ public final class BPETrainer {
 
     private void applyMerge(List<List<Integer>> words, TokenPair pair, int newId) {
         for (List<Integer> word : words) {
-            replacePairInWord(word, pair, newId);
+            List<Integer> merged = BPEBytes.mergePair(word, pair, newId);
+            word.clear();
+            word.addAll(merged);
         }
-    }
-
-    private void replacePairInWord(List<Integer> word, TokenPair pair, int newId) {
-        List<Integer> merged = new ArrayList<>(word.size());
-        int i = 0;
-
-        while (i < word.size()) {
-            if (i < word.size() - 1
-                    && word.get(i) == pair.left()
-                    && word.get(i + 1) == pair.right()) {
-                merged.add(newId);
-                i += 2;
-            } else {
-                merged.add(word.get(i));
-                i++;
-            }
-        }
-
-        word.clear();
-        word.addAll(merged);
     }
 }
