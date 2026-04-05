@@ -52,4 +52,35 @@ final class BPEBytes {
 
         return out;
     }
+
+    static List<Integer> mergePair(List<Integer> tokens, TokenPair pair, int newId) {
+        List<Integer> out = new ArrayList<>(tokens.size());
+        int i = 0;
+
+        while (i < tokens.size()) {
+            if (i < tokens.size() - 1
+                    && tokens.get(i) == pair.left()
+                    && tokens.get(i + 1) == pair.right()) {
+                out.add(newId);
+                i += 2;
+            } else {
+                out.add(tokens.get(i));
+                i++;
+            }
+        }
+
+        return out;
+    }
+
+    static List<Integer> toTokenIds(String piece, int endOfWordId) {
+        byte[] bytes = utf8(piece);
+        List<Integer> word = new ArrayList<>(bytes.length + 1);
+
+        for (byte b : bytes) {
+            word.add(b & 0xFF);
+        }
+
+        word.add(endOfWordId);
+        return word;
+    }
 }

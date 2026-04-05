@@ -46,11 +46,11 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
     }
 
     private List<Integer> encodePiece(String piece) {
-        List<Integer> tokens = BPETrainer.toTokenIds(piece, model.endOfWordId());
+        List<Integer> tokens = BPEBytes.toTokenIds(piece, model.endOfWordId());
 
         for (TokenPair merge : model.merges()) {
             int mergedId = model.mergeToNewId().get(merge);
-            tokens = applyMerge(tokens, merge, mergedId);
+            tokens = BPEBytes.mergePair(tokens, merge, mergedId);
         }
 
         if (!tokens.isEmpty() && tokens.get(tokens.size() - 1) == model.endOfWordId()) {
@@ -60,22 +60,4 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
         return tokens;
     }
 
-    private List<Integer> applyMerge(List<Integer> input, TokenPair pair, int newId) {
-        List<Integer> out = new ArrayList<>(input.size());
-        int i = 0;
-
-        while (i < input.size()) {
-            if (i < input.size() - 1
-                    && input.get(i) == pair.left()
-                    && input.get(i + 1) == pair.right()) {
-                out.add(newId);
-                i += 2;
-            } else {
-                out.add(input.get(i));
-                i++;
-            }
-        }
-
-        return out;
-    }
 }
