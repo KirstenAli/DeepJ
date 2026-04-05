@@ -6,12 +6,13 @@
 
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.4.2-alpha</version>
+    <version>${base.version}</version>
 
     <properties>
         <maven.compiler.source>20</maven.compiler.source>
         <maven.compiler.target>20</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <base.version>0.4.4-alpha</base.version>
         <javafx.version>25.0.2</javafx.version>
     </properties>
 
@@ -52,6 +53,58 @@
                 <configuration>
                     <mainClass>io.github.kirstenali.deepj.chatui.ChatApp</mainClass>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.11.2</version>
+                <executions>
+                    <execution>
+                        <id>build-javadocs</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>javadoc</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <doclint>none</doclint>
+                            <failOnError>false</failOnError>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>publish-docs-site</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.basedir}/docs"/>
+
+                                <!-- Keep custom landing and logo files; refresh generated Javadoc files. -->
+                                <delete includeemptydirs="true">
+                                    <fileset dir="${project.basedir}/docs">
+                                        <exclude name="landing.html"/>
+                                        <exclude name="deepj_logo.svg"/>
+                                    </fileset>
+                                </delete>
+
+                                <copy todir="${project.basedir}/docs" overwrite="true">
+                                    <fileset dir="${project.build.directory}/apidocs"/>
+                                </copy>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

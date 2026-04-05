@@ -494,7 +494,7 @@
     <table class="pkg-table">
       <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>tensor</code></td><td>N-d tensors, <code>TensorBackend</code> abstraction, <code>ComputeGraph</code> lazy execution</td></tr>
+        <tr><td><code>tensor</code></td><td>2-D tensors, <code>TensorBackend</code> abstraction, <code>ComputeGraph</code> lazy execution</td></tr>
         <tr><td><code>tensor.cpu</code></td><td><code>CpuBackend</code> — parallel CPU implementation with in-place helpers</td></tr>
         <tr><td><code>tensor.metal</code></td><td><code>MetalBackend</code> — Apple Silicon GPU via Metal JNI</td></tr>
         <tr><td><code>concurrent</code></td><td><code>DeepJExecutor</code> — thread-pool for CPU parallelism</td></tr>
@@ -538,8 +538,8 @@ Tokenizer              — encode(String) / decode(int[]) / vocabSize()</div>
         <pre><code><span class="typ">MetalBackend</span> metal = <span class="kw">new</span> <span class="typ">MetalBackend</span>();
 <span class="typ">Tensor</span>.<span class="fn">setBackend</span>(metal);</code></pre>
         <p style="color: var(--text-dim); margin-top: 12px;">
-          Every supported <code>Tensor</code> operation now routes through Metal.
-          CPU-only ops materialise automatically as needed.
+          Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
+          while unsupported ops fall back to CPU with on-demand materialization.
         </p>
       </div>
       <div>
@@ -562,7 +562,7 @@ Tokenizer              — encode(String) / decode(int[]) / vocabSize()</div>
     <div class="card-grid" style="margin-top: 32px;">
       <div class="card">
         <h3><span class="dot dot-blue"></span> No round-trips</h3>
-        <p>Intermediate results never leave the GPU</p>
+        <p>For GPU-supported chains, intermediate results stay on GPU</p>
       </div>
       <div class="card">
         <h3><span class="dot dot-green"></span> Batched execution</h3>
@@ -570,7 +570,7 @@ Tokenizer              — encode(String) / decode(int[]) / vocabSize()</div>
       </div>
       <div class="card">
         <h3><span class="dot dot-amber"></span> Staleness tracking</h3>
-        <p>Each tensor knows whether its CPU or GPU copy is current</p>
+        <p>Each tensor tracks whether CPU or GPU state is current before materialization</p>
       </div>
     </div>
   </div>

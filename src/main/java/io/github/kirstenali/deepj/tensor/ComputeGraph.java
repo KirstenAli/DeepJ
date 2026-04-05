@@ -36,6 +36,24 @@ public final class ComputeGraph {
     public static final int OP_SOFTMAX_BACKWARD= 18;
     public static final int OP_LAYERNORM_BACKWARD = 19;
     public static final int OP_ADAMW_UPDATE    = 20;
+    public static final int OP_ADD_SCALAR      = 21;
+    public static final int OP_DIVIDE_SCALAR   = 22;
+    public static final int OP_TRANSPOSE       = 23;
+    public static final int OP_ADD_ROW_VECTOR  = 24;
+    public static final int OP_ADD_BROADCAST_COLS = 25;
+    public static final int OP_SUBTRACT_BROADCAST_COLS = 26;
+    public static final int OP_DIVIDE_BROADCAST_COLS = 27;
+    public static final int OP_MULTIPLY_BROADCAST_ROWS = 28;
+    public static final int OP_SUM_ROWS        = 29;
+    public static final int OP_MEAN_ALONG_ROWS = 30;
+    public static final int OP_VARIANCE_ALONG_ROWS = 31;
+    public static final int OP_MULTIPLY_BROADCAST_COLS = 32;
+    public static final int OP_SUM_ALONG_ROWS = 33;
+
+    private record OpMeta(int stride, int[] bufferArgOffsets) {}
+
+    // Single source of truth for op stride and which encoded arg slots are buffer IDs.
+    private static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     private final GpuRuntime runtime;
 
@@ -59,6 +77,61 @@ public final class ComputeGraph {
         this.runtime = Objects.requireNonNull(runtime, "runtime");
     }
 
+    private static OpMeta[] buildOpMetadata() {
+        OpMeta[] meta = new OpMeta[OP_SUM_ALONG_ROWS + 1];
+
+        // Unary: [op, in, out, n]
+        registerMeta(meta, OP_SQRT, 4, 1, 2);
+        registerMeta(meta, OP_NEG, 4, 1, 2);
+        registerMeta(meta, OP_EXP, 4, 1, 2);
+        registerMeta(meta, OP_LOG, 4, 1, 2);
+        registerMeta(meta, OP_TANH, 4, 1, 2);
+        registerMeta(meta, OP_SIGMOID, 4, 1, 2);
+        registerMeta(meta, OP_RELU, 4, 1, 2);
+        registerMeta(meta, OP_GELU, 4, 1, 2);
+
+        // Binary elementwise: [op, a, b, out, n]
+        registerMeta(meta, OP_ADD, 5, 1, 2, 3);
+        registerMeta(meta, OP_SUBTRACT, 5, 1, 2, 3);
+        registerMeta(meta, OP_MULTIPLY, 5, 1, 2, 3);
+        registerMeta(meta, OP_DIVIDE, 5, 1, 2, 3);
+        registerMeta(meta, OP_RELU_BACKWARD, 5, 1, 2, 3);
+        registerMeta(meta, OP_GELU_BACKWARD, 5, 1, 2, 3);
+
+        // Scalar and reduction style: [op, in, out, ..., ...]
+        registerMeta(meta, OP_MULTIPLY_SCALAR, 5, 1, 2);
+        registerMeta(meta, OP_ADD_SCALAR, 5, 1, 2);
+        registerMeta(meta, OP_DIVIDE_SCALAR, 5, 1, 2);
+        registerMeta(meta, OP_TRANSPOSE, 5, 1, 2);
+        registerMeta(meta, OP_SUM_ROWS, 5, 1, 2);
+        registerMeta(meta, OP_MEAN_ALONG_ROWS, 5, 1, 2);
+        registerMeta(meta, OP_VARIANCE_ALONG_ROWS, 5, 1, 2);
+        registerMeta(meta, OP_SUM_ALONG_ROWS, 5, 1, 2);
+        registerMeta(meta, OP_SOFTMAX_ROWS, 5, 1, 2);
+
+        // 3-input ops with shape args
+        registerMeta(meta, OP_SOFTMAX_BACKWARD, 6, 1, 2, 3);
+        registerMeta(meta, OP_ADD_ROW_VECTOR, 6, 1, 2, 3);
+        registerMeta(meta, OP_ADD_BROADCAST_COLS, 6, 1, 2, 3);
+        registerMeta(meta, OP_SUBTRACT_BROADCAST_COLS, 6, 1, 2, 3);
+        registerMeta(meta, OP_DIVIDE_BROADCAST_COLS, 6, 1, 2, 3);
+        registerMeta(meta, OP_MULTIPLY_BROADCAST_ROWS, 6, 1, 2, 3);
+        registerMeta(meta, OP_MULTIPLY_BROADCAST_COLS, 6, 1, 2, 3);
+
+        // Matmul and layernorm backward
+        registerMeta(meta, OP_MATMUL, 7, 1, 2, 3);
+        registerMeta(meta, OP_LAYERNORM_BACKWARD, 7, 1, 2, 3, 4);
+
+        // AdamW in-place update
+        registerMeta(meta, OP_ADAMW_UPDATE, 13, 1, 2, 3, 4);
+
+        return meta;
+    }
+
+    private static void registerMeta(OpMeta[] meta, int op, int stride, int... bufferArgOffsets) {
+        meta[op] = new OpMeta(stride, bufferArgOffsets);
+    }
+
     // -- Scheduling helpers --------------------------------------------------
 
     /** Queue a GPU buffer allocation for the next flush. */
@@ -80,14 +153,23 @@ public final class ComputeGraph {
      */
     public GpuBuffer ensureGpuBuffer(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer existing) {
-            bufIdToTensor.put(existing.id, new WeakReference<>(t));
-            if (existing.needsUpload) {
-                scheduleUpload(existing.id, TensorAdapters.packF32(t));
-                existing.needsUpload = false;
-                existing.cpuStale = false;
-            }
-            return existing;
+            return reuseExistingInputBuffer(t, existing);
         }
+
+        return createAndUploadInputBuffer(t);
+    }
+
+    private GpuBuffer reuseExistingInputBuffer(Tensor t, GpuBuffer existing) {
+        trackTensorBinding(existing.id, t);
+        if (existing.needsUpload) {
+            scheduleUpload(existing.id, TensorAdapters.packF32(t));
+            existing.needsUpload = false;
+            existing.cpuStale = false;
+        }
+        return existing;
+    }
+
+    private GpuBuffer createAndUploadInputBuffer(Tensor t) {
         int id = nextBufId++;
         GpuBuffer buf = new GpuBuffer(id, t.rows, t.cols, true);
         buf.allocatedOnGpu = false;
@@ -96,8 +178,12 @@ public final class ComputeGraph {
         scheduleUpload(id, TensorAdapters.packF32(t));
 
         t.setGpuTag(buf);
-        bufIdToTensor.put(id, new WeakReference<>(t));
+        trackTensorBinding(id, t);
         return buf;
+    }
+
+    private void trackTensorBinding(int id, Tensor t) {
+        bufIdToTensor.put(id, new WeakReference<>(t));
     }
 
     /**
@@ -118,7 +204,7 @@ public final class ComputeGraph {
     public Tensor createOutputTensor(GpuBuffer buf) {
         Tensor t = new Tensor(buf.rows, buf.cols);
         t.setGpuTag(buf);
-        bufIdToTensor.put(buf.id, new WeakReference<>(t));
+        trackTensorBinding(buf.id, t);
         return t;
     }
 
@@ -130,85 +216,158 @@ public final class ComputeGraph {
         }
     }
 
+    private void beginOp(int encodedInts) {
+        ensureCapacity(encodedInts);
+    }
+
+    private void emitInt(int value) {
+        cmdStream[cmdPos++] = value;
+    }
+
+    private void emitFloatBits(float value) {
+        emitInt(Float.floatToRawIntBits(value));
+    }
+
+    private void endOp() {
+        opCount++;
+    }
+
     /** Record a binary element-wise op: [opCode, aId, bId, outId, n] */
     public void recordBinary(int opCode, GpuBuffer a, GpuBuffer b, GpuBuffer out) {
-        ensureCapacity(5);
-        cmdStream[cmdPos++] = opCode;
-        cmdStream[cmdPos++] = a.id;
-        cmdStream[cmdPos++] = b.id;
-        cmdStream[cmdPos++] = out.id;
-        cmdStream[cmdPos++] = out.floatCount();
-        opCount++;
+        beginOp(5);
+        emitInt(opCode);
+        emitInt(a.id);
+        emitInt(b.id);
+        emitInt(out.id);
+        emitInt(out.floatCount());
+        endOp();
     }
 
     /** Record matmul: [OP_MATMUL, aId, bId, outId, m, n, k] */
     public void recordMatmul(GpuBuffer a, GpuBuffer b, GpuBuffer out, int m, int n, int k) {
-        ensureCapacity(7);
-        cmdStream[cmdPos++] = OP_MATMUL;
-        cmdStream[cmdPos++] = a.id;
-        cmdStream[cmdPos++] = b.id;
-        cmdStream[cmdPos++] = out.id;
-        cmdStream[cmdPos++] = m;
-        cmdStream[cmdPos++] = n;
-        cmdStream[cmdPos++] = k;
-        opCount++;
+        beginOp(7);
+        emitInt(OP_MATMUL);
+        emitInt(a.id);
+        emitInt(b.id);
+        emitInt(out.id);
+        emitInt(m);
+        emitInt(n);
+        emitInt(k);
+        endOp();
     }
 
     /** Record a unary op: [opCode, inId, outId, n] */
     public void recordUnary(int opCode, GpuBuffer in, GpuBuffer out) {
-        ensureCapacity(4);
-        cmdStream[cmdPos++] = opCode;
-        cmdStream[cmdPos++] = in.id;
-        cmdStream[cmdPos++] = out.id;
-        cmdStream[cmdPos++] = out.floatCount();
-        opCount++;
+        beginOp(4);
+        emitInt(opCode);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitInt(out.floatCount());
+        endOp();
     }
 
     /** Record scalar multiply: [OP_MULTIPLY_SCALAR, inId, outId, scalarBits, n] */
     public void recordMultiplyScalar(GpuBuffer in, GpuBuffer out, float scalar) {
-        ensureCapacity(5);
-        cmdStream[cmdPos++] = OP_MULTIPLY_SCALAR;
-        cmdStream[cmdPos++] = in.id;
-        cmdStream[cmdPos++] = out.id;
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(scalar);
-        cmdStream[cmdPos++] = out.floatCount();
-        opCount++;
+        beginOp(5);
+        emitInt(OP_MULTIPLY_SCALAR);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitFloatBits(scalar);
+        emitInt(out.floatCount());
+        endOp();
+    }
+
+    /** Record scalar add/divide: [opCode, inId, outId, scalarBits, n] */
+    public void recordScalarUnary(int opCode, GpuBuffer in, GpuBuffer out, float scalar) {
+        beginOp(5);
+        emitInt(opCode);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitFloatBits(scalar);
+        emitInt(out.floatCount());
+        endOp();
+    }
+
+    /** Record transpose: [OP_TRANSPOSE, inId, outId, rows, cols] */
+    public void recordTranspose(GpuBuffer in, GpuBuffer out, int rows, int cols) {
+        beginOp(5);
+        emitInt(OP_TRANSPOSE);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
+    }
+
+    /** Record row broadcast: [opCode, aId, rowVecId, outId, rows, cols] */
+    public void recordRowBroadcast(int opCode, GpuBuffer a, GpuBuffer rowVec, GpuBuffer out, int rows, int cols) {
+        beginOp(6);
+        emitInt(opCode);
+        emitInt(a.id);
+        emitInt(rowVec.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
+    }
+
+    /** Record col broadcast: [opCode, aId, colVecId, outId, rows, cols] */
+    public void recordColBroadcast(int opCode, GpuBuffer a, GpuBuffer colVec, GpuBuffer out, int rows, int cols) {
+        beginOp(6);
+        emitInt(opCode);
+        emitInt(a.id);
+        emitInt(colVec.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
+    }
+
+    /** Record row/col reduction: [opCode, inId, outId, rows, cols] */
+    public void recordReduction(int opCode, GpuBuffer in, GpuBuffer out, int rows, int cols) {
+        beginOp(5);
+        emitInt(opCode);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
     }
 
     /** Record softmax rows: [OP_SOFTMAX_ROWS, inId, outId, rows, cols] */
     public void recordSoftmaxRows(GpuBuffer in, GpuBuffer out, int rows, int cols) {
-        ensureCapacity(5);
-        cmdStream[cmdPos++] = OP_SOFTMAX_ROWS;
-        cmdStream[cmdPos++] = in.id;
-        cmdStream[cmdPos++] = out.id;
-        cmdStream[cmdPos++] = rows;
-        cmdStream[cmdPos++] = cols;
-        opCount++;
+        beginOp(5);
+        emitInt(OP_SOFTMAX_ROWS);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
     }
 
     /** Record softmax backward: [OP_SOFTMAX_BACKWARD, gradId, softmaxId, outId, rows, cols] */
     public void recordSoftmaxBackward(GpuBuffer gradOutput, GpuBuffer softmaxOut, GpuBuffer out, int rows, int cols) {
-        ensureCapacity(6);
-        cmdStream[cmdPos++] = OP_SOFTMAX_BACKWARD;
-        cmdStream[cmdPos++] = gradOutput.id;
-        cmdStream[cmdPos++] = softmaxOut.id;
-        cmdStream[cmdPos++] = out.id;
-        cmdStream[cmdPos++] = rows;
-        cmdStream[cmdPos++] = cols;
-        opCount++;
+        beginOp(6);
+        emitInt(OP_SOFTMAX_BACKWARD);
+        emitInt(gradOutput.id);
+        emitInt(softmaxOut.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
     }
 
     /** Record layer norm backward: [OP_LAYERNORM_BACKWARD, dXHatId, xHatId, stdId, outId, rows, cols] */
     public void recordLayerNormBackward(GpuBuffer dXHat, GpuBuffer xHat, GpuBuffer std, GpuBuffer out, int rows, int cols) {
-        ensureCapacity(7);
-        cmdStream[cmdPos++] = OP_LAYERNORM_BACKWARD;
-        cmdStream[cmdPos++] = dXHat.id;
-        cmdStream[cmdPos++] = xHat.id;
-        cmdStream[cmdPos++] = std.id;
-        cmdStream[cmdPos++] = out.id;
-        cmdStream[cmdPos++] = rows;
-        cmdStream[cmdPos++] = cols;
-        opCount++;
+        beginOp(7);
+        emitInt(OP_LAYERNORM_BACKWARD);
+        emitInt(dXHat.id);
+        emitInt(xHat.id);
+        emitInt(std.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
     }
 
     /**
@@ -219,21 +378,21 @@ public final class ComputeGraph {
     public void recordAdamWUpdate(GpuBuffer w, GpuBuffer g, GpuBuffer mt, GpuBuffer vt,
                                   float lr, float beta1, float beta2, float eps,
                                   float weightDecay, float bc1, float bc2, int n) {
-        ensureCapacity(13);
-        cmdStream[cmdPos++] = OP_ADAMW_UPDATE;
-        cmdStream[cmdPos++] = w.id;
-        cmdStream[cmdPos++] = g.id;
-        cmdStream[cmdPos++] = mt.id;
-        cmdStream[cmdPos++] = vt.id;
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(lr);
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(beta1);
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(beta2);
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(eps);
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(weightDecay);
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(bc1);
-        cmdStream[cmdPos++] = Float.floatToRawIntBits(bc2);
-        cmdStream[cmdPos++] = n;
-        opCount++;
+        beginOp(13);
+        emitInt(OP_ADAMW_UPDATE);
+        emitInt(w.id);
+        emitInt(g.id);
+        emitInt(mt.id);
+        emitInt(vt.id);
+        emitFloatBits(lr);
+        emitFloatBits(beta1);
+        emitFloatBits(beta2);
+        emitFloatBits(eps);
+        emitFloatBits(weightDecay);
+        emitFloatBits(bc1);
+        emitFloatBits(bc2);
+        emitInt(n);
+        endOp();
     }
 
     public boolean isEmpty() { return opCount == 0; }
@@ -323,15 +482,9 @@ public final class ComputeGraph {
      * or {@code -1} for an unknown op.
      */
     private static int getOpStride(int op) {
-        return switch (op) {
-            case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID, OP_RELU, OP_GELU -> 4;
-            case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE,
-                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS -> 5;
-            case OP_SOFTMAX_BACKWARD -> 6;
-            case OP_MATMUL, OP_LAYERNORM_BACKWARD -> 7;
-            case OP_ADAMW_UPDATE -> 13;
-            default -> -1;
-        };
+        if (op < 0 || op >= OP_METADATA.length) return -1;
+        OpMeta meta = OP_METADATA[op];
+        return meta == null ? -1 : meta.stride();
     }
 
     /**
@@ -339,19 +492,14 @@ public final class ComputeGraph {
      * contains {@code bufferId}.
      */
     private boolean opReferencesBuffer(int pos, int op, int bufferId) {
-        return switch (op) {
-            case OP_SQRT, OP_NEG, OP_EXP, OP_LOG, OP_TANH, OP_SIGMOID,
-                 OP_RELU, OP_GELU, OP_MULTIPLY_SCALAR, OP_SOFTMAX_ROWS ->
-                cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId;
-            case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE,
-                 OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_MATMUL, OP_SOFTMAX_BACKWARD ->
-                cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
-                        || cmdStream[pos + 3] == bufferId;
-            case OP_LAYERNORM_BACKWARD, OP_ADAMW_UPDATE ->
-                cmdStream[pos + 1] == bufferId || cmdStream[pos + 2] == bufferId
-                        || cmdStream[pos + 3] == bufferId || cmdStream[pos + 4] == bufferId;
-            default -> false;
-        };
+        if (op < 0 || op >= OP_METADATA.length) return false;
+        OpMeta meta = OP_METADATA[op];
+        if (meta == null) return false;
+
+        for (int offset : meta.bufferArgOffsets()) {
+            if (cmdStream[pos + offset] == bufferId) return true;
+        }
+        return false;
     }
 
     private boolean isBufferReferencedByPendingOps(int bufferId) {
@@ -419,9 +567,30 @@ public final class ComputeGraph {
      * Release all GPU buffers and reset the graph completely.
      */
     public void releaseAll() {
+        materializeTrackedTensors();
         clearTensorGpuTags();
         releaseNativeBuffers();
         resetGraphState();
+    }
+
+    /**
+     * Before dropping GPU buffers, pull any stale tracked tensors back to CPU so
+     * periodic release does not discard GPU-only updates (e.g., optimizer steps).
+     */
+    private void materializeTrackedTensors() {
+        flush();
+        for (WeakReference<Tensor> ref : bufIdToTensor.values()) {
+            Tensor t = ref.get();
+            if (t == null) continue;
+            if (!(t.getGpuTag() instanceof GpuBuffer gb)) continue;
+            if (!gb.cpuStale) continue;
+
+            float[] flat = new float[gb.floatCount()];
+            runtime.downloadBuffer(gb.id, flat);
+            TensorAdapters.unpackF32Into(flat, t);
+            gb.cpuStale = false;
+            gb.needsUpload = false;
+        }
     }
 
     private void clearTensorGpuTags() {

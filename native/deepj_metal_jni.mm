@@ -21,6 +21,19 @@ struct MetalContext {
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
     id<MTLComputePipelineState> multiplyScalarPSO;
+    id<MTLComputePipelineState> addScalarPSO;
+    id<MTLComputePipelineState> divideScalarPSO;
+    id<MTLComputePipelineState> transposePSO;
+    id<MTLComputePipelineState> addRowVectorPSO;
+    id<MTLComputePipelineState> addBroadcastColsPSO;
+    id<MTLComputePipelineState> subtractBroadcastColsPSO;
+    id<MTLComputePipelineState> divideBroadcastColsPSO;
+    id<MTLComputePipelineState> multiplyBroadcastColsPSO;
+    id<MTLComputePipelineState> multiplyBroadcastRowsPSO;
+    id<MTLComputePipelineState> sumRowsPSO;
+    id<MTLComputePipelineState> sumAlongRowsPSO;
+    id<MTLComputePipelineState> meanAlongRowsPSO;
+    id<MTLComputePipelineState> varianceAlongRowsPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
     id<MTLComputePipelineState> expPSO;
@@ -80,6 +93,188 @@ kernel void kernel_multiply_scalar(device const float* a       [[buffer(0)]],
                                    device const float* scalar  [[buffer(2)]],
                                    uint id [[thread_position_in_grid]]) {
     out[id] = a[id] * scalar[0];
+}
+
+kernel void kernel_add_scalar(device const float* a       [[buffer(0)]],
+                              device float* out           [[buffer(1)]],
+                              device const float* scalar  [[buffer(2)]],
+                              uint id [[thread_position_in_grid]]) {
+    out[id] = a[id] + scalar[0];
+}
+
+kernel void kernel_divide_scalar(device const float* a       [[buffer(0)]],
+                                 device float* out           [[buffer(1)]],
+                                 device const float* scalar  [[buffer(2)]],
+                                 uint id [[thread_position_in_grid]]) {
+    out[id] = a[id] / scalar[0];
+}
+
+kernel void kernel_transpose(device const float* a      [[buffer(0)]],
+                             device float* out          [[buffer(1)]],
+                             device const uint2* dims   [[buffer(2)]],
+                             uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint total = rows * cols;
+    if (id >= total) return;
+
+    uint r = id / cols;
+    uint c = id % cols;
+    out[c * rows + r] = a[id];
+}
+
+kernel void kernel_add_row_vector(device const float* a      [[buffer(0)]],
+                                  device const float* rowVec [[buffer(1)]],
+                                  device float* out          [[buffer(2)]],
+                                  device const uint2* dims   [[buffer(3)]],
+                                  uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint total = rows * cols;
+    if (id >= total) return;
+
+    uint c = id % cols;
+    out[id] = a[id] + rowVec[c];
+}
+
+kernel void kernel_add_broadcast_cols(device const float* a      [[buffer(0)]],
+                                      device const float* colVec [[buffer(1)]],
+                                      device float* out          [[buffer(2)]],
+                                      device const uint2* dims   [[buffer(3)]],
+                                      uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint total = rows * cols;
+    if (id >= total) return;
+
+    uint r = id / cols;
+    out[id] = a[id] + colVec[r];
+}
+
+kernel void kernel_subtract_broadcast_cols(device const float* a      [[buffer(0)]],
+                                           device const float* colVec [[buffer(1)]],
+                                           device float* out          [[buffer(2)]],
+                                           device const uint2* dims   [[buffer(3)]],
+                                           uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint total = rows * cols;
+    if (id >= total) return;
+
+    uint r = id / cols;
+    out[id] = a[id] - colVec[r];
+}
+
+kernel void kernel_divide_broadcast_cols(device const float* a      [[buffer(0)]],
+                                         device const float* colVec [[buffer(1)]],
+                                         device float* out          [[buffer(2)]],
+                                         device const uint2* dims   [[buffer(3)]],
+                                         uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint total = rows * cols;
+    if (id >= total) return;
+
+    uint r = id / cols;
+    out[id] = a[id] / colVec[r];
+}
+
+kernel void kernel_multiply_broadcast_cols(device const float* a      [[buffer(0)]],
+                                           device const float* colVec [[buffer(1)]],
+                                           device float* out          [[buffer(2)]],
+                                           device const uint2* dims   [[buffer(3)]],
+                                           uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint total = rows * cols;
+    if (id >= total) return;
+
+    uint r = id / cols;
+    out[id] = a[id] * colVec[r];
+}
+
+kernel void kernel_multiply_broadcast_rows(device const float* a      [[buffer(0)]],
+                                           device const float* rowVec [[buffer(1)]],
+                                           device float* out          [[buffer(2)]],
+                                           device const uint2* dims   [[buffer(3)]],
+                                           uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint total = rows * cols;
+    if (id >= total) return;
+
+    uint c = id % cols;
+    out[id] = a[id] * rowVec[c];
+}
+
+kernel void kernel_sum_rows(device const float* a      [[buffer(0)]],
+                            device float* out          [[buffer(1)]],
+                            device const uint2* dims   [[buffer(2)]],
+                            uint col [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    if (col >= cols) return;
+
+    float s = 0.0f;
+    for (uint r = 0; r < rows; r++) {
+        s += a[r * cols + col];
+    }
+    out[col] = s;
+}
+
+kernel void kernel_mean_along_rows(device const float* a      [[buffer(0)]],
+                                   device float* out          [[buffer(1)]],
+                                   device const uint2* dims   [[buffer(2)]],
+                                   uint row [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    if (row >= rows) return;
+
+    uint base = row * cols;
+    float s = 0.0f;
+    for (uint c = 0; c < cols; c++) {
+        s += a[base + c];
+    }
+    out[row] = s / (float)cols;
+}
+
+kernel void kernel_sum_along_rows(device const float* a      [[buffer(0)]],
+                                  device float* out          [[buffer(1)]],
+                                  device const uint2* dims   [[buffer(2)]],
+                                  uint row [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    if (row >= rows) return;
+
+    uint base = row * cols;
+    float s = 0.0f;
+    for (uint c = 0; c < cols; c++) {
+        s += a[base + c];
+    }
+    out[row] = s;
+}
+
+kernel void kernel_variance_along_rows(device const float* a      [[buffer(0)]],
+                                       device float* out          [[buffer(1)]],
+                                       device const uint2* dims   [[buffer(2)]],
+                                       uint row [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    if (row >= rows) return;
+
+    uint base = row * cols;
+    float s = 0.0f;
+    for (uint c = 0; c < cols; c++) {
+        s += a[base + c];
+    }
+    float mean = s / (float)cols;
+
+    float acc = 0.0f;
+    for (uint c = 0; c < cols; c++) {
+        float d = a[base + c] - mean;
+        acc += d * d;
+    }
+    out[row] = acc / (float)cols;
 }
 
 // ── unary math ──
@@ -340,6 +535,19 @@ static MetalContext* getContext() {
         gCtx->multiplyPSO       = makePSO(library, @"kernel_multiply");
         gCtx->dividePSO         = makePSO(library, @"kernel_divide");
         gCtx->multiplyScalarPSO = makePSO(library, @"kernel_multiply_scalar");
+        gCtx->addScalarPSO      = makePSO(library, @"kernel_add_scalar");
+        gCtx->divideScalarPSO   = makePSO(library, @"kernel_divide_scalar");
+        gCtx->transposePSO      = makePSO(library, @"kernel_transpose");
+        gCtx->addRowVectorPSO   = makePSO(library, @"kernel_add_row_vector");
+        gCtx->addBroadcastColsPSO = makePSO(library, @"kernel_add_broadcast_cols");
+        gCtx->subtractBroadcastColsPSO = makePSO(library, @"kernel_subtract_broadcast_cols");
+        gCtx->divideBroadcastColsPSO = makePSO(library, @"kernel_divide_broadcast_cols");
+        gCtx->multiplyBroadcastColsPSO = makePSO(library, @"kernel_multiply_broadcast_cols");
+        gCtx->multiplyBroadcastRowsPSO = makePSO(library, @"kernel_multiply_broadcast_rows");
+        gCtx->sumRowsPSO        = makePSO(library, @"kernel_sum_rows");
+        gCtx->sumAlongRowsPSO   = makePSO(library, @"kernel_sum_along_rows");
+        gCtx->meanAlongRowsPSO  = makePSO(library, @"kernel_mean_along_rows");
+        gCtx->varianceAlongRowsPSO = makePSO(library, @"kernel_variance_along_rows");
         gCtx->sqrtPSO           = makePSO(library, @"kernel_sqrt");
         gCtx->negPSO            = makePSO(library, @"kernel_neg");
         gCtx->expPSO            = makePSO(library, @"kernel_exp");
@@ -742,6 +950,19 @@ static constexpr int OP_SOFTMAX_ROWS   = 17;
 static constexpr int OP_SOFTMAX_BACKWARD = 18;
 static constexpr int OP_LAYERNORM_BACKWARD = 19;
 static constexpr int OP_ADAMW_UPDATE   = 20;
+static constexpr int OP_ADD_SCALAR     = 21;
+static constexpr int OP_DIVIDE_SCALAR  = 22;
+static constexpr int OP_TRANSPOSE      = 23;
+static constexpr int OP_ADD_ROW_VECTOR = 24;
+static constexpr int OP_ADD_BROADCAST_COLS = 25;
+static constexpr int OP_SUBTRACT_BROADCAST_COLS = 26;
+static constexpr int OP_DIVIDE_BROADCAST_COLS = 27;
+static constexpr int OP_MULTIPLY_BROADCAST_ROWS = 28;
+static constexpr int OP_SUM_ROWS       = 29;
+static constexpr int OP_MEAN_ALONG_ROWS = 30;
+static constexpr int OP_VARIANCE_ALONG_ROWS = 31;
+static constexpr int OP_MULTIPLY_BROADCAST_COLS = 32;
+static constexpr int OP_SUM_ALONG_ROWS = 33;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -948,8 +1169,10 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     break;
                 }
 
-                // ── Scalar multiply: [op, in, out, scalarBits, n] ────
-                case OP_MULTIPLY_SCALAR: {
+                // ── Scalar multiply/add/divide: [op, in, out, scalarBits, n] ────
+                case OP_MULTIPLY_SCALAR:
+                case OP_ADD_SCALAR:
+                case OP_DIVIDE_SCALAR: {
                     int inId = cmd[pos+1], outId = cmd[pos+2];
                     float scalar;
                     int bits = cmd[pos+3];
@@ -960,13 +1183,134 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                                                length:sizeof(float)
                                                options:MTLResourceStorageModeShared];
 
+                    id<MTLComputePipelineState> pso;
+                    switch (opCode) {
+                        case OP_MULTIPLY_SCALAR: pso = ctx->multiplyScalarPSO; break;
+                        case OP_ADD_SCALAR:      pso = ctx->addScalarPSO; break;
+                        case OP_DIVIDE_SCALAR:   pso = ctx->divideScalarPSO; break;
+                        default: pso = ctx->multiplyScalarPSO; break;
+                    }
+
                     if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->multiplyScalarPSO];
+                    [enc setComputePipelineState:pso];
                     [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
                     [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
                     [enc setBuffer:scalarBuf          offset:0 atIndex:2];
-                    NSUInteger tpg = MIN((NSUInteger)n, ctx->multiplyScalarPSO.maxTotalThreadsPerThreadgroup);
+                    NSUInteger tpg = MIN((NSUInteger)n, pso.maxTotalThreadsPerThreadgroup);
                     [enc dispatchThreads:MTLSizeMake(n, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 5;
+                    break;
+                }
+
+                // ── Transpose: [op, in, out, rows, cols] ─────────────
+                case OP_TRANSPOSE: {
+                    int inId = cmd[pos+1], outId = cmd[pos+2];
+                    uint32_t rows = (uint32_t)cmd[pos+3];
+                    uint32_t cols = (uint32_t)cmd[pos+4];
+                    uint32_t dims[2] = { rows, cols };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    NSUInteger total = (NSUInteger)rows * (NSUInteger)cols;
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->transposePSO];
+                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
+                    [enc setBuffer:dimsBuf            offset:0 atIndex:2];
+                    NSUInteger tpg = MIN(total, ctx->transposePSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 5;
+                    break;
+                }
+
+                // ── Row/col broadcasts: [op, a, vec, out, rows, cols] ──
+                case OP_ADD_ROW_VECTOR:
+                case OP_ADD_BROADCAST_COLS:
+                case OP_SUBTRACT_BROADCAST_COLS:
+                case OP_DIVIDE_BROADCAST_COLS:
+                case OP_MULTIPLY_BROADCAST_ROWS:
+                case OP_MULTIPLY_BROADCAST_COLS: {
+                    int aId = cmd[pos+1], vecId = cmd[pos+2], outId = cmd[pos+3];
+                    uint32_t rows = (uint32_t)cmd[pos+4];
+                    uint32_t cols = (uint32_t)cmd[pos+5];
+                    uint32_t dims[2] = { rows, cols };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    id<MTLComputePipelineState> pso;
+                    switch (opCode) {
+                        case OP_ADD_ROW_VECTOR: pso = ctx->addRowVectorPSO; break;
+                        case OP_ADD_BROADCAST_COLS: pso = ctx->addBroadcastColsPSO; break;
+                        case OP_SUBTRACT_BROADCAST_COLS: pso = ctx->subtractBroadcastColsPSO; break;
+                        case OP_DIVIDE_BROADCAST_COLS: pso = ctx->divideBroadcastColsPSO; break;
+                        case OP_MULTIPLY_BROADCAST_ROWS: pso = ctx->multiplyBroadcastRowsPSO; break;
+                        case OP_MULTIPLY_BROADCAST_COLS: pso = ctx->multiplyBroadcastColsPSO; break;
+                        default: pso = ctx->addRowVectorPSO; break;
+                    }
+
+                    NSUInteger total = (NSUInteger)rows * (NSUInteger)cols;
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:pso];
+                    [enc setBuffer:gBufferPool[aId]   offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[vecId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf            offset:0 atIndex:3];
+                    NSUInteger tpg = MIN(total, pso.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 6;
+                    break;
+                }
+
+                // ── Reductions: [op, in, out, rows, cols] ───────────
+                case OP_SUM_ROWS:
+                case OP_SUM_ALONG_ROWS:
+                case OP_MEAN_ALONG_ROWS:
+                case OP_VARIANCE_ALONG_ROWS: {
+                    int inId = cmd[pos+1], outId = cmd[pos+2];
+                    uint32_t rows = (uint32_t)cmd[pos+3];
+                    uint32_t cols = (uint32_t)cmd[pos+4];
+                    uint32_t dims[2] = { rows, cols };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    id<MTLComputePipelineState> pso;
+                    NSUInteger dispatchN;
+                    switch (opCode) {
+                        case OP_SUM_ROWS:
+                            pso = ctx->sumRowsPSO;
+                            dispatchN = (NSUInteger)cols;
+                            break;
+                        case OP_MEAN_ALONG_ROWS:
+                            pso = ctx->meanAlongRowsPSO;
+                            dispatchN = (NSUInteger)rows;
+                            break;
+                        case OP_SUM_ALONG_ROWS:
+                            pso = ctx->sumAlongRowsPSO;
+                            dispatchN = (NSUInteger)rows;
+                            break;
+                        case OP_VARIANCE_ALONG_ROWS:
+                            pso = ctx->varianceAlongRowsPSO;
+                            dispatchN = (NSUInteger)rows;
+                            break;
+                        default:
+                            pso = ctx->sumRowsPSO;
+                            dispatchN = (NSUInteger)cols;
+                            break;
+                    }
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:pso];
+                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
+                    [enc setBuffer:dimsBuf            offset:0 atIndex:2];
+                    NSUInteger tpg = MIN(dispatchN, pso.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(dispatchN, 1, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 5;
                     break;
