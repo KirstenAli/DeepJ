@@ -5,8 +5,14 @@ io.github.kirstenali.deepj.data
 io.github.kirstenali.deepj.examples
 io.github.kirstenali.deepj.layers
 io.github.kirstenali.deepj.layers.transformer
+io.github.kirstenali.deepj.layers.transformer.attention
+io.github.kirstenali.deepj.layers.transformer.blocks
+io.github.kirstenali.deepj.layers.transformer.norm
 io.github.kirstenali.deepj.loss
+io.github.kirstenali.deepj.models
+io.github.kirstenali.deepj.models.deepseek
 io.github.kirstenali.deepj.models.gpt
+io.github.kirstenali.deepj.models.llama
 io.github.kirstenali.deepj.optimisers
 io.github.kirstenali.deepj.persistence
 io.github.kirstenali.deepj.tensor
