@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.models;
 import io.github.kirstenali.deepj.models.gpt.GPTConfig;
 import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.models.llama.LlamaModel;
+import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
@@ -29,6 +30,13 @@ public final class TextGenerator {
 
     public static String generate(
             LlamaModel model, Tokenizer tok, TransformerConfig cfg,
+            String prompt, int maxNewTokens, double temperature, int topK, long seed
+    ) {
+        return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
+    }
+
+    public static String generate(
+            DeepSeekModel model, Tokenizer tok, TransformerConfig cfg,
             String prompt, int maxNewTokens, double temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
