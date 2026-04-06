@@ -48,7 +48,7 @@ DeepJ is organised into focused packages:
 | `layers.transformer.attention` | `MultiHeadSelfAttention`, `RoPEMultiHeadSelfAttention`, `MultiHeadLatentAttention` (MLA) |
 | `layers.transformer.norm` | `LayerNorm1D`, `RMSNorm1D` |
 | `layers.transformer.blocks` | `GPTTransformerBlock`, `LlamaTransformerBlock`, `DeepSeekTransformerBlock` |
-| `transformer` | `TransformerBuilder`, `TransformerStack` |
+| `transformer` | `GPTTransformerBuilder`, `LlamaTransformerBuilder`, `DeepSeekTransformerBuilder`, `TransformerStack` |
 | `transformer.embeddings` | `Embedding` (token lookup), `PositionalEmbedding` (learnable), `RotaryEmbedding` (RoPE) |
 | `activations` | `ActivationFunction` interface + GELU, SiLU, ReLU, Sigmoid, Tanh, Softmax |
 | `loss` | `LossFunction` interface + MSELoss, CrossEntropyLoss |
@@ -384,30 +384,25 @@ trainer.train(
 
 ### Transformer stack
 
-Create a stack of decoder blocks using the builder. Three architectures are
-supported via `BlockType` — default is `GPT`:
+Each architecture has its own builder with only the fields it needs:
 
 ```java
-import io.github.kirstenali.deepj.transformer.TransformerBuilder.BlockType;
-
-// GPT-style (default) — LayerNorm + MHSA + GELU FFN
-TransformerStack gptStack = new TransformerBuilder()
+// GPT-style — LayerNorm + MHSA + GELU FFN
+TransformerStack gptStack = new GPTTransformerBuilder()
         .dModel(128).nHeads(4).dFF(512).nLayers(4)
-        .ffnActivation(GELU::new)  // activation inside FFN (GPT only, default: GELU)
+        .ffnActivation(GELU::new)
         .seed(42)
         .build();
 
 // Llama-style — RMSNorm + RoPE attention + SwiGLU
-TransformerStack llamaStack = new TransformerBuilder()
-        .blockType(BlockType.LLAMA)
+TransformerStack llamaStack = new LlamaTransformerBuilder()
         .dModel(512).nHeads(8).dFF(1408).nLayers(6)
         .maxSeqLen(2048)     // required: RoPE table size
         .seed(42)
         .build();
 
 // DeepSeek-style — RMSNorm + MLA + SwiGLU (8× smaller KV cache)
-TransformerStack deepSeekStack = new TransformerBuilder()
-        .blockType(BlockType.DEEPSEEK)
+TransformerStack deepSeekStack = new DeepSeekTransformerBuilder()
         .dModel(512).nHeads(8).dFF(1408).nLayers(6)
         .maxSeqLen(2048)     // required: RoPE table size
         .qRank(256)          // required: Q latent dim (e.g. dModel/2)
@@ -564,7 +559,7 @@ List<Parameter> params = mlp.parameters(); // all W and b from every Linear
 | `DeepSeekTransformerBlock` | Pre-LN DeepSeek-style block: RMSNorm + MLA + SwiGLU |
 | `SwiGLULayer` | Gated FFN: `down(SiLU(gate(x)) · up(x))` — used by Llama / Mistral / Qwen / DeepSeek |
 
-Use individually or via `TransformerBuilder`:
+Use individually or via `GPTTransformerBuilder`:
 
 ```java
 // GPT-style block — LayerNorm + MHSA + configurable FFN
@@ -625,61 +620,72 @@ these two methods, inheriting all attention mechanics unchanged.
 
 ---
 
-## 🔧 Transformer (`TransformerBuilder` / `TransformerStack`)
+## 🔧 Transformer Builders / `TransformerStack`
 
-`TransformerBuilder` assembles a `TransformerStack` — a sequential
-chain of transformer blocks that implements `Layer`. The default architecture
-is GPT-style (`BlockType.GPT`); set `.blockType()` to switch to Llama- or
-DeepSeek-style blocks.
+Each architecture has a dedicated builder with only the fields it needs.
+All builders produce a `TransformerStack` — a sequential chain of blocks
+implementing `Layer`.
 
-### Builder methods
+### `GPTTransformerBuilder`
 
 | Method | Default | Description |
 |---|---|---|
 | `.dModel(int)` | required | Model / embedding dimension |
-| `.nHeads(int)` | required | Number of attention heads (`dModel` must be divisible) |
+| `.nHeads(int)` | required | Number of attention heads |
 | `.dFF(int)` | required | Feed-forward inner dimension |
 | `.nLayers(int)` | required | Number of decoder blocks |
-| `.blockType(BlockType)` | `BlockType.GPT` | Block architecture: `GPT`, `LLAMA`, or `DEEPSEEK` |
-| `.maxSeqLen(int)` | — | RoPE table size; **required** for `LLAMA` and `DEEPSEEK` |
-| `.qRank(int)` | — | Q latent dim for MLA; **required** for `DEEPSEEK` (e.g. `dModel/2`) |
-| `.kvRank(int)` | — | KV latent dim for MLA; **required** for `DEEPSEEK` (e.g. `dModel/4`) |
-| `.ffnActivation(Supplier)` | `GELU::new` | Activation inside each FFN (GPT only) |
+| `.ffnActivation(Supplier)` | `GELU::new` | Activation inside each FFN |
+| `.seed(long)` | `42` | Weight initialisation seed |
+| `.random(Random)` | — | Provide your own `Random` (overrides seed) |
+
+### `LlamaTransformerBuilder`
+
+| Method | Default | Description |
+|---|---|---|
+| `.dModel(int)` | required | Model / embedding dimension |
+| `.nHeads(int)` | required | Number of attention heads |
+| `.dFF(int)` | required | SwiGLU intermediate dimension |
+| `.nLayers(int)` | required | Number of decoder blocks |
+| `.maxSeqLen(int)` | required | RoPE table size |
+| `.seed(long)` | `42` | Weight initialisation seed |
+| `.random(Random)` | — | Provide your own `Random` (overrides seed) |
+
+### `DeepSeekTransformerBuilder`
+
+| Method | Default | Description |
+|---|---|---|
+| `.dModel(int)` | required | Model / embedding dimension |
+| `.nHeads(int)` | required | Number of attention heads |
+| `.dFF(int)` | required | SwiGLU intermediate dimension |
+| `.nLayers(int)` | required | Number of decoder blocks |
+| `.maxSeqLen(int)` | required | RoPE table size |
+| `.qRank(int)` | required | Q latent dim for MLA (e.g. `dModel/2`) |
+| `.kvRank(int)` | required | KV latent dim for MLA (e.g. `dModel/4`) — only `cKV` cached at inference |
 | `.seed(long)` | `42` | Weight initialisation seed |
 | `.random(Random)` | — | Provide your own `Random` (overrides seed) |
 
 ### TransformerStack
 
-`TransformerStack` is a `record` that implements `Layer`, holding a `List<Layer>` so it
-works with any of the three block types:
+`TransformerStack` is a `record` that implements `Layer`:
 
 ```java
-// GPT-style (default)
-TransformerStack gptStack = new TransformerBuilder()
+TransformerStack gptStack = new GPTTransformerBuilder()
         .dModel(256).nHeads(4).dFF(1024).nLayers(6)
         .ffnActivation(GELU::new).seed(42)
         .build();
 
-// Llama-style (RMSNorm + RoPE + SwiGLU)
-TransformerStack llamaStack = new TransformerBuilder()
-        .blockType(TransformerBuilder.BlockType.LLAMA)
+TransformerStack llamaStack = new LlamaTransformerBuilder()
         .dModel(512).nHeads(8).dFF(1408).nLayers(6)
-        .maxSeqLen(2048)    // required: RoPE table size
-        .seed(42)
+        .maxSeqLen(2048).seed(42)
         .build();
 
-// DeepSeek-style (RMSNorm + MLA + SwiGLU)
-TransformerStack deepSeekStack = new TransformerBuilder()
-        .blockType(TransformerBuilder.BlockType.DEEPSEEK)
+TransformerStack deepSeekStack = new DeepSeekTransformerBuilder()
         .dModel(512).nHeads(8).dFF(1408).nLayers(6)
-        .maxSeqLen(2048)    // required: RoPE table size
-        .qRank(256)         // required: Q latent dim (e.g. dModel/2)
-        .kvRank(128)        // required: KV latent dim (e.g. dModel/4)
-        .seed(42)
+        .maxSeqLen(2048).qRank(256).kvRank(128).seed(42)
         .build();
 
-Tensor out = gptStack.forward(x);          // [seqLen x dModel]
-Tensor dX  = gptStack.backward(gradOut);   // backprop through all blocks in reverse
+Tensor out = gptStack.forward(x);           // [seqLen x dModel]
+Tensor dX  = gptStack.backward(gradOut);    // backprop through all blocks in reverse
 List<Parameter> ps = gptStack.parameters(); // all block parameters
 ```
 
@@ -1113,7 +1119,7 @@ so each layer gets its own instance — no shared state during backprop:
 ```java
 FNN mlp = new FNN(inputSize, hiddenSizes, outputSize, GELU::new, null, rnd);
 
-TransformerStack stack = new TransformerBuilder()
+TransformerStack stack = new GPTTransformerBuilder()
         .ffnActivation(ReLU::new)  // swap activation
         // ...
         .build();

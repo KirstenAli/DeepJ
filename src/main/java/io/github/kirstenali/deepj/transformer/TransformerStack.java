@@ -2,6 +2,9 @@ package io.github.kirstenali.deepj.transformer;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.transformer.blocks.DeepSeekTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.blocks.GPTTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.blocks.LlamaTransformerBlock;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 
 import java.util.ArrayList;
@@ -11,8 +14,8 @@ import java.util.List;
  * A sequential stack of transformer blocks.
  *
  * <p>Each block must implement {@link Layer} — forward, backward, and parameters.
- * Supports {@link TransformerBuilder.BlockType#GPT GPT}, {@link TransformerBuilder.BlockType#LLAMA LLAMA},
- * and {@link TransformerBuilder.BlockType#DEEPSEEK DEEPSEEK} blocks, or any custom {@link Layer}.
+ * Supports {@link GPTTransformerBlock}, {@link LlamaTransformerBlock},
+ * and {@link DeepSeekTransformerBlock} blocks, or any custom {@link Layer}.
  */
 public record TransformerStack(List<Layer> blocks) implements Layer {
 

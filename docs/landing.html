@@ -1,528 +1,528 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeepJ — Lightweight Java Transformers</title>
-  <style>
-    /* ── Reset & base ─────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepJ — Lightweight Java Transformers</title>
+    <style>
+        /* ── Reset & base ─────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      /* Logo palette */
-      --bg-dark:    #0F172A;
-      --bg-card:    #111827;
-      --bg-surface: #1E293B;
-      --blue:       #38BDF8;
-      --green:      #22C55E;
-      --amber:      #F59E0B;
-      --soft-blue:  #7DD3FC;
-      --soft-green: #34D399;
-      --text:       #E2E8F0;
-      --text-dim:   #94A3B8;
-      --border:     rgba(255,255,255,0.08);
-      --code-bg:    #0D1117;
-    }
+        :root {
+            /* Logo palette */
+            --bg-dark:    #0F172A;
+            --bg-card:    #111827;
+            --bg-surface: #1E293B;
+            --blue:       #38BDF8;
+            --green:      #22C55E;
+            --amber:      #F59E0B;
+            --soft-blue:  #7DD3FC;
+            --soft-green: #34D399;
+            --text:       #E2E8F0;
+            --text-dim:   #94A3B8;
+            --border:     rgba(255,255,255,0.08);
+            --code-bg:    #0D1117;
+        }
 
-    html { scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: var(--bg-dark);
-      color: var(--text);
-      line-height: 1.7;
-      -webkit-font-smoothing: antialiased;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
 
-    /* ── Scrollbar ────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: var(--bg-dark); }
-    ::-webkit-scrollbar-thumb { background: var(--bg-surface); border-radius: 4px; }
+        /* ── Scrollbar ────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-surface); border-radius: 4px; }
 
-    /* ── Layout ───────────────────────────────────────────── */
-    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+        /* ── Layout ───────────────────────────────────────────── */
+        .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
 
-    section {
-      padding: 80px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    section:last-of-type { border-bottom: none; }
+        section {
+            padding: 80px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        section:last-of-type { border-bottom: none; }
 
-    /* ── Nav ──────────────────────────────────────────────── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-    }
-    nav .container {
-      display: flex; align-items: center; justify-content: space-between;
-      height: 60px;
-    }
-    nav .logo-link {
-      display: flex; align-items: center; gap: 10px;
-      text-decoration: none; color: var(--text);
-      font-weight: 700; font-size: 1.15rem;
-    }
-    nav .logo-link img { width: 32px; height: 32px; }
-    nav ul { list-style: none; display: flex; gap: 28px; }
-    nav a {
-      color: var(--text-dim); text-decoration: none; font-size: 0.9rem;
-      transition: color 0.2s;
-    }
-    nav a:hover { color: var(--text); }
+        /* ── Nav ──────────────────────────────────────────────── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+        nav .container {
+            display: flex; align-items: center; justify-content: space-between;
+            height: 60px;
+        }
+        nav .logo-link {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--text);
+            font-weight: 700; font-size: 1.15rem;
+        }
+        nav .logo-link img { width: 32px; height: 32px; }
+        nav ul { list-style: none; display: flex; gap: 28px; }
+        nav a {
+            color: var(--text-dim); text-decoration: none; font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        nav a:hover { color: var(--text); }
 
-    /* ── Hero ─────────────────────────────────────────────── */
-    .hero {
-      padding: 160px 0 100px;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-      position: relative;
-      overflow: hidden;
-    }
-    .hero::before {
-      content: '';
-      position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
-      width: 800px; height: 800px;
-      background: radial-gradient(circle, rgba(56,189,248,0.08) 0%, rgba(34,197,94,0.04) 40%, transparent 70%);
-      pointer-events: none;
-    }
-    .hero img { width: 120px; margin-bottom: 32px; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4)); }
-    .hero h1 {
-      font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em;
-      background: linear-gradient(135deg, var(--blue), var(--green), var(--amber));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 16px;
-    }
-    .hero p {
-      font-size: 1.25rem; color: var(--text-dim);
-      max-width: 560px; margin: 0 auto 40px;
-    }
-    .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 28px; border-radius: 10px; font-size: 0.95rem; font-weight: 600;
-      text-decoration: none; transition: all 0.2s;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--blue), var(--green));
-      color: var(--bg-dark);
-    }
-    .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
-    .btn-secondary {
-      background: var(--bg-surface); color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover { border-color: var(--blue); }
+        /* ── Hero ─────────────────────────────────────────────── */
+        .hero {
+            padding: 160px 0 100px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+            width: 800px; height: 800px;
+            background: radial-gradient(circle, rgba(56,189,248,0.08) 0%, rgba(34,197,94,0.04) 40%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero img { width: 120px; margin-bottom: 32px; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4)); }
+        .hero h1 {
+            font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--blue), var(--green), var(--amber));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+        .hero p {
+            font-size: 1.25rem; color: var(--text-dim);
+            max-width: 560px; margin: 0 auto 40px;
+        }
+        .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 28px; border-radius: 10px; font-size: 0.95rem; font-weight: 600;
+            text-decoration: none; transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--blue), var(--green));
+            color: var(--bg-dark);
+        }
+        .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-secondary {
+            background: var(--bg-surface); color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--blue); }
 
-    /* ── Section headings ─────────────────────────────────── */
-    .section-label {
-      font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .label-blue   { color: var(--blue); }
-    .label-green  { color: var(--green); }
-    .label-amber  { color: var(--amber); }
+        /* ── Section headings ─────────────────────────────────── */
+        .section-label {
+            font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .label-blue   { color: var(--blue); }
+        .label-green  { color: var(--green); }
+        .label-amber  { color: var(--amber); }
 
-    h2 {
-      font-size: 2rem; font-weight: 700; letter-spacing: -0.02em;
-      margin-bottom: 16px;
-    }
-    h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 12px; }
-    .section-desc { color: var(--text-dim); max-width: 640px; margin-bottom: 40px; }
+        h2 {
+            font-size: 2rem; font-weight: 700; letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 12px; }
+        .section-desc { color: var(--text-dim); max-width: 640px; margin-bottom: 40px; }
 
-    /* ── Feature cards ────────────────────────────────────── */
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-      gap: 20px;
-    }
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 28px;
-      transition: border-color 0.25s, transform 0.25s;
-    }
-    .card:hover { border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
-    .card-icon {
-      width: 40px; height: 40px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.25rem; margin-bottom: 16px;
-    }
-    .icon-blue  { background: rgba(56,189,248,0.12); color: var(--blue); }
-    .icon-green { background: rgba(34,197,94,0.12);  color: var(--green); }
-    .icon-amber { background: rgba(245,158,11,0.12); color: var(--amber); }
-    .card h3 { margin-bottom: 8px; }
-    .card p  { color: var(--text-dim); font-size: 0.92rem; }
+        /* ── Feature cards ────────────────────────────────────── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px;
+            transition: border-color 0.25s, transform 0.25s;
+        }
+        .card:hover { border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        .card-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem; margin-bottom: 16px;
+        }
+        .icon-blue  { background: rgba(56,189,248,0.12); color: var(--blue); }
+        .icon-green { background: rgba(34,197,94,0.12);  color: var(--green); }
+        .icon-amber { background: rgba(245,158,11,0.12); color: var(--amber); }
+        .card h3 { margin-bottom: 8px; }
+        .card p  { color: var(--text-dim); font-size: 0.92rem; }
 
-    /* ── Code blocks ──────────────────────────────────────── */
-    pre {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px 24px;
-      overflow-x: auto;
-      font-size: 0.88rem;
-      line-height: 1.65;
-      margin: 20px 0;
-    }
-    code {
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
-    }
-    :not(pre) > code {
-      background: var(--bg-surface);
-      padding: 2px 7px; border-radius: 5px;
-      font-size: 0.88em;
-      color: var(--soft-blue);
-    }
-    .kw  { color: var(--blue); }
-    .str { color: var(--green); }
-    .num { color: var(--amber); }
-    .cmt { color: var(--text-dim); font-style: italic; }
-    .typ { color: var(--soft-green); }
-    .fn  { color: #E2E8F0; }
+        /* ── Code blocks ──────────────────────────────────────── */
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 24px;
+            overflow-x: auto;
+            font-size: 0.88rem;
+            line-height: 1.65;
+            margin: 20px 0;
+        }
+        code {
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+        }
+        :not(pre) > code {
+            background: var(--bg-surface);
+            padding: 2px 7px; border-radius: 5px;
+            font-size: 0.88em;
+            color: var(--soft-blue);
+        }
+        .kw  { color: var(--blue); }
+        .str { color: var(--green); }
+        .num { color: var(--amber); }
+        .cmt { color: var(--text-dim); font-style: italic; }
+        .typ { color: var(--soft-green); }
+        .fn  { color: #E2E8F0; }
 
-    /* ── Package table ────────────────────────────────────── */
-    .pkg-table {
-      width: 100%; border-collapse: collapse;
-      font-size: 0.9rem; margin: 20px 0;
-    }
-    .pkg-table th {
-      text-align: left; padding: 12px 16px;
-      border-bottom: 2px solid var(--border);
-      color: var(--text-dim); font-weight: 600; font-size: 0.8rem;
-      text-transform: uppercase; letter-spacing: 0.05em;
-    }
-    .pkg-table td {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .pkg-table td:first-child code { color: var(--soft-blue); }
-    .pkg-table tr:last-child td { border-bottom: none; }
-    .pkg-table tr:hover td { background: rgba(255,255,255,0.02); }
+        /* ── Package table ────────────────────────────────────── */
+        .pkg-table {
+            width: 100%; border-collapse: collapse;
+            font-size: 0.9rem; margin: 20px 0;
+        }
+        .pkg-table th {
+            text-align: left; padding: 12px 16px;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-dim); font-weight: 600; font-size: 0.8rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .pkg-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .pkg-table td:first-child code { color: var(--soft-blue); }
+        .pkg-table tr:last-child td { border-bottom: none; }
+        .pkg-table tr:hover td { background: rgba(255,255,255,0.02); }
 
-    /* ── Benchmark table ──────────────────────────────────── */
-    .bench-table {
-      width: 100%; border-collapse: collapse;
-      font-size: 0.88rem; margin: 20px 0;
-    }
-    .bench-table th {
-      text-align: left; padding: 10px 14px;
-      border-bottom: 2px solid var(--border);
-      color: var(--text-dim); font-weight: 600; font-size: 0.78rem;
-      text-transform: uppercase; letter-spacing: 0.05em;
-    }
-    .bench-table th:nth-child(n+2) { text-align: right; }
-    .bench-table td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .bench-table td:nth-child(n+2) { text-align: right; font-family: 'SF Mono', monospace; }
-    .bench-table tr:last-child td { border-bottom: none; }
-    .bench-table tr:hover td { background: rgba(255,255,255,0.02); }
-    .speedup { color: var(--green); font-weight: 600; }
-    .speedup-high { color: var(--amber); font-weight: 700; }
+        /* ── Benchmark table ──────────────────────────────────── */
+        .bench-table {
+            width: 100%; border-collapse: collapse;
+            font-size: 0.88rem; margin: 20px 0;
+        }
+        .bench-table th {
+            text-align: left; padding: 10px 14px;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-dim); font-weight: 600; font-size: 0.78rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .bench-table th:nth-child(n+2) { text-align: right; }
+        .bench-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        .bench-table td:nth-child(n+2) { text-align: right; font-family: 'SF Mono', monospace; }
+        .bench-table tr:last-child td { border-bottom: none; }
+        .bench-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .speedup { color: var(--green); font-weight: 600; }
+        .speedup-high { color: var(--amber); font-weight: 700; }
 
-    /* ── Diagram ──────────────────────────────────────────── */
-    .diagram {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 24px 28px;
-      font-family: 'SF Mono', monospace;
-      font-size: 0.82rem;
-      line-height: 1.6;
-      color: var(--text-dim);
-      overflow-x: auto;
-      white-space: pre;
-      margin: 24px 0;
-    }
+        /* ── Diagram ──────────────────────────────────────────── */
+        .diagram {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px 28px;
+            font-family: 'SF Mono', monospace;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            color: var(--text-dim);
+            overflow-x: auto;
+            white-space: pre;
+            margin: 24px 0;
+        }
 
-    /* ── Badges row ───────────────────────────────────────── */
-    .badges { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 24px 0; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
-      border: 1px solid var(--border);
-    }
-    .badge-blue  { color: var(--blue);  background: rgba(56,189,248,0.08); }
-    .badge-green { color: var(--green); background: rgba(34,197,94,0.08); }
-    .badge-amber { color: var(--amber); background: rgba(245,158,11,0.08); }
+        /* ── Badges row ───────────────────────────────────────── */
+        .badges { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 24px 0; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+            border: 1px solid var(--border);
+        }
+        .badge-blue  { color: var(--blue);  background: rgba(56,189,248,0.08); }
+        .badge-green { color: var(--green); background: rgba(34,197,94,0.08); }
+        .badge-amber { color: var(--amber); background: rgba(245,158,11,0.08); }
 
-    /* ── Two-column layout ────────────────────────────────── */
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 32px;
-      align-items: start;
-    }
+        /* ── Two-column layout ────────────────────────────────── */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            align-items: start;
+        }
 
-    /* ── Hamburger button ─────────────────────────────────── */
-    .nav-toggle {
-      display: none;
-      background: none; border: none; cursor: pointer;
-      flex-direction: column; gap: 5px; padding: 4px;
-    }
-    .nav-toggle span {
-      display: block; width: 22px; height: 2px;
-      background: var(--text); border-radius: 2px;
-      transition: transform 0.3s, opacity 0.3s;
-    }
-    .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .nav-toggle.open span:nth-child(2) { opacity: 0; }
-    .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+        /* ── Hamburger button ─────────────────────────────────── */
+        .nav-toggle {
+            display: none;
+            background: none; border: none; cursor: pointer;
+            flex-direction: column; gap: 5px; padding: 4px;
+        }
+        .nav-toggle span {
+            display: block; width: 22px; height: 2px;
+            background: var(--text); border-radius: 2px;
+            transition: transform 0.3s, opacity 0.3s;
+        }
+        .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-toggle.open span:nth-child(2) { opacity: 0; }
+        .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-    /* ── Table scroll wrapper ─────────────────────────────── */
-    .table-scroll {
-      width: 100%; overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
+        /* ── Table scroll wrapper ─────────────────────────────── */
+        .table-scroll {
+            width: 100%; overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
 
-    /* ── Tablet ───────────────────────────────────────────── */
-    @media (max-width: 840px) {
-      .card-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-      .two-col { grid-template-columns: 1fr; }
-      section { padding: 60px 0; }
-    }
+        /* ── Tablet ───────────────────────────────────────────── */
+        @media (max-width: 840px) {
+            .card-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+            .two-col { grid-template-columns: 1fr; }
+            section { padding: 60px 0; }
+        }
 
-    /* ── Mobile ───────────────────────────────────────────── */
-    @media (max-width: 600px) {
-      .container { padding: 0 16px; }
+        /* ── Mobile ───────────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .container { padding: 0 16px; }
 
-      /* Nav → hamburger */
-      .nav-toggle { display: flex; }
-      nav ul {
-        display: none;
-        flex-direction: column;
-        position: absolute; top: 60px; left: 0; right: 0;
-        background: rgba(15, 23, 42, 0.97);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-bottom: 1px solid var(--border);
-        padding: 16px 24px;
-        gap: 16px;
-      }
-      nav ul.open { display: flex; }
-      nav a { font-size: 0.95rem; }
+            /* Nav → hamburger */
+            .nav-toggle { display: flex; }
+            nav ul {
+                display: none;
+                flex-direction: column;
+                position: absolute; top: 60px; left: 0; right: 0;
+                background: rgba(15, 23, 42, 0.97);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border-bottom: 1px solid var(--border);
+                padding: 16px 24px;
+                gap: 16px;
+            }
+            nav ul.open { display: flex; }
+            nav a { font-size: 0.95rem; }
 
-      /* Hero */
-      .hero { padding: 120px 0 64px; }
-      .hero img { width: 80px; margin-bottom: 20px; }
-      .hero h1 { font-size: 2.2rem; }
-      .hero p { font-size: 1.05rem; margin-bottom: 28px; }
-      .hero-buttons { flex-direction: column; align-items: center; gap: 10px; }
-      .btn { width: 100%; max-width: 280px; justify-content: center; padding: 14px 20px; }
+            /* Hero */
+            .hero { padding: 120px 0 64px; }
+            .hero img { width: 80px; margin-bottom: 20px; }
+            .hero h1 { font-size: 2.2rem; }
+            .hero p { font-size: 1.05rem; margin-bottom: 28px; }
+            .hero-buttons { flex-direction: column; align-items: center; gap: 10px; }
+            .btn { width: 100%; max-width: 280px; justify-content: center; padding: 14px 20px; }
 
-      /* Sections */
-      section { padding: 48px 0; }
-      h2 { font-size: 1.6rem; }
-      h3 { font-size: 1.1rem; }
-      .section-desc { font-size: 0.92rem; }
+            /* Sections */
+            section { padding: 48px 0; }
+            h2 { font-size: 1.6rem; }
+            h3 { font-size: 1.1rem; }
+            .section-desc { font-size: 0.92rem; }
 
-      /* Cards → single column */
-      .card-grid { grid-template-columns: 1fr; gap: 14px; }
-      .card { padding: 20px; }
+            /* Cards → single column */
+            .card-grid { grid-template-columns: 1fr; gap: 14px; }
+            .card { padding: 20px; }
 
-      /* Code */
-      pre { padding: 14px 12px; font-size: 0.78rem; border-radius: 8px; }
-      .diagram { padding: 16px 12px; font-size: 0.72rem; }
+            /* Code */
+            pre { padding: 14px 12px; font-size: 0.78rem; border-radius: 8px; }
+            .diagram { padding: 16px 12px; font-size: 0.72rem; }
 
-      /* Tables */
-      .pkg-table, .bench-table { font-size: 0.8rem; }
-      .pkg-table th, .pkg-table td,
-      .bench-table th, .bench-table td { padding: 8px 10px; }
-    }
+            /* Tables */
+            .pkg-table, .bench-table { font-size: 0.8rem; }
+            .pkg-table th, .pkg-table td,
+            .bench-table th, .bench-table td { padding: 8px 10px; }
+        }
 
-    /* ── Very small phones ────────────────────────────────── */
-    @media (max-width: 380px) {
-      .hero h1 { font-size: 1.8rem; }
-      .hero p { font-size: 0.95rem; }
-      .badge { font-size: 0.7rem; padding: 4px 8px; }
-      pre { font-size: 0.72rem; }
-    }
+        /* ── Very small phones ────────────────────────────────── */
+        @media (max-width: 380px) {
+            .hero h1 { font-size: 1.8rem; }
+            .hero p { font-size: 0.95rem; }
+            .badge { font-size: 0.7rem; padding: 4px 8px; }
+            pre { font-size: 0.72rem; }
+        }
 
-    /* ── Footer ───────────────────────────────────────────── */
-    footer {
-      padding: 40px 0;
-      text-align: center;
-      color: var(--text-dim);
-      font-size: 0.85rem;
-    }
-    footer a { color: var(--blue); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
+        /* ── Footer ───────────────────────────────────────────── */
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        footer a { color: var(--blue); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
 
-    /* ── Accent dots (decorative) ─────────────────────────── */
-    .dot {
-      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-      margin-right: 4px; vertical-align: middle;
-    }
-    .dot-blue  { background: var(--blue); }
-    .dot-green { background: var(--green); }
-    .dot-amber { background: var(--amber); }
+        /* ── Accent dots (decorative) ─────────────────────────── */
+        .dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            margin-right: 4px; vertical-align: middle;
+        }
+        .dot-blue  { background: var(--blue); }
+        .dot-green { background: var(--green); }
+        .dot-amber { background: var(--amber); }
 
-    /* ── Smooth reveal ────────────────────────────────────── */
-    .reveal {
-      opacity: 0; transform: translateY(24px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-  </style>
+        /* ── Smooth reveal ────────────────────────────────────── */
+        .reveal {
+            opacity: 0; transform: translateY(24px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+    </style>
 </head>
 <body>
 
 <!-- ═══ NAV ═══════════════════════════════════════════════ -->
 <nav>
-  <div class="container">
-    <a href="#" class="logo-link">
-      <img src="deepj_logo.svg" alt="DeepJ">
-      DeepJ
-    </a>
-    <button class="nav-toggle" aria-label="Toggle menu">
-      <span></span><span></span><span></span>
-    </button>
-    <ul>
-      <li><a href="#features">Features</a></li>
-      <li><a href="#architecture">Architecture</a></li>
-      <li><a href="#gpu">GPU</a></li>
-      <li><a href="#examples">Examples</a></li>
-      <li><a href="#benchmarks">Benchmarks</a></li>
-      <li><a href="index.html">Javadoc</a></li>
-      <li><a href="https://github.com/KirstenAli/DeepJ">GitHub</a></li>
-    </ul>
-  </div>
+    <div class="container">
+        <a href="#" class="logo-link">
+            <img src="deepj_logo.svg" alt="DeepJ">
+            DeepJ
+        </a>
+        <button class="nav-toggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+        <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#gpu">GPU</a></li>
+            <li><a href="#examples">Examples</a></li>
+            <li><a href="#benchmarks">Benchmarks</a></li>
+            <li><a href="index.html">Javadoc</a></li>
+            <li><a href="https://github.com/KirstenAli/DeepJ">GitHub</a></li>
+        </ul>
+    </div>
 </nav>
 
 <!-- ═══ HERO ══════════════════════════════════════════════ -->
 <div class="hero">
-  <div class="container">
-    <img src="deepj_logo.svg" alt="DeepJ logo">
-    <h1>DeepJ</h1>
-    <p>A lightweight, pure-Java Transformer library — build, train, and experiment with GPT, Llama, and DeepSeek-style models, zero dependencies.</p>
-    <div class="badges">
-      <span class="badge badge-blue">☕ Pure Java</span>
-      <span class="badge badge-green">🔧 Zero Dependencies</span>
-      <span class="badge badge-amber">⚡ Metal GPU</span>
+    <div class="container">
+        <img src="deepj_logo.svg" alt="DeepJ logo">
+        <h1>DeepJ</h1>
+        <p>A lightweight, pure-Java Transformer library — build, train, and experiment with GPT, Llama, and DeepSeek-style models, zero dependencies.</p>
+        <div class="badges">
+            <span class="badge badge-blue">☕ Pure Java</span>
+            <span class="badge badge-green">🔧 Zero Dependencies</span>
+            <span class="badge badge-amber">⚡ Metal GPU</span>
+        </div>
+        <div class="hero-buttons">
+            <a href="#examples" class="btn btn-primary">Get Started</a>
+            <a href="https://github.com/KirstenAli/DeepJ" class="btn btn-secondary">⭐ GitHub</a>
+            <a href="index.html" class="btn btn-secondary">📚 Javadoc</a>
+        </div>
     </div>
-    <div class="hero-buttons">
-      <a href="#examples" class="btn btn-primary">Get Started</a>
-      <a href="https://github.com/KirstenAli/DeepJ" class="btn btn-secondary">⭐ GitHub</a>
-      <a href="index.html" class="btn btn-secondary">📚 Javadoc</a>
-    </div>
-  </div>
 </div>
 
 <!-- ═══ INSTALL ═══════════════════════════════════════════ -->
 <section id="install">
-  <div class="container reveal">
-    <div class="section-label label-blue">Getting started</div>
-    <h2>Installation</h2>
-    <p class="section-desc">Add the GitHub Packages repository and dependency to your <code>pom.xml</code>.</p>
-    <pre><code>&lt;<span class="kw">dependency</span>&gt;
+    <div class="container reveal">
+        <div class="section-label label-blue">Getting started</div>
+        <h2>Installation</h2>
+        <p class="section-desc">Add the GitHub Packages repository and dependency to your <code>pom.xml</code>.</p>
+        <pre><code>&lt;<span class="kw">dependency</span>&gt;
     &lt;<span class="kw">groupId</span>&gt;<span class="str">io.github.kirstenali</span>&lt;/<span class="kw">groupId</span>&gt;
     &lt;<span class="kw">artifactId</span>&gt;<span class="str">deepj</span>&lt;/<span class="kw">artifactId</span>&gt;
     &lt;<span class="kw">version</span>&gt;<span class="num">0.5.0-alpha</span>&lt;/<span class="kw">version</span>&gt;
 &lt;/<span class="kw">dependency</span>&gt;</code></pre>
-  </div>
+    </div>
 </section>
 
 <!-- ═══ FEATURES ══════════════════════════════════════════ -->
 <section id="features">
-  <div class="container reveal">
-    <div class="section-label label-green">Why DeepJ</div>
-    <h2>Features</h2>
-    <p class="section-desc">Everything you need to build, train, and deploy Transformer models — in pure Java.</p>
-    <div class="card-grid">
-      <div class="card">
-        <div class="card-icon icon-blue">📐</div>
-        <h3>Tensor Engine</h3>
-        <p>2-D tensors with 60+ operations. Pluggable backends — swap between CPU and Metal GPU with one line.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-green">🧱</div>
-        <h3>Layer Primitives</h3>
-        <p>Linear, FNN, LayerNorm, RMSNorm, SwiGLU, Multi-Head Self-Attention — all with full forward &amp; backward.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-amber">🦙</div>
-        <h3>Modern Architectures</h3>
-        <p>RoPE, RMSNorm, SwiGLU, MLA — ready-made <code>LlamaTransformerBlock</code> and <code>DeepSeekTransformerBlock</code> with the same primitives used by Llama, Mistral, Qwen, and DeepSeek.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-blue">🤖</div>
-        <h3>Three Model Families</h3>
-        <p>GPT (LayerNorm + MHSA), Llama (RMSNorm + RoPE + SwiGLU), and DeepSeek (MLA for 8× smaller KV cache). All share one <code>TextGenerator</code> and one <code>TransformerConfig</code> interface.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-green">⚡</div>
-        <h3>Metal GPU Backend</h3>
-        <p>Lazy, GPU-resident execution on Apple Silicon. Ops record into a command stream and flush in one batch — up to 36× faster than multithreaded CPU.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-amber">🏋️</div>
-        <h3>Training Loop</h3>
-        <p>Pluggable Trainer with EMA loss, early stopping, checkpointing hooks. Factories for supervised and causal LM training.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-blue">🔤</div>
-        <h3>Tokenizers</h3>
-        <p>ByteTokenizer for quick experiments, full BPE pipeline for subword tokenization. Both implement the Tokenizer interface.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-green">🧮</div>
-        <h3>AdamW Optimizer</h3>
-        <p>Per-parameter state, bias correction, weight decay. Works with any model exposing <code>parameters()</code>.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon icon-amber">💾</div>
-        <h3>Binary Persistence</h3>
-        <p>Save &amp; load model weights as compact binary files. No external format dependencies.</p>
-      </div>
+    <div class="container reveal">
+        <div class="section-label label-green">Why DeepJ</div>
+        <h2>Features</h2>
+        <p class="section-desc">Everything you need to build, train, and deploy Transformer models — in pure Java.</p>
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-icon icon-blue">📐</div>
+                <h3>Tensor Engine</h3>
+                <p>2-D tensors with 60+ operations. Pluggable backends — swap between CPU and Metal GPU with one line.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-green">🧱</div>
+                <h3>Layer Primitives</h3>
+                <p>Linear, FNN, LayerNorm, RMSNorm, SwiGLU, Multi-Head Self-Attention — all with full forward &amp; backward.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-amber">🦙</div>
+                <h3>Modern Architectures</h3>
+                <p>RoPE, RMSNorm, SwiGLU, MLA — ready-made <code>LlamaTransformerBlock</code> and <code>DeepSeekTransformerBlock</code> with the same primitives used by Llama, Mistral, Qwen, and DeepSeek.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-blue">🤖</div>
+                <h3>Three Model Families</h3>
+                <p>GPT (LayerNorm + MHSA), Llama (RMSNorm + RoPE + SwiGLU), and DeepSeek (MLA for 8× smaller KV cache). All share one <code>TextGenerator</code> and one <code>TransformerConfig</code> interface.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-green">⚡</div>
+                <h3>Metal GPU Backend</h3>
+                <p>Lazy, GPU-resident execution on Apple Silicon. Ops record into a command stream and flush in one batch — up to 36× faster than multithreaded CPU.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-amber">🏋️</div>
+                <h3>Training Loop</h3>
+                <p>Pluggable Trainer with EMA loss, early stopping, checkpointing hooks. Factories for supervised and causal LM training.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-blue">🔤</div>
+                <h3>Tokenizers</h3>
+                <p>ByteTokenizer for quick experiments, full BPE pipeline for subword tokenization. Both implement the Tokenizer interface.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-green">🧮</div>
+                <h3>AdamW Optimizer</h3>
+                <p>Per-parameter state, bias correction, weight decay. Works with any model exposing <code>parameters()</code>.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon icon-amber">💾</div>
+                <h3>Binary Persistence</h3>
+                <p>Save &amp; load model weights as compact binary files. No external format dependencies.</p>
+            </div>
+        </div>
     </div>
-  </div>
 </section>
 
 <!-- ═══ ARCHITECTURE ══════════════════════════════════════ -->
 <section id="architecture">
-  <div class="container reveal">
-    <div class="section-label label-amber">Under the hood</div>
-    <h2>Architecture</h2>
-    <p class="section-desc">DeepJ is organised into focused, single-responsibility packages.</p>
-    <div class="table-scroll">
-    <table class="pkg-table">
-      <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
-      <tbody>
-        <tr><td><code>tensor</code></td><td>2-D tensors, <code>TensorBackend</code> abstraction, <code>ComputeGraph</code> lazy execution</td></tr>
-        <tr><td><code>tensor.cpu</code></td><td><code>CpuBackend</code> — parallel CPU implementation with in-place helpers</td></tr>
-        <tr><td><code>tensor.metal</code></td><td><code>MetalBackend</code> — Apple Silicon GPU via Metal JNI</td></tr>
-        <tr><td><code>concurrent</code></td><td><code>DeepJExecutor</code> — thread-pool for CPU parallelism</td></tr>
-        <tr><td><code>layers</code></td><td><code>Layer</code> interface, <code>Linear</code> projection, <code>FNN</code> (MLP)</td></tr>
-        <tr><td><code>layers.transformer</code></td><td><code>SwiGLULayer</code> — gated FFN used by Llama / DeepSeek style blocks</td></tr>
-        <tr><td><code>layers.transformer.attention</code></td><td><code>MultiHeadSelfAttention</code>, <code>RoPEMultiHeadSelfAttention</code>, <code>MultiHeadLatentAttention</code> (MLA)</td></tr>
-        <tr><td><code>layers.transformer.norm</code></td><td><code>LayerNorm1D</code>, <code>RMSNorm1D</code></td></tr>
-        <tr><td><code>layers.transformer.blocks</code></td><td><code>GPTTransformerBlock</code>, <code>LlamaTransformerBlock</code>, <code>DeepSeekTransformerBlock</code></td></tr>
-        <tr><td><code>transformer</code></td><td><code>TransformerBuilder</code>, <code>TransformerStack</code></td></tr>
-        <tr><td><code>transformer.embeddings</code></td><td><code>Embedding</code> (token lookup), <code>PositionalEmbedding</code> (learnable), <code>RotaryEmbedding</code> (RoPE)</td></tr>
-        <tr><td><code>activations</code></td><td>GELU, SiLU, ReLU, Sigmoid, Tanh, Softmax</td></tr>
-        <tr><td><code>loss</code></td><td>MSELoss, CrossEntropyLoss</td></tr>
-        <tr><td><code>optimisers</code></td><td>AdamW, <code>Parameter</code></td></tr>
-        <tr><td><code>training</code></td><td><code>Trainer</code>, <code>SupervisedTraining</code>, <code>CausalLMTraining</code></td></tr>
-        <tr><td><code>models</code></td><td><code>TransformerConfig</code> (shared interface), <code>TextGenerator</code></td></tr>
-        <tr><td><code>models.gpt</code></td><td><code>GPTModel</code>, <code>GPTConfig</code></td></tr>
-        <tr><td><code>models.llama</code></td><td><code>LlamaModel</code>, <code>LlamaConfig</code></td></tr>
-        <tr><td><code>models.deepseek</code></td><td><code>DeepSeekModel</code>, <code>DeepSeekConfig</code></td></tr>
-        <tr><td><code>tokenizers</code></td><td><code>ByteTokenizer</code>, BPE pipeline</td></tr>
-        <tr><td><code>persistence</code></td><td><code>ModelSerializer</code> — binary save/load</td></tr>
-        <tr><td><code>chatui</code></td><td><code>BaseChatApp</code>, <code>ChatService</code></td></tr>
-      </tbody>
-    </table>
-    </div>
+    <div class="container reveal">
+        <div class="section-label label-amber">Under the hood</div>
+        <h2>Architecture</h2>
+        <p class="section-desc">DeepJ is organised into focused, single-responsibility packages.</p>
+        <div class="table-scroll">
+            <table class="pkg-table">
+                <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
+                <tbody>
+                <tr><td><code>tensor</code></td><td>2-D tensors, <code>TensorBackend</code> abstraction, <code>ComputeGraph</code> lazy execution</td></tr>
+                <tr><td><code>tensor.cpu</code></td><td><code>CpuBackend</code> — parallel CPU implementation with in-place helpers</td></tr>
+                <tr><td><code>tensor.metal</code></td><td><code>MetalBackend</code> — Apple Silicon GPU via Metal JNI</td></tr>
+                <tr><td><code>concurrent</code></td><td><code>DeepJExecutor</code> — thread-pool for CPU parallelism</td></tr>
+                <tr><td><code>layers</code></td><td><code>Layer</code> interface, <code>Linear</code> projection, <code>FNN</code> (MLP)</td></tr>
+                <tr><td><code>layers.transformer</code></td><td><code>SwiGLULayer</code> — gated FFN used by Llama / DeepSeek style blocks</td></tr>
+                <tr><td><code>layers.transformer.attention</code></td><td><code>MultiHeadSelfAttention</code>, <code>RoPEMultiHeadSelfAttention</code>, <code>MultiHeadLatentAttention</code> (MLA)</td></tr>
+                <tr><td><code>layers.transformer.norm</code></td><td><code>LayerNorm1D</code>, <code>RMSNorm1D</code></td></tr>
+                <tr><td><code>layers.transformer.blocks</code></td><td><code>GPTTransformerBlock</code>, <code>LlamaTransformerBlock</code>, <code>DeepSeekTransformerBlock</code></td></tr>
+                <tr><td><code>transformer</code></td><td><code>GPTTransformerBuilder</code>, <code>LlamaTransformerBuilder</code>, <code>DeepSeekTransformerBuilder</code>, <code>TransformerStack</code></td></tr>
+                <tr><td><code>transformer.embeddings</code></td><td><code>Embedding</code> (token lookup), <code>PositionalEmbedding</code> (learnable), <code>RotaryEmbedding</code> (RoPE)</td></tr>
+                <tr><td><code>activations</code></td><td>GELU, SiLU, ReLU, Sigmoid, Tanh, Softmax</td></tr>
+                <tr><td><code>loss</code></td><td>MSELoss, CrossEntropyLoss</td></tr>
+                <tr><td><code>optimisers</code></td><td>AdamW, <code>Parameter</code></td></tr>
+                <tr><td><code>training</code></td><td><code>Trainer</code>, <code>SupervisedTraining</code>, <code>CausalLMTraining</code></td></tr>
+                <tr><td><code>models</code></td><td><code>TransformerConfig</code> (shared interface), <code>TextGenerator</code></td></tr>
+                <tr><td><code>models.gpt</code></td><td><code>GPTModel</code>, <code>GPTConfig</code></td></tr>
+                <tr><td><code>models.llama</code></td><td><code>LlamaModel</code>, <code>LlamaConfig</code></td></tr>
+                <tr><td><code>models.deepseek</code></td><td><code>DeepSeekModel</code>, <code>DeepSeekConfig</code></td></tr>
+                <tr><td><code>tokenizers</code></td><td><code>ByteTokenizer</code>, BPE pipeline</td></tr>
+                <tr><td><code>persistence</code></td><td><code>ModelSerializer</code> — binary save/load</td></tr>
+                <tr><td><code>chatui</code></td><td><code>BaseChatApp</code>, <code>ChatService</code></td></tr>
+                </tbody>
+            </table>
+        </div>
 
-    <h3>Key Interfaces</h3>
-    <div class="diagram">Trainable              — exposes parameters() + zeroGrad()
-    └── Layer          — forward(Tensor) / backward(Tensor)
+        <h3>Key Interfaces</h3>
+        <div class="diagram">Trainable              — exposes parameters() + zeroGrad()
+            └── Layer          — forward(Tensor) / backward(Tensor)
             ├── GPTTransformerBlock          (GPT-style: LayerNorm + MHSA + GELU FFN)
             ├── LlamaTransformerBlock     (RMSNorm + RoPE-MHSA + SwiGLU)
             ├── DeepSeekTransformerBlock  (RMSNorm + MLA + SwiGLU)
@@ -531,74 +531,74 @@
             ├── MultiHeadLatentAttention  (MLA — low-rank Q/KV compression)
             ├── LayerNorm1D  /  RMSNorm1D
             └── SwiGLULayer  (gate · up · down projections)
-Persistable            — save(Path) / load(Path) via ModelSerializer
-TransformerConfig      — shared config interface (vocabSize, dModel, nHeads …)
-TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
-LossFunction           — loss() + gradient()
-ParameterOptimizer     — step(List&lt;Parameter&gt;)
-Tokenizer              — encode(String) / decode(int[]) / vocabSize()</div>
-  </div>
+            Persistable            — save(Path) / load(Path) via ModelSerializer
+            TransformerConfig      — shared config interface (vocabSize, dModel, nHeads …)
+            TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
+            LossFunction           — loss() + gradient()
+            ParameterOptimizer     — step(List&lt;Parameter&gt;)
+            Tokenizer              — encode(String) / decode(int[]) / vocabSize()</div>
+    </div>
 </section>
 
 <!-- ═══ GPU ═══════════════════════════════════════════════ -->
 <section id="gpu">
-  <div class="container reveal">
-    <div class="section-label label-blue">Apple Silicon</div>
-    <h2>Metal GPU Backend</h2>
-    <p class="section-desc">Lazy, GPU-resident execution. Tensors stay on the GPU between operations — data only transfers when you need it.</p>
+    <div class="container reveal">
+        <div class="section-label label-blue">Apple Silicon</div>
+        <h2>Metal GPU Backend</h2>
+        <p class="section-desc">Lazy, GPU-resident execution. Tensors stay on the GPU between operations — data only transfers when you need it.</p>
 
-    <div class="two-col">
-      <div>
-        <h3>Enable in one line</h3>
-        <pre><code><span class="typ">MetalBackend</span> metal = <span class="kw">new</span> <span class="typ">MetalBackend</span>();
+        <div class="two-col">
+            <div>
+                <h3>Enable in one line</h3>
+                <pre><code><span class="typ">MetalBackend</span> metal = <span class="kw">new</span> <span class="typ">MetalBackend</span>();
 <span class="typ">Tensor</span>.<span class="fn">setBackend</span>(metal);</code></pre>
-        <p style="color: var(--text-dim); margin-top: 12px;">
-          Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
-          while unsupported ops fall back to CPU with on-demand materialization.
-        </p>
-      </div>
-      <div>
-        <h3>How it works</h3>
-        <div class="diagram" style="font-size: 0.78rem;">CPU                          GPU
- │                            │
- │  a = random(512,512)  ──▶  buffer A
- │  b = random(512,512)  ──▶  buffer B
- │                            │
- │  c = a.matmul(b)           record op
- │  d = c.relu()              record op
- │  e = d.softmaxRows()       record op
- │                            │
- │  e.materialize()           flush all
- │                       ◀──  buffer E
- │  read e.data[][]           │</div>
-      </div>
-    </div>
+                <p style="color: var(--text-dim); margin-top: 12px;">
+                    Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
+                    while unsupported ops fall back to CPU with on-demand materialization.
+                </p>
+            </div>
+            <div>
+                <h3>How it works</h3>
+                <div class="diagram" style="font-size: 0.78rem;">CPU                          GPU
+                    │                            │
+                    │  a = random(512,512)  ──▶  buffer A
+                    │  b = random(512,512)  ──▶  buffer B
+                    │                            │
+                    │  c = a.matmul(b)           record op
+                    │  d = c.relu()              record op
+                    │  e = d.softmaxRows()       record op
+                    │                            │
+                    │  e.materialize()           flush all
+                    │                       ◀──  buffer E
+                    │  read e.data[][]           │</div>
+            </div>
+        </div>
 
-    <div class="card-grid" style="margin-top: 32px;">
-      <div class="card">
-        <h3><span class="dot dot-blue"></span> No round-trips</h3>
-        <p>For GPU-supported chains, intermediate results stay on GPU</p>
-      </div>
-      <div class="card">
-        <h3><span class="dot dot-green"></span> Batched execution</h3>
-        <p>All recorded ops flush in a single GPU command buffer</p>
-      </div>
-      <div class="card">
-        <h3><span class="dot dot-amber"></span> Staleness tracking</h3>
-        <p>Each tensor tracks whether CPU or GPU state is current before materialization</p>
-      </div>
+        <div class="card-grid" style="margin-top: 32px;">
+            <div class="card">
+                <h3><span class="dot dot-blue"></span> No round-trips</h3>
+                <p>For GPU-supported chains, intermediate results stay on GPU</p>
+            </div>
+            <div class="card">
+                <h3><span class="dot dot-green"></span> Batched execution</h3>
+                <p>All recorded ops flush in a single GPU command buffer</p>
+            </div>
+            <div class="card">
+                <h3><span class="dot dot-amber"></span> Staleness tracking</h3>
+                <p>Each tensor tracks whether CPU or GPU state is current before materialization</p>
+            </div>
+        </div>
     </div>
-  </div>
 </section>
 
 <!-- ═══ EXAMPLES ══════════════════════════════════════════ -->
 <section id="examples">
-  <div class="container reveal">
-    <div class="section-label label-green">Code</div>
-    <h2>Examples</h2>
+    <div class="container reveal">
+        <div class="section-label label-green">Code</div>
+        <h2>Examples</h2>
 
-    <h3>Classic MLP (FNN)</h3>
-    <pre><code><span class="typ">FNN</span> mlp = <span class="kw">new</span> <span class="typ">FNN</span>(
+        <h3>Classic MLP (FNN)</h3>
+        <pre><code><span class="typ">FNN</span> mlp = <span class="kw">new</span> <span class="typ">FNN</span>(
         <span class="num">3</span>,                       <span class="cmt">// inputSize</span>
         <span class="kw">new</span> <span class="kw">int</span>[]{<span class="num">16</span>, <span class="num">16</span>},       <span class="cmt">// hiddenSizes</span>
         <span class="num">3</span>,                       <span class="cmt">// outputSize</span>
@@ -622,8 +622,8 @@ trainer.<span class="fn">train</span>(
         <span class="num">1e-6</span>   <span class="cmt">// targetEmaLoss    – early-stop when smoothed loss falls below this</span>
 );</code></pre>
 
-    <h3 style="margin-top: 40px;">GPT Training + Generation</h3>
-    <pre><code><span class="typ">Tensor</span>.<span class="fn">setBackend</span>(<span class="kw">new</span> <span class="typ">MetalBackend</span>());
+        <h3 style="margin-top: 40px;">GPT Training + Generation</h3>
+        <pre><code><span class="typ">Tensor</span>.<span class="fn">setBackend</span>(<span class="kw">new</span> <span class="typ">MetalBackend</span>());
 
 <span class="typ">GPTConfig</span> cfg = <span class="kw">new</span> <span class="typ">GPTConfig</span>(
         tok.<span class="fn">vocabSize</span>(),
@@ -649,8 +649,8 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
         <span class="num">1234L</span>    <span class="cmt">// seed</span>
 );</code></pre>
 
-    <h3 style="margin-top: 40px;">GPT Transformer Block (direct use)</h3>
-    <pre><code><span class="cmt">// GPT-style block — LayerNorm + MHSA + configurable FFN</span>
+        <h3 style="margin-top: 40px;">GPT Transformer Block (direct use)</h3>
+        <pre><code><span class="cmt">// GPT-style block — LayerNorm + MHSA + configurable FFN</span>
 <span class="typ">GPTTransformerBlock</span> block = <span class="kw">new</span> <span class="typ">GPTTransformerBlock</span>(
         <span class="num">512</span>,       <span class="cmt">// dModel</span>
         <span class="num">8</span>,         <span class="cmt">// nHeads</span>
@@ -662,20 +662,19 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
 <span class="typ">Tensor</span> out = block.<span class="fn">forward</span>(x);    <span class="cmt">// [seqLen × dModel]</span>
 <span class="typ">Tensor</span> dX  = block.<span class="fn">backward</span>(grad); <span class="cmt">// backprop gradient</span></code></pre>
 
-    <h3 style="margin-top: 40px;">Transformer Builder</h3>
-    <pre><code><span class="cmt">// GPT-style stack — default block type, no extra params needed</span>
-<span class="typ">TransformerStack</span> stack = <span class="kw">new</span> <span class="typ">TransformerBuilder</span>()
+        <h3 style="margin-top: 40px;">Transformer Builder</h3>
+        <pre><code><span class="typ">TransformerStack</span> stack = <span class="kw">new</span> <span class="typ">GPTTransformerBuilder</span>()
         .<span class="fn">dModel</span>(<span class="num">128</span>)              <span class="cmt">// model dimension</span>
         .<span class="fn">nHeads</span>(<span class="num">4</span>)               <span class="cmt">// attention heads</span>
         .<span class="fn">dFF</span>(<span class="num">512</span>)                <span class="cmt">// feed-forward inner dimension</span>
         .<span class="fn">nLayers</span>(<span class="num">4</span>)              <span class="cmt">// number of decoder blocks</span>
         .<span class="fn">ffnActivation</span>(<span class="typ">GELU</span>::<span class="fn">new</span>)
         .<span class="fn">seed</span>(<span class="num">42</span>)
-        .<span class="fn">build</span>();                 <span class="cmt">// blockType defaults to BlockType.GPT</span></code></pre>
+        .<span class="fn">build</span>();</code></pre>
 
 
-    <h3 style="margin-top: 40px;">Extending Attention</h3>
-    <pre><code><span class="cmt">// Override two hooks, inherit all attention mechanics and backprop</span>
+        <h3 style="margin-top: 40px;">Extending Attention</h3>
+        <pre><code><span class="cmt">// Override two hooks, inherit all attention mechanics and backprop</span>
 <span class="kw">public class</span> <span class="typ">MyAttention</span> <span class="kw">extends</span> <span class="typ">MultiHeadSelfAttention</span> {
     <span class="kw">protected</span> <span class="typ">Tensor</span> <span class="fn">transformQueryKey</span>(<span class="typ">Tensor</span> heads, <span class="kw">int</span> seqLen) {
         <span class="kw">return</span> myTransform(heads, seqLen, nHeads);
@@ -684,75 +683,75 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
         <span class="kw">return</span> myInverse(grad, seqLen, nHeads);
     }
 }</code></pre>
-  </div>
+    </div>
 </section>
 
 <!-- ═══ BENCHMARKS ════════════════════════════════════════ -->
 <section id="benchmarks">
-  <div class="container reveal">
-    <div class="section-label label-amber">Performance</div>
-    <h2>Metal GPU Benchmarks</h2>
-    <p class="section-desc">Chained-pipeline benchmarks on a <strong>512 × 512</strong> matrix (262,144 elements), measured on Apple Silicon.
-      Multiple lazy ops record into one command buffer, then a single <code>materialize()</code> flushes them all.
-      CPU timings use the default <strong>multithreaded</strong> <code>DeepJExecutor</code> (parallel enabled).</p>
-    <div class="table-scroll">
-    <table class="bench-table">
-      <thead><tr><th>Pipeline</th><th>CPU (ms)</th><th>GPU (ms)</th><th>Speedup</th></tr></thead>
-      <tbody>
-        <tr><td>5 mixed ops (1 matmul)</td><td>19.296</td><td>1.686</td><td><span class="speedup">11×</span></td></tr>
-        <tr><td>10 mixed ops (2 matmuls)</td><td>40.876</td><td>1.750</td><td><span class="speedup-high">23×</span></td></tr>
-        <tr><td>20 mixed ops (4 matmuls)</td><td>104.231</td><td>3.147</td><td><span class="speedup-high">33×</span></td></tr>
-        <tr><td>50 mixed ops (10 matmuls)</td><td>226.345</td><td>6.902</td><td><span class="speedup-high">33×</span></td></tr>
-        <tr><td>linear fwd (3 ops)</td><td>18.967</td><td>1.358</td><td><span class="speedup">14×</span></td></tr>
-        <tr><td>attention fwd (4 ops)</td><td>40.332</td><td>1.594</td><td><span class="speedup-high">25×</span></td></tr>
-        <tr><td>fwd + loss grad (6 ops)</td><td>40.645</td><td>2.013</td><td><span class="speedup-high">20×</span></td></tr>
-        <tr><td>backward (6 ops, 2 matmuls)</td><td>42.140</td><td>1.736</td><td><span class="speedup-high">24×</span></td></tr>
-        <tr><td>mini train step (9 ops)</td><td>46.088</td><td>2.014</td><td><span class="speedup-high">23×</span></td></tr>
-        <tr><td>full train step (13 ops)</td><td>85.293</td><td>2.383</td><td><span class="speedup-high">36×</span></td></tr>
-      </tbody>
-    </table>
+    <div class="container reveal">
+        <div class="section-label label-amber">Performance</div>
+        <h2>Metal GPU Benchmarks</h2>
+        <p class="section-desc">Chained-pipeline benchmarks on a <strong>512 × 512</strong> matrix (262,144 elements), measured on Apple Silicon.
+            Multiple lazy ops record into one command buffer, then a single <code>materialize()</code> flushes them all.
+            CPU timings use the default <strong>multithreaded</strong> <code>DeepJExecutor</code> (parallel enabled).</p>
+        <div class="table-scroll">
+            <table class="bench-table">
+                <thead><tr><th>Pipeline</th><th>CPU (ms)</th><th>GPU (ms)</th><th>Speedup</th></tr></thead>
+                <tbody>
+                <tr><td>5 mixed ops (1 matmul)</td><td>19.296</td><td>1.686</td><td><span class="speedup">11×</span></td></tr>
+                <tr><td>10 mixed ops (2 matmuls)</td><td>40.876</td><td>1.750</td><td><span class="speedup-high">23×</span></td></tr>
+                <tr><td>20 mixed ops (4 matmuls)</td><td>104.231</td><td>3.147</td><td><span class="speedup-high">33×</span></td></tr>
+                <tr><td>50 mixed ops (10 matmuls)</td><td>226.345</td><td>6.902</td><td><span class="speedup-high">33×</span></td></tr>
+                <tr><td>linear fwd (3 ops)</td><td>18.967</td><td>1.358</td><td><span class="speedup">14×</span></td></tr>
+                <tr><td>attention fwd (4 ops)</td><td>40.332</td><td>1.594</td><td><span class="speedup-high">25×</span></td></tr>
+                <tr><td>fwd + loss grad (6 ops)</td><td>40.645</td><td>2.013</td><td><span class="speedup-high">20×</span></td></tr>
+                <tr><td>backward (6 ops, 2 matmuls)</td><td>42.140</td><td>1.736</td><td><span class="speedup-high">24×</span></td></tr>
+                <tr><td>mini train step (9 ops)</td><td>46.088</td><td>2.014</td><td><span class="speedup-high">23×</span></td></tr>
+                <tr><td>full train step (13 ops)</td><td>85.293</td><td>2.383</td><td><span class="speedup-high">36×</span></td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-  </div>
 </section>
 
 <!-- ═══ FOOTER ════════════════════════════════════════════ -->
 <footer>
-  <div class="container">
-    <p>
-      <span class="dot dot-blue"></span>
-      <span class="dot dot-green"></span>
-      <span class="dot dot-amber"></span>
-    </p>
-    <p style="margin-top: 12px;">
-      DeepJ — MIT License &nbsp;·&nbsp;
-      <a href="https://github.com/KirstenAli/DeepJ">GitHub</a> &nbsp;·&nbsp;
-      <a href="index.html">Javadoc</a>
-    </p>
-  </div>
+    <div class="container">
+        <p>
+            <span class="dot dot-blue"></span>
+            <span class="dot dot-green"></span>
+            <span class="dot dot-amber"></span>
+        </p>
+        <p style="margin-top: 12px;">
+            DeepJ — MIT License &nbsp;·&nbsp;
+            <a href="https://github.com/KirstenAli/DeepJ">GitHub</a> &nbsp;·&nbsp;
+            <a href="index.html">Javadoc</a>
+        </p>
+    </div>
 </footer>
 
 <!-- ═══ Scroll reveal + hamburger toggle ══════════════════ -->
 <script>
-  // Scroll reveal
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-  }, { threshold: 0.12 });
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    // Scroll reveal
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  // Hamburger menu
-  const toggle = document.querySelector('.nav-toggle');
-  const navUl  = document.querySelector('nav ul');
-  toggle.addEventListener('click', () => {
-    toggle.classList.toggle('open');
-    navUl.classList.toggle('open');
-  });
-  // Close menu when a link is tapped
-  navUl.querySelectorAll('a').forEach(a => {
-    a.addEventListener('click', () => {
-      toggle.classList.remove('open');
-      navUl.classList.remove('open');
+    // Hamburger menu
+    const toggle = document.querySelector('.nav-toggle');
+    const navUl  = document.querySelector('nav ul');
+    toggle.addEventListener('click', () => {
+        toggle.classList.toggle('open');
+        navUl.classList.toggle('open');
     });
-  });
+    // Close menu when a link is tapped
+    navUl.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => {
+            toggle.classList.remove('open');
+            navUl.classList.remove('open');
+        });
+    });
 </script>
 
 </body>
