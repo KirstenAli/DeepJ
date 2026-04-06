@@ -94,7 +94,7 @@ public final class CausalLMTraining {
     private static void scaleGradients(List<Parameter> params, double scale) {
         for (Parameter p : params) {
             if (p.grad != null) {
-                p.grad = p.grad.multiplyScalar(scale);
+                p.grad.multiplyScalarInPlace(scale);
             }
         }
     }

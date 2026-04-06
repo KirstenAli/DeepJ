@@ -184,7 +184,7 @@ public class MultiHeadSelfAttention implements Layer {
     // -------------------------------------------------------------------------
 
     private Tensor backwardOutputProjection(Tensor dOut) {
-        Wo.grad = Wo.grad.add(cache.mergedBeforeWo.transpose().matmul(dOut));
+        Wo.grad.addInPlace(cache.mergedBeforeWo.transpose().matmul(dOut));
         return dOut.matmul(Wo.value.transpose());
     }
 
@@ -224,9 +224,9 @@ public class MultiHeadSelfAttention implements Layer {
 
     private void accumulateProjectionGrads(Tensor dQ, Tensor dK, Tensor dV) {
         Tensor xT = cache.x.transpose();
-        Wq.grad = Wq.grad.add(xT.matmul(dQ));
-        Wk.grad = Wk.grad.add(xT.matmul(dK));
-        Wv.grad = Wv.grad.add(xT.matmul(dV));
+        Wq.grad.addInPlace(xT.matmul(dQ));
+        Wk.grad.addInPlace(xT.matmul(dK));
+        Wv.grad.addInPlace(xT.matmul(dV));
     }
 
     // -------------------------------------------------------------------------

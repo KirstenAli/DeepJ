@@ -521,24 +521,6 @@
                 </tbody>
             </table>
         </div>
-
-        <h3>Key Interfaces</h3>
-        <div class="diagram">Trainable              — exposes parameters() + zeroGrad()
-└── Layer          — forward(Tensor) / backward(Tensor)
-├── GPTTransformerBlock          (GPT-style: LayerNorm + MHSA + GELU FFN)
-├── LlamaTransformerBlock     (RMSNorm + RoPE-MHSA + SwiGLU)
-├── DeepSeekTransformerBlock  (RMSNorm + MLA + SwiGLU)
-├── MultiHeadSelfAttention    (base — template-method hooks)
-│       └── RoPEMultiHeadSelfAttention
-├── MultiHeadLatentAttention  (MLA — low-rank Q/KV compression)
-├── LayerNorm1D  /  RMSNorm1D
-└── SwiGLULayer  (gate · up · down projections)
-Persistable            — save(Path) / load(Path) via ModelSerializer
-TransformerConfig      — shared config interface (vocabSize, dModel, nHeads …)
-TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
-LossFunction           — loss() + gradient()
-ParameterOptimizer     — step(List&lt;Parameter&gt;)
-Tokenizer              — encode(String) / decode(int[]) / vocabSize()</div>
     </div>
 </section>
 
@@ -557,22 +539,25 @@ Tokenizer              — encode(String) / decode(int[]) / vocabSize()</div>
                 <p style="color: var(--text-dim); margin-top: 12px;">
                     Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
                     while unsupported ops fall back to CPU with on-demand materialization.
+                    In-place tensor ops are overridden on Metal to remain lazy/GPU-resident.
+                    Reading values on CPU (<code>materialize()</code>, <code>get</code>, <code>set</code>,
+                    <code>print</code>, or raw <code>data[][]</code> access) triggers a sync/readback boundary.
                 </p>
             </div>
             <div>
                 <h3>How it works</h3>
-                <div class="diagram" style="font-size: 0.78rem;">CPU                          GPU
-│                            │
-│  a = random(512,512)  ──▶  buffer A
-│  b = random(512,512)  ──▶  buffer B
-│                            │
-│  c = a.matmul(b)           record op
-│  d = c.relu()              record op
-│  e = d.softmaxRows()       record op
-│                            │
-│  e.materialize()           flush all
-│                       ◀──  buffer E
-│  read e.data[][]           │</div>
+                <div class="diagram" style="font-size: 0.78rem;">CPU                              GPU
+│                                │
+│  a = random(512, 512)     ──upload──▶  GPU buffer A
+│  b = random(512, 512)     ──upload──▶  GPU buffer B
+│                                │
+│  c = a.matmul(b)               │       record op  (no execution yet)
+│  d = c.relu()                  │       record op  (no execution yet)
+│  e = d.softmaxRows()           │       record op  (no execution yet)
+│                                │
+│  e.materialize()               │       flush all 3 ops in one batch
+│                           ◀──download── GPU buffer E
+│  read e.data[][]               │</div>
             </div>
         </div>
 
@@ -633,7 +618,7 @@ trainer.<span class="fn">train</span>(
         <span class="num">512</span>,  <span class="cmt">// dModel</span>
         <span class="num">4</span>,    <span class="cmt">// nHeads</span>
         <span class="num">5</span>,    <span class="cmt">// nLayers</span>
-        <span class="num">1025</span>  <span class="cmt">// dFF</span>
+        <span class="num">1024</span>  <span class="cmt">// dFF</span>
 );
 
 <span class="typ">GPTModel</span> model = <span class="kw">new</span> <span class="typ">GPTModel</span>(cfg, <span class="num">42</span>);
@@ -713,6 +698,12 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
                 </tbody>
             </table>
         </div>
+        <p style="color: var(--text-dim); margin-top: 14px;">
+            Manual benchmark run command:
+        </p>
+        <pre><code>mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
+    '-Djunit.jupiter.conditions.deactivate=org.junit.jupiter.engine.extension.DisabledCondition' \
+    -DskipTests=false -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10 -Dperf.inplace.steps=100</code></pre>
     </div>
 </section>
 

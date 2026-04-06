@@ -71,8 +71,8 @@ public final class LayerNorm1D implements Layer {
     }
 
     private void accumulateParameterGrads(Tensor gradOut) {
-        gamma.grad = gamma.grad.add(xHat.multiply(gradOut).sumRows());
-        beta.grad = beta.grad.add(gradOut.sumRows());
+        gamma.grad.addInPlace(xHat.multiply(gradOut).sumRows());
+        beta.grad.addInPlace(gradOut.sumRows());
     }
 
 

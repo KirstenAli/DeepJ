@@ -21,7 +21,7 @@ import java.util.Random;
  * Run manually with:
  * <pre>
  *   mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
- *       -Djunit.jupiter.conditions.deactivate=org.junit.jupiter.api.condition.* \
+ *       -Djunit.jupiter.conditions.deactivate=org.junit.jupiter.engine.extension.DisabledCondition \
  *       -DskipTests=false -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10
  * </pre>
  */
@@ -452,6 +452,36 @@ public final class MetalBackendAllOpsPerformanceTest {
                     gpu.adamWUpdate(W2G, dLogits, m2G, v2G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
                     // single flush
                     W1G.materialize();
+                });
+    }
+
+    /**
+     * In-place grad-style loop:
+     *   repeat { addInPlace + multiplyScalarInPlace }
+     *
+     * This specifically guards against regressions where in-place ops on Metal
+     * accidentally force CPU materialization/copies.
+     */
+    @Test @Order(22)
+    void chain_inPlaceGradAccumulation() {
+        Tensor delta = rand(N, N, 101L);
+        int steps = intProp("perf.inplace.steps", 100);
+
+        bench("in-place grad accum (2*steps ops)",
+                () -> {
+                    Tensor g = cpu.zeros(N, N);
+                    for (int i = 0; i < steps; i++) {
+                        cpu.addInPlace(g, delta);
+                        cpu.multiplyScalarInPlace(g, 0.99);
+                    }
+                },
+                () -> {
+                    Tensor g = cpu.zeros(N, N);
+                    for (int i = 0; i < steps; i++) {
+                        gpu.addInPlace(g, delta);
+                        gpu.multiplyScalarInPlace(g, 0.99);
+                    }
+                    g.materialize();
                 });
     }
 
