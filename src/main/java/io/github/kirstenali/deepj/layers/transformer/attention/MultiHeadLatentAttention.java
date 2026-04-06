@@ -147,7 +147,8 @@ public final class MultiHeadLatentAttention implements Layer {
         }
 
         // Softmax + scale
-        Tensor dScores = softmax.backward(dAttn).multiplyScalar(scale);
+        Tensor dScores = softmax.backward(dAttn);
+        dScores.multiplyScalarInPlace(scale);
 
         // Q/K gradients from scores
         Tensor dQhRope = Tensor.zeros(nHeads * seqLen, headDim);
@@ -179,7 +180,8 @@ public final class MultiHeadLatentAttention implements Layer {
         Tensor cKV = cache.cKV;
         Wuk.grad.addInPlace(cKV.transpose().matmul(dK));
         Wuv.grad.addInPlace(cKV.transpose().matmul(dV));
-        Tensor dcKV = dK.matmul(Wuk.value.transpose()).add(dV.matmul(Wuv.value.transpose()));
+        Tensor dcKV = dK.matmul(Wuk.value.transpose());
+        dcKV.addInPlace(dV.matmul(Wuv.value.transpose()));
         Wdkv.grad.addInPlace(cache.x.transpose().matmul(dcKV));
         Tensor dxKV = dcKV.matmul(Wdkv.value.transpose());
 
@@ -200,7 +202,9 @@ public final class MultiHeadLatentAttention implements Layer {
         for (int h = 0; h < nHeads; h++) {
             Tensor q = extractBlock(qh, h * seqLen, seqLen, headDim);
             Tensor k = extractBlock(kh, h * seqLen, seqLen, headDim);
-            insertBlock(out, q.matmul(k.transpose()).multiplyScalar(scale), h * seqLen, seqLen, seqLen);
+            Tensor scores = q.matmul(k.transpose());
+            scores.multiplyScalarInPlace(scale);
+            insertBlock(out, scores, h * seqLen, seqLen, seqLen);
         }
         return out;
     }

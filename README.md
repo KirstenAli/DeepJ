@@ -116,7 +116,8 @@ gradient.multiplyScalarInPlace(0.5).addInPlace(bias).reluInPlace();
 the function writes directly into the input's `data[][]`, no temporary
 tensor is created. `MetalBackend` also overrides in-place ops to keep
 execution lazy and GPU-resident (no forced CPU materialization in the
-hot training path).
+hot training path). In-place GPU results are rebound through
+`ComputeGraph` tracking so periodic `releaseResources()` remains safe.
 
 ### CPU parallelism
 
@@ -1035,6 +1036,8 @@ Factory for autoregressive language models (GPT). Each step:
 Implementation note: gradient averaging/clipping scales gradients in-place,
 and `Parameter.zeroGrad()` reuses existing CPU gradient buffers when safe
 (falls back to fresh allocation for shape mismatches or GPU-tagged grads).
+Loss/activation utility paths (`MSELoss`, `Sigmoid`, `Tanh`, `SiLU`) also
+use in-place ops on temporary tensors where ownership is local.
 
 ```java
 Trainer trainer = CausalLMTraining.trainer(model, dataset, 1e-4);

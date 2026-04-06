@@ -90,7 +90,7 @@ public final class GPTModel implements Trainable, Persistable {
     private void applyInitScale(double factor) {
         if (factor == 1.0) return;
         for (Parameter p : parameters()) {
-            p.value = p.value.multiplyScalar(factor);
+            p.value.multiplyScalarInPlace(factor);
         }
     }
 }

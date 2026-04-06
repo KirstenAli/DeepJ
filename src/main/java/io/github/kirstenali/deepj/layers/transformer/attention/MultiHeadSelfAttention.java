@@ -159,7 +159,9 @@ public class MultiHeadSelfAttention implements Layer {
         return mapHeadBlocks(nHeads, seqLen, seqLen, h -> {
             Tensor qBlock = extractBlock(qh, h * seqLen, seqLen, headDim);
             Tensor kBlock = extractBlock(kh, h * seqLen, seqLen, headDim);
-            return qBlock.matmul(kBlock.transpose()).multiplyScalar(scale);
+            Tensor scores = qBlock.matmul(kBlock.transpose());
+            scores.multiplyScalarInPlace(scale);
+            return scores;
         });
     }
 
@@ -201,7 +203,8 @@ public class MultiHeadSelfAttention implements Layer {
             insertBlock(dVh,   aBlock.transpose().matmul(doBlock),  h * seqLen, seqLen, headDim);
         }
 
-        Tensor dScores = softmax.backward(dAttn).multiplyScalar(scale);
+        Tensor dScores = softmax.backward(dAttn);
+        dScores.multiplyScalarInPlace(scale);
         return new AttentionBackwardResult(dScores, dVh);
     }
 

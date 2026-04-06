@@ -540,6 +540,8 @@
                     Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
                     while unsupported ops fall back to CPU with on-demand materialization.
                     In-place tensor ops are overridden on Metal to remain lazy/GPU-resident.
+                    In-place GPU results are tracked when tensors are rebound, so periodic resource
+                    release does not lose optimizer/model state.
                     Reading values on CPU (<code>materialize()</code>, <code>get</code>, <code>set</code>,
                     <code>print</code>, or raw <code>data[][]</code> access) triggers a sync/readback boundary.
                 </p>
@@ -572,7 +574,7 @@
             </div>
             <div class="card">
                 <h3><span class="dot dot-amber"></span> Staleness tracking</h3>
-                <p>Each tensor tracks whether CPU or GPU state is current before materialization</p>
+                <p>Tensors track CPU/GPU freshness and in-place GPU rebinds before materialization/release</p>
             </div>
         </div>
     </div>

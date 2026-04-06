@@ -203,9 +203,16 @@ public final class ComputeGraph {
      */
     public Tensor createOutputTensor(GpuBuffer buf) {
         Tensor t = new Tensor(buf.rows, buf.cols);
+        bindTensorToBuffer(t, buf);
+        return t;
+    }
+
+    /**
+     * Rebind an existing tensor to a GPU buffer and track ownership for lifecycle management.
+     */
+    public void bindTensorToBuffer(Tensor t, GpuBuffer buf) {
         t.setGpuTag(buf);
         trackTensorBinding(buf.id, t);
-        return t;
     }
 
     // -- Op recording --------------------------------------------------------
