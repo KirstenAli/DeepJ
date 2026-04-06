@@ -14,8 +14,10 @@ public class Tanh implements ActivationFunction {
     @Override
     public Tensor backward(Tensor gradOutput) {
         // d_tanh = (1 - tanh^2) * grad
-        Tensor ones = Tensor.ones(output.rows, output.cols);
         Tensor tanhSq = output.multiply(output);
-        return gradOutput.multiply(ones.subtract(tanhSq));
+        tanhSq.multiplyScalarInPlace(-1.0);
+        tanhSq.addScalarInPlace(1.0);
+
+        return gradOutput.multiply(tanhSq);
     }
 }

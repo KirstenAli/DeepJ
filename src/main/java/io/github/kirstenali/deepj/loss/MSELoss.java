@@ -13,6 +13,8 @@ public class MSELoss implements LossFunction {
 
     @Override
     public Tensor gradient(Tensor predicted, Tensor actual) {
-        return predicted.subtract(actual).multiplyScalar(2.0 / (predicted.rows * predicted.cols));
+        Tensor grad = predicted.subtract(actual);
+        grad.multiplyScalarInPlace(2.0 / (predicted.rows * predicted.cols));
+        return grad;
     }
 }

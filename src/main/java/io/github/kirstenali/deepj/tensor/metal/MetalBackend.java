@@ -362,7 +362,7 @@ public final class MetalBackend implements TensorBackend {
     // ── LAZY in-place ops ─────────────────────────────────────────
 
     private void bindInPlaceResult(Tensor target, GpuBuffer out) {
-        target.setGpuTag(out);
+        graph.bindTensorToBuffer(target, out);
     }
 
     @Override
@@ -501,8 +501,9 @@ public final class MetalBackend implements TensorBackend {
         for (int r = 0; r < logits.rows; r++) {
             oneHot.data[r][targets[r]] = 1.0;
         }
-        Tensor grad = subtract(probs, oneHot);
-        return multiplyScalar(grad, 1.0 / logits.rows);
+        probs.subtractInPlace(oneHot);
+        probs.multiplyScalarInPlace(1.0 / logits.rows);
+        return probs;
     }
 
     @Override
