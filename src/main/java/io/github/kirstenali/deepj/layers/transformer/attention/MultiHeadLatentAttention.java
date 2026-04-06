@@ -129,7 +129,7 @@ public final class MultiHeadLatentAttention implements Layer {
         int seqLen = cache.x.rows;
 
         // Output projection
-        Wo.grad = Wo.grad.add(cache.merged.transpose().matmul(dOut));
+        Wo.grad.addInPlace(cache.merged.transpose().matmul(dOut));
         Tensor dMerged = dOut.matmul(Wo.value.transpose());
 
         // Attention backward
@@ -170,17 +170,17 @@ public final class MultiHeadLatentAttention implements Layer {
         Tensor dV = mergeHeads(dVh, seqLen);
 
         // Q low-rank backward
-        Wuq.grad  = Wuq.grad.add(cache.cQ.transpose().matmul(dQ));
+        Wuq.grad.addInPlace(cache.cQ.transpose().matmul(dQ));
         Tensor dcQ = dQ.matmul(Wuq.value.transpose());
-        Wdq.grad  = Wdq.grad.add(cache.x.transpose().matmul(dcQ));
+        Wdq.grad.addInPlace(cache.x.transpose().matmul(dcQ));
         Tensor dxQ = dcQ.matmul(Wdq.value.transpose());
 
         // KV shared compression backward
         Tensor cKV = cache.cKV;
-        Wuk.grad  = Wuk.grad.add(cKV.transpose().matmul(dK));
-        Wuv.grad  = Wuv.grad.add(cKV.transpose().matmul(dV));
+        Wuk.grad.addInPlace(cKV.transpose().matmul(dK));
+        Wuv.grad.addInPlace(cKV.transpose().matmul(dV));
         Tensor dcKV = dK.matmul(Wuk.value.transpose()).add(dV.matmul(Wuv.value.transpose()));
-        Wdkv.grad = Wdkv.grad.add(cache.x.transpose().matmul(dcKV));
+        Wdkv.grad.addInPlace(cache.x.transpose().matmul(dcKV));
         Tensor dxKV = dcKV.matmul(Wdkv.value.transpose());
 
         return dxQ.add(dxKV);

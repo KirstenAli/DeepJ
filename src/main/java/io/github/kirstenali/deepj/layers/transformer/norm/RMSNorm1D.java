@@ -59,7 +59,7 @@ public final class RMSNorm1D implements Layer {
     @Override
     public Tensor backward(Tensor gradOut) {
         // Accumulate gamma gradient: sum over rows of (gradOut · x̂)
-        gamma.grad = gamma.grad.add(gradOut.multiply(xHat).sumRows());
+        gamma.grad.addInPlace(gradOut.multiply(xHat).sumRows());
 
         // Scale upstream gradient by gamma: g = γ · gradOut  [seqLen × dim]
         Tensor g = gradOut.multiplyBroadcastRows(gamma.value);

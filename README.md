@@ -63,18 +63,6 @@ DeepJ is organised into focused packages:
 | `persistence` | `Persistable` interface, `ModelSerializer` (binary save/load) |
 | `chatui` | `BaseChatApp`, `ChatService` — optional JavaFX chat interface |
 
-### Key interfaces
-
-```
-Trainable              — exposes parameters() + zeroGrad()
-    └── Layer          — forward(Tensor) / backward(Tensor)
-Persistable            — save(Path) / load(Path) via ModelSerializer
-TransformerConfig      — shared config interface (vocabSize, dModel, nHeads, …)
-TensorBackend          — all tensor ops, swappable (CpuBackend / MetalBackend)
-LossFunction           — loss() + gradient()
-ParameterOptimizer     — step(List<Parameter>)
-Tokenizer              — encode(String) / decode(int[]) / vocabSize()
-```
 
 ---
 
@@ -126,8 +114,9 @@ gradient.multiplyScalarInPlace(0.5).addInPlace(bias).reluInPlace();
 
 `CpuBackend` overrides every in-place method for true zero-allocation —
 the function writes directly into the input's `data[][]`, no temporary
-tensor is created. Other backends (e.g. `MetalBackend`) inherit working
-default implementations that allocate a temporary internally.
+tensor is created. `MetalBackend` also overrides in-place ops to keep
+execution lazy and GPU-resident (no forced CPU materialization in the
+hot training path).
 
 ### CPU parallelism
 
@@ -263,6 +252,10 @@ Full list: `addInPlace`, `subtractInPlace`, `multiplyInPlace`,
 `divideScalarInPlace`, `sqrtInPlace`, `negInPlace`, `expInPlace`,
 `logInPlace`, `reluInPlace`, `geluInPlace`, `tanhInPlace`,
 `sigmoidInPlace`.
+
+Use in-place selectively: it is ideal for local gradient accumulation/scaling,
+but keep out-of-place ops for residual/cached/branch-shared tensors where
+aliasing can affect correctness.
 
 ### GPU materialization
 
@@ -1039,6 +1032,10 @@ Factory for autoregressive language models (GPT). Each step:
 5.  Global gradient clipping (using `cfg.gradClipNorm()`)
 6.  `opt.step(parameters())`
 
+Implementation note: gradient averaging/clipping scales gradients in-place,
+and `Parameter.zeroGrad()` reuses existing CPU gradient buffers when safe
+(falls back to fresh allocation for shape mismatches or GPU-tagged grads).
+
 ```java
 Trainer trainer = CausalLMTraining.trainer(model, dataset, 1e-4);
 ```
@@ -1235,8 +1232,8 @@ Run the benchmark yourself:
 
 ```bash
 mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
-    "-Djunit.jupiter.conditions.deactivate=org.junit.*" \
-    -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10 \
+    '-Djunit.jupiter.conditions.deactivate=org.junit.jupiter.engine.extension.DisabledCondition' \
+    -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10 -Dperf.inplace.steps=100 \
     -Dsurefire.useFile=false
 ```
 

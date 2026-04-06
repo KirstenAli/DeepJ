@@ -43,8 +43,8 @@ public final class Linear implements Layer {
         Tensor db = gradY.sumRows();
 
         // accumulate
-        W.grad = W.grad.add(dW);
-        b.grad = b.grad.add(db);
+        W.grad.addInPlace(dW);
+        b.grad.addInPlace(db);
 
         // dX = dY * W^T
         return gradY.matmul(W.value.transpose());
