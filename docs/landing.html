@@ -497,7 +497,7 @@
                 <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
                 <tbody>
                 <tr><td><code>tensor</code></td><td>2-D tensors, <code>TensorBackend</code> abstraction, <code>ComputeGraph</code> lazy execution</td></tr>
-                <tr><td><code>tensor.cpu</code></td><td><code>CpuBackend</code> — parallel CPU implementation with in-place helpers</td></tr>
+                <tr><td><code>tensor.cpu</code></td><td><code>CpuBackend</code> — parallel CPU implementation</td></tr>
                 <tr><td><code>tensor.metal</code></td><td><code>MetalBackend</code> — Apple Silicon GPU via Metal JNI</td></tr>
                 <tr><td><code>concurrent</code></td><td><code>DeepJExecutor</code> — thread-pool for CPU parallelism</td></tr>
                 <tr><td><code>layers</code></td><td><code>Layer</code> interface, <code>Linear</code> projection, <code>FNN</code> (MLP)</td></tr>
@@ -539,9 +539,7 @@
                 <p style="color: var(--text-dim); margin-top: 12px;">
                     Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
                     while unsupported ops fall back to CPU with on-demand materialization.
-                    In-place tensor ops are overridden on Metal to remain lazy/GPU-resident.
-                    In-place GPU results are tracked when tensors are rebound, so periodic resource
-                    release does not lose optimizer/model state.
+                    Tensor state remains coherent across lazy execution and periodic resource release.
                     Reading values on CPU (<code>materialize()</code>, <code>get</code>, <code>set</code>,
                     <code>print</code>, or raw <code>data[][]</code> access) triggers a sync/readback boundary.
                 </p>
@@ -574,7 +572,7 @@
             </div>
             <div class="card">
                 <h3><span class="dot dot-amber"></span> Staleness tracking</h3>
-                <p>Tensors track CPU/GPU freshness and in-place GPU rebinds before materialization/release</p>
+                <p>Tensors track CPU/GPU freshness before materialization/release</p>
             </div>
         </div>
     </div>
