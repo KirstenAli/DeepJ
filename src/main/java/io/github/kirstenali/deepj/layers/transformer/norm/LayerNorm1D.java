@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.norm;
 
-import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.transformer.norm.NormLayer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * LayerNorm over feature dimension (cols) with trainable gamma/beta exposed as {@link Parameter}s.
  */
-public final class LayerNorm1D implements Layer {
+public final class LayerNorm1D implements NormLayer {
 
     private static final double EPS = 1e-5;
 

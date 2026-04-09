@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.norm;
 
-import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.transformer.norm.NormLayer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
@@ -25,7 +25,7 @@ import java.util.List;
  *   dL/dx = ( g − x̂ · mean(g · x̂) ) / rms
  * </pre>
  */
-public final class RMSNorm1D implements Layer {
+public final class RMSNorm1D implements NormLayer {
 
     private static final double EPS = 1e-6;
 
