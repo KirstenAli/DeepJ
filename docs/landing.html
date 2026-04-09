@@ -455,7 +455,7 @@
             <div class="card">
                 <div class="card-icon icon-blue">🤖</div>
                 <h3>Three Model Families</h3>
-                <p>GPT (LayerNorm + MHSA), Llama (RMSNorm + RoPE + SwiGLU), and DeepSeek (MLA for 8× smaller KV cache). All share one <code>TextGenerator</code> and one <code>TransformerConfig</code> interface.</p>
+                <p>GPT (LayerNorm + MHSA), Llama (RMSNorm + RoPE + SwiGLU), and DeepSeek (MLA for 8× smaller KV cache). All extend <code>DecoderOnlyModel</code>, implement the <code>CausalLM</code> interface, and work with one <code>CausalLMTraining.trainer</code> call.</p>
             </div>
             <div class="card">
                 <div class="card-icon icon-green">⚡</div>
@@ -500,10 +500,10 @@
                 <tr><td><code>tensor.cpu</code></td><td><code>CpuBackend</code> — parallel CPU implementation</td></tr>
                 <tr><td><code>tensor.metal</code></td><td><code>MetalBackend</code> — Apple Silicon GPU via Metal JNI</td></tr>
                 <tr><td><code>concurrent</code></td><td><code>DeepJExecutor</code> — thread-pool for CPU parallelism</td></tr>
-                <tr><td><code>layers</code></td><td><code>Layer</code> interface, <code>Linear</code> projection, <code>FNN</code> (MLP)</td></tr>
+                <tr><td><code>layers</code></td><td><code>Layer</code> interface, <code>Projection</code> interface (linear projections), <code>Linear</code>, <code>FNN</code> (MLP)</td></tr>
                 <tr><td><code>layers.transformer</code></td><td><code>SwiGLULayer</code> — gated FFN used by Llama / DeepSeek style blocks</td></tr>
                 <tr><td><code>layers.transformer.attention</code></td><td><code>MultiHeadSelfAttention</code>, <code>RoPEMultiHeadSelfAttention</code>, <code>MultiHeadLatentAttention</code> (MLA)</td></tr>
-                <tr><td><code>layers.transformer.norm</code></td><td><code>LayerNorm1D</code>, <code>RMSNorm1D</code></td></tr>
+                <tr><td><code>layers.transformer.norm</code></td><td><code>NormLayer</code> interface, <code>LayerNorm1D</code>, <code>RMSNorm1D</code></td></tr>
                 <tr><td><code>layers.transformer.blocks</code></td><td><code>GPTTransformerBlock</code>, <code>LlamaTransformerBlock</code>, <code>DeepSeekTransformerBlock</code></td></tr>
                 <tr><td><code>transformer</code></td><td><code>GPTTransformerBuilder</code>, <code>LlamaTransformerBuilder</code>, <code>DeepSeekTransformerBuilder</code>, <code>TransformerStack</code></td></tr>
                 <tr><td><code>transformer.embeddings</code></td><td><code>Embedding</code> (token lookup), <code>PositionalEmbedding</code> (learnable), <code>RotaryEmbedding</code> (RoPE)</td></tr>
@@ -511,7 +511,7 @@
                 <tr><td><code>loss</code></td><td>MSELoss, CrossEntropyLoss</td></tr>
                 <tr><td><code>optimisers</code></td><td>AdamW, <code>Parameter</code></td></tr>
                 <tr><td><code>training</code></td><td><code>Trainer</code>, <code>SupervisedTraining</code>, <code>CausalLMTraining</code></td></tr>
-                <tr><td><code>models</code></td><td><code>TransformerConfig</code> (shared interface), <code>TextGenerator</code></td></tr>
+                <tr><td><code>models</code></td><td><code>TransformerConfig</code> (shared config), <code>CausalLM</code> (shared model interface), <code>DecoderOnlyModel</code> (abstract base), <code>TextGenerator</code></td></tr>
                 <tr><td><code>models.gpt</code></td><td><code>GPTModel</code>, <code>GPTConfig</code></td></tr>
                 <tr><td><code>models.llama</code></td><td><code>LlamaModel</code>, <code>LlamaConfig</code></td></tr>
                 <tr><td><code>models.deepseek</code></td><td><code>DeepSeekModel</code>, <code>DeepSeekConfig</code></td></tr>
@@ -636,40 +636,37 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
         <span class="num">1234L</span>    <span class="cmt">// seed</span>
 );</code></pre>
 
-        <h3 style="margin-top: 40px;">GPT Transformer Block (direct use)</h3>
-        <pre><code><span class="cmt">// GPT-style block — LayerNorm + MHSA + configurable FFN</span>
-<span class="typ">GPTTransformerBlock</span> block = <span class="kw">new</span> <span class="typ">GPTTransformerBlock</span>(
-        <span class="num">512</span>,       <span class="cmt">// dModel</span>
-        <span class="num">8</span>,         <span class="cmt">// nHeads</span>
-        <span class="num">2048</span>,      <span class="cmt">// dFF</span>
-        <span class="typ">GELU</span>::<span class="fn">new</span>, <span class="cmt">// FFN activation</span>
-        rnd
+        <h3 style="margin-top: 40px;">Llama Training + Generation</h3>
+        <pre><code><span class="kw">int</span> dModel = <span class="num">512</span>;
+<span class="typ">LlamaConfig</span> cfg = <span class="kw">new</span> <span class="typ">LlamaConfig</span>(
+        tok.<span class="fn">vocabSize</span>(),
+        <span class="num">256</span>,                                   <span class="cmt">// maxSeqLen</span>
+        dModel, <span class="num">4</span>, <span class="num">5</span>,                          <span class="cmt">// dModel, nHeads, nLayers</span>
+        <span class="typ">LlamaConfig</span>.<span class="fn">defaultDFF</span>(dModel)         <span class="cmt">// ≈ 1408 (8/3 × dModel, rounded)</span>
 );
 
-<span class="typ">Tensor</span> out = block.<span class="fn">forward</span>(x);    <span class="cmt">// [seqLen × dModel]</span>
-<span class="typ">Tensor</span> dX  = block.<span class="fn">backward</span>(grad); <span class="cmt">// backprop gradient</span></code></pre>
+<span class="typ">LlamaModel</span> model = <span class="kw">new</span> <span class="typ">LlamaModel</span>(cfg, <span class="num">42</span>);
+<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4</span>);
+trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98</span>, <span class="num">0.01</span>, <span class="num">25</span>, checkpointHook);
 
-        <h3 style="margin-top: 40px;">Transformer Builder</h3>
-        <pre><code><span class="typ">TransformerStack</span> stack = <span class="kw">new</span> <span class="typ">GPTTransformerBuilder</span>()
-        .<span class="fn">dModel</span>(<span class="num">128</span>)              <span class="cmt">// model dimension</span>
-        .<span class="fn">nHeads</span>(<span class="num">4</span>)               <span class="cmt">// attention heads</span>
-        .<span class="fn">dFF</span>(<span class="num">512</span>)                <span class="cmt">// feed-forward inner dimension</span>
-        .<span class="fn">nLayers</span>(<span class="num">4</span>)              <span class="cmt">// number of decoder blocks</span>
-        .<span class="fn">ffnActivation</span>(<span class="typ">GELU</span>::<span class="fn">new</span>)
-        .<span class="fn">seed</span>(<span class="num">42</span>)
-        .<span class="fn">build</span>();</code></pre>
+<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
 
+        <h3 style="margin-top: 40px;">DeepSeek Training + Generation</h3>
+        <pre><code><span class="kw">int</span> dModel = <span class="num">512</span>;
+<span class="typ">DeepSeekConfig</span> cfg = <span class="kw">new</span> <span class="typ">DeepSeekConfig</span>(
+        tok.<span class="fn">vocabSize</span>(),
+        <span class="num">256</span>,          <span class="cmt">// maxSeqLen</span>
+        dModel, <span class="num">4</span>, <span class="num">5</span>, <span class="cmt">// dModel, nHeads, nLayers</span>
+        <span class="num">1024</span>,         <span class="cmt">// dFF</span>
+        dModel / <span class="num">2</span>,   <span class="cmt">// qRank  — Q latent dimension</span>
+        dModel / <span class="num">4</span>    <span class="cmt">// kvRank — KV latent dim (8× smaller KV cache)</span>
+);
 
-        <h3 style="margin-top: 40px;">Extending Attention</h3>
-        <pre><code><span class="cmt">// Override two hooks, inherit all attention mechanics and backprop</span>
-<span class="kw">public class</span> <span class="typ">MyAttention</span> <span class="kw">extends</span> <span class="typ">MultiHeadSelfAttention</span> {
-    <span class="kw">protected</span> <span class="typ">Tensor</span> <span class="fn">transformQueryKey</span>(<span class="typ">Tensor</span> heads, <span class="kw">int</span> seqLen) {
-        <span class="kw">return</span> myTransform(heads, seqLen, nHeads);
-    }
-    <span class="kw">protected</span> <span class="typ">Tensor</span> <span class="fn">transformQueryKeyBackward</span>(<span class="typ">Tensor</span> grad, <span class="kw">int</span> seqLen) {
-        <span class="kw">return</span> myInverse(grad, seqLen, nHeads);
-    }
-}</code></pre>
+<span class="typ">DeepSeekModel</span> model = <span class="kw">new</span> <span class="typ">DeepSeekModel</span>(cfg, <span class="num">42</span>);
+<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4</span>);
+trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98</span>, <span class="num">0.01</span>, <span class="num">25</span>, checkpointHook);
+
+<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
     </div>
 </section>
 

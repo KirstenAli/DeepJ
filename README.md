@@ -43,10 +43,10 @@ DeepJ is organised into focused packages:
 | `tensor.cpu` | `CpuBackend` — parallel CPU implementation with in-place helpers |
 | `tensor.metal` | `MetalBackend` — Apple Silicon GPU via Metal JNI |
 | `concurrent` | `DeepJExecutor` — thread-pool for CPU parallelism |
-| `layers` | `Layer` interface, `Linear` projection, `FNN` (MLP) |
+| `layers` | `Layer` interface, `Projection` interface (sub-interface for linear projections), `Linear`, `FNN` (MLP) |
 | `layers.transformer` | `SwiGLULayer` — gated FFN used by Llama / DeepSeek style blocks |
 | `layers.transformer.attention` | `MultiHeadSelfAttention`, `RoPEMultiHeadSelfAttention`, `MultiHeadLatentAttention` (MLA) |
-| `layers.transformer.norm` | `LayerNorm1D`, `RMSNorm1D` |
+| `layers.transformer.norm` | `NormLayer` interface, `LayerNorm1D`, `RMSNorm1D` |
 | `layers.transformer.blocks` | `GPTTransformerBlock`, `LlamaTransformerBlock`, `DeepSeekTransformerBlock` |
 | `transformer` | `GPTTransformerBuilder`, `LlamaTransformerBuilder`, `DeepSeekTransformerBuilder`, `TransformerStack` |
 | `transformer.embeddings` | `Embedding` (token lookup), `PositionalEmbedding` (learnable), `RotaryEmbedding` (RoPE) |
@@ -54,7 +54,7 @@ DeepJ is organised into focused packages:
 | `loss` | `LossFunction` interface + MSELoss, CrossEntropyLoss |
 | `optimisers` | `ParameterOptimizer` interface, `AdamW`, `Parameter` |
 | `training` | `Trainer` loop, `Trainable`, `SupervisedTraining`, `CausalLMTraining` |
-| `models` | `TransformerConfig` (shared config interface), `TextGenerator` |
+| `models` | `TransformerConfig` (shared config interface), `CausalLM` (shared model interface), `DecoderOnlyModel` (abstract base), `TextGenerator` |
 | `models.gpt` | `GPTModel`, `GPTConfig` |
 | `models.llama` | `LlamaModel`, `LlamaConfig` |
 | `models.deepseek` | `DeepSeekModel`, `DeepSeekConfig` |
@@ -498,6 +498,74 @@ System.out.println("\n=== Generated ===");
 System.out.println(out);
 ```
 
+### Llama training + generation
+
+```java
+Tensor.setBackend(new MetalBackend());
+
+Tokenizer tok = new ByteTokenizer();
+TextDataset ds = TextDataset.fromFile(Path.of("sample_data/corpus.txt"), tok, 256, 123);
+
+int dModel = 512;
+LlamaConfig cfg = new LlamaConfig(
+        tok.vocabSize(),
+        256,                           // maxSeqLen
+        dModel,
+        4,                             // nHeads
+        5,                             // nLayers
+        LlamaConfig.defaultDFF(dModel) // ≈ 1408
+);
+
+LlamaModel model = new LlamaModel(cfg, 42);
+Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4);
+
+trainer.train(10_000_000, 2, 1, 0.98, 0.01, 25,
+        (step, loss, ema) -> {
+            if (step > 0 && step % 500 == 0)
+                model.save(Path.of("checkpoints/small-llama-" + step + ".bin"));
+        });
+
+model.save(Path.of("checkpoints/small-llama-final.bin"));
+
+String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1, 20, 1234L);
+System.out.println(out);
+```
+
+### DeepSeek training + generation
+
+```java
+Tensor.setBackend(new MetalBackend());
+
+Tokenizer tok = new ByteTokenizer();
+TextDataset ds = TextDataset.fromFile(Path.of("sample_data/corpus.txt"), tok, 256, 123);
+
+int dModel = 512;
+DeepSeekConfig cfg = new DeepSeekConfig(
+        tok.vocabSize(),
+        256,         // maxSeqLen
+        dModel,
+        4,           // nHeads
+        5,           // nLayers
+        1024,        // dFF
+        dModel / 2,  // qRank  — Q latent dimension
+        dModel / 4   // kvRank — KV latent dimension (8× smaller KV cache)
+);
+
+DeepSeekModel model = new DeepSeekModel(cfg, 42);
+Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4);
+
+trainer.train(10_000_000, 2, 1, 0.98, 0.01, 25,
+        (step, loss, ema) -> {
+            if (step > 0 && step % 500 == 0)
+                model.save(Path.of("checkpoints/small-deepseek-" + step + ".bin"));
+        });
+
+model.save(Path.of("checkpoints/small-deepseek-final.bin"));
+
+String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1, 20, 1234L);
+System.out.println(out);
+```
+
 ---
 
 ## 🧱 Layers
@@ -689,6 +757,18 @@ standalone for custom architectures.
 ---
 
 ## 🤖 Models
+
+All three model families share a common type hierarchy:
+
+- **`CausalLM`** — interface declaring `forward(int[])`, `backward(Tensor)`, and `gradClipNorm()`. Any `CausalLM` works directly with `CausalLMTraining.trainer`.
+- **`DecoderOnlyModel`** — abstract base class implementing the standard token-embedding → stack → norm → LM-head wiring. Subclasses supply their stack via the appropriate builder and override `gradClipNorm()`.
+
+```
+DecoderOnlyModel (implements CausalLM, Persistable)
+├── GPTModel    — adds PositionalEmbedding + LayerNorm1D + initScale
+├── LlamaModel  — RMSNorm1D, no positional embedding
+└── DeepSeekModel — RMSNorm1D, MLA attention, no positional embedding
+```
 
 ### GPTModel
 
@@ -1024,13 +1104,14 @@ Trainer trainer = SupervisedTraining.trainer(
 
 ### CausalLMTraining
 
-Factory for autoregressive language models (GPT). Each step:
+Factory for autoregressive language models. Accepts any `CausalLM` — `GPTModel`,
+`LlamaModel`, `DeepSeekModel`, or your own implementation. Each step:
 
 1.  `zeroGrad()`
 2.  Sample a `Batch` from `TextDataset`
 3.  For each sequence in the batch: `forward()` → `crossEntropyLoss()` → `backward()`
 4.  Average gradients across the batch
-5.  Global gradient clipping (using `cfg.gradClipNorm()`)
+5.  Global gradient clipping (using `gradClipNorm()`)
 6.  `opt.step(parameters())`
 
 Implementation note: gradient averaging/clipping scales gradients in-place,
@@ -1040,7 +1121,10 @@ Loss/activation utility paths (`MSELoss`, `Sigmoid`, `Tanh`, `SiLU`) also
 use in-place ops on temporary tensors where ownership is local.
 
 ```java
-Trainer trainer = CausalLMTraining.trainer(model, dataset, 1e-4);
+// Works for any CausalLM
+Trainer gptTrainer     = CausalLMTraining.trainer(gptModel,     dataset, 1e-4);
+Trainer llamaTrainer   = CausalLMTraining.trainer(llamaModel,   dataset, 1e-4);
+Trainer deepSeekTrainer = CausalLMTraining.trainer(deepSeekModel, dataset, 1e-4);
 ```
 
 ### StepHook

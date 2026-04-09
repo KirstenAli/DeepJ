@@ -10,7 +10,7 @@ import java.util.Random;
  * Fully-connected layer: y = xW + b
  * x: [n x dIn], W: [dIn x dOut], b: [1 x dOut]
  */
-public final class Linear implements Layer {
+public final class Linear implements Projection {
 
     private final int dIn;
     private final int dOut;

@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.data.Batch;
-import io.github.kirstenali.deepj.models.gpt.GPTModel;
+import io.github.kirstenali.deepj.models.CausalLM;
 import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -18,7 +18,7 @@ public final class CausalLMTraining {
 
     private CausalLMTraining() {}
 
-    public static Trainer trainer(GPTModel model, TextDataset dataset, double lr) {
+    public static Trainer trainer(CausalLM model, TextDataset dataset, double lr) {
         ParameterOptimizer opt = AdamW.defaultAdamW(lr);
 
         return new Trainer(batchSize -> {
@@ -31,14 +31,13 @@ public final class CausalLMTraining {
             averageGradients(params, batchSize);
             clipGradientsGlobally(params, model.gradClipNorm());
 
-            // One optimizer step per batch
             opt.step(params);
 
             return avgLoss;
         });
     }
 
-    private static double accumulateBatchLossAndBackward(GPTModel model, Batch batch, int batchSize) {
+    private static double accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
         double lossSum = 0.0;
 
         for (int b = 0; b < batchSize; b++) {
