@@ -58,7 +58,7 @@ DeepJ is organised into focused packages:
 | `models.gpt` | `GPTModel`, `GPTConfig` |
 | `models.llama` | `LlamaModel`, `LlamaConfig` |
 | `models.deepseek` | `DeepSeekModel`, `DeepSeekConfig` |
-| `tokenizers` | `Tokenizer` interface, `ByteTokenizer`, BPE pipeline |
+| `tokenizers` | `Tokenizer` interface, `ByteTokenizer`, BPE pipeline (`BPETrainer`, `BPETokenizer`, `BPEModelIO`) |
 | `data` | `TextDataset`, `Batch` |
 | `persistence` | `Persistable` interface, `ModelSerializer` (binary save/load) |
 | `chatui` | `BaseChatApp`, `ChatService` — optional JavaFX chat interface |
@@ -990,6 +990,16 @@ BPEModel bpe = new BPETrainer().trainFromFile(Path.of("corpus.txt"), 1000);
 Tokenizer tok = new BPETokenizer(bpe);
 int[] ids = tok.encode("hello world");
 String text = tok.decode(ids);
+
+// Production helper: reserves <BOS>, <EOS>, <PAD>
+BPETokenizer prodTok = new BPETrainer().trainProductionTokenizer(corpusText, 1000);
+
+// Versioned binary tokenizer persistence
+BPEModelIO.save(Path.of("tokenizer.bpe"), prodTok.model());
+BPETokenizer loadedTok = new BPETokenizer(BPEModelIO.load(Path.of("tokenizer.bpe")));
+
+int[] prodIds = loadedTok.encode("<BOS> hello world <EOS>");
+String prodText = loadedTok.decode(prodIds);
 ```
 
 ---

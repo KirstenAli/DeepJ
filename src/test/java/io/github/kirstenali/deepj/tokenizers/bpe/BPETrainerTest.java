@@ -72,4 +72,15 @@ class BPETrainerTest {
 
         assertTrue(model.vocabSize() > 257);
     }
+
+    @Test
+    void trainProductionTokenizer_reservesDefaultSpecialTokens() {
+        BPETrainer trainer = new BPETrainer();
+        BPETokenizer tokenizer = trainer.trainProductionTokenizer("hello hello world", 280);
+
+        assertEquals(3, tokenizer.model().specialTokenToId().size());
+        assertTrue(tokenizer.model().specialTokenToId().containsKey("<BOS>"));
+        assertTrue(tokenizer.model().specialTokenToId().containsKey("<EOS>"));
+        assertTrue(tokenizer.model().specialTokenToId().containsKey("<PAD>"));
+    }
 }

@@ -26,4 +26,15 @@ class BPERegressionTest {
         assertEquals("banana", decoded);
         assertFalse(decoded.contains("\u0000"));
     }
+
+    @Test
+    void modelBytesAreDefensivelyCopied() {
+        BPETrainer trainer = new BPETrainer();
+        BPEModel model = trainer.train("abc abc abc", 270);
+
+        byte[] leaked = model.idToBytes().get((int) 'a');
+        leaked[0] = (byte) 'z';
+
+        assertEquals((byte) 'a', model.idToBytes().get((int) 'a')[0]);
+    }
 }
