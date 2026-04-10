@@ -82,7 +82,6 @@ public final class CrossEntropyLoss implements LossFunction {
         return t;
     }
 
-
     private static void checkTargets(Tensor logits, int[] targets) {
         if (logits == null) {
             throw new IllegalArgumentException("logits is null");
