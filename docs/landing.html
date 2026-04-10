@@ -584,89 +584,100 @@
         <div class="section-label label-green">Code</div>
         <h2>Examples</h2>
 
-        <h3>Classic MLP (FNN)</h3>
-        <pre><code><span class="typ">FNN</span> mlp = <span class="kw">new</span> <span class="typ">FNN</span>(
-        <span class="num">3</span>,                       <span class="cmt">// inputSize</span>
-        <span class="kw">new</span> <span class="kw">int</span>[]{<span class="num">16</span>, <span class="num">16</span>},       <span class="cmt">// hiddenSizes</span>
-        <span class="num">3</span>,                       <span class="cmt">// outputSize</span>
-        <span class="typ">GELU</span>::<span class="fn">new</span>,               <span class="cmt">// hiddenActivation</span>
-        <span class="kw">null</span>,                    <span class="cmt">// outputActivation</span>
-        rnd
-);
-
-<span class="typ">Trainer</span> trainer = <span class="typ">SupervisedTraining</span>.<span class="fn">trainer</span>(
-        mlp,
-        <span class="kw">new</span> <span class="typ">MSELoss</span>(),
-        <span class="typ">AdamW</span>.<span class="fn">defaultAdamW</span>(<span class="num">3e-3f</span>),
-        x, y, <span class="num">123L</span>
-);
-
-trainer.<span class="fn">train</span>(
-        <span class="num">3000</span>,  <span class="cmt">// maxSteps         – stop after 3 000 gradient updates</span>
-        <span class="num">3</span>,     <span class="cmt">// batchSize        – rows sampled per step</span>
-        <span class="num">200</span>,   <span class="cmt">// logEvery         – print loss every 200 steps</span>
-        <span class="num">0.98f</span>, <span class="cmt">// emaBeta          – smoothing factor for moving-average loss</span>
-        <span class="num">1e-6f</span>  <span class="cmt">// targetEmaLoss    – early-stop when smoothed loss falls below this</span>
-);</code></pre>
-
-        <h3 style="margin-top: 40px;">GPT Training + Generation</h3>
+        <h3>GPT Training + Generation</h3>
         <pre><code><span class="typ">Tensor</span>.<span class="fn">setBackend</span>(<span class="kw">new</span> <span class="typ">MetalBackend</span>());
 
 <span class="typ">GPTConfig</span> cfg = <span class="kw">new</span> <span class="typ">GPTConfig</span>(
         tok.<span class="fn">vocabSize</span>(),
-        <span class="num">256</span>,  <span class="cmt">// maxSeqLen</span>
-        <span class="num">512</span>,  <span class="cmt">// dModel</span>
-        <span class="num">4</span>,    <span class="cmt">// nHeads</span>
-        <span class="num">5</span>,    <span class="cmt">// nLayers</span>
-        <span class="num">1024</span>  <span class="cmt">// dFF</span>
+        <span class="num">256</span>,          <span class="cmt">// maxSeqLen</span>
+        <span class="num">512</span>, <span class="num">4</span>, <span class="num">5</span>,   <span class="cmt">// dModel, nHeads, nLayers</span>
+        <span class="num">1024</span>          <span class="cmt">// dFF</span>
 );
 
 <span class="typ">GPTModel</span> model = <span class="kw">new</span> <span class="typ">GPTModel</span>(cfg, <span class="num">42</span>);
 <span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4f</span>);
 
-trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98f</span>, <span class="num">0.01f</span>, <span class="num">25</span>, checkpointHook);
+trainer.<span class="fn">train</span>(
+        <span class="num">10_000_000</span>, <span class="cmt">// maxSteps</span>
+        <span class="num">2</span>,          <span class="cmt">// batchSize</span>
+        <span class="num">1</span>,          <span class="cmt">// logEvery</span>
+        <span class="num">0.98f</span>,      <span class="cmt">// emaBeta</span>
+        <span class="num">0.01f</span>,      <span class="cmt">// targetEmaLoss</span>
+        <span class="num">25</span>          <span class="cmt">// releaseEverySteps</span>
+);
 
-<span class="cmt">// ── Inference ──</span>
 <span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(
-        model, tok, cfg,
-        <span class="str">"Bob Marley was "</span>,
-        <span class="num">200</span>,     <span class="cmt">// maxNewTokens</span>
-        <span class="num">0.1f</span>,    <span class="cmt">// temperature – low = deterministic</span>
-        <span class="num">20</span>,      <span class="cmt">// topK – sample from top 20 tokens</span>
-        <span class="num">1234L</span>    <span class="cmt">// seed</span>
+        model, <span class="cmt">// model</span>
+        tok,   <span class="cmt">// tokenizer</span>
+        cfg,   <span class="cmt">// config</span>
+        <span class="str">"Bob Marley was "</span>, <span class="cmt">// prompt</span>
+        <span class="num">200</span>,  <span class="cmt">// maxNewTokens</span>
+        <span class="num">0.1f</span>, <span class="cmt">// temperature</span>
+        <span class="num">20</span>,   <span class="cmt">// topK</span>
+        <span class="num">1234L</span> <span class="cmt">// seed</span>
 );</code></pre>
 
         <h3 style="margin-top: 40px;">Llama Training + Generation</h3>
-        <pre><code><span class="kw">int</span> dModel = <span class="num">512</span>;
-<span class="typ">LlamaConfig</span> cfg = <span class="kw">new</span> <span class="typ">LlamaConfig</span>(
+        <pre><code><span class="typ">LlamaConfig</span> cfg = <span class="kw">new</span> <span class="typ">LlamaConfig</span>(
         tok.<span class="fn">vocabSize</span>(),
         <span class="num">256</span>,                                   <span class="cmt">// maxSeqLen</span>
-        dModel, <span class="num">4</span>, <span class="num">5</span>,                          <span class="cmt">// dModel, nHeads, nLayers</span>
-        <span class="typ">LlamaConfig</span>.<span class="fn">defaultDFF</span>(dModel)         <span class="cmt">// ≈ 1408 (8/3 × dModel, rounded)</span>
+        <span class="num">512</span>, <span class="num">4</span>, <span class="num">5</span>,                          <span class="cmt">// dModel, nHeads, nLayers</span>
+        <span class="typ">LlamaConfig</span>.<span class="fn">defaultDFF</span>(<span class="num">512</span>)          <span class="cmt">// ≈ 1408 (8/3 × dModel, rounded)</span>
 );
 
 <span class="typ">LlamaModel</span> model = <span class="kw">new</span> <span class="typ">LlamaModel</span>(cfg, <span class="num">42</span>);
 <span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4f</span>);
-trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98f</span>, <span class="num">0.01f</span>, <span class="num">25</span>, checkpointHook);
+trainer.<span class="fn">train</span>(
+        <span class="num">10_000_000</span>, <span class="cmt">// maxSteps</span>
+        <span class="num">2</span>,          <span class="cmt">// batchSize</span>
+        <span class="num">1</span>,          <span class="cmt">// logEvery</span>
+        <span class="num">0.98f</span>,      <span class="cmt">// emaBeta</span>
+        <span class="num">0.01f</span>,      <span class="cmt">// targetEmaLoss</span>
+        <span class="num">25</span>          <span class="cmt">// releaseEverySteps</span>
+);
 
-<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1f</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
+<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(
+        model, <span class="cmt">// model</span>
+        tok,   <span class="cmt">// tokenizer</span>
+        cfg,   <span class="cmt">// config</span>
+        <span class="str">"Bob Marley was "</span>, <span class="cmt">// prompt</span>
+        <span class="num">200</span>,  <span class="cmt">// maxNewTokens</span>
+        <span class="num">0.1f</span>, <span class="cmt">// temperature</span>
+        <span class="num">20</span>,   <span class="cmt">// topK</span>
+        <span class="num">1234L</span> <span class="cmt">// seed</span>
+);</code></pre>
 
         <h3 style="margin-top: 40px;">DeepSeek Training + Generation</h3>
-        <pre><code><span class="kw">int</span> dModel = <span class="num">512</span>;
-<span class="typ">DeepSeekConfig</span> cfg = <span class="kw">new</span> <span class="typ">DeepSeekConfig</span>(
+        <pre><code><span class="typ">DeepSeekConfig</span> cfg = <span class="kw">new</span> <span class="typ">DeepSeekConfig</span>(
         tok.<span class="fn">vocabSize</span>(),
         <span class="num">256</span>,          <span class="cmt">// maxSeqLen</span>
-        dModel, <span class="num">4</span>, <span class="num">5</span>, <span class="cmt">// dModel, nHeads, nLayers</span>
+        <span class="num">512</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="cmt">// dModel, nHeads, nLayers</span>
         <span class="num">1024</span>,         <span class="cmt">// dFF</span>
-        dModel / <span class="num">2</span>,   <span class="cmt">// qRank  — Q latent dimension</span>
-        dModel / <span class="num">4</span>    <span class="cmt">// kvRank — KV latent dim (8× smaller KV cache)</span>
+        <span class="num">512</span> / <span class="num">2</span>, <span class="cmt">// qRank  — Q latent dimension</span>
+        <span class="num">512</span> / <span class="num">4</span> <span class="cmt">// kvRank — KV latent dim (8× smaller KV cache)</span>
 );
 
 <span class="typ">DeepSeekModel</span> model = <span class="kw">new</span> <span class="typ">DeepSeekModel</span>(cfg, <span class="num">42</span>);
 <span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4f</span>);
-trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98f</span>, <span class="num">0.01f</span>, <span class="num">25</span>, checkpointHook);
+trainer.<span class="fn">train</span>(
+        <span class="num">10_000_000</span>, <span class="cmt">// maxSteps</span>
+        <span class="num">2</span>,          <span class="cmt">// batchSize</span>
+        <span class="num">1</span>,          <span class="cmt">// logEvery</span>
+        <span class="num">0.98f</span>,      <span class="cmt">// emaBeta</span>
+        <span class="num">0.01f</span>,      <span class="cmt">// targetEmaLoss</span>
+        <span class="num">25</span>          <span class="cmt">// releaseEverySteps</span>
+);
 
-<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1f</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
+<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(
+        model, <span class="cmt">// model</span>
+        tok,   <span class="cmt">// tokenizer</span>
+        cfg,   <span class="cmt">// config</span>
+        <span class="str">"Bob Marley was "</span>, <span class="cmt">// prompt</span>
+        <span class="num">200</span>,  <span class="cmt">// maxNewTokens</span>
+        <span class="num">0.1f</span>, <span class="cmt">// temperature</span>
+        <span class="num">20</span>,   <span class="cmt">// topK</span>
+        <span class="num">1234L</span> <span class="cmt">// seed</span>
+);</code></pre>
     </div>
 </section>
 

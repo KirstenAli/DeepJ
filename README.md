@@ -422,71 +422,46 @@ Tensor dX  = block.backward(grad);
 Train a small GPT-style language model.
 
 ```java
-// ── Backend ───────────────────────────────────────────────────────────
-MetalBackend metal = new MetalBackend();
-Tensor.setBackend(metal);
-
-// ── Data ──────────────────────────────────────────────────────────────
-Path corpus = Path.of("sample_data/llm_training_dataset_1227_examples.txt");
+Tensor.setBackend(new MetalBackend());
 
 Tokenizer tok = new ByteTokenizer();
-TextDataset ds = TextDataset.fromFile(corpus, tok, 256, 123);
+TextDataset ds = TextDataset.fromFile(Path.of("sample_data/llm_training_dataset_1227_examples.txt"), tok, 256, 123);
 
-// ── Model ─────────────────────────────────────────────────────────────
 GPTConfig cfg = new GPTConfig(
         tok.vocabSize(),
-        256,  // maxSeqLen
-        512,  // dModel
-        4,    // nHeads
-        5,    // nLayers
-        1025  // dFF
+        256,         // maxSeqLen
+        512,         // dModel
+        4,           // nHeads
+        5,           // nLayers
+        1024         // dFF
 );
 
 GPTModel model = new GPTModel(cfg, 42);
-
-// ── Training ──────────────────────────────────────────────────────────
 Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4f);
-
-// ── Checkpointing ─────────────────────────────────────────────────────
-Path checkpointDir = Path.of("checkpoints");
-
-Trainer.StepHook checkpointHook = (step, loss, ema) -> {
-    if (step > 0 && step % 500 == 0) {
-        model.save(checkpointDir.resolve("small-gpt-" + step + ".bin"));
-    }
-};
-
 trainer.train(
-        10_000_000,    // maxSteps            – stop after 10 M gradient updates
-        2,             // batchSize           – sequences per step
-        1,             // logEvery            – print loss every step
-        0.98f,         // emaBeta             – smoothing factor for the moving-average loss
-        0.01f,         // targetEmaLoss       – early-stop when smoothed loss falls below this
-        25,            // releaseEverySteps   – free orphaned GPU buffers every 25 steps
-        checkpointHook // called after each step
-);
+        10_000_000, // maxSteps
+        2,          // batchSize
+        1,          // logEvery
+        0.98f,      // emaBeta
+        0.01f,      // targetEmaLoss
+        25,         // releaseEverySteps
+        (step, loss, ema) -> {
+            if (step > 0 && step % 500 == 0)
+                model.save(Path.of("checkpoints/small-gpt-" + step + ".bin"));
+        });
 
-Path finalModelPath = checkpointDir.resolve("small-gpt-final.bin");
-model.save(finalModelPath);
-
-// ── Inference ─────────────────────────────────────────────────────────
-GPTModel loadedModel = new GPTModel(cfg, 42);
-loadedModel.load(finalModelPath);
-
-String prompt = "Bob Marley was ";
+model.save(Path.of("checkpoints/small-gpt-final.bin"));
 
 String out = TextGenerator.generate(
-        loadedModel,   // model
-        tok,           // tokenizer
-        cfg,           // config
-        prompt,        // prompt text
-        200,           // maxNewTokens   – generate up to 200 tokens after the prompt
-        0.1f,          // temperature    – low = more deterministic, high = more random
-        20,            // topK           – sample from the 20 most likely tokens (0 = full vocab)
-        1234L          // seed           – for reproducible sampling
+        model,            // model
+        tok,              // tokenizer
+        cfg,              // config
+        "Bob Marley was ", // prompt
+        200,              // maxNewTokens
+        0.1f,             // temperature
+        20,               // topK
+        1234L             // seed
 );
-
-System.out.println("\n=== Generated ===");
 System.out.println(out);
 ```
 
@@ -498,20 +473,25 @@ Tensor.setBackend(new MetalBackend());
 Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(Path.of("sample_data/corpus.txt"), tok, 256, 123);
 
-int dModel = 512;
 LlamaConfig cfg = new LlamaConfig(
         tok.vocabSize(),
         256,                           // maxSeqLen
-        dModel,
+        512,                           // dModel
         4,                             // nHeads
         5,                             // nLayers
-        LlamaConfig.defaultDFF(dModel) // ≈ 1408
+        LlamaConfig.defaultDFF(512)    // ≈ 1408
 );
 
 LlamaModel model = new LlamaModel(cfg, 42);
 Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4f);
 
-trainer.train(10_000_000, 2, 1, 0.98f, 0.01f, 25,
+trainer.train(
+        10_000_000, // maxSteps
+        2,          // batchSize
+        1,          // logEvery
+        0.98f,      // emaBeta
+        0.01f,      // targetEmaLoss
+        25,         // releaseEverySteps
         (step, loss, ema) -> {
             if (step > 0 && step % 500 == 0)
                 model.save(Path.of("checkpoints/small-llama-" + step + ".bin"));
@@ -519,7 +499,16 @@ trainer.train(10_000_000, 2, 1, 0.98f, 0.01f, 25,
 
 model.save(Path.of("checkpoints/small-llama-final.bin"));
 
-String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1f, 20, 1234L);
+String out = TextGenerator.generate(
+        model,            // model
+        tok,              // tokenizer
+        cfg,              // config
+        "Bob Marley was ", // prompt
+        200,              // maxNewTokens
+        0.1f,             // temperature
+        20,               // topK
+        1234L             // seed
+);
 System.out.println(out);
 ```
 
@@ -531,22 +520,27 @@ Tensor.setBackend(new MetalBackend());
 Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(Path.of("sample_data/corpus.txt"), tok, 256, 123);
 
-int dModel = 512;
 DeepSeekConfig cfg = new DeepSeekConfig(
         tok.vocabSize(),
         256,         // maxSeqLen
-        dModel,
+        512,         // dModel
         4,           // nHeads
         5,           // nLayers
         1024,        // dFF
-        dModel / 2,  // qRank  — Q latent dimension
-        dModel / 4   // kvRank — KV latent dimension (8× smaller KV cache)
+        512 / 2,     // qRank  — Q latent dimension
+        512 / 4      // kvRank — KV latent dimension (8× smaller KV cache)
 );
 
 DeepSeekModel model = new DeepSeekModel(cfg, 42);
 Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4f);
 
-trainer.train(10_000_000, 2, 1, 0.98f, 0.01f, 25,
+trainer.train(
+        10_000_000, // maxSteps
+        2,          // batchSize
+        1,          // logEvery
+        0.98f,      // emaBeta
+        0.01f,      // targetEmaLoss
+        25,         // releaseEverySteps
         (step, loss, ema) -> {
             if (step > 0 && step % 500 == 0)
                 model.save(Path.of("checkpoints/small-deepseek-" + step + ".bin"));
@@ -554,7 +548,16 @@ trainer.train(10_000_000, 2, 1, 0.98f, 0.01f, 25,
 
 model.save(Path.of("checkpoints/small-deepseek-final.bin"));
 
-String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1f, 20, 1234L);
+String out = TextGenerator.generate(
+        model,            // model
+        tok,              // tokenizer
+        cfg,              // config
+        "Bob Marley was ", // prompt
+        200,              // maxNewTokens
+        0.1f,             // temperature
+        20,               // topK
+        1234L             // seed
+);
 System.out.println(out);
 ```
 
