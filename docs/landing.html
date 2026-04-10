@@ -470,7 +470,7 @@
             <div class="card">
                 <div class="card-icon icon-blue">🔤</div>
                 <h3>Tokenizers</h3>
-                <p>ByteTokenizer for quick experiments, full BPE pipeline for subword tokenization. Both implement the Tokenizer interface.</p>
+                <p>ByteTokenizer for quick experiments, plus a production-ready BPE pipeline with reserved special tokens and versioned binary save/load.</p>
             </div>
             <div class="card">
                 <div class="card-icon icon-green">🧮</div>
@@ -515,7 +515,7 @@
                 <tr><td><code>models.gpt</code></td><td><code>GPTModel</code>, <code>GPTConfig</code></td></tr>
                 <tr><td><code>models.llama</code></td><td><code>LlamaModel</code>, <code>LlamaConfig</code></td></tr>
                 <tr><td><code>models.deepseek</code></td><td><code>DeepSeekModel</code>, <code>DeepSeekConfig</code></td></tr>
-                <tr><td><code>tokenizers</code></td><td><code>ByteTokenizer</code>, BPE pipeline</td></tr>
+                <tr><td><code>tokenizers</code></td><td><code>ByteTokenizer</code>, BPE pipeline (<code>BPETrainer</code>, <code>BPETokenizer</code>, <code>BPEModelIO</code>)</td></tr>
                 <tr><td><code>persistence</code></td><td><code>ModelSerializer</code> — binary save/load</td></tr>
                 <tr><td><code>chatui</code></td><td><code>BaseChatApp</code>, <code>ChatService</code></td></tr>
                 </tbody>

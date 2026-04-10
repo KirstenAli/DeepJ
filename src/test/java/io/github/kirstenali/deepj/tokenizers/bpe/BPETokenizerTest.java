@@ -2,6 +2,8 @@ package io.github.kirstenali.deepj.tokenizers.bpe;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class BPETokenizerTest {
@@ -78,5 +80,20 @@ class BPETokenizerTest {
         int[] ids = tokenizer.encode("");
 
         assertArrayEquals(new int[0], ids);
+    }
+
+    @Test
+    void encodeDecode_handlesConfiguredSpecialTokensAtomically() {
+        BPETrainer trainer = new BPETrainer();
+        BPETokenizer tokenizer = trainer.trainTokenizer(
+                "hello world hello world",
+                280,
+                List.of("<BOS>", "<EOS>", "<PAD>")
+        );
+
+        int[] ids = tokenizer.encode("<BOS> hello <EOS>");
+        assertEquals(tokenizer.model().specialTokenToId().get("<BOS>"), ids[0]);
+        assertEquals(tokenizer.model().specialTokenToId().get("<EOS>"), ids[ids.length - 1]);
+        assertEquals("<BOS> hello <EOS>", tokenizer.decode(ids));
     }
 }
