@@ -105,7 +105,7 @@ public class ModelSerializerTest {
 
         for (int r = 0; r < expected.rows; r++) {
             for (int c = 0; c < expected.cols; c++) {
-                assertEquals(expected.data[r][c], actual.data[r][c], tol,
+                assertEquals(expected.data[r * expected.cols + c], actual.data[r * actual.cols + c], tol,
                         "mismatch at [" + r + "," + c + "]");
             }
         }

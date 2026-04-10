@@ -44,7 +44,7 @@ class SiLUTest {
         double expected = 1.0 / (1.0 + Math.exp(-1.0));
         Tensor x = new Tensor(new double[][]{{1.0}});
         Tensor y = silu.forward(x);
-        assertEquals(expected, y.data[0][0], 1e-9);
+        assertEquals(expected, y.data[0], 1e-9);
     }
 
     @Test
@@ -54,7 +54,7 @@ class SiLUTest {
         double expected = -1.0 * sig;
         Tensor x = new Tensor(new double[][]{{-1.0}});
         Tensor y = silu.forward(x);
-        assertEquals(expected, y.data[0][0], 1e-9);
+        assertEquals(expected, y.data[0], 1e-9);
     }
 
     @Test
@@ -69,7 +69,7 @@ class SiLUTest {
         Tensor x = new Tensor(new double[][]{{0.5, 1.0, 2.0, 5.0}});
         Tensor y = silu.forward(x);
         for (int c = 0; c < y.cols; c++) {
-            assertTrue(y.data[0][c] > 0, "SiLU of positive input should be positive");
+            assertTrue(y.data[c] > 0, "SiLU of positive input should be positive");
         }
     }
 
@@ -81,7 +81,7 @@ class SiLUTest {
         Tensor x = new Tensor(new double[][]{{0.0}});
         silu.forward(x);
         Tensor grad = silu.backward(Tensor.ones(1, 1));
-        assertEquals(0.5, grad.data[0][0], 1e-9);
+        assertEquals(0.5, grad.data[0], 1e-9);
     }
 
     @Test
@@ -98,16 +98,15 @@ class SiLUTest {
         double eps = 1e-5;
 
         for (double v : vals) {
-            // f(v) = sum(SiLU(v)) → grad should be SiLU'(v)
             SiLU s1 = new SiLU();
             SiLU s2 = new SiLU();
-            double plus  = s1.forward(new Tensor(new double[][]{{v + eps}})).data[0][0];
-            double minus = s2.forward(new Tensor(new double[][]{{v - eps}})).data[0][0];
+            double plus  = s1.forward(new Tensor(new double[][]{{v + eps}})).data[0];
+            double minus = s2.forward(new Tensor(new double[][]{{v - eps}})).data[0];
             double numerical = (plus - minus) / (2 * eps);
 
             SiLU analytic = new SiLU();
             analytic.forward(new Tensor(new double[][]{{v}}));
-            double analytical = analytic.backward(Tensor.ones(1, 1)).data[0][0];
+            double analytical = analytic.backward(Tensor.ones(1, 1)).data[0];
 
             assertEquals(numerical, analytical, 1e-6,
                     "Gradient mismatch at x=" + v);
@@ -124,7 +123,7 @@ class SiLUTest {
         silu.forward(x);
         Tensor g3 = silu.backward(new Tensor(new double[][]{{3.0}}));
 
-        assertEquals(g1.data[0][0] * 3.0, g3.data[0][0], 1e-12);
+        assertEquals(g1.data[0] * 3.0, g3.data[0], 1e-12);
     }
 
     // ── guards ───────────────────────────────────────────────────────────────

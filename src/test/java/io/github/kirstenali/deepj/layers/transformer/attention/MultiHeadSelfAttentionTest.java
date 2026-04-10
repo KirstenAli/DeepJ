@@ -35,7 +35,7 @@ public class MultiHeadSelfAttentionTest {
         assertEquals(4, ps.size());
 
         Tensor I = Tensor.zeros(dModel, dModel);
-        for (int i = 0; i < dModel; i++) I.data[i][i] = 1.0;
+        for (int i = 0; i < dModel; i++) I.data[i * dModel + i] = 1.0;
 
         for (Parameter p : ps) {
             p.value = I;
@@ -52,17 +52,16 @@ public class MultiHeadSelfAttentionTest {
         Tensor y1 = attn.forward(x1);
 
         // Modify ONLY the future token (last row)
-        x1.data[seqLen - 1][0] = 999;
-        x1.data[seqLen - 1][1] = 999;
-        x1.data[seqLen - 1][2] = 999;
-        x1.data[seqLen - 1][3] = 999;
+        x1.data[(seqLen - 1) * dModel + 0] = 999;
+        x1.data[(seqLen - 1) * dModel + 1] = 999;
+        x1.data[(seqLen - 1) * dModel + 2] = 999;
+        x1.data[(seqLen - 1) * dModel + 3] = 999;
 
         Tensor y2 = attn.forward(x1);
 
-        // With causal masking, earlier positions must not change.
         for (int r = 0; r < seqLen - 1; r++) {
             for (int c = 0; c < dModel; c++) {
-                assertEquals(y1.data[r][c], y2.data[r][c], 1e-7,
+                assertEquals(y1.data[r * dModel + c], y2.data[r * dModel + c], 1e-7,
                         "past output changed at [" + r + "," + c + "]");
             }
         }

@@ -55,7 +55,7 @@ public final class CrossEntropyLoss implements LossFunction {
 
         int[] y = new int[actual.rows];
         for (int i = 0; i < actual.rows; i++) {
-            y[i] = (int) Math.round(actual.get(i, 0));
+            y[i] = (int) Math.round(actual.data[i]); // cols=1, so data[i*1+0] = data[i]
         }
         return y;
     }
@@ -66,7 +66,7 @@ public final class CrossEntropyLoss implements LossFunction {
     public static Tensor fromIntTargets(int[] targets) {
         Tensor t = new Tensor(targets.length, 1);
         for (int i = 0; i < targets.length; i++) {
-            t.set(i, 0, targets[i]);
+            t.data[i] = targets[i]; // cols=1, so data[i*1+0] = data[i]
         }
         return t;
     }

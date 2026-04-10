@@ -15,19 +15,18 @@ public class EmbeddingTest {
     void forward_pullsCorrectRows_fromWeightMatrix() {
         Embedding emb = new Embedding(5, 3, new Random(1));
 
-        // Overwrite weights with deterministic values: row i = [i, i+1, i+2]
         for (int i = 0; i < 5; i++) {
-            emb.weight().value.data[i][0] = i;
-            emb.weight().value.data[i][1] = i + 1;
-            emb.weight().value.data[i][2] = i + 2;
+            emb.weight().value.data[i * 3 + 0] = i;
+            emb.weight().value.data[i * 3 + 1] = i + 1;
+            emb.weight().value.data[i * 3 + 2] = i + 2;
         }
 
         Tensor out = emb.forward(new int[]{3, 1, 3});
         TestSupport.assertTensorShape(out, 3, 3);
 
-        assertArrayEquals(new double[]{3, 4, 5}, out.data[0], 1e-12);
-        assertArrayEquals(new double[]{1, 2, 3}, out.data[1], 1e-12);
-        assertArrayEquals(new double[]{3, 4, 5}, out.data[2], 1e-12);
+        assertArrayEquals(new double[]{3, 4, 5}, out.rowData(0), 1e-12);
+        assertArrayEquals(new double[]{1, 2, 3}, out.rowData(1), 1e-12);
+        assertArrayEquals(new double[]{3, 4, 5}, out.rowData(2), 1e-12);
     }
 
     @Test
@@ -45,12 +44,12 @@ public class EmbeddingTest {
         emb.backward(gradOut);
 
         // id=1 appears twice => grads sum
-        assertEquals(1.0 + 3.0, emb.weight().grad.data[1][0], 1e-12);
-        assertEquals(2.0 + 4.0, emb.weight().grad.data[1][1], 1e-12);
+        assertEquals(1.0 + 3.0, emb.weight().grad.data[1 * 2 + 0], 1e-12);
+        assertEquals(2.0 + 4.0, emb.weight().grad.data[1 * 2 + 1], 1e-12);
 
         // id=3 appears once
-        assertEquals(5.0, emb.weight().grad.data[3][0], 1e-12);
-        assertEquals(6.0, emb.weight().grad.data[3][1], 1e-12);
+        assertEquals(5.0, emb.weight().grad.data[3 * 2 + 0], 1e-12);
+        assertEquals(6.0, emb.weight().grad.data[3 * 2 + 1], 1e-12);
     }
 
     @Test
@@ -103,7 +102,7 @@ public class EmbeddingTest {
         Tensor dW = emb.weight().grad;
 
         for (int c = 0; c < W.cols; c++) {
-            W.data[id][c] -= lr * dW.data[id][c];
+            W.data[id * W.cols + c] -= lr * dW.data[id * dW.cols + c];
         }
 
         return loss;

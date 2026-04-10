@@ -46,7 +46,7 @@ class SwiGLULayerTest {
         Tensor y = layer.forward(x);
         for (int r = 0; r < y.rows; r++) {
             for (int c = 0; c < y.cols; c++) {
-                assertTrue(Double.isFinite(y.data[r][c]),
+                assertTrue(Double.isFinite(y.data[r * y.cols + c]),
                         "output must be finite at [" + r + "," + c + "]");
             }
         }
@@ -100,18 +100,19 @@ class SwiGLULayerTest {
         // Numerical gradient for each element of x
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < x.cols; c++) {
-                double orig = x.data[r][c];
+                int i = r * x.cols + c;
+                double orig = x.data[i];
 
-                x.data[r][c] = orig + eps;
+                x.data[i] = orig + eps;
                 double fPlus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
 
-                x.data[r][c] = orig - eps;
+                x.data[i] = orig - eps;
                 double fMinus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
 
-                x.data[r][c] = orig;
+                x.data[i] = orig;
 
                 double numerical = (fPlus - fMinus) / (2 * eps);
-                assertEquals(numerical, analyticGrad.data[r][c], tol,
+                assertEquals(numerical, analyticGrad.data[i], tol,
                         "Gradient mismatch at [" + r + "," + c + "]");
             }
         }
@@ -173,7 +174,7 @@ class SwiGLULayerTest {
         double s = 0;
         for (int r = 0; r < t.rows; r++)
             for (int c = 0; c < t.cols; c++)
-                s += t.data[r][c];
+                s += t.data[r * t.cols + c];
         return s;
     }
 
@@ -187,4 +188,3 @@ class SwiGLULayerTest {
         return loss;
     }
 }
-

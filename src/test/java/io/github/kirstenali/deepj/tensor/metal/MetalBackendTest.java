@@ -47,29 +47,29 @@ public final class MetalBackendTest {
     @Test
     void smallMatmulMatchesExpectedValues() {
         Tensor a = new Tensor(2, 3);
-        a.data[0][0] = 1;
-        a.data[0][1] = 2;
-        a.data[0][2] = 3;
-        a.data[1][0] = 4;
-        a.data[1][1] = 5;
-        a.data[1][2] = 6;
+        a.data[0 * 3 + 0] = 1;
+        a.data[0 * 3 + 1] = 2;
+        a.data[0 * 3 + 2] = 3;
+        a.data[1 * 3 + 0] = 4;
+        a.data[1 * 3 + 1] = 5;
+        a.data[1 * 3 + 2] = 6;
 
         Tensor b = new Tensor(3, 2);
-        b.data[0][0] = 7;
-        b.data[0][1] = 8;
-        b.data[1][0] = 9;
-        b.data[1][1] = 10;
-        b.data[2][0] = 11;
-        b.data[2][1] = 12;
+        b.data[0 * 2 + 0] = 7;
+        b.data[0 * 2 + 1] = 8;
+        b.data[1 * 2 + 0] = 9;
+        b.data[1 * 2 + 1] = 10;
+        b.data[2 * 2 + 0] = 11;
+        b.data[2 * 2 + 1] = 12;
 
         Tensor c = gpu.matmul(a, b);
-        c.materialize(); // lazy GPU op — must materialize before reading data
+        c.materialize();
         assertEquals(2, c.rows);
         assertEquals(2, c.cols);
-        assertEquals(58.0, c.data[0][0], 1e-6);
-        assertEquals(64.0, c.data[0][1], 1e-6);
-        assertEquals(139.0, c.data[1][0], 1e-6);
-        assertEquals(154.0, c.data[1][1], 1e-6);
+        assertEquals(58.0,  c.data[0 * 2 + 0], 1e-6);
+        assertEquals(64.0,  c.data[0 * 2 + 1], 1e-6);
+        assertEquals(139.0, c.data[1 * 2 + 0], 1e-6);
+        assertEquals(154.0, c.data[1 * 2 + 1], 1e-6);
     }
 
     @Test
@@ -181,7 +181,8 @@ public final class MetalBackendTest {
             Tensor xHat = randomTensor(16, 32, 32L);
             Tensor std = new Tensor(16, 1);
             for (int r = 0; r < std.rows; r++) {
-                std.data[r][0] = 0.5 + Math.abs(xHat.data[r][0]);
+                // std is rows×1: flat index r*1+0 = r
+                std.data[r] = 0.5 + Math.abs(xHat.data[r * xHat.cols]);
             }
 
             Tensor expected = cpu.layerNormBackward(dXHat, xHat, std, dXHat.cols);
@@ -253,8 +254,8 @@ public final class MetalBackendTest {
             Tensor mtCpu = new Tensor(32, 64);
             Tensor vtCpu = new Tensor(32, 64);
 
-            Tensor wGpu = new Tensor(wCpu.data);
-            Tensor gGpu = new Tensor(gCpu.data);
+            Tensor wGpu = new Tensor(wCpu);
+            Tensor gGpu = new Tensor(gCpu);
             Tensor mtGpu = new Tensor(32, 64);
             Tensor vtGpu = new Tensor(32, 64);
 
@@ -289,7 +290,7 @@ public final class MetalBackendTest {
             Tensor mtCpu = new Tensor(16, 48);
             Tensor vtCpu = new Tensor(16, 48);
 
-            Tensor wGpu = new Tensor(wCpu.data);
+            Tensor wGpu = new Tensor(wCpu);
             Tensor mtGpu = new Tensor(16, 48);
             Tensor vtGpu = new Tensor(16, 48);
 
@@ -301,7 +302,7 @@ public final class MetalBackendTest {
 
             for (int step = 1; step <= 5; step++) {
                 Tensor gCpu = randomTensor(16, 48, 90L + step);
-                Tensor gGpu = new Tensor(gCpu.data);
+                Tensor gGpu = new Tensor(gCpu);
                 double bc1 = 1.0 - Math.pow(beta1, step);
                 double bc2 = 1.0 - Math.pow(beta2, step);
 
@@ -326,8 +327,8 @@ public final class MetalBackendTest {
 
         for (int r = 0; r < expected.rows; r++) {
             for (int c = 0; c < expected.cols; c++) {
-                double e = expected.data[r][c];
-                double a = actual.data[r][c];
+                double e = expected.data[r * expected.cols + c];
+                double a = actual.data[r * actual.cols + c];
                 double tol = atol + rtol * Math.abs(e);
                 assertTrue(Math.abs(e - a) <= tol, "Mismatch at (" + r + "," + c + ") expected=" + e + " actual=" + a);
             }

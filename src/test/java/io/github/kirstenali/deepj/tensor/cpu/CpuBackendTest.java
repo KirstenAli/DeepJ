@@ -25,7 +25,7 @@ class CpuBackendTest {
 
         for (int r = 0; r < expected.length; r++) {
             for (int c = 0; c < expected[0].length; c++) {
-                assertEquals(expected[r][c], actual.data[r][c], EPS,
+                assertEquals(expected[r][c], actual.data[r * actual.cols + c], EPS,
                         "Mismatch at [" + r + "][" + c + "]");
             }
         }
@@ -63,7 +63,7 @@ class CpuBackendTest {
 
         for (int r = 0; r < t1.rows; r++) {
             for (int c = 0; c < t1.cols; c++) {
-                assertEquals(t1.data[r][c], t2.data[r][c], EPS);
+                assertEquals(t1.data[r * t1.cols + c], t2.data[r * t2.cols + c], EPS);
             }
         }
     }

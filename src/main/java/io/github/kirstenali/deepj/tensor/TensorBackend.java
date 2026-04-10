@@ -128,8 +128,7 @@ public interface TensorBackend {
 
     /** Copy src data into dst (same shape). Used by default in-place implementations. */
     private static void copyInto(Tensor src, Tensor dst) {
-        for (int r = 0; r < src.rows; r++)
-            System.arraycopy(src.data[r], 0, dst.data[r], 0, src.cols);
+        System.arraycopy(src.data, 0, dst.data, 0, src.data.length);
     }
 
     /**

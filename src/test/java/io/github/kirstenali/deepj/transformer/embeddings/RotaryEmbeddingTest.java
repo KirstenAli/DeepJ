@@ -54,12 +54,12 @@ class RotaryEmbeddingTest {
         Tensor y = rope.apply(x, 2, 1);
 
         // pos 0: no rotation
-        assertEquals(1.0, y.data[0][0], 1e-9);
-        assertEquals(0.0, y.data[0][1], 1e-9);
+        assertEquals(1.0, y.data[0 * 4 + 0], 1e-9);
+        assertEquals(0.0, y.data[0 * 4 + 1], 1e-9);
 
         // pos 1: rotated by θ = 1 → x_rot[0] = cos(1), x_rot[1] = sin(1)
-        assertEquals(Math.cos(1.0), y.data[1][0], 1e-9);
-        assertEquals(Math.sin(1.0), y.data[1][1], 1e-9);
+        assertEquals(Math.cos(1.0), y.data[1 * 4 + 0], 1e-9);
+        assertEquals(Math.sin(1.0), y.data[1 * 4 + 1], 1e-9);
     }
 
     // ── shape ────────────────────────────────────────────────────────────────
@@ -135,8 +135,8 @@ class RotaryEmbeddingTest {
         // Head 0 and head 1 of yDouble should match ySingle.
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
-                assertEquals(ySingle.data[r][c], yDouble.data[r][c],     1e-12, "head0 row " + r);
-                assertEquals(ySingle.data[r][c], yDouble.data[r + 2][c], 1e-12, "head1 row " + r);
+                assertEquals(ySingle.data[r * 4 + c], yDouble.data[r * 4 + c],       1e-12, "head0 row " + r);
+                assertEquals(ySingle.data[r * 4 + c], yDouble.data[(r + 2) * 4 + c], 1e-12, "head1 row " + r);
             }
         }
     }
@@ -261,7 +261,8 @@ class RotaryEmbeddingTest {
 
     private static double rowNorm(Tensor t, int row) {
         double s = 0;
-        for (int c = 0; c < t.cols; c++) s += t.data[row][c] * t.data[row][c];
+        int base = row * t.cols;
+        for (int c = 0; c < t.cols; c++) s += t.data[base + c] * t.data[base + c];
         return Math.sqrt(s);
     }
 }

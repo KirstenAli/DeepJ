@@ -1,4 +1,3 @@
-
 package io.github.kirstenali.deepj.optimisers;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -17,10 +16,10 @@ public class AdamWTest {
         p.grad = new Tensor(new double[][]{{1.0}});
 
         opt.step(List.of(p));
-        Assertions.assertEquals(0.9, p.value.data[0][0], 1e-9);
+        Assertions.assertEquals(0.9, p.value.data[0], 1e-9);
 
         opt.step(List.of(p));
-        Assertions.assertEquals(0.8, p.value.data[0][0], 1e-6);
+        Assertions.assertEquals(0.8, p.value.data[0], 1e-6);
     }
 
     @Test
@@ -31,7 +30,7 @@ public class AdamWTest {
         p.grad = new Tensor(new double[][]{{0.0}});
 
         opt.step(List.of(p));
-        Assertions.assertTrue(p.value.data[0][0] < 10.0);
+        Assertions.assertTrue(p.value.data[0] < 10.0);
     }
 
     @Test

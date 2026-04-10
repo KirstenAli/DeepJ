@@ -499,7 +499,7 @@ public final class MetalBackend implements TensorBackend {
         Tensor probs = softmaxRows(logits);
         Tensor oneHot = new Tensor(logits.rows, logits.cols);
         for (int r = 0; r < logits.rows; r++) {
-            oneHot.data[r][targets[r]] = 1.0;
+            oneHot.data[r * logits.cols + targets[r]] = 1.0;
         }
         probs.subtractInPlace(oneHot);
         probs.multiplyScalarInPlace(1.0 / logits.rows);

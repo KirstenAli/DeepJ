@@ -41,13 +41,13 @@ public class ActivationsTest {
         Tensor y = s.forward(x);
 
         for (int c = 0; c < y.cols; c++) {
-            Assertions.assertTrue(y.data[0][c] > 0.0 && y.data[0][c] < 1.0);
+            Assertions.assertTrue(y.data[c] > 0.0 && y.data[c] < 1.0);
         }
 
         Tensor gradOut = new Tensor(new double[][]{{1, 1, 1}});
         Tensor gx = s.backward(gradOut);
         for (int c = 0; c < gx.cols; c++) {
-            Assertions.assertTrue(gx.data[0][c] >= 0.0, "sigmoid' should be >= 0");
+            Assertions.assertTrue(gx.data[c] >= 0.0, "sigmoid' should be >= 0");
         }
     }
 
@@ -56,7 +56,7 @@ public class ActivationsTest {
         Tanh t = new Tanh();
         Tensor x1 = new Tensor(new double[][]{{0.5, -0.5}});
         Tensor y1 = t.forward(x1);
-        Assertions.assertEquals(y1.data[0][0], -y1.data[0][1], 1e-12);
+        Assertions.assertEquals(y1.data[0], -y1.data[1], 1e-12);
     }
 
     @Test
@@ -65,8 +65,8 @@ public class ActivationsTest {
         Tensor x = new Tensor(new double[][]{{-1e-3, 0.0, 1e-3}});
         Tensor y = g.forward(x);
 
-        Assertions.assertTrue(y.data[0][0] < y.data[0][1]);
-        Assertions.assertTrue(y.data[0][1] < y.data[0][2]);
+        Assertions.assertTrue(y.data[0] < y.data[1]);
+        Assertions.assertTrue(y.data[1] < y.data[2]);
     }
 
     @Test
@@ -80,7 +80,7 @@ public class ActivationsTest {
 
         for (int r = 0; r < p.rows; r++) {
             double sum = 0.0;
-            for (int c = 0; c < p.cols; c++) sum += p.data[r][c];
+            for (int c = 0; c < p.cols; c++) sum += p.data[r * p.cols + c];
             Assertions.assertEquals(1.0, sum, 1e-9);
         }
 
@@ -169,17 +169,18 @@ public class ActivationsTest {
 
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < x.cols; c++) {
-                double old = x.data[r][c];
+                int i = r * x.cols + c;
+                double old = x.data[i];
 
-                x.data[r][c] = old + eps;
+                x.data[i] = old + eps;
                 double plus = f.apply(x).sum();
 
-                x.data[r][c] = old - eps;
+                x.data[i] = old - eps;
                 double minus = f.apply(x).sum();
 
-                x.data[r][c] = old;
+                x.data[i] = old;
 
-                grad.data[r][c] = (plus - minus) / (2.0 * eps);
+                grad.data[i] = (plus - minus) / (2.0 * eps);
             }
         }
         return grad;
@@ -191,17 +192,18 @@ public class ActivationsTest {
 
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < x.cols; c++) {
-                double old = x.data[r][c];
+                int i = r * x.cols + c;
+                double old = x.data[i];
 
-                x.data[r][c] = old + eps;
+                x.data[i] = old + eps;
                 double plus = objective.apply(x);
 
-                x.data[r][c] = old - eps;
+                x.data[i] = old - eps;
                 double minus = objective.apply(x);
 
-                x.data[r][c] = old;
+                x.data[i] = old;
 
-                grad.data[r][c] = (plus - minus) / (2.0 * eps);
+                grad.data[i] = (plus - minus) / (2.0 * eps);
             }
         }
         return grad;
@@ -214,9 +216,10 @@ public class ActivationsTest {
         double s = 0.0;
         for (int r = 0; r < p.rows; r++) {
             for (int c = 0; c < p.cols; c++) {
-                s += p.data[r][c] * upstream.data[r][c];
+                s += p.data[r * p.cols + c] * upstream.data[r * upstream.cols + c];
             }
         }
         return s;
     }
 }
+

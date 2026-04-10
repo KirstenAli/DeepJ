@@ -26,12 +26,7 @@ public final class ModelSerializer {
                 Tensor t = p.value;
                 out.writeInt(t.rows);
                 out.writeInt(t.cols);
-
-                for (int r = 0; r < t.rows; r++) {
-                    for (int c = 0; c < t.cols; c++) {
-                        out.writeDouble(t.get(r, c));
-                    }
-                }
+                for (double v : t.data) out.writeDouble(v);
             }
         }
     }
@@ -55,11 +50,7 @@ public final class ModelSerializer {
                     throw new IOException("Shape mismatch at parameter " + i);
                 }
 
-                for (int r = 0; r < rows; r++) {
-                    for (int c = 0; c < cols; c++) {
-                        t.set(r, c, in.readDouble());
-                    }
-                }
+                for (int j = 0; j < t.data.length; j++) t.data[j] = in.readDouble();
             }
         }
     }

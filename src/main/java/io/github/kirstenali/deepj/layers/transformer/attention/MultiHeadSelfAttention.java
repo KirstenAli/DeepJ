@@ -97,19 +97,19 @@ public class MultiHeadSelfAttention implements Layer {
         Tensor dOutH   = splitHeads(dMerged);
         Tensor vh      = splitHeads(cache.V);
 
-        AttentionBackwardResult attnBackward = backwardAttentionAndValues(dOutH, vh, seqLen);
+        HeadOps.AttentionGrads attnBackward = backwardAttentionAndValues(dOutH, vh, seqLen);
 
         // Use cached (post-hook) heads so score gradients stay in the transformed space.
-        QueryKeyBackwardResult qkBackward = backwardQueriesAndKeys(
-                attnBackward.dScores, cache.cachedQh, cache.cachedKh, seqLen);
+        HeadOps.QKGrads qkBackward = backwardQueriesAndKeys(
+                attnBackward.dScores(), cache.cachedQh, cache.cachedKh, seqLen);
 
         // Allow subclasses to invert their Q/K transform on the gradients (no-op by default).
-        Tensor dQh = transformQueryKeyBackward(qkBackward.dQh, seqLen);
-        Tensor dKh = transformQueryKeyBackward(qkBackward.dKh, seqLen);
+        Tensor dQh = transformQueryKeyBackward(qkBackward.dQh(), seqLen);
+        Tensor dKh = transformQueryKeyBackward(qkBackward.dKh(), seqLen);
 
         Tensor dQ = mergeHeads(dQh, seqLen);
         Tensor dK = mergeHeads(dKh, seqLen);
-        Tensor dV = mergeHeads(attnBackward.dVh, seqLen);
+        Tensor dV = mergeHeads(attnBackward.dVh(), seqLen);
 
         accumulateProjectionGrads(dQ, dK, dV);
 
@@ -156,29 +156,15 @@ public class MultiHeadSelfAttention implements Layer {
     }
 
     private Tensor computeScaledDotProductScores(Tensor qh, Tensor kh, int seqLen) {
-        return mapHeadBlocks(nHeads, seqLen, seqLen, h -> {
-            Tensor qBlock = extractBlock(qh, h * seqLen, seqLen, headDim);
-            Tensor kBlock = extractBlock(kh, h * seqLen, seqLen, headDim);
-            Tensor scores = qBlock.matmul(kBlock.transpose());
-            scores.multiplyScalarInPlace(scale);
-            return scores;
-        });
+        return HeadOps.scaledDotProductScores(qh, kh, nHeads, seqLen, headDim, scale);
     }
 
     private Tensor applyCausalMask(Tensor scores, int seqLen) {
-        Tensor mask = Tensor.causalMask(seqLen);
-        return mapHeadBlocks(nHeads, seqLen, seqLen, h -> {
-            Tensor block = extractBlock(scores, h * seqLen, seqLen, seqLen);
-            return block.add(mask);
-        });
+        return HeadOps.applyCausalMask(scores, nHeads, seqLen);
     }
 
     private Tensor applyAttentionToValues(Tensor attnProb, Tensor vh, int seqLen) {
-        return mapHeadBlocks(nHeads, seqLen, headDim, h -> {
-            Tensor aBlock = extractBlock(attnProb, h * seqLen, seqLen, seqLen);
-            Tensor vBlock = extractBlock(vh,       h * seqLen, seqLen, headDim);
-            return aBlock.matmul(vBlock);
-        });
+        return HeadOps.applyAttentionToValues(attnProb, vh, nHeads, seqLen, headDim);
     }
 
     // -------------------------------------------------------------------------
@@ -190,39 +176,13 @@ public class MultiHeadSelfAttention implements Layer {
         return dOut.matmul(Wo.value.transpose());
     }
 
-    private AttentionBackwardResult backwardAttentionAndValues(Tensor dOutH, Tensor vh, int seqLen) {
-        Tensor dAttn = Tensor.zeros(nHeads * seqLen, seqLen);
-        Tensor dVh   = Tensor.zeros(nHeads * seqLen, headDim);
-
-        for (int h = 0; h < nHeads; h++) {
-            Tensor doBlock = extractBlock(dOutH,          h * seqLen, seqLen, headDim);
-            Tensor vBlock  = extractBlock(vh,             h * seqLen, seqLen, headDim);
-            Tensor aBlock  = extractBlock(cache.attnProb, h * seqLen, seqLen, seqLen);
-
-            insertBlock(dAttn, doBlock.matmul(vBlock.transpose()),  h * seqLen, seqLen, seqLen);
-            insertBlock(dVh,   aBlock.transpose().matmul(doBlock),  h * seqLen, seqLen, headDim);
-        }
-
-        Tensor dScores = softmax.backward(dAttn);
-        dScores.multiplyScalarInPlace(scale);
-        return new AttentionBackwardResult(dScores, dVh);
+    private HeadOps.AttentionGrads backwardAttentionAndValues(Tensor dOutH, Tensor vh, int seqLen) {
+        return HeadOps.backwardAttentionAndValues(
+                dOutH, vh, cache.attnProb, softmax, scale, nHeads, seqLen, headDim);
     }
 
-    private QueryKeyBackwardResult backwardQueriesAndKeys(
-            Tensor dScores, Tensor qh, Tensor kh, int seqLen) {
-        Tensor dQh = Tensor.zeros(nHeads * seqLen, headDim);
-        Tensor dKh = Tensor.zeros(nHeads * seqLen, headDim);
-
-        for (int h = 0; h < nHeads; h++) {
-            Tensor dsBlock = extractBlock(dScores, h * seqLen, seqLen, seqLen);
-            Tensor qBlock  = extractBlock(qh,      h * seqLen, seqLen, headDim);
-            Tensor kBlock  = extractBlock(kh,      h * seqLen, seqLen, headDim);
-
-            insertBlock(dQh, dsBlock.matmul(kBlock),             h * seqLen, seqLen, headDim);
-            insertBlock(dKh, dsBlock.transpose().matmul(qBlock), h * seqLen, seqLen, headDim);
-        }
-
-        return new QueryKeyBackwardResult(dQh, dKh);
+    private HeadOps.QKGrads backwardQueriesAndKeys(Tensor dScores, Tensor qh, Tensor kh, int seqLen) {
+        return HeadOps.backwardQueriesAndKeys(dScores, qh, kh, nHeads, seqLen, headDim);
     }
 
     private void accumulateProjectionGrads(Tensor dQ, Tensor dK, Tensor dV) {
@@ -256,63 +216,37 @@ public class MultiHeadSelfAttention implements Layer {
     }
 
     /**
-     * Split [seqLen x dModel] into [nHeads*seqLen x headDim] via row/col reindexing.
+     * Split [seqLen x dModel] into [nHeads*seqLen x headDim] via arraycopy.
+     * For each token i and head h, copies headDim elements:
+     *   src:  t.data[i*dModel + h*headDim]
+     *   dst: out.data[(h*seqLen + i)*headDim]
      */
     private Tensor splitHeads(Tensor t) {
-        int seqLen = t.rows;
-        Tensor out = Tensor.zeros(nHeads * seqLen, headDim);
-
-        for (int i = 0; i < seqLen; i++) {
-            Tensor srcRow = t.getRow(i);
-            for (int h = 0; h < nHeads; h++) {
-                int dstRow = h * seqLen + i;
-                for (int d = 0; d < headDim; d++) {
-                    out.set(dstRow, d, srcRow.get(0, h * headDim + d));
-                }
-            }
-        }
-        return out;
+        return HeadOps.splitHeads(t, t.rows, nHeads, headDim, dModel);
     }
 
     /**
-     * Merge [nHeads*seqLen x headDim] back into [seqLen x dModel].
+     * Merge [nHeads*seqLen x headDim] back into [seqLen x dModel] via arraycopy.
+     * Inverse of splitHeads.
      */
     private Tensor mergeHeads(Tensor t, int seqLen) {
-        Tensor out = Tensor.zeros(seqLen, dModel);
-
-        for (int i = 0; i < seqLen; i++) {
-            for (int h = 0; h < nHeads; h++) {
-                int srcRow = h * seqLen + i;
-                for (int d = 0; d < headDim; d++) {
-                    out.set(i, h * headDim + d, t.get(srcRow, d));
-                }
-            }
-        }
-        return out;
+        return HeadOps.mergeHeads(t, seqLen, nHeads, headDim, dModel);
     }
 
     /**
-     * Extract a sub-block: rows [rowStart .. rowStart+numRows), cols [0..numCols).
+     * Extract rows [rowStart .. rowStart+numRows) into a new [numRows x numCols] tensor.
+     * Contiguous rows in flat storage → single arraycopy.
      */
     private Tensor extractBlock(Tensor t, int rowStart, int numRows, int numCols) {
-        Tensor block = Tensor.zeros(numRows, numCols);
-        for (int r = 0; r < numRows; r++) {
-            for (int c = 0; c < numCols; c++) {
-                block.set(r, c, t.get(rowStart + r, c));
-            }
-        }
-        return block;
+        return HeadOps.extractBlock(t, rowStart, numRows, numCols);
     }
 
     /**
-     * Insert {@code block} into {@code target} starting at {@code rowStart}.
+     * Insert [numRows x numCols] block into target starting at rowStart.
+     * Contiguous rows in flat storage → single arraycopy.
      */
     private void insertBlock(Tensor target, Tensor block, int rowStart, int numRows, int numCols) {
-        for (int r = 0; r < numRows; r++) {
-            for (int c = 0; c < numCols; c++) {
-                target.set(rowStart + r, c, block.get(r, c));
-            }
-        }
+        HeadOps.insertBlock(target, block, rowStart, numRows, numCols);
     }
 
     // -------------------------------------------------------------------------
@@ -328,20 +262,14 @@ public class MultiHeadSelfAttention implements Layer {
     // Records
     // -------------------------------------------------------------------------
 
-    /** Tensors cached during forward that are required by backward. */
     private record ForwardCache(
             Tensor x,
             Tensor Q, Tensor K, Tensor V,
             Tensor cachedQh, Tensor cachedKh,
             Tensor attnProb,
             Tensor outH,
-            Tensor mergedBeforeWo) {
-    }
+            Tensor mergedBeforeWo) {}
 
     private record Projections(Tensor Q, Tensor K, Tensor V) {}
-
-    private record AttentionBackwardResult(Tensor dScores, Tensor dVh) {}
-
-    private record QueryKeyBackwardResult(Tensor dQh, Tensor dKh) {}
 }
 

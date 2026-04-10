@@ -26,16 +26,16 @@ public final class TrainSmallGPT {
         Tensor.setBackend(metal);
 
         // ── Data ──────────────────────────────────────────────────────────────
-        Path corpus = Path.of("sample_data/llm_training_dataset_1227_examples.txt");
+        Path corpus = Path.of("sample_data/sample_corpus.txt");
 
         Tokenizer tok = new ByteTokenizer();
-        TextDataset ds = TextDataset.fromFile(corpus, tok, 256, 123);
+        TextDataset ds = TextDataset.fromFile(corpus, tok, 64, 123);
 
         // ── Model ─────────────────────────────────────────────────────────────
         GPTConfig cfg = new GPTConfig(
                 tok.vocabSize(),
-                256,  // maxSeqLen
-                512,  // dModel
+                64,  // maxSeqLen
+                128,  // dModel
                 4,    // nHeads
                 5,    // nLayers
                 1024  // dFF

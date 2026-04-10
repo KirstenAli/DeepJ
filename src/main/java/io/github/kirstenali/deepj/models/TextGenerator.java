@@ -92,7 +92,10 @@ public final class TextGenerator {
                                  double temperature, int topK, Random rnd) {
         int[] context = last(ids, maxSeqLen);
         Tensor logits = forwarder.apply(context);
-        double[] lastLogits = Tensor.flattenTensor(logits.getRow(logits.rows - 1));
+        logits.materialize();
+        // Extract last row directly from flat storage — no backend round-trip.
+        double[] lastLogits = Arrays.copyOfRange(logits.data,
+                (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
     }
 

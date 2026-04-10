@@ -101,25 +101,27 @@ public final class RotaryEmbedding {
 
     /** Forward rotation for every dimension pair in one position row. */
     private void rotatePositionForward(Tensor result, Tensor t, int row, int pos) {
+        int base = row * t.cols;
         for (int i = 0; i < halfDim; i++) {
             double cos = cosTable[pos][i];
             double sin = sinTable[pos][i];
-            double x0  = t.get(row, 2 * i);
-            double x1  = t.get(row, 2 * i + 1);
-            result.set(row, 2 * i,     x0 * cos - x1 * sin);
-            result.set(row, 2 * i + 1, x0 * sin + x1 * cos);
+            double x0  = t.data[base + 2 * i];
+            double x1  = t.data[base + 2 * i + 1];
+            result.data[base + 2 * i]     = x0 * cos - x1 * sin;
+            result.data[base + 2 * i + 1] = x0 * sin + x1 * cos;
         }
     }
 
     /** Inverse (transpose) rotation for every dimension pair in one position row. */
     private void rotatePositionInverse(Tensor result, Tensor t, int row, int pos) {
+        int base = row * t.cols;
         for (int i = 0; i < halfDim; i++) {
             double cos = cosTable[pos][i];
             double sin = sinTable[pos][i];
-            double x0  = t.get(row, 2 * i);
-            double x1  = t.get(row, 2 * i + 1);
-            result.set(row, 2 * i,     x0 * cos + x1 * sin);
-            result.set(row, 2 * i + 1, -x0 * sin + x1 * cos);
+            double x0  = t.data[base + 2 * i];
+            double x1  = t.data[base + 2 * i + 1];
+            result.data[base + 2 * i]     =  x0 * cos + x1 * sin;
+            result.data[base + 2 * i + 1] = -x0 * sin + x1 * cos;
         }
     }
 

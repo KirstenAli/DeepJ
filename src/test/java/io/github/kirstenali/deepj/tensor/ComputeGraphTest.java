@@ -62,7 +62,7 @@ class ComputeGraphTest {
 
         // Simulate CPU modification (e.g. after adamWUpdate)
         buf.needsUpload = true;
-        t.data[0][0] = 99.0;
+        t.data[0] = 99.0;
 
         graph.ensureGpuBuffer(t);
         assertFalse(buf.needsUpload, "needsUpload should be cleared after re-scheduling");
@@ -292,8 +292,8 @@ class ComputeGraphTest {
         assertEquals(1, runtime.downloads.size());
         assertEquals(outBuf.id, runtime.downloads.get(0).bufId);
         // CPU data should be updated
-        assertEquals(1.414, result.data[0][0], 1e-3);
-        assertEquals(2.0, result.data[0][1], 1e-3);
+        assertEquals(1.414, result.data[0], 1e-3);
+        assertEquals(2.0, result.data[1], 1e-3);
         // No longer stale
         assertFalse(outBuf.cpuStale);
     }
@@ -397,7 +397,7 @@ class ComputeGraphTest {
 
         graph.releaseAll();
 
-        assertEquals(42.0, t.data[0][0], 1e-6, "releaseAll should preserve latest GPU value");
+        assertEquals(42.0, t.data[0], 1e-6, "releaseAll should preserve latest GPU value");
         assertNull(t.getGpuTag(), "releaseAll should still clear GPU tags");
         assertFalse(buf.cpuStale, "buffer state should be marked fresh after forced materialization");
     }

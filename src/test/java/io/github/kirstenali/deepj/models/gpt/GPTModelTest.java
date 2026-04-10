@@ -107,7 +107,7 @@ public class GPTModelTest {
         // upstream grad: make it non-uniform to reduce risk of accidental cancellation
         Tensor dLogits = Tensor.zeros(logits.rows, logits.cols);
         for (int r = 0; r < dLogits.rows; r++) {
-            dLogits.data[r][(r + 3) % dLogits.cols] = 1.0;
+            dLogits.data[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0;
         }
 
         // zero all grads before backward
@@ -121,8 +121,8 @@ public class GPTModelTest {
         assertTrue(tokW.grad.sumAbs() > 0.0, "Expected non-zero token embedding grads");
 
         // Specific used ids should have non-zero rows.
-        assertTrue (new Tensor(new double[][]{tokW.grad.data[5]}).sumAbs() > 0.0, "id=5 row grad should be non-zero");
-        assertTrue(new Tensor(new double[][]{tokW.grad.data[1]}).sumAbs() > 0.0, "id=1 row grad should be non-zero");
-        assertTrue(new Tensor(new double[][]{tokW.grad.data[2]}).sumAbs() > 0.0, "id=2 row grad should be non-zero");
+        assertTrue (tokW.grad.getRow(5).sumAbs() > 0.0, "id=5 row grad should be non-zero");
+        assertTrue(tokW.grad.getRow(1).sumAbs() > 0.0, "id=1 row grad should be non-zero");
+        assertTrue(tokW.grad.getRow(2).sumAbs() > 0.0, "id=2 row grad should be non-zero");
     }
 }

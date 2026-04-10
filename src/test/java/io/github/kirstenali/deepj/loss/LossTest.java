@@ -1,4 +1,3 @@
-
 package io.github.kirstenali.deepj.loss;
 
 import io.github.kirstenali.deepj.TestSupport;
@@ -48,7 +47,7 @@ public class LossTest {
 
         for (int r = 0; r < g.rows; r++) {
             double sum = 0.0;
-            for (int c = 0; c < g.cols; c++) sum += g.data[r][c];
+            for (int c = 0; c < g.cols; c++) sum += g.data[r * g.cols + c];
             Assertions.assertEquals(0.0, sum, 1e-9, "softmax-crossentropy grad rows should sum to 0");
         }
     }
@@ -72,8 +71,8 @@ public class LossTest {
         double p2 = c / s;
 
         // grad = softmax - oneHot(target)
-        Assertions.assertEquals(p0, g.data[0][0], 1e-8);
-        Assertions.assertEquals(p1, g.data[0][1], 1e-8);
-        Assertions.assertEquals(p2 - 1.0, g.data[0][2], 1e-8);
+        Assertions.assertEquals(p0, g.data[0], 1e-8);
+        Assertions.assertEquals(p1, g.data[1], 1e-8);
+        Assertions.assertEquals(p2 - 1.0, g.data[2], 1e-8);
     }
 }

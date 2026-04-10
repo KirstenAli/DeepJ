@@ -497,10 +497,7 @@ public final class MetalBackendAllOpsPerformanceTest {
     }
 
     private static Tensor clone(Tensor t) {
-        Tensor c = new Tensor(t.rows, t.cols);
-        for (int r = 0; r < t.rows; r++)
-            System.arraycopy(t.data[r], 0, c.data[r], 0, t.cols);
-        return c;
+        return new Tensor(t);
     }
 }
 

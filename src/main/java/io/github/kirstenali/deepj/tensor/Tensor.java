@@ -2,10 +2,12 @@ package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 
+import java.util.Arrays;
 import java.util.Random;
 
 public class Tensor {
-    public final double[][] data;
+    /** Flat row-major storage: element (r, c) lives at data[r * cols + c]. */
+    public final double[] data;
     public final int rows, cols;
 
     /**
@@ -33,18 +35,34 @@ public class Tensor {
     public Tensor(int rows, int cols) {
         this.rows = rows;
         this.cols = cols;
-        this.data = new double[rows][cols];
+        this.data = new double[rows * cols];
     }
 
+    /** Copy constructor — creates an independent deep copy. */
+    public Tensor(Tensor source) {
+        this.rows = source.rows;
+        this.cols = source.cols;
+        this.data = Arrays.copyOf(source.data, source.data.length);
+    }
+
+    /** Accepts a 2-D jagged array and flattens it into row-major storage. */
     public Tensor(double[][] data) {
         this.rows = data.length;
         this.cols = data[0].length;
-        this.data = new double[rows][cols];
+        this.data = new double[rows * cols];
         for (int i = 0; i < rows; i++) {
             if (data[i].length != cols)
                 throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
-            System.arraycopy(data[i], 0, this.data[i], 0, cols);
+            System.arraycopy(data[i], 0, this.data, i * cols, cols);
         }
+    }
+
+    /**
+     * Returns a fresh {@code double[]} copy of row {@code r}.
+     * Convenience for tests and debugging; not a view.
+     */
+    public double[] rowData(int r) {
+        return Arrays.copyOfRange(data, r * cols, (r + 1) * cols);
     }
 
     /**
