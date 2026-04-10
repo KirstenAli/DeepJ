@@ -36,20 +36,20 @@ public class EmbeddingTest {
 
         emb.forward(new int[]{1, 1, 3});
 
-        Tensor gradOut = Tensor.from2D(new double[][]{
-                {1.0, 2.0},
-                {3.0, 4.0},
-                {5.0, 6.0}
+        Tensor gradOut = Tensor.from2D(new float[][]{
+                {1.0f, 2.0f},
+                {3.0f, 4.0f},
+                {5.0f, 6.0f}
         });
         emb.backward(gradOut);
 
         // id=1 appears twice => grads sum
-        assertEquals(1.0 + 3.0, emb.weight().grad.data[1 * 2 + 0], 1e-12);
-        assertEquals(2.0 + 4.0, emb.weight().grad.data[1 * 2 + 1], 1e-12);
+        assertEquals(1.0f + 3.0f, emb.weight().grad.data[1 * 2 + 0], 1e-12f);
+        assertEquals(2.0f + 4.0f, emb.weight().grad.data[1 * 2 + 1], 1e-12f);
 
         // id=3 appears once
-        assertEquals(5.0, emb.weight().grad.data[3 * 2 + 0], 1e-12);
-        assertEquals(6.0, emb.weight().grad.data[3 * 2 + 1], 1e-12);
+        assertEquals(5.0f, emb.weight().grad.data[3 * 2 + 0], 1e-12f);
+        assertEquals(6.0f, emb.weight().grad.data[3 * 2 + 1], 1e-12f);
     }
 
     @Test
@@ -64,11 +64,11 @@ public class EmbeddingTest {
         Embedding emb = new Embedding(6, 3, new Random(4));
 
         int id = 2;
-        Tensor target = Tensor.from2D(new double[][]{
-                { 0.25, -0.50, 1.25 }
+        Tensor target = Tensor.from2D(new float[][]{
+                { 0.25f, -0.50f, 1.25f }
         });
 
-        double lr = 0.1;
+        double lr = 0.1f;
 
         double prev = oneSgdStepMSE(emb, id, target, lr);
         boolean improved = false;

@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorAdapters;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,38 +20,31 @@ public class ModelSerializerTest {
     @Test
     void saveAndLoad_roundTripsParameterValues() throws IOException {
         List<Parameter> original = List.of(
-                new Parameter(Tensor.from2D(new double[][]{
-                        {1.0, 2.0},
-                        {3.0, 4.0}
+                new Parameter(Tensor.from2D(new float[][]{
+                        {1.0f, 2.0f},
+                        {3.0f, 4.0f}
                 })),
-                new Parameter(Tensor.from2D(new double[][]{
-                        {5.0, 6.0, 7.0}
-                }))
+                new Parameter(rowTensor(5.0f, 6.0f, 7.0f))
         );
 
         Path file = tempDir.resolve("model.bin");
         ModelSerializer.save(original, file);
 
         List<Parameter> loaded = List.of(
-                new Parameter(Tensor.from2D(new double[][]{
-                        {0.0, 0.0},
-                        {0.0, 0.0}
-                })),
-                new Parameter(Tensor.from2D(new double[][]{
-                        {0.0, 0.0, 0.0}
-                }))
+                new Parameter(Tensor.zeros(2, 2)),
+                new Parameter(Tensor.zeros(1, 3))
         );
 
         ModelSerializer.load(loaded, file);
 
-        assertTensorEquals(original.get(0).value, loaded.get(0).value, 1e-12);
-        assertTensorEquals(original.get(1).value, loaded.get(1).value, 1e-12);
+        assertTensorEquals(original.get(0).value, loaded.get(0).value, 1e-12f);
+        assertTensorEquals(original.get(1).value, loaded.get(1).value, 1e-12f);
     }
 
     @Test
     void save_createsParentDirectories() throws IOException {
         List<Parameter> params = List.of(
-                new Parameter(Tensor.from2D(new double[][]{{1.0}}))
+                new Parameter(rowTensor(1.0f))
         );
 
         Path file = tempDir.resolve("nested").resolve("dir").resolve("model.bin");
@@ -62,15 +56,15 @@ public class ModelSerializerTest {
     @Test
     void load_throwsWhenParameterCountMismatch() throws IOException {
         List<Parameter> saved = List.of(
-                new Parameter(Tensor.from2D(new double[][]{{1.0}})),
-                new Parameter(Tensor.from2D(new double[][]{{2.0}}))
+                new Parameter(rowTensor(1.0f)),
+                new Parameter(rowTensor(2.0f))
         );
 
         Path file = tempDir.resolve("model.bin");
         ModelSerializer.save(saved, file);
 
         List<Parameter> target = List.of(
-                new Parameter(Tensor.from2D(new double[][]{{0.0}}))
+                new Parameter(Tensor.zeros(1, 1))
         );
 
         IOException ex = assertThrows(IOException.class, () -> ModelSerializer.load(target, file));
@@ -80,9 +74,9 @@ public class ModelSerializerTest {
     @Test
     void load_throwsWhenShapeMismatch() throws IOException {
         List<Parameter> saved = List.of(
-                new Parameter(Tensor.from2D(new double[][]{
-                        {1.0, 2.0},
-                        {3.0, 4.0}
+                new Parameter(Tensor.from2D(new float[][]{
+                        {1.0f, 2.0f},
+                        {3.0f, 4.0f}
                 }))
         );
 
@@ -90,9 +84,7 @@ public class ModelSerializerTest {
         ModelSerializer.save(saved, file);
 
         List<Parameter> target = List.of(
-                new Parameter(Tensor.from2D(new double[][]{
-                        {0.0, 0.0, 0.0}
-                }))
+                new Parameter(Tensor.zeros(1, 3))
         );
 
         IOException ex = assertThrows(IOException.class, () -> ModelSerializer.load(target, file));
@@ -109,5 +101,9 @@ public class ModelSerializerTest {
                         "mismatch at [" + r + "," + c + "]");
             }
         }
+    }
+
+    private static Tensor rowTensor(float... values) {
+        return TensorAdapters.unpackF32(values, 1, values.length);
     }
 }

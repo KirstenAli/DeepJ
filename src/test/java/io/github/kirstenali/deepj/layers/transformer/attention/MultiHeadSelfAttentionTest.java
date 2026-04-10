@@ -42,7 +42,7 @@ public class MultiHeadSelfAttentionTest {
             p.zeroGrad();
         }
 
-        Tensor x1 = Tensor.from2D(new double[][]{
+        Tensor x1 = Tensor.from2D(new float[][]{
                 {1, 0, 0, 0},
                 {0, 1, 0, 0},
                 {0, 0, 1, 0},
@@ -61,7 +61,7 @@ public class MultiHeadSelfAttentionTest {
 
         for (int r = 0; r < seqLen - 1; r++) {
             for (int c = 0; c < dModel; c++) {
-                assertEquals(y1.data[r * dModel + c], y2.data[r * dModel + c], 1e-7,
+                assertEquals(y1.data[r * dModel + c], y2.data[r * dModel + c], 1e-7f,
                         "past output changed at [" + r + "," + c + "]");
             }
         }
@@ -75,10 +75,10 @@ public class MultiHeadSelfAttentionTest {
 
         MultiHeadSelfAttention attn = new MultiHeadSelfAttention(dModel, nHeads, true, new Random(7));
 
-        Tensor x = Tensor.from2D(new double[][]{
-                { 0.1,  0.2, -0.3,  0.4},
-                { 0.0, -0.5,  0.6,  0.1},
-                { 0.9,  0.8,  0.7, -0.2}
+        Tensor x = Tensor.from2D(new float[][]{
+                { 0.1f,  0.2f, -0.3f,  0.4f},
+                { 0.0f, -0.5f,  0.6f,  0.1f},
+                { 0.9f,  0.8f,  0.7f, -0.2f}
         });
 
         Tensor y = attn.forward(x);
@@ -89,7 +89,7 @@ public class MultiHeadSelfAttentionTest {
         TestSupport.assertTensorShape(gradIn, seqLen, dModel);
 
         for (Parameter p : attn.parameters()) {
-            assertTrue(p.grad.sumAbs() > 0.0,
+            assertTrue(p.grad.sumAbs() > 0.0f,
                     "Expected non-zero gradient for a projection matrix");
         }
     }
@@ -97,15 +97,15 @@ public class MultiHeadSelfAttentionTest {
     @Test
     void learning_reduces_mse_loss_within_a_few_steps() {
         MultiHeadSelfAttention attn = new MultiHeadSelfAttention(4, 2, true, new Random(1));
-        AdamW opt = new AdamW(0.01, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
-        Tensor x = Tensor.from2D(new double[][]{
+        Tensor x = Tensor.from2D(new float[][]{
                 {1, 0, 0, 0},
                 {0, 1, 0, 0},
                 {0, 0, 1, 0}
         });
 
-        Tensor target = Tensor.from2D(new double[][]{
+        Tensor target = Tensor.from2D(new float[][]{
                 {0, 1, 0, 0},
                 {0, 0, 1, 0},
                 {0, 0, 0, 1}

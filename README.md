@@ -145,7 +145,7 @@ storage — the core data type for every operation in DeepJ. All methods route t
 Tensor a = new Tensor(3, 4);              // 3 rows × 4 cols, all zeros
 
 // From data
-Tensor b = Tensor.from2D(new double[][]{
+Tensor b = Tensor.from2D(new float[][]{
         {1, 2, 3},
         {4, 5, 6}
 });                                        // 2 × 3, deep-copied
@@ -177,7 +177,7 @@ a.matmul(b)     // [m×k] · [k×n] → [m×n]
 #### Scalar
 
 ```java
-a.multiplyScalar(2.0)     a.addScalar(1.0)     a.divideScalar(3.0)
+a.multiplyScalar(2.0f)     a.addScalar(1.0f)     a.divideScalar(3.0f)
 ```
 
 #### Broadcast
@@ -195,7 +195,7 @@ a.multiplyBroadcastCols(cv)    a.divideBroadcastCols(cv)
 
 ```java
 a.sqrt()    a.neg()     a.exp()     a.log()
-a.pow(2.0)  a.clamp(0, 1)           a.transpose()
+a.pow(2.0f)  a.clamp(0.0f, 1.0f)    a.transpose()
 ```
 
 #### Activations
@@ -266,18 +266,10 @@ When the Metal backend is active, `data[]` may be stale. Call
 
 ```java
 a.materialize();         // flush GPU ops, download result
-double v = a.get(0, 0); // auto-materialises
+float v = a.get(0, 0); // auto-materialises
 a.print("my tensor");   // auto-materialises
 ```
 
-### Flatten / unflatten
-
-```java
-float[] flat = Tensor.flattenTensor(a);                  // row-major flat array
-Tensor t = Tensor.unflattenToTensor(flat, rows, cols);   // back to 2-D
-```
-
----
 
 ## ⚙️ Concurrency (`DeepJExecutor`)
 
@@ -335,13 +327,13 @@ DeepJExecutor.shutdown();
 Train a small feed-forward neural network with supervised training.
 
 ```java
-Tensor x = Tensor.from2D(new double[][]{
+Tensor x = Tensor.from2D(new float[][]{
         {1, 0, 0},
         {0, 1, 0},
         {0, 0, 1}
 });
 
-Tensor y = Tensor.from2D(new double[][]{
+Tensor y = Tensor.from2D(new float[][]{
         {0, 0, 1},
         {0, 1, 0},
         {1, 0, 0}
@@ -361,7 +353,7 @@ FNN mlp = new FNN(
 Trainer trainer = SupervisedTraining.trainer(
         mlp,
         new MSELoss(),
-        AdamW.defaultAdamW(3e-3), // lr
+        AdamW.defaultAdamW(3e-3f), // lr
         x,
         y,
         123L                      // seed
@@ -371,8 +363,8 @@ trainer.train(
         3000, // maxSteps         – stop after 3 000 gradient updates
         3,    // batchSize        – rows sampled per step
         200,  // logEvery         – print loss every 200 steps
-        0.98, // emaBeta          – smoothing factor for the moving-average loss
-        1e-6  // targetEmaLoss    – early-stop when smoothed loss falls below this
+        0.98f, // emaBeta          – smoothing factor for the moving-average loss
+        1e-6f  // targetEmaLoss    – early-stop when smoothed loss falls below this
 );
 ```
 
@@ -453,7 +445,7 @@ GPTConfig cfg = new GPTConfig(
 GPTModel model = new GPTModel(cfg, 42);
 
 // ── Training ──────────────────────────────────────────────────────────
-Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4);
+Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4f);
 
 // ── Checkpointing ─────────────────────────────────────────────────────
 Path checkpointDir = Path.of("checkpoints");
@@ -468,8 +460,8 @@ trainer.train(
         10_000_000,    // maxSteps            – stop after 10 M gradient updates
         2,             // batchSize           – sequences per step
         1,             // logEvery            – print loss every step
-        0.98,          // emaBeta             – smoothing factor for the moving-average loss
-        0.01,          // targetEmaLoss       – early-stop when smoothed loss falls below this
+        0.98f,         // emaBeta             – smoothing factor for the moving-average loss
+        0.01f,         // targetEmaLoss       – early-stop when smoothed loss falls below this
         25,            // releaseEverySteps   – free orphaned GPU buffers every 25 steps
         checkpointHook // called after each step
 );
@@ -489,7 +481,7 @@ String out = TextGenerator.generate(
         cfg,           // config
         prompt,        // prompt text
         200,           // maxNewTokens   – generate up to 200 tokens after the prompt
-        0.1,           // temperature    – low = more deterministic, high = more random
+        0.1f,          // temperature    – low = more deterministic, high = more random
         20,            // topK           – sample from the 20 most likely tokens (0 = full vocab)
         1234L          // seed           – for reproducible sampling
 );
@@ -517,9 +509,9 @@ LlamaConfig cfg = new LlamaConfig(
 );
 
 LlamaModel model = new LlamaModel(cfg, 42);
-Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4);
+Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4f);
 
-trainer.train(10_000_000, 2, 1, 0.98, 0.01, 25,
+trainer.train(10_000_000, 2, 1, 0.98f, 0.01f, 25,
         (step, loss, ema) -> {
             if (step > 0 && step % 500 == 0)
                 model.save(Path.of("checkpoints/small-llama-" + step + ".bin"));
@@ -527,7 +519,7 @@ trainer.train(10_000_000, 2, 1, 0.98, 0.01, 25,
 
 model.save(Path.of("checkpoints/small-llama-final.bin"));
 
-String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1, 20, 1234L);
+String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1f, 20, 1234L);
 System.out.println(out);
 ```
 
@@ -552,9 +544,9 @@ DeepSeekConfig cfg = new DeepSeekConfig(
 );
 
 DeepSeekModel model = new DeepSeekModel(cfg, 42);
-Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4);
+Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4f);
 
-trainer.train(10_000_000, 2, 1, 0.98, 0.01, 25,
+trainer.train(10_000_000, 2, 1, 0.98f, 0.01f, 25,
         (step, loss, ema) -> {
             if (step > 0 && step % 500 == 0)
                 model.save(Path.of("checkpoints/small-deepseek-" + step + ".bin"));
@@ -562,7 +554,7 @@ trainer.train(10_000_000, 2, 1, 0.98, 0.01, 25,
 
 model.save(Path.of("checkpoints/small-deepseek-final.bin"));
 
-String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1, 20, 1234L);
+String out = TextGenerator.generate(model, tok, cfg, "Bob Marley was ", 200, 0.1f, 20, 1234L);
 System.out.println(out);
 ```
 
@@ -1096,7 +1088,7 @@ Factory for Tensor-in / Tensor-out models (FNN, etc.). Each step:
 Trainer trainer = SupervisedTraining.trainer(
         model,                    // any Layer (FNN, custom, etc.)
         new MSELoss(),            // or CrossEntropyLoss
-        AdamW.defaultAdamW(1e-3), // optimizer
+        AdamW.defaultAdamW(1e-3f), // optimizer
         x, y,                     // training data
         42L                       // seed
 );
@@ -1122,9 +1114,9 @@ use in-place ops on temporary tensors where ownership is local.
 
 ```java
 // Works for any CausalLM
-Trainer gptTrainer     = CausalLMTraining.trainer(gptModel,     dataset, 1e-4);
-Trainer llamaTrainer   = CausalLMTraining.trainer(llamaModel,   dataset, 1e-4);
-Trainer deepSeekTrainer = CausalLMTraining.trainer(deepSeekModel, dataset, 1e-4);
+Trainer gptTrainer      = CausalLMTraining.trainer(gptModel,      dataset, 1e-4f);
+Trainer llamaTrainer    = CausalLMTraining.trainer(llamaModel,    dataset, 1e-4f);
+Trainer deepSeekTrainer = CausalLMTraining.trainer(deepSeekModel, dataset, 1e-4f);
 ```
 
 ### StepHook
@@ -1158,10 +1150,10 @@ AdamW with per-parameter state, bias correction, and weight decay.
 
 ```java
 // With defaults (beta1=0.9, beta2=0.999, eps=1e-8, weightDecay=0.01)
-AdamW opt = AdamW.defaultAdamW(1e-3);
+AdamW opt = AdamW.defaultAdamW(1e-3f);
 
 // Full control
-AdamW opt = new AdamW(1e-3, 0.9, 0.999, 1e-8, 0.01);
+AdamW opt = new AdamW(1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f);
 
 // Step
 opt.step(model.parameters());

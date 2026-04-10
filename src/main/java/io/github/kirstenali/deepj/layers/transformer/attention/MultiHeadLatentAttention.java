@@ -36,7 +36,7 @@ public final class MultiHeadLatentAttention implements Layer {
     private final int dModel;
     private final int nHeads;
     private final int headDim;
-    private final double scale;
+    private final float scale;
 
     // Q low-rank projections
     private final Parameter Wdq;    // dModel → qRank
@@ -74,7 +74,7 @@ public final class MultiHeadLatentAttention implements Layer {
         this.dModel  = dModel;
         this.nHeads  = nHeads;
         this.headDim = dModel / nHeads;
-        this.scale   = 1.0 / Math.sqrt(headDim);
+        this.scale   = (float) (1.0 / Math.sqrt(headDim));
         this.rope    = rope;
         this.softmax = new Softmax();
 

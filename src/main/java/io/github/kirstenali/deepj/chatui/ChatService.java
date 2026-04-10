@@ -9,5 +9,5 @@ public interface ChatService {
 
     String getLoadedModelName();
 
-    String generate(String prompt, int maxTokens, double temperature, int topK, long seed);
+    String generate(String prompt, int maxTokens, float temperature, int topK, long seed);
 }

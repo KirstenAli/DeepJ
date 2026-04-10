@@ -88,7 +88,7 @@ class DecoderOnlyModelTest {
         model.backward(Tensor.ones(logits.rows, logits.cols));
 
         boolean anyNonZero = model.parameters().stream()
-                .anyMatch(p -> p.grad != null && p.grad.sumAbs() > 0.0);
+                .anyMatch(p -> p.grad != null && p.grad.sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one parameter must receive a non-zero gradient");
     }
 
@@ -111,7 +111,7 @@ class DecoderOnlyModelTest {
 
         model.parameters().forEach(p -> {
             if (p.grad != null) {
-                assertEquals(0.0, p.grad.sumAbs(), 1e-12,
+                assertEquals(0.0f, p.grad.sumAbs(), 1e-12f,
                         "every gradient must be zero after zeroGrad()");
             }
         });
@@ -122,7 +122,7 @@ class DecoderOnlyModelTest {
     @ParameterizedTest
     @MethodSource("allModels")
     void gradClipNorm_isPositive(DecoderOnlyModel model) {
-        assertTrue(model.gradClipNorm() > 0.0, "gradClipNorm must be positive");
+        assertTrue(model.gradClipNorm() > 0.0f, "gradClipNorm must be positive");
     }
 }
 

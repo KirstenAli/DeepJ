@@ -86,7 +86,7 @@ public class MultiHeadLatentAttentionTest {
 
         // at least one parameter gradient must be non-zero
         boolean anyNonZero = attn.parameters().stream()
-                .anyMatch(p -> p.grad.sumAbs() > 0.0);
+                .anyMatch(p -> p.grad.sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one grad must be non-zero after backward");
     }
 
@@ -96,7 +96,7 @@ public class MultiHeadLatentAttentionTest {
         Tensor out = attn.forward(x);
         Tensor dX  = attn.backward(Tensor.ones(out.rows, out.cols));
 
-        assertTrue(dX.sumAbs() > 0.0, "input gradient must be non-zero");
+        assertTrue(dX.sumAbs() > 0.0f, "input gradient must be non-zero");
     }
 }
 

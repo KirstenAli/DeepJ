@@ -88,7 +88,7 @@ final class HeadOps {
 
     /** Scaled dot-product scores: Q·Kᵀ / √headDim for all heads. */
     static Tensor scaledDotProductScores(Tensor qh, Tensor kh,
-                                         int nHeads, int seqLen, int headDim, double scale) {
+                                         int nHeads, int seqLen, int headDim, float scale) {
         Tensor out = new Tensor(nHeads * seqLen, seqLen);
         for (int h = 0; h < nHeads; h++) {
             Tensor q = extractBlock(qh, h * seqLen, seqLen, headDim);
@@ -144,7 +144,7 @@ final class HeadOps {
     /** Backprop through attn·V and the softmax+scale. */
     static AttentionGrads backwardAttentionAndValues(
             Tensor dOutH, Tensor vh, Tensor attnProb,
-            ActivationFunction softmax, double scale,
+            ActivationFunction softmax, float scale,
             int nHeads, int seqLen, int headDim) {
 
         Tensor dAttn = new Tensor(nHeads * seqLen, seqLen);

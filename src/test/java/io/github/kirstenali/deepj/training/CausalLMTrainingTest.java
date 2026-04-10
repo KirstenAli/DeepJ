@@ -55,12 +55,12 @@ public class CausalLMTrainingTest {
     @MethodSource("allModels")
     void trainer_runsOneStep_onAllModelTypes(CausalLM model) throws IOException {
         TextDataset ds = tinyDataset("hello hello hello hello hello", 8);
-        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-2);
+        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-2f);
 
         double loss = trainer.trainStep(2);
 
         Assertions.assertTrue(Double.isFinite(loss), "loss must be finite");
-        Assertions.assertTrue(loss > 0.0, "loss must be positive");
+        Assertions.assertTrue(loss > 0.0f, "loss must be positive");
     }
 
     @ParameterizedTest
@@ -68,13 +68,13 @@ public class CausalLMTrainingTest {
     void trainer_updatesParameters_afterOneStep(CausalLM model) throws IOException {
         TextDataset ds = tinyDataset("hello hello hello hello hello", 8);
 
-        Tensor before = model.parameters().get(0).value.multiplyScalar(1.0);
+        Tensor before = model.parameters().get(0).value.multiplyScalar(1.0f);
 
-        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-2);
+        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-2f);
         trainer.trainStep(2);
 
         double delta = model.parameters().get(0).value.subtract(before).sumAbs();
-        Assertions.assertTrue(delta > 0.0, "parameters must change after a training step");
+        Assertions.assertTrue(delta > 0.0f, "parameters must change after a training step");
     }
 
     // ── GPT-specific tests ────────────────────────────────────────
@@ -90,11 +90,11 @@ public class CausalLMTrainingTest {
         GPTConfig cfg = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64);
         GPTModel model = new GPTModel(cfg, 2L);
 
-        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-2);
+        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-2f);
 
         double loss = trainer.trainStep(2);
         Assertions.assertTrue(Double.isFinite(loss));
-        Assertions.assertTrue(loss > 0.0);
+        Assertions.assertTrue(loss > 0.0f);
     }
 
     @Test
@@ -106,19 +106,19 @@ public class CausalLMTrainingTest {
         TextDataset dsUnclipped = TextDataset.fromFile(tmp, tok, 8, 7L);
         TextDataset dsClipped   = TextDataset.fromFile(tmp, tok, 8, 7L);
 
-        GPTConfig cfgUnclipped = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0, 1.0);
-        GPTConfig cfgClipped   = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0, 1e-6);
+        GPTConfig cfgUnclipped = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0f, 1.0f);
+        GPTConfig cfgClipped   = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0f, 1e-6f);
 
         GPTModel modelUnclipped = new GPTModel(cfgUnclipped, 2L);
         GPTModel modelClipped   = new GPTModel(cfgClipped, 2L);
 
-        Trainer trainerUnclipped = CausalLMTraining.trainer(modelUnclipped, dsUnclipped, 1e-2);
-        Trainer trainerClipped   = CausalLMTraining.trainer(modelClipped,   dsClipped,   1e-2);
+        Trainer trainerUnclipped = CausalLMTraining.trainer(modelUnclipped, dsUnclipped, 1e-2f);
+        Trainer trainerClipped   = CausalLMTraining.trainer(modelClipped,   dsClipped,   1e-2f);
 
         Parameter pUnclipped = modelUnclipped.parameters().get(0);
         Parameter pClipped   = modelClipped.parameters().get(0);
-        Tensor beforeUnclipped = pUnclipped.value.multiplyScalar(1.0);
-        Tensor beforeClipped   = pClipped.value.multiplyScalar(1.0);
+        Tensor beforeUnclipped = pUnclipped.value.multiplyScalar(1.0f);
+        Tensor beforeClipped   = pClipped.value.multiplyScalar(1.0f);
 
         trainerUnclipped.trainStep(2);
         trainerClipped.trainStep(2);
@@ -126,8 +126,8 @@ public class CausalLMTrainingTest {
         double deltaUnclipped = pUnclipped.value.subtract(beforeUnclipped).sumAbs();
         double deltaClipped   = pClipped.value.subtract(beforeClipped).sumAbs();
 
-        Assertions.assertTrue(deltaUnclipped > 0.0);
-        Assertions.assertTrue(deltaClipped > 0.0);
+        Assertions.assertTrue(deltaUnclipped > 0.0f);
+        Assertions.assertTrue(deltaClipped > 0.0f);
         Assertions.assertTrue(deltaClipped < deltaUnclipped,
                 "Expected clipped run to update less than unclipped run");
     }

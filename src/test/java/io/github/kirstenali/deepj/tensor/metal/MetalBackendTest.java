@@ -46,30 +46,25 @@ public final class MetalBackendTest {
 
     @Test
     void smallMatmulMatchesExpectedValues() {
-        Tensor a = new Tensor(2, 3);
-        a.data[0 * 3 + 0] = 1;
-        a.data[0 * 3 + 1] = 2;
-        a.data[0 * 3 + 2] = 3;
-        a.data[1 * 3 + 0] = 4;
-        a.data[1 * 3 + 1] = 5;
-        a.data[1 * 3 + 2] = 6;
+        Tensor a = Tensor.from2D(new float[][]{
+                {1.0f, 2.0f, 3.0f},
+                {4.0f, 5.0f, 6.0f}
+        });
 
-        Tensor b = new Tensor(3, 2);
-        b.data[0 * 2 + 0] = 7;
-        b.data[0 * 2 + 1] = 8;
-        b.data[1 * 2 + 0] = 9;
-        b.data[1 * 2 + 1] = 10;
-        b.data[2 * 2 + 0] = 11;
-        b.data[2 * 2 + 1] = 12;
+        Tensor b = Tensor.from2D(new float[][]{
+                {7.0f, 8.0f},
+                {9.0f, 10.0f},
+                {11.0f, 12.0f}
+        });
 
         Tensor c = gpu.matmul(a, b);
         c.materialize();
         assertEquals(2, c.rows);
         assertEquals(2, c.cols);
-        assertEquals(58.0,  c.data[0 * 2 + 0], 1e-6);
-        assertEquals(64.0,  c.data[0 * 2 + 1], 1e-6);
-        assertEquals(139.0, c.data[1 * 2 + 0], 1e-6);
-        assertEquals(154.0, c.data[1 * 2 + 1], 1e-6);
+        assertEquals(58.0f,  c.data[0], 1e-6f);
+        assertEquals(64.0f,  c.data[1], 1e-6f);
+        assertEquals(139.0f, c.data[1 * 2 + 0], 1e-6f);
+        assertEquals(154.0f, c.data[1 * 2 + 1], 1e-6f);
     }
 
     @Test
@@ -79,7 +74,7 @@ public final class MetalBackendTest {
 
         Tensor expected = cpu.matmul(a, b);
         Tensor actual = gpu.matmul(a, b);
-        assertTensorClose(expected, actual, 1e-4, 1e-4);
+        assertTensorClose(expected, actual, 1e-4f, 1e-4f);
     }
 
     @Test
@@ -102,15 +97,15 @@ public final class MetalBackendTest {
             Tensor row = randomTensor(1, 16, 101L);
             Tensor col = randomTensor(8, 1, 102L);
 
-            assertTensorClose(cpu.addRowVector(a, row), gpuBackend.addRowVector(a, row), 1e-4, 1e-4);
-            assertTensorClose(cpu.addBroadcastCols(a, col), gpuBackend.addBroadcastCols(a, col), 1e-4, 1e-4);
-            assertTensorClose(cpu.subtractBroadcastCols(a, col), gpuBackend.subtractBroadcastCols(a, col), 1e-4, 1e-4);
-            assertTensorClose(cpu.divideBroadcastCols(a, col), gpuBackend.divideBroadcastCols(a, col), 1e-4, 1e-4);
-            assertTensorClose(cpu.multiplyBroadcastCols(a, col), gpuBackend.multiplyBroadcastCols(a, col), 1e-4, 1e-4);
-            assertTensorClose(cpu.multiplyBroadcastRows(a, row), gpuBackend.multiplyBroadcastRows(a, row), 1e-4, 1e-4);
+            assertTensorClose(cpu.addRowVector(a, row), gpuBackend.addRowVector(a, row), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.addBroadcastCols(a, col), gpuBackend.addBroadcastCols(a, col), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.subtractBroadcastCols(a, col), gpuBackend.subtractBroadcastCols(a, col), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.divideBroadcastCols(a, col), gpuBackend.divideBroadcastCols(a, col), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.multiplyBroadcastCols(a, col), gpuBackend.multiplyBroadcastCols(a, col), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.multiplyBroadcastRows(a, row), gpuBackend.multiplyBroadcastRows(a, row), 1e-4f, 1e-4f);
 
-            assertTensorClose(cpu.addScalar(a, 0.25), gpuBackend.addScalar(a, 0.25), 1e-4, 1e-4);
-            assertTensorClose(cpu.divideScalar(a, 1.5), gpuBackend.divideScalar(a, 1.5), 1e-4, 1e-4);
+            assertTensorClose(cpu.addScalar(a, 0.25f), gpuBackend.addScalar(a, 0.25f), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.divideScalar(a, 1.5f), gpuBackend.divideScalar(a, 1.5f), 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -126,12 +121,12 @@ public final class MetalBackendTest {
         try {
             Tensor a = randomTensor(32, 24, 111L);
 
-            assertTensorClose(cpu.transpose(a), gpuBackend.transpose(a), 1e-4, 1e-4);
-            assertTensorClose(cpu.sumRows(a), gpuBackend.sumRows(a), 1e-4, 1e-4);
-            assertTensorClose(cpu.sumAlongRows(a), gpuBackend.sumAlongRows(a), 1e-4, 1e-4);
-            assertTensorClose(cpu.sumAlongCols(a), gpuBackend.sumAlongCols(a), 1e-4, 1e-4);
-            assertTensorClose(cpu.meanAlongRows(a), gpuBackend.meanAlongRows(a), 1e-4, 1e-4);
-            assertTensorClose(cpu.varianceAlongRows(a), gpuBackend.varianceAlongRows(a), 1e-4, 1e-4);
+            assertTensorClose(cpu.transpose(a), gpuBackend.transpose(a), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.sumRows(a), gpuBackend.sumRows(a), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.sumAlongRows(a), gpuBackend.sumAlongRows(a), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.sumAlongCols(a), gpuBackend.sumAlongCols(a), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.meanAlongRows(a), gpuBackend.meanAlongRows(a), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.varianceAlongRows(a), gpuBackend.varianceAlongRows(a), 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -152,7 +147,7 @@ public final class MetalBackendTest {
             Tensor expected = cpu.softmaxBackward(gradOutput, softmaxOut);
             Tensor actual = gpuBackend.softmaxBackward(gradOutput, softmaxOut);
 
-            assertTensorClose(expected, actual, 1e-4, 1e-4);
+            assertTensorClose(expected, actual, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -188,7 +183,7 @@ public final class MetalBackendTest {
             Tensor expected = cpu.layerNormBackward(dXHat, xHat, std, dXHat.cols);
             Tensor actual = gpuBackend.layerNormBackward(dXHat, xHat, std, dXHat.cols);
 
-            assertTensorClose(expected, actual, 1e-4, 1e-4);
+            assertTensorClose(expected, actual, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -224,7 +219,7 @@ public final class MetalBackendTest {
             Tensor expected = cpu.crossEntropyGradient(logits, targets);
             Tensor actual = gpuBackend.crossEntropyGradient(logits, targets);
 
-            assertTensorClose(expected, actual, 1e-4, 1e-4);
+            assertTensorClose(expected, actual, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -259,20 +254,20 @@ public final class MetalBackendTest {
             Tensor mtGpu = new Tensor(32, 64);
             Tensor vtGpu = new Tensor(32, 64);
 
-            double lr = 1e-3;
-            double beta1 = 0.9;
-            double beta2 = 0.999;
-            double eps = 1e-8;
-            double weightDecay = 0.01;
-            double bc1 = 1.0 - beta1;
-            double bc2 = 1.0 - beta2;
+            float lr = 1e-3f;
+            float beta1 = 0.9f;
+            float beta2 = 0.999f;
+            float eps = 1e-8f;
+            float weightDecay = 0.01f;
+            float bc1 = 1.0f - beta1;
+            float bc2 = 1.0f - beta2;
 
             cpu.adamWUpdate(wCpu, gCpu, mtCpu, vtCpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
             gpuBackend.adamWUpdate(wGpu, gGpu, mtGpu, vtGpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
 
-            assertTensorClose(wCpu, wGpu, 1e-4, 1e-4);
-            assertTensorClose(mtCpu, mtGpu, 1e-4, 1e-4);
-            assertTensorClose(vtCpu, vtGpu, 1e-4, 1e-4);
+            assertTensorClose(wCpu, wGpu, 1e-4f, 1e-4f);
+            assertTensorClose(mtCpu, mtGpu, 1e-4f, 1e-4f);
+            assertTensorClose(vtCpu, vtGpu, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -294,25 +289,25 @@ public final class MetalBackendTest {
             Tensor mtGpu = new Tensor(16, 48);
             Tensor vtGpu = new Tensor(16, 48);
 
-            double lr = 1e-3;
-            double beta1 = 0.9;
-            double beta2 = 0.999;
-            double eps = 1e-8;
-            double weightDecay = 0.01;
+            float lr = 1e-3f;
+            float beta1 = 0.9f;
+            float beta2 = 0.999f;
+            float eps = 1e-8f;
+            float weightDecay = 0.01f;
 
             for (int step = 1; step <= 5; step++) {
                 Tensor gCpu = randomTensor(16, 48, 90L + step);
                 Tensor gGpu = new Tensor(gCpu);
-                double bc1 = 1.0 - Math.pow(beta1, step);
-                double bc2 = 1.0 - Math.pow(beta2, step);
+                float bc1 = 1.0f - (float) Math.pow(beta1, step);
+                float bc2 = 1.0f - (float) Math.pow(beta2, step);
 
                 cpu.adamWUpdate(wCpu, gCpu, mtCpu, vtCpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
                 gpuBackend.adamWUpdate(wGpu, gGpu, mtGpu, vtGpu, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
             }
 
-            assertTensorClose(wCpu, wGpu, 1e-4, 1e-4);
-            assertTensorClose(mtCpu, mtGpu, 1e-4, 1e-4);
-            assertTensorClose(vtCpu, vtGpu, 1e-4, 1e-4);
+            assertTensorClose(wCpu, wGpu, 1e-4f, 1e-4f);
+            assertTensorClose(mtCpu, mtGpu, 1e-4f, 1e-4f);
+            assertTensorClose(vtCpu, vtGpu, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);

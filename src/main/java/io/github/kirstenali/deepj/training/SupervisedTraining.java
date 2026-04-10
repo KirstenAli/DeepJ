@@ -45,7 +45,7 @@ public final class SupervisedTraining {
             }
 
             Tensor pred = model.forward(xb);
-            double loss = lossFn.loss(pred, yb);
+            float loss = lossFn.loss(pred, yb);
 
             Tensor dPred = lossFn.gradient(pred, yb);
             model.backward(dPred);

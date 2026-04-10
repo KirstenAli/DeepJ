@@ -56,7 +56,7 @@ public class LlamaModelTest {
                 () -> new LlamaConfig(256, 16, 33, 4, 2, 64));
         // invalid gradClipNorm
         assertThrows(IllegalArgumentException.class,
-                () -> new LlamaConfig(256, 16, 32, 4, 2, 64, 0.0));
+                () -> new LlamaConfig(256, 16, 32, 4, 2, 64, 0.0f));
     }
 
     // ── forward ────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ public class LlamaModelTest {
         model.backward(dLogits);
 
         boolean anyNonZero = model.parameters().stream()
-                .anyMatch(p -> p.grad.sumAbs() > 0.0);
+                .anyMatch(p -> p.grad.sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one parameter gradient must be non-zero after backward");
     }
 
@@ -120,7 +120,7 @@ public class LlamaModelTest {
     @Test
     void generate_runsAndReturnsNonEmptyString() {
         Tokenizer tok = new ByteTokenizer();
-        String out = TextGenerator.generate(model, tok, cfg, "hi", 8, 1.0, 0, 1L);
+        String out = TextGenerator.generate(model, tok, cfg, "hi", 8, 1.0f, 0, 1L);
 
         assertNotNull(out);
         assertTrue(out.startsWith("hi"), "output must begin with the prompt");
@@ -129,8 +129,8 @@ public class LlamaModelTest {
     @Test
     void generate_sameSeedProducesSameOutput() {
         Tokenizer tok = new ByteTokenizer();
-        String a = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8, 5, 42L);
-        String b = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8, 5, 42L);
+        String a = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8f, 5, 42L);
+        String b = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8f, 5, 42L);
 
         assertEquals(a, b, "identical seeds must produce identical output");
     }

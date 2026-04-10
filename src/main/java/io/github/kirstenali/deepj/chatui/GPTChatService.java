@@ -49,7 +49,7 @@ public final class GPTChatService implements ChatService {
     }
 
     @Override
-    public String generate(String prompt, int maxTokens, double temperature, int topK, long seed) {
+    public String generate(String prompt, int maxTokens, float temperature, int topK, long seed) {
         if (loadedModel == null) {
             throw new IllegalStateException("No model loaded.");
         }
@@ -62,7 +62,7 @@ public final class GPTChatService implements ChatService {
             throw new IllegalArgumentException("Max tokens must be greater than 0.");
         }
 
-        if (temperature < 0.0) {
+        if (temperature < 0.0f) {
             throw new IllegalArgumentException("Temperature must be >= 0.");
         }
 

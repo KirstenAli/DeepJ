@@ -46,7 +46,7 @@ public final class DeepSeekModel extends DecoderOnlyModel {
     }
 
     @Override
-    public double gradClipNorm() {
+    public float gradClipNorm() {
         return cfg.gradClipNorm();
     }
 }

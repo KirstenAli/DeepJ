@@ -40,8 +40,8 @@ public class PositionalEmbeddingTest {
 
         for (int r = 0; r < 5; r++) {
             for (int c = 0; c < 3; c++) {
-                double expected = (r < 2) ? 1.0 : 0.0;
-                assertEquals(expected, w.grad.data[r * 3 + c], 1e-12, "grad mismatch at [" + r + "," + c + "]");
+                double expected = (r < 2) ? 1.0f : 0.0f;
+                assertEquals(expected, w.grad.data[r * 3 + c], 1e-12f, "grad mismatch at [" + r + "," + c + "]");
             }
         }
     }
@@ -59,13 +59,13 @@ public class PositionalEmbeddingTest {
 
         int seqLen = 3;
 
-        Tensor target = Tensor.from2D(new double[][]{
-                { 0.5,  0.0, -0.5},
-                { 1.0,  1.0,  1.0},
-                {-1.0,  0.5,  2.0}
+        Tensor target = Tensor.from2D(new float[][]{
+                { 0.5f,  0.0f, -0.5f},
+                { 1.0f,  1.0f,  1.0f},
+                {-1.0f,  0.5f,  2.0f}
         });
 
-        double lr = 0.1;
+        double lr = 0.1f;
 
         double prev = oneSgdStepMSE(pe, w, seqLen, target, lr);
         boolean improved = false;

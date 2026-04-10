@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.optimisers;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorAdapters;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -10,34 +11,38 @@ public class AdamWTest {
 
     @Test
     void step_matchesKnown1x1Case_withoutWeightDecay() {
-        AdamW opt = new AdamW(0.1, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.1f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
-        Parameter p = new Parameter(Tensor.from2D(new double[][]{{1.0}}));
-        p.grad = Tensor.from2D(new double[][]{{1.0}});
-
-        opt.step(List.of(p));
-        Assertions.assertEquals(0.9, p.value.data[0], 1e-6);
+        Parameter p = new Parameter(rowTensor(1.0f));
+        p.grad = rowTensor(1.0f);
 
         opt.step(List.of(p));
-        Assertions.assertEquals(0.8, p.value.data[0], 1e-6);
+        Assertions.assertEquals(0.9f, p.value.data[0], 1e-6f);
+
+        opt.step(List.of(p));
+        Assertions.assertEquals(0.8f, p.value.data[0], 1e-6f);
     }
 
     @Test
     void weightDecay_shrinksWeightsEvenWithZeroGrad() {
-        AdamW opt = new AdamW(0.1, 0.9, 0.999, 1e-8, 0.1);
+        AdamW opt = new AdamW(0.1f, 0.9f, 0.999f, 1e-8f, 0.1f);
 
-        Parameter p = new Parameter(Tensor.from2D(new double[][]{{10.0}}));
-        p.grad = Tensor.from2D(new double[][]{{0.0}});
+        Parameter p = new Parameter(rowTensor(10.0f));
+        p.grad = rowTensor(0.0f);
 
         opt.step(List.of(p));
-        Assertions.assertTrue(p.value.data[0] < 10.0);
+        Assertions.assertTrue(p.value.data[0] < 10.0f);
     }
 
     @Test
     void rejectsInvalidHyperparams() {
-        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0, 0.9, 0.999, 1e-8, 0));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.1, 1.0, 0.999, 1e-8, 0));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.1, 0.9, 0.0, 1e-8, 0));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.1, 0.9, 0.999, 0.0, 0));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.0f, 0.9f, 0.999f, 1e-8f, 0.0f));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.1f, 1.0f, 0.999f, 1e-8f, 0.0f));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.1f, 0.9f, 0.0f, 1e-8f, 0.0f));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.1f, 0.9f, 0.999f, 0.0f, 0.0f));
+    }
+
+    private static Tensor rowTensor(float... values) {
+        return TensorAdapters.unpackF32(values, 1, values.length);
     }
 }

@@ -104,13 +104,13 @@ public class ChatController {
         }
 
         int maxTokens;
-        double temperature;
+        float temperature;
         int topK;
         long seed;
 
         try {
             maxTokens = parseInt(maxTokensField.getText(), "Max tokens");
-            temperature = parseDouble(temperatureField.getText(), "Temperature");
+            temperature = parseFloat(temperatureField.getText(), "Temperature");
             topK = parseInt(topKField.getText(), "Top-k");
             seed = parseLong(seedField.getText(), "Seed");
         } catch (IllegalArgumentException e) {
@@ -251,9 +251,9 @@ public class ChatController {
         }
     }
 
-    private double parseDouble(String value, String name) {
+    private float parseFloat(String value, String name) {
         try {
-            return Double.parseDouble(value.trim());
+            return Float.parseFloat(value.trim());
         } catch (Exception e) {
             throw new IllegalArgumentException(name + " must be a valid number.");
         }

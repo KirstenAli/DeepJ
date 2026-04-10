@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for {@link RotaryEmbedding} and its integration with
- * {@link MultiHeadSelfAttention} and {@link GPTTransformerBlock}.
+ * {@link RoPEMultiHeadSelfAttention} and {@link LlamaTransformerBlock}.
  *
  * <p>Covers:
  * <ul>
@@ -39,9 +39,9 @@ class RotaryEmbeddingTest {
         // θ_{0,i} = 0 for all i → cos = 1, sin = 0
         RotaryEmbedding rope = new RotaryEmbedding(4, 8);
         // Apply a single-head, single-position tensor [1 x 4] at pos=0; result should equal input.
-        Tensor x = Tensor.from2D(new double[][]{{1.0, 2.0, 3.0, 4.0}});
+        Tensor x = Tensor.from2D(new float[][]{{1.0f, 2.0f, 3.0f, 4.0f}});
         Tensor y = rope.apply(x, 1, 1);
-        TestSupport.assertTensorAllClose(x, y, 1e-6);
+        TestSupport.assertTensorAllClose(x, y, 1e-6f);
     }
 
     @Test
@@ -49,17 +49,17 @@ class RotaryEmbeddingTest {
         // For dim i=0: θ = 1 / 10000^0 = 1  →  cos(1), sin(1)
         RotaryEmbedding rope = new RotaryEmbedding(4, 8);
         // Single head, two positions (pos 0 and pos 1), headDim=4
-        Tensor x = Tensor.from2D(new double[][]{{1.0, 0.0, 0.0, 0.0},   // pos 0
-                                             {1.0, 0.0, 0.0, 0.0}});  // pos 1
+        Tensor x = Tensor.from2D(new float[][]{{1.0f, 0.0f, 0.0f, 0.0f},   // pos 0
+                                             {1.0f, 0.0f, 0.0f, 0.0f}});  // pos 1
         Tensor y = rope.apply(x, 2, 1);
 
         // pos 0: no rotation
-        assertEquals(1.0, y.data[0 * 4 + 0], 1e-6);
-        assertEquals(0.0, y.data[0 * 4 + 1], 1e-6);
+        assertEquals(1.0f, y.data[0], 1e-6f);
+        assertEquals(0.0f, y.data[1], 1e-6f);
 
         // pos 1: rotated by θ = 1 → x_rot[0] = cos(1), x_rot[1] = sin(1)
-        assertEquals(Math.cos(1.0), y.data[1 * 4 + 0], 1e-6);
-        assertEquals(Math.sin(1.0), y.data[1 * 4 + 1], 1e-6);
+        assertEquals(Math.cos(1.0f), y.data[1 * 4 + 0], 1e-6f);
+        assertEquals(Math.sin(1.0f), y.data[1 * 4 + 1], 1e-6f);
     }
 
     // ── shape ────────────────────────────────────────────────────────────────
@@ -85,15 +85,15 @@ class RotaryEmbeddingTest {
     @Test
     void rotation_is_norm_preserving() {
         RotaryEmbedding rope = new RotaryEmbedding(4, 16);
-        Tensor x = Tensor.from2D(new double[][]{{3.0, 4.0, 1.0, 2.0},   // pos 0
-                                             {1.0, 1.0, 1.0, 1.0},   // pos 1
-                                             {2.0, -3.0, 0.0, 5.0}}); // pos 2  (nHeads=1, seqLen=3)
+        Tensor x = Tensor.from2D(new float[][]{{3.0f, 4.0f, 1.0f, 2.0f},   // pos 0
+                                             {1.0f, 1.0f, 1.0f, 1.0f},   // pos 1
+                                             {2.0f, -3.0f, 0.0f, 5.0f}}); // pos 2  (nHeads=1, seqLen=3)
         Tensor y = rope.apply(x, 3, 1);
 
         for (int r = 0; r < x.rows; r++) {
             double normX = rowNorm(x, r);
             double normY = rowNorm(y, r);
-            assertEquals(normX, normY, 1e-6, "Norm should be preserved at row " + r);
+            assertEquals(normX, normY, 1e-6f, "Norm should be preserved at row " + r);
         }
     }
 
@@ -104,7 +104,7 @@ class RotaryEmbeddingTest {
         Tensor x = Tensor.random(2 * 5, 8, new Random(3));  // nHeads=2, seqLen=5
         Tensor rotated   = rope.apply(x, 5, 2);
         Tensor recovered = rope.applyBackward(rotated, 5, 2);
-        TestSupport.assertTensorAllClose(x, recovered, 1e-6);
+        TestSupport.assertTensorAllClose(x, recovered, 1e-6f);
     }
 
     @Test
@@ -114,7 +114,7 @@ class RotaryEmbeddingTest {
         Tensor x  = Tensor.random(3 * 4, 4, new Random(4));
         Tensor inv = rope.applyBackward(x, 4, 3);
         Tensor back = rope.apply(inv, 4, 3);
-        TestSupport.assertTensorAllClose(x, back, 1e-6);
+        TestSupport.assertTensorAllClose(x, back, 1e-6f);
     }
 
     @Test
@@ -122,9 +122,9 @@ class RotaryEmbeddingTest {
         // Two heads, same input per head → both should be rotated identically.
         RotaryEmbedding rope = new RotaryEmbedding(4, 8);
         // Build a 2-head tensor where both heads have the same content.
-        double[][] rowData = {{1.0, 2.0, 3.0, 4.0}, {5.0, 6.0, 7.0, 8.0}};
+        float[][] rowData = {{1.0f, 2.0f, 3.0f, 4.0f}, {5.0f, 6.0f, 7.0f, 8.0f}};
         Tensor xSingle = Tensor.from2D(rowData);              // 1 head, seqLen=2
-        Tensor xDouble = Tensor.from2D(new double[][]{        // 2 heads, seqLen=2
+        Tensor xDouble = Tensor.from2D(new float[][]{        // 2 heads, seqLen=2
                 rowData[0], rowData[1],  // head 0
                 rowData[0], rowData[1]   // head 1 (same)
         });
@@ -135,8 +135,8 @@ class RotaryEmbeddingTest {
         // Head 0 and head 1 of yDouble should match ySingle.
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
-                assertEquals(ySingle.data[r * 4 + c], yDouble.data[r * 4 + c],       1e-6, "head0 row " + r);
-                assertEquals(ySingle.data[r * 4 + c], yDouble.data[(r + 2) * 4 + c], 1e-6, "head1 row " + r);
+                assertEquals(ySingle.data[r * 4 + c], yDouble.data[r * 4 + c],       1e-6f, "head0 row " + r);
+                assertEquals(ySingle.data[r * 4 + c], yDouble.data[(r + 2) * 4 + c], 1e-6f, "head1 row " + r);
             }
         }
     }
@@ -226,7 +226,7 @@ class RotaryEmbeddingTest {
     void llama_style_block_learning_reduces_mse() {
         int dModel = 8, nHeads = 2, dFF = 16, seqLen = 4;
         LlamaTransformerBlock block = llamaBlock(dModel, nHeads, dFF, 3);
-        AdamW opt = new AdamW(0.01, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
         Tensor x      = Tensor.random(seqLen, dModel, new Random(22));
         Tensor target = Tensor.zeros(seqLen, dModel);

@@ -42,7 +42,7 @@ public final class LlamaModel extends DecoderOnlyModel {
     }
 
     @Override
-    public double gradClipNorm() {
+    public float gradClipNorm() {
         return cfg.gradClipNorm();
     }
 }

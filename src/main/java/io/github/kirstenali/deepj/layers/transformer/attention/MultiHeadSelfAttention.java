@@ -21,7 +21,7 @@ public class MultiHeadSelfAttention implements Layer {
     /** Exposed to subclasses that need per-head dimension for custom Q/K transforms. */
     protected final int headDim;
     private final boolean causalMask;
-    private final double scale;
+    private final float scale;
 
     private final Parameter Wq;
     private final Parameter Wk;
@@ -42,7 +42,7 @@ public class MultiHeadSelfAttention implements Layer {
         this.nHeads = nHeads;
         this.headDim = dModel / nHeads;
         this.causalMask = causalMask;
-        this.scale = 1.0 / Math.sqrt(headDim);
+        this.scale = (float) (1.0 / Math.sqrt(headDim));
 
         this.Wq = new Parameter(Tensor.random(dModel, dModel, rnd));
         this.Wk = new Parameter(Tensor.random(dModel, dModel, rnd));

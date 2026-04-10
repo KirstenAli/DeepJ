@@ -27,7 +27,7 @@ import java.util.List;
  */
 public final class RMSNorm1D implements NormLayer {
 
-    private static final double EPS = 1e-6;
+    private static final float EPS = 1e-6f;
 
     private final int dim;
     private final Parameter gamma;  // [1 × dim], initialised to ones; no beta

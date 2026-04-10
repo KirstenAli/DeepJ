@@ -16,16 +16,16 @@ public class FNNTest {
     @Test
     void fnn_reduces_mse_loss_within_a_few_steps() {
         FNN mlp = new FNN(3, new int[]{4}, 2, ReLU::new, new Random(123));
-        AdamW opt = new AdamW(0.05, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.05f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
-        Tensor x = Tensor.from2D(new double[][]{
-                { 1.0,  0.0, -1.0},
-                { 0.5,  2.0,  1.0}
+        Tensor x = Tensor.from2D(new float[][]{
+                { 1.0f,  0.0f, -1.0f},
+                { 0.5f,  2.0f,  1.0f}
         });
 
-        Tensor target = Tensor.from2D(new double[][]{
-                { 1.0,  0.0},
-                { 0.0,  1.0}
+        Tensor target = Tensor.from2D(new float[][]{
+                { 1.0f,  0.0f},
+                { 0.0f,  1.0f}
         });
 
         double prev = trainOneStepMSE(mlp, opt, x, target);

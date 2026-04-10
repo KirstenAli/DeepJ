@@ -14,8 +14,8 @@ public class Sigmoid implements ActivationFunction {
     @Override
     public Tensor backward(Tensor gradOutput) {
         // d_sigmoid = sigmoid * (1 - sigmoid) * grad
-        Tensor oneMinusSig = output.multiplyScalar(-1.0);
-        oneMinusSig.addScalarInPlace(1.0);
+        Tensor oneMinusSig = output.multiplyScalar(-1.0f);
+        oneMinusSig.addScalarInPlace(1.0f);
 
         Tensor grad = gradOutput.multiply(output);
         grad.multiplyInPlace(oneMinusSig);

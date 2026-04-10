@@ -16,7 +16,7 @@ public class TrainerTest {
 
         Trainer.StepFunction step = (batchSize) -> {
             calls.incrementAndGet();
-            return 1.0;
+            return 1.0f;
         };
 
         Trainer t = new Trainer(step);
@@ -24,24 +24,24 @@ public class TrainerTest {
                 10,   // maxSteps
                 4,    // batchSize
                 1000, // logEvery (avoid noisy output in tests)
-                0.9,
+                0.9f,
                 null  // no early stop
         );
 
         Assertions.assertEquals(10, calls.get());
         Assertions.assertEquals(10, r.steps());
-        Assertions.assertEquals(1.0, r.lastLoss(), 1e-12);
-        Assertions.assertEquals(1.0, r.emaLoss(), 1e-12);
+        Assertions.assertEquals(1.0f, r.lastLoss(), 1e-12f);
+        Assertions.assertEquals(1.0f, r.emaLoss(), 1e-12f);
     }
 
     @Test
     void rejectsInvalidArgs() {
-        Trainer t = new Trainer((bs) -> 1.0);
-        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(0, 1, 1, 0.9, null));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 0, 1, 0.9, null));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 1, 0, 0.9, null));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 1, 1, 1.0, null));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 1, 1, 0.9, null, -1));
+        Trainer t = new Trainer((bs) -> 1.0f);
+        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(0, 1, 1, 0.9f, null));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 0, 1, 0.9f, null));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 1, 0, 0.9f, null));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 1, 1, 1.0f, null));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> t.train(1, 1, 1, 0.9f, null, -1));
     }
 
     @Test
@@ -51,12 +51,12 @@ public class TrainerTest {
         Tensor.setBackend(countingBackend(releaseCalls));
 
         try {
-            Trainer t = new Trainer((bs) -> 1.0);
+            Trainer t = new Trainer((bs) -> 1.0f);
             t.train(
                     6,
                     1,
                     1000,
-                    0.9,
+                    0.9f,
                     null,
                     2
             );
@@ -75,12 +75,12 @@ public class TrainerTest {
         Tensor.setBackend(countingBackend(releaseCalls));
 
         try {
-            Trainer t = new Trainer((bs) -> 1.0);
+            Trainer t = new Trainer((bs) -> 1.0f);
             t.train(
                     4,
                     1,
                     1000,
-                    0.9,
+                    0.9f,
                     null,
                     0
             );
@@ -98,12 +98,12 @@ public class TrainerTest {
         Tensor.setBackend(countingBackend(releaseCalls));
 
         try {
-            Trainer t = new Trainer((bs) -> 1.0);
+            Trainer t = new Trainer((bs) -> 1.0f);
             t.train(
                     10,
                     1,
                     1000,
-                    0.9,
+                    0.9f,
                     null
             );
         } finally {
@@ -115,10 +115,10 @@ public class TrainerTest {
 
     @Test
     void train_wrapsStepHookExceptionWithStepInfo() {
-        Trainer t = new Trainer((bs) -> 1.0);
+        Trainer t = new Trainer((bs) -> 1.0f);
 
         RuntimeException ex = Assertions.assertThrows(RuntimeException.class, () ->
-                t.train(3, 1, 1000, 0.9, null, 0, (step, loss, ema) -> {
+                t.train(3, 1, 1000, 0.9f, null, 0, (step, loss, ema) -> {
                     if (step == 1) throw new IllegalStateException("boom");
                 })
         );
@@ -135,9 +135,9 @@ public class TrainerTest {
         Tensor.setBackend(countingBackend(releaseCalls));
 
         try {
-            Trainer t = new Trainer((bs) -> 1.0);
+            Trainer t = new Trainer((bs) -> 1.0f);
             Assertions.assertThrows(RuntimeException.class, () ->
-                    t.train(3, 1, 1000, 0.9, null, 0, (step, loss, ema) -> {
+                    t.train(3, 1, 1000, 0.9f, null, 0, (step, loss, ema) -> {
                         throw new IllegalStateException("hook fail");
                     })
             );

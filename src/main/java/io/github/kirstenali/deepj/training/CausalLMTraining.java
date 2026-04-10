@@ -18,15 +18,15 @@ public final class CausalLMTraining {
 
     private CausalLMTraining() {}
 
-    public static Trainer trainer(CausalLM model, TextDataset dataset, double lr) {
+    public static Trainer trainer(CausalLM model, TextDataset dataset, float lr) {
         ParameterOptimizer opt = AdamW.defaultAdamW(lr);
 
         return new Trainer(batchSize -> {
             model.zeroGrad();
             Batch batch = dataset.nextBatch(batchSize);
             List<Parameter> params = model.parameters();
-            double lossSum = accumulateBatchLossAndBackward(model, batch, batchSize);
-            double avgLoss = computeAverageLoss(lossSum, batchSize);
+            float lossSum = accumulateBatchLossAndBackward(model, batch, batchSize);
+            float avgLoss = computeAverageLoss(lossSum, batchSize);
             validateFiniteLoss(avgLoss);
             averageGradients(params, batchSize);
             clipGradientsGlobally(params, model.gradClipNorm());
@@ -37,8 +37,8 @@ public final class CausalLMTraining {
         });
     }
 
-    private static double accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
-        double lossSum = 0.0;
+    private static float accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
+        float lossSum = 0.0f;
 
         for (int b = 0; b < batchSize; b++) {
             int[] x = batch.x()[b];
@@ -54,47 +54,49 @@ public final class CausalLMTraining {
         return lossSum;
     }
 
-    private static double computeAverageLoss(double lossSum, int batchSize) {
+    private static float computeAverageLoss(float lossSum, int batchSize) {
         return lossSum / batchSize;
     }
 
-    private static void validateFiniteLoss(double avgLoss) {
-        if (!Double.isFinite(avgLoss)) {
+    private static void validateFiniteLoss(float avgLoss) {
+        if (!Float.isFinite(avgLoss)) {
             throw new IllegalStateException("Non-finite loss encountered during training");
         }
     }
 
     private static void averageGradients(List<Parameter> params, int batchSize) {
-        scaleGradients(params, 1.0 / batchSize);
+        scaleGradients(params, 1.0f / batchSize);
     }
 
-    private static void clipGradientsGlobally(List<Parameter> params, double maxNorm) {
-        double gradNorm = computeGlobalGradNorm(params);
+    private static void clipGradientsGlobally(List<Parameter> params, float maxNorm) {
+        float gradNorm = computeGlobalGradNorm(params);
         if (gradNorm > maxNorm) {
-            double scale = maxNorm / (gradNorm + 1e-12);
+            float scale = maxNorm / (gradNorm + 1e-12f);
             scaleGradients(params, scale);
         }
     }
 
-    private static double computeGlobalGradNorm(List<Parameter> params) {
-        double gradNormSq = 0.0;
+    private static float computeGlobalGradNorm(List<Parameter> params) {
+        float gradNormSq = 0.0f;
         for (Parameter p : params) {
             if (p.grad != null) {
                 p.grad.materialize();
-                double l2sq = 0.0;
+                float l2sq = 0.0f;
                 for (float v : p.grad.data) {
                     l2sq += v * v;
                 }
-                if (!Double.isFinite(l2sq)) {
+                if (!Float.isFinite(l2sq)) {
                     throw new IllegalStateException("Non-finite gradient encountered during training");
                 }
                 gradNormSq += l2sq;
             }
         }
-        return Math.sqrt(gradNormSq);
+        return fSqrt(gradNormSq);
     }
 
-    private static void scaleGradients(List<Parameter> params, double scale) {
+    private static float fSqrt(float x) { return (float) Math.sqrt(x); }
+
+    private static void scaleGradients(List<Parameter> params, float scale) {
         for (Parameter p : params) {
             if (p.grad != null) {
                 p.grad.multiplyScalarInPlace(scale);

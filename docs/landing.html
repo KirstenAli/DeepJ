@@ -597,7 +597,7 @@
 <span class="typ">Trainer</span> trainer = <span class="typ">SupervisedTraining</span>.<span class="fn">trainer</span>(
         mlp,
         <span class="kw">new</span> <span class="typ">MSELoss</span>(),
-        <span class="typ">AdamW</span>.<span class="fn">defaultAdamW</span>(<span class="num">3e-3</span>),
+        <span class="typ">AdamW</span>.<span class="fn">defaultAdamW</span>(<span class="num">3e-3f</span>),
         x, y, <span class="num">123L</span>
 );
 
@@ -605,8 +605,8 @@ trainer.<span class="fn">train</span>(
         <span class="num">3000</span>,  <span class="cmt">// maxSteps         – stop after 3 000 gradient updates</span>
         <span class="num">3</span>,     <span class="cmt">// batchSize        – rows sampled per step</span>
         <span class="num">200</span>,   <span class="cmt">// logEvery         – print loss every 200 steps</span>
-        <span class="num">0.98</span>,  <span class="cmt">// emaBeta          – smoothing factor for moving-average loss</span>
-        <span class="num">1e-6</span>   <span class="cmt">// targetEmaLoss    – early-stop when smoothed loss falls below this</span>
+        <span class="num">0.98f</span>, <span class="cmt">// emaBeta          – smoothing factor for moving-average loss</span>
+        <span class="num">1e-6f</span>  <span class="cmt">// targetEmaLoss    – early-stop when smoothed loss falls below this</span>
 );</code></pre>
 
         <h3 style="margin-top: 40px;">GPT Training + Generation</h3>
@@ -622,16 +622,16 @@ trainer.<span class="fn">train</span>(
 );
 
 <span class="typ">GPTModel</span> model = <span class="kw">new</span> <span class="typ">GPTModel</span>(cfg, <span class="num">42</span>);
-<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4</span>);
+<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4f</span>);
 
-trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98</span>, <span class="num">0.01</span>, <span class="num">25</span>, checkpointHook);
+trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98f</span>, <span class="num">0.01f</span>, <span class="num">25</span>, checkpointHook);
 
 <span class="cmt">// ── Inference ──</span>
 <span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(
         model, tok, cfg,
         <span class="str">"Bob Marley was "</span>,
         <span class="num">200</span>,     <span class="cmt">// maxNewTokens</span>
-        <span class="num">0.1</span>,     <span class="cmt">// temperature – low = deterministic</span>
+        <span class="num">0.1f</span>,    <span class="cmt">// temperature – low = deterministic</span>
         <span class="num">20</span>,      <span class="cmt">// topK – sample from top 20 tokens</span>
         <span class="num">1234L</span>    <span class="cmt">// seed</span>
 );</code></pre>
@@ -646,10 +646,10 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
 );
 
 <span class="typ">LlamaModel</span> model = <span class="kw">new</span> <span class="typ">LlamaModel</span>(cfg, <span class="num">42</span>);
-<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4</span>);
-trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98</span>, <span class="num">0.01</span>, <span class="num">25</span>, checkpointHook);
+<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4f</span>);
+trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98f</span>, <span class="num">0.01f</span>, <span class="num">25</span>, checkpointHook);
 
-<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
+<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1f</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
 
         <h3 style="margin-top: 40px;">DeepSeek Training + Generation</h3>
         <pre><code><span class="kw">int</span> dModel = <span class="num">512</span>;
@@ -663,10 +663,10 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
 );
 
 <span class="typ">DeepSeekModel</span> model = <span class="kw">new</span> <span class="typ">DeepSeekModel</span>(cfg, <span class="num">42</span>);
-<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4</span>);
-trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98</span>, <span class="num">0.01</span>, <span class="num">25</span>, checkpointHook);
+<span class="typ">Trainer</span> trainer = <span class="typ">CausalLMTraining</span>.<span class="fn">trainer</span>(model, ds, <span class="num">1e-4f</span>);
+trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span class="num">2</span>, <span class="num">1</span>, <span class="num">0.98f</span>, <span class="num">0.01f</span>, <span class="num">25</span>, checkpointHook);
 
-<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
+<span class="typ">String</span> out = <span class="typ">TextGenerator</span>.<span class="fn">generate</span>(model, tok, cfg, <span class="str">"Bob Marley was "</span>, <span class="num">200</span>, <span class="num">0.1f</span>, <span class="num">20</span>, <span class="num">1234L</span>);</code></pre>
     </div>
 </section>
 

@@ -20,13 +20,13 @@ public record DeepSeekConfig(
         int dFF,
         int qRank,
         int kvRank,
-        double gradClipNorm
+        float gradClipNorm
 ) implements TransformerConfig {
 
     /** Convenience constructor with {@code gradClipNorm = 1.0}. */
     public DeepSeekConfig(int vocabSize, int maxSeqLen, int dModel, int nHeads,
                           int nLayers, int dFF, int qRank, int kvRank) {
-        this(vocabSize, maxSeqLen, dModel, nHeads, nLayers, dFF, qRank, kvRank, 1.0);
+        this(vocabSize, maxSeqLen, dModel, nHeads, nLayers, dFF, qRank, kvRank, 1.0f);
     }
 
     public DeepSeekConfig {

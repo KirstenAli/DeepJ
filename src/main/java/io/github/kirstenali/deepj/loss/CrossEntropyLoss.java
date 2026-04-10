@@ -15,8 +15,10 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  */
 public final class CrossEntropyLoss implements LossFunction {
 
+    private static final float TARGET_INTEGER_EPS = 1e-6f;
+
     @Override
-    public double loss(Tensor predicted, Tensor actual) {
+    public float loss(Tensor predicted, Tensor actual) {
         int[] y = toIntTargets(actual);
         return loss(predicted, y);
     }
@@ -30,7 +32,7 @@ public final class CrossEntropyLoss implements LossFunction {
     /**
      * Convenience helper: compute loss from logits and int targets.
      */
-    public static double loss(Tensor logits, int[] targets) {
+    public static float loss(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
         return logits.crossEntropyLoss(targets);
     }
@@ -62,7 +64,7 @@ public final class CrossEntropyLoss implements LossFunction {
             }
 
             int asInt = (int) value;
-            if (Math.abs(value - asInt) > 1e-6f) {
+            if (Math.abs(value - asInt) > TARGET_INTEGER_EPS) {
                 throw new IllegalArgumentException(
                         "target value at row " + i + " must be an integer class id, got " + value);
             }

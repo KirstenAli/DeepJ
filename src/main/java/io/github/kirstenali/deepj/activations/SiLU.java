@@ -34,8 +34,8 @@ public final class SiLU implements ActivationFunction {
 
         // SiLU'(x) = σ(x) · (1 + x · (1 − σ(x)))
         //           = σ(x) + x · σ(x) · (1 − σ(x))
-        Tensor oneMinusSig = lastSigmoid.multiplyScalar(-1.0); // 1 - σ(x)
-        oneMinusSig.addScalarInPlace(1.0);
+        Tensor oneMinusSig = lastSigmoid.multiplyScalar(-1.0f); // 1 - σ(x)
+        oneMinusSig.addScalarInPlace(1.0f);
 
         Tensor xSig = lastX.multiply(lastSigmoid);
         xSig.multiplyInPlace(oneMinusSig);

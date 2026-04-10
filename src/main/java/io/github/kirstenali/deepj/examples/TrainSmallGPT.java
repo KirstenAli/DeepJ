@@ -44,7 +44,7 @@ public final class TrainSmallGPT {
         GPTModel model = new GPTModel(cfg, 42);
 
         // ── Training ──────────────────────────────────────────────────────────
-        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4);
+        Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-4f);
 
         // ── Checkpointing ─────────────────────────────────────────────────────
         Path checkpointDir = Path.of("checkpoints");
@@ -59,8 +59,8 @@ public final class TrainSmallGPT {
                 10_000_000,    // maxSteps
                 2,             // batchSize
                 1,             // logEvery
-                0.98,          // emaBeta
-                0.01,          // targetEmaLoss
+                0.98f,         // emaBeta
+                0.01f,         // targetEmaLoss
                 25,            // releaseEverySteps – free orphaned GPU buffers every N steps
                 checkpointHook // called after each step
         );
@@ -79,7 +79,7 @@ public final class TrainSmallGPT {
                 cfg,           // config
                 prompt,        // prompt text
                 200,           // maxNewTokens
-                0.1,           // temperature
+                0.1f,          // temperature
                 20,            // topK
                 1234L          // seed
         );

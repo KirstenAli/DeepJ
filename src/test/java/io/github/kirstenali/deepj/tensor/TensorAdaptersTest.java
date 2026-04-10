@@ -10,9 +10,9 @@ class TensorAdaptersTest {
 
     @Test
     void packF32ProducesRowMajorFloatArray() {
-        Tensor t = Tensor.from2D(new double[][]{
-                {1.0, 2.0, 3.0},
-                {4.0, 5.0, 6.0}
+        Tensor t = Tensor.from2D(new float[][]{
+                {1.0f, 2.0f, 3.0f},
+                {4.0f, 5.0f, 6.0f}
         });
 
         float[] packed = TensorAdapters.packF32(t);
@@ -23,7 +23,7 @@ class TensorAdaptersTest {
 
     @Test
     void packF32SingleElement() {
-        Tensor t = Tensor.from2D(new double[][]{{42.5}});
+        Tensor t = TensorAdapters.unpackF32(new float[]{42.5f}, 1, 1);
         float[] packed = TensorAdapters.packF32(t);
         assertEquals(1, packed.length);
         assertEquals(42.5f, packed[0]);
@@ -32,7 +32,7 @@ class TensorAdaptersTest {
     @Test
     void packF32TruncatesDoublePrecision() {
         // 1/3 has different representations in double vs float
-        Tensor t = Tensor.from2D(new double[][]{{1.0 / 3.0}});
+        Tensor t = TensorAdapters.unpackF32(new float[]{1.0f / 3.0f}, 1, 1);
         float[] packed = TensorAdapters.packF32(t);
         assertEquals(1.0f / 3.0f, packed[0]);
     }
@@ -46,10 +46,10 @@ class TensorAdaptersTest {
 
         assertEquals(2, t.rows);
         assertEquals(3, t.cols);
-        assertEquals(1.0, t.data[0 * 3 + 0], 1e-6);
-        assertEquals(3.0, t.data[0 * 3 + 2], 1e-6);
-        assertEquals(4.0, t.data[1 * 3 + 0], 1e-6);
-        assertEquals(6.0, t.data[1 * 3 + 2], 1e-6);
+        assertEquals(1.0f, t.data[0], 1e-6f);
+        assertEquals(3.0f, t.data[2], 1e-6f);
+        assertEquals(4.0f, t.data[1 * 3 + 0], 1e-6f);
+        assertEquals(6.0f, t.data[1 * 3 + 2], 1e-6f);
     }
 
     @Test
@@ -66,7 +66,7 @@ class TensorAdaptersTest {
 
     @Test
     void unpackF32IntoOverwritesExistingData() {
-        Tensor t = Tensor.from2D(new double[][]{
+        Tensor t = Tensor.from2D(new float[][]{
                 {99, 99, 99},
                 {99, 99, 99}
         });
@@ -74,19 +74,19 @@ class TensorAdaptersTest {
         float[] flat = {10f, 20f, 30f, 40f, 50f, 60f};
         TensorAdapters.unpackF32Into(flat, t);
 
-        assertEquals(10.0, t.data[0 * 3 + 0], 1e-6);
-        assertEquals(30.0, t.data[0 * 3 + 2], 1e-6);
-        assertEquals(60.0, t.data[1 * 3 + 2], 1e-6);
+        assertEquals(10.0f, t.data[0], 1e-6f);
+        assertEquals(30.0f, t.data[2], 1e-6f);
+        assertEquals(60.0f, t.data[1 * 3 + 2], 1e-6f);
     }
 
     // -- round-trip ----------------------------------------------------------
 
     @Test
     void packThenUnpackIsIdentity() {
-        Tensor original = Tensor.from2D(new double[][]{
-                {1.5, -2.5},
-                {0.0,  3.0},
-                {7.0, -1.0}
+        Tensor original = Tensor.from2D(new float[][]{
+                {1.5f, -2.5f},
+                {0.0f,  3.0f},
+                {7.0f, -1.0f}
         });
 
         float[] packed = TensorAdapters.packF32(original);

@@ -56,7 +56,7 @@ public final class RotaryEmbedding {
 
         for (int pos = 0; pos < maxSeqLen; pos++) {
             for (int i = 0; i < this.halfDim; i++) {
-                double theta = pos / Math.pow(10_000.0, (2.0 * i) / headDim);
+                float theta = (float) (pos / Math.pow(10_000.0f, (2.0f * i) / headDim));
                 cosTable[pos][i] = (float) Math.cos(theta);
                 sinTable[pos][i] = (float) Math.sin(theta);
             }

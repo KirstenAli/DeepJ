@@ -33,40 +33,40 @@ class SiLUTest {
 
     @Test
     void forward_zero_gives_zero() {
-        Tensor x = Tensor.from2D(new double[][]{{0.0, 0.0}});
+        Tensor x = Tensor.from2D(new float[][]{{0.0f, 0.0f}});
         Tensor y = silu.forward(x);
-        TestSupport.assertTensorAllClose(Tensor.zeros(1, 2), y, 1e-6);
+        TestSupport.assertTensorAllClose(Tensor.zeros(1, 2), y, 1e-6f);
     }
 
     @Test
     void forward_known_positive_value() {
         // SiLU(1) = 1 · σ(1) = 0.7310585786...
-        double expected = 1.0 / (1.0 + Math.exp(-1.0));
-        Tensor x = Tensor.from2D(new double[][]{{1.0}});
+        float expected = (float) (1.0f / (1.0f + Math.exp(-1.0f)));
+        Tensor x = Tensor.from2D(new float[][]{{1.0f}});
         Tensor y = silu.forward(x);
-        assertEquals(expected, y.data[0], 1e-6);
+        assertEquals(expected, y.data[0], 1e-6f);
     }
 
     @Test
     void forward_known_negative_value() {
         // SiLU(-1) = -1 · σ(-1) = -0.2689414213...
-        double sig = 1.0 / (1.0 + Math.exp(1.0));
-        double expected = -1.0 * sig;
-        Tensor x = Tensor.from2D(new double[][]{{-1.0}});
+        float sig = (float) (1.0f / (1.0f + Math.exp(1.0f)));
+        float expected = -1.0f * sig;
+        Tensor x = Tensor.from2D(new float[][]{{-1.0f}});
         Tensor y = silu.forward(x);
-        assertEquals(expected, y.data[0], 1e-6);
+        assertEquals(expected, y.data[0], 1e-6f);
     }
 
     @Test
     void forward_preserves_shape() {
-        Tensor x = Tensor.from2D(new double[][]{{1, 2, 3}, {4, 5, 6}});
+        Tensor x = Tensor.from2D(new float[][]{{1, 2, 3}, {4, 5, 6}});
         Tensor y = silu.forward(x);
         TestSupport.assertTensorShape(y, 2, 3);
     }
 
     @Test
     void forward_positive_inputs_are_positive() {
-        Tensor x = Tensor.from2D(new double[][]{{0.5, 1.0, 2.0, 5.0}});
+        Tensor x = Tensor.from2D(new float[][]{{0.5f, 1.0f, 2.0f, 5.0f}});
         Tensor y = silu.forward(x);
         for (int c = 0; c < y.cols; c++) {
             assertTrue(y.data[c] > 0, "SiLU of positive input should be positive");
@@ -77,16 +77,16 @@ class SiLUTest {
 
     @Test
     void backward_at_zero_is_half() {
-        // SiLU'(0) = σ(0) + 0 · σ(0) · (1 − σ(0)) = 0.5
-        Tensor x = Tensor.from2D(new double[][]{{0.0}});
+        // SiLU'(0) = σ(0) + 0 · σ(0) · (1 − σ(0)) = 0.5f
+        Tensor x = Tensor.from2D(new float[][]{{0.0f}});
         silu.forward(x);
         Tensor grad = silu.backward(Tensor.ones(1, 1));
-        assertEquals(0.5, grad.data[0], 1e-6);
+        assertEquals(0.5f, grad.data[0], 1e-6f);
     }
 
     @Test
     void backward_preserves_shape() {
-        Tensor x = Tensor.from2D(new double[][]{{1.0, -1.0, 2.0}, {0.0, 3.0, -2.0}});
+        Tensor x = Tensor.from2D(new float[][]{{1.0f, -1.0f, 2.0f}, {0.0f, 3.0f, -2.0f}});
         silu.forward(x);
         Tensor grad = silu.backward(Tensor.ones(2, 3));
         TestSupport.assertTensorShape(grad, 2, 3);
@@ -94,36 +94,36 @@ class SiLUTest {
 
     @Test
     void backward_numerical_gradient_check() {
-        double[] vals = {-2.0, -1.0, 0.0, 0.5, 1.0, 2.0};
-        double eps = 1e-3;
+        float[] vals = {-2.0f, -1.0f, 0.0f, 0.5f, 1.0f, 2.0f};
+        float eps = 1e-3f;
 
-        for (double v : vals) {
+        for (float v : vals) {
             SiLU s1 = new SiLU();
             SiLU s2 = new SiLU();
-            double plus  = s1.forward(Tensor.from2D(new double[][]{{v + eps}})).data[0];
-            double minus = s2.forward(Tensor.from2D(new double[][]{{v - eps}})).data[0];
-            double numerical = (plus - minus) / (2 * eps);
+            float plus  = s1.forward(Tensor.from2D(new float[][]{{v + eps}})).data[0];
+            float minus = s2.forward(Tensor.from2D(new float[][]{{v - eps}})).data[0];
+            float numerical = (plus - minus) / (2 * eps);
 
             SiLU analytic = new SiLU();
-            analytic.forward(Tensor.from2D(new double[][]{{v}}));
-            double analytical = analytic.backward(Tensor.ones(1, 1)).data[0];
+            analytic.forward(Tensor.from2D(new float[][]{{v}}));
+            float analytical = analytic.backward(Tensor.ones(1, 1)).data[0];
 
-            assertEquals(numerical, analytical, 2e-3,
+            assertEquals(numerical, analytical, 2e-3f,
                     "Gradient mismatch at x=" + v);
         }
     }
 
     @Test
     void backward_gradOut_scales_result() {
-        Tensor x = Tensor.from2D(new double[][]{{1.0}});
+        Tensor x = Tensor.from2D(new float[][]{{1.0f}});
         silu.forward(x);
         Tensor g1 = silu.backward(Tensor.ones(1, 1));
 
         silu = new SiLU();
         silu.forward(x);
-        Tensor g3 = silu.backward(Tensor.from2D(new double[][]{{3.0}}));
+        Tensor g3 = silu.backward(Tensor.from2D(new float[][]{{3.0f}}));
 
-        assertEquals(g1.data[0] * 3.0, g3.data[0], 1e-6);
+        assertEquals(g1.data[0] * 3.0f, g3.data[0], 1e-6f);
     }
 
     // ── guards ───────────────────────────────────────────────────────────────
@@ -136,9 +136,9 @@ class SiLUTest {
 
     @Test
     void backward_shape_mismatch_throws() {
-        silu.forward(Tensor.from2D(new double[][]{{1.0, 2.0}}));
+        silu.forward(Tensor.from2D(new float[][]{{1.0f, 2.0f}}));
         assertThrows(IllegalArgumentException.class,
-                () -> silu.backward(Tensor.from2D(new double[][]{{1.0}})));
+                () -> silu.backward(Tensor.from2D(new float[][]{{1.0f}})));
     }
 }
 

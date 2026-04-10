@@ -10,8 +10,6 @@ public interface TensorBackend {
     Tensor random(int rows, int cols, Random rand);
     Tensor causalMask(int size);
 
-    Tensor unflattenToTensor(float[] flat, int rows, int cols);
-    float[] flattenTensor(Tensor t);
 
     // ── element-wise binary ────────────────────────────────────────────
     Tensor matmul(Tensor a, Tensor b);
@@ -33,9 +31,9 @@ public interface TensorBackend {
     Tensor multiplyBroadcastRows(Tensor a, Tensor rowVector);
 
     // ── scalar ops ─────────────────────────────────────────────────────
-    Tensor multiplyScalar(Tensor a, double scalar);
-    Tensor addScalar(Tensor a, double scalar);
-    Tensor divideScalar(Tensor a, double scalar);
+    Tensor multiplyScalar(Tensor a, float scalar);
+    Tensor addScalar(Tensor a, float scalar);
+    Tensor divideScalar(Tensor a, float scalar);
 
     // ── reductions ─────────────────────────────────────────────────────
     Tensor sumRows(Tensor a);
@@ -45,14 +43,14 @@ public interface TensorBackend {
     Tensor varianceAlongRows(Tensor a);
     Tensor maxAlongRows(Tensor a);
 
-    double sum(Tensor a);
-    double sumAbs(Tensor a);
+    float sum(Tensor a);
+    float sumAbs(Tensor a);
 
     // ── unary math ─────────────────────────────────────────────────────
-    Tensor clamp(Tensor a, double min, double max);
+    Tensor clamp(Tensor a, float min, float max);
     Tensor transpose(Tensor a);
     Tensor sqrt(Tensor a);
-    Tensor pow(Tensor a, double exponent);
+    Tensor pow(Tensor a, float exponent);
     Tensor neg(Tensor a);
     Tensor exp(Tensor a);
     Tensor log(Tensor a);
@@ -70,15 +68,15 @@ public interface TensorBackend {
     Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut);
 
     // ── fused high-level ops ───────────────────────────────────────────
-    double crossEntropyLoss(Tensor logits, int[] targets);
+    float crossEntropyLoss(Tensor logits, int[] targets);
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
 
     /**
      * In-place AdamW update.  Mutates w, mt, vt.
      */
     void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
-                     double lr, double beta1, double beta2, double eps,
-                     double weightDecay, double bc1, double bc2);
+                     float lr, float beta1, float beta2, float eps,
+                     float weightDecay, float bc1, float bc2);
 
     /**
      * LayerNorm backward through normalization (given dXHat, xHat, std).
@@ -86,8 +84,8 @@ public interface TensorBackend {
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
 
     // ── data accessors (for code that must touch elements) ─────────────
-    double get(Tensor t, int r, int c);
-    void set(Tensor t, int r, int c, double value);
+    float get(Tensor t, int r, int c);
+    void set(Tensor t, int r, int c, float value);
     Tensor getRow(Tensor t, int row);
     void setRow(Tensor t, int row, Tensor source, int srcRow);
 
@@ -113,9 +111,9 @@ public interface TensorBackend {
     default void multiplyInPlace(Tensor a, Tensor b)          { copyIntoMaterialized(multiply(a, b), a); }
     default void divideInPlace(Tensor a, Tensor b)            { copyIntoMaterialized(divide(a, b), a); }
 
-    default void multiplyScalarInPlace(Tensor a, double s)    { copyIntoMaterialized(multiplyScalar(a, s), a); }
-    default void addScalarInPlace(Tensor a, double s)         { copyIntoMaterialized(addScalar(a, s), a); }
-    default void divideScalarInPlace(Tensor a, double s)      { copyIntoMaterialized(divideScalar(a, s), a); }
+    default void multiplyScalarInPlace(Tensor a, float s)    { copyIntoMaterialized(multiplyScalar(a, s), a); }
+    default void addScalarInPlace(Tensor a, float s)         { copyIntoMaterialized(addScalar(a, s), a); }
+    default void divideScalarInPlace(Tensor a, float s)      { copyIntoMaterialized(divideScalar(a, s), a); }
 
     default void sqrtInPlace(Tensor a)     { copyIntoMaterialized(sqrt(a), a); }
     default void negInPlace(Tensor a)      { copyIntoMaterialized(neg(a), a); }
@@ -143,7 +141,7 @@ public interface TensorBackend {
     // ── lazy execution support ─────────────────────────────────────────
     /**
      * Materialize a tensor: flush any pending GPU computation and download
-     * the result to the tensor's CPU data[][]. Default is a no-op (for CpuBackend).
+     * the result to the tensor's CPU data[]. Default is a no-op (for CpuBackend).
      */
     default void materializeTensor(Tensor t) { /* no-op for eager backends */ }
 
