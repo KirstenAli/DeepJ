@@ -199,7 +199,7 @@ public final class ComputeGraph {
     }
 
     /**
-     * Create a Tensor backed by a GpuBuffer. The data[][] is allocated but stale.
+     * Create a Tensor backed by a GpuBuffer. The data[] buffer is allocated but stale.
      */
     public Tensor createOutputTensor(GpuBuffer buf) {
         Tensor t = new Tensor(buf.rows, buf.cols);

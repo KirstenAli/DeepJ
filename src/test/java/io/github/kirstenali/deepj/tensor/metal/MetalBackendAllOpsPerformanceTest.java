@@ -101,7 +101,7 @@ public final class MetalBackendAllOpsPerformanceTest {
         double cpuMs = cpuNs / 1_000_000.0;
         double gpuMs = gpuNs / 1_000_000.0;
         double speedup = cpuMs / gpuMs;
-        String arrow = speedup >= 1.0 ? "🟢" : "🔴";
+        String arrow = speedup >= 1.0f ? "🟢" : "🔴";
         System.out.printf("  %-40s CPU: %9.3f ms   GPU: %9.3f ms   speedup: %7.2fx  %s%n",
                 label, cpuMs, gpuMs, speedup, arrow);
     }
@@ -135,14 +135,14 @@ public final class MetalBackendAllOpsPerformanceTest {
                     Tensor t = cpu.matmul(a, b);
                     t = cpu.add(t, a);
                     t = cpu.gelu(t);
-                    t = cpu.multiplyScalar(t, 0.5);
+                    t = cpu.multiplyScalar(t, 0.5f);
                     cpu.exp(t);
                 },
                 () -> {
                     Tensor t = gpu.matmul(a, b);
                     t = gpu.add(t, a);
                     t = gpu.gelu(t);
-                    t = gpu.multiplyScalar(t, 0.5);
+                    t = gpu.multiplyScalar(t, 0.5f);
                     gpu.exp(t).materialize();
                 });
     }
@@ -157,7 +157,7 @@ public final class MetalBackendAllOpsPerformanceTest {
                 () -> {
                     Tensor t = cpu.matmul(a, b);
                     t = cpu.gelu(t);
-                    t = cpu.multiplyScalar(t, 0.5);
+                    t = cpu.multiplyScalar(t, 0.5f);
                     t = cpu.subtract(t, b);
                     t = cpu.relu(t);
                     t = cpu.matmul(t, a);
@@ -169,7 +169,7 @@ public final class MetalBackendAllOpsPerformanceTest {
                 () -> {
                     Tensor t = gpu.matmul(a, b);
                     t = gpu.gelu(t);
-                    t = gpu.multiplyScalar(t, 0.5);
+                    t = gpu.multiplyScalar(t, 0.5f);
                     t = gpu.subtract(t, b);
                     t = gpu.relu(t);
                     t = gpu.matmul(t, a);
@@ -281,7 +281,7 @@ public final class MetalBackendAllOpsPerformanceTest {
     @Test @Order(11)
     void chain_attentionForward() {
         Tensor Q = rand(N, N, 79L), K = rand(N, N, 80L), V = rand(N, N, 81L);
-        double scale = 1.0 / Math.sqrt(N);
+        float scale = (float) (1.0 / Math.sqrt(N));
         bench("attention fwd (4 ops)",
                 () -> {
                     Tensor scores = cpu.matmul(Q, K);
@@ -342,7 +342,7 @@ public final class MetalBackendAllOpsPerformanceTest {
                     d = cpu.geluBackward(hPreAct, d);
                     d = cpu.matmul(d, W1);
                     d = cpu.subtract(d, offset);
-                    cpu.multiplyScalar(d, 0.5);
+                    cpu.multiplyScalar(d, 0.5f);
                 },
                 () -> {
                     Tensor d = gpu.softmaxBackward(grad, smOut);
@@ -350,7 +350,7 @@ public final class MetalBackendAllOpsPerformanceTest {
                     d = gpu.geluBackward(hPreAct, d);
                     d = gpu.matmul(d, W1);
                     d = gpu.subtract(d, offset);
-                    gpu.multiplyScalar(d, 0.5).materialize();
+                    gpu.multiplyScalar(d, 0.5f).materialize();
                 });
     }
 
@@ -382,18 +382,18 @@ public final class MetalBackendAllOpsPerformanceTest {
                     h = cpu.gelu(h);
                     Tensor logits = cpu.matmul(h, W2);
                     cpu.softmaxRows(logits);
-                    cpu.multiplyScalar(logits, 0.1);
-                    cpu.adamWUpdate(W1, g1, m1, v1, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
-                    cpu.adamWUpdate(W2, g2, m2, v2, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    cpu.multiplyScalar(logits, 0.1f);
+                    cpu.adamWUpdate(W1, g1, m1, v1, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
+                    cpu.adamWUpdate(W2, g2, m2, v2, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
                 },
                 () -> {
                     Tensor h = gpu.matmul(x, W1G);
                     h = gpu.gelu(h);
                     Tensor logits = gpu.matmul(h, W2G);
                     gpu.softmaxRows(logits);
-                    gpu.multiplyScalar(logits, 0.1);
-                    gpu.adamWUpdate(W1G, g1G, m1G, v1G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
-                    gpu.adamWUpdate(W2G, g2G, m2G, v2G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    gpu.multiplyScalar(logits, 0.1f);
+                    gpu.adamWUpdate(W1G, g1G, m1G, v1G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
+                    gpu.adamWUpdate(W2G, g2G, m2G, v2G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
                     W1G.materialize();
                 });
     }
@@ -433,8 +433,8 @@ public final class MetalBackendAllOpsPerformanceTest {
                     dH = cpu.geluBackward(hPreAct, dH);
                     Tensor dX = cpu.matmul(dH, W1);
                     // optimise
-                    cpu.adamWUpdate(W1, dX, m1, v1, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
-                    cpu.adamWUpdate(W2, dLogits, m2, v2, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    cpu.adamWUpdate(W1, dX, m1, v1, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
+                    cpu.adamWUpdate(W2, dLogits, m2, v2, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
                 },
                 () -> {
                     // forward
@@ -448,8 +448,8 @@ public final class MetalBackendAllOpsPerformanceTest {
                     dH = gpu.geluBackward(hPreActG, dH);
                     Tensor dX = gpu.matmul(dH, W1G);
                     // optimise — still lazy
-                    gpu.adamWUpdate(W1G, dX, m1G, v1G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
-                    gpu.adamWUpdate(W2G, dLogits, m2G, v2G, 1e-3, 0.9, 0.999, 1e-8, 0.01, 0.9, 0.999);
+                    gpu.adamWUpdate(W1G, dX, m1G, v1G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
+                    gpu.adamWUpdate(W2G, dLogits, m2G, v2G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
                     // single flush
                     W1G.materialize();
                 });
@@ -472,14 +472,14 @@ public final class MetalBackendAllOpsPerformanceTest {
                     Tensor g = cpu.zeros(N, N);
                     for (int i = 0; i < steps; i++) {
                         cpu.addInPlace(g, delta);
-                        cpu.multiplyScalarInPlace(g, 0.99);
+                        cpu.multiplyScalarInPlace(g, 0.99f);
                     }
                 },
                 () -> {
                     Tensor g = cpu.zeros(N, N);
                     for (int i = 0; i < steps; i++) {
                         gpu.addInPlace(g, delta);
-                        gpu.multiplyScalarInPlace(g, 0.99);
+                        gpu.multiplyScalarInPlace(g, 0.99f);
                     }
                     g.materialize();
                 });
@@ -497,10 +497,7 @@ public final class MetalBackendAllOpsPerformanceTest {
     }
 
     private static Tensor clone(Tensor t) {
-        Tensor c = new Tensor(t.rows, t.cols);
-        for (int r = 0; r < t.rows; r++)
-            System.arraycopy(t.data[r], 0, c.data[r], 0, t.cols);
-        return c;
+        return new Tensor(t);
     }
 }
 

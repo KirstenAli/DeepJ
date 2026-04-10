@@ -1,24 +1,14 @@
 package io.github.kirstenali.deepj.tensor;
 
-/**
- * Utilities for converting between {@link Tensor} ({@code double[][]}) and
- * flat {@code float[]} arrays used by GPU runtimes.
- */
+/** Utilities for converting between {@link Tensor} and flat GPU float arrays. */
 public final class TensorAdapters {
 
     private TensorAdapters() {}
 
     /** Pack a Tensor's data into a flat float32 array (row-major). */
     public static float[] packF32(Tensor t) {
-        float[] out = new float[t.rows * t.cols];
-        int i = 0;
-        for (int r = 0; r < t.rows; r++) {
-            double[] row = t.data[r];
-            for (int c = 0; c < t.cols; c++) {
-                out[i++] = (float) row[c];
-            }
-        }
-        return out;
+        t.materialize();
+        return java.util.Arrays.copyOf(t.data, t.data.length);
     }
 
     /** Unpack a flat float32 array into a new Tensor. */
@@ -35,17 +25,15 @@ public final class TensorAdapters {
     }
 
     /**
-     * Unpack a flat float32 array into an existing tensor's data[][].
+     * Unpack a flat float32 array into an existing tensor's data[].
      * Used by {@link ComputeGraph} to materialize GPU results without allocating a new Tensor.
      */
     public static void unpackF32Into(float[] flat, Tensor t) {
-        int i = 0;
-        for (int r = 0; r < t.rows; r++) {
-            double[] row = t.data[r];
-            for (int c = 0; c < t.cols; c++) {
-                row[c] = flat[i++];
-            }
+        if (flat.length != t.data.length) {
+            throw new IllegalArgumentException(
+                    "Flat buffer length " + flat.length +
+                            " does not match tensor size " + t.data.length);
         }
+        System.arraycopy(flat, 0, t.data, 0, flat.length);
     }
 }
-

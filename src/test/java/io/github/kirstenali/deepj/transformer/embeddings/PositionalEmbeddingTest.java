@@ -16,18 +16,17 @@ public class PositionalEmbeddingTest {
     void forward_returnsFirstSeqLenRows() {
         PositionalEmbedding pe = new PositionalEmbedding(4, 2, new Random(1));
 
-        // deterministic: row i = [10+i, 20+i]
         var p = pe.parameters().get(0);
         for (int i = 0; i < 4; i++) {
-            p.value.data[i][0] = 10 + i;
-            p.value.data[i][1] = 20 + i;
+            p.value.data[i * 2 + 0] = 10 + i;
+            p.value.data[i * 2 + 1] = 20 + i;
         }
 
         Tensor out = pe.forward(3);
         TestSupport.assertTensorShape(out, 3, 2);
-        assertArrayEquals(new double[]{10, 20}, out.data[0], 1e-12);
-        assertArrayEquals(new double[]{11, 21}, out.data[1], 1e-12);
-        assertArrayEquals(new double[]{12, 22}, out.data[2], 1e-12);
+        assertArrayEquals(new float[]{10, 20}, out.rowData(0), 1e-6f);
+        assertArrayEquals(new float[]{11, 21}, out.rowData(1), 1e-6f);
+        assertArrayEquals(new float[]{12, 22}, out.rowData(2), 1e-6f);
     }
 
     @Test
@@ -36,14 +35,13 @@ public class PositionalEmbeddingTest {
         var w = pe.parameters().get(0);
         w.zeroGrad();
 
-        Tensor gradOut = Tensor.ones(2, 3); // seqLen = 2
+        Tensor gradOut = Tensor.ones(2, 3);
         pe.backward(gradOut);
 
-        // first two rows should be updated, later rows untouched
         for (int r = 0; r < 5; r++) {
             for (int c = 0; c < 3; c++) {
-                double expected = (r < 2) ? 1.0 : 0.0;
-                assertEquals(expected, w.grad.data[r][c], 1e-12, "grad mismatch at [" + r + "," + c + "]");
+                double expected = (r < 2) ? 1.0f : 0.0f;
+                assertEquals(expected, w.grad.data[r * 3 + c], 1e-12f, "grad mismatch at [" + r + "," + c + "]");
             }
         }
     }
@@ -61,14 +59,13 @@ public class PositionalEmbeddingTest {
 
         int seqLen = 3;
 
-        // target for first seqLen rows (3x3)
-        Tensor target = new Tensor(new double[][]{
-                { 0.5,  0.0, -0.5},
-                { 1.0,  1.0,  1.0},
-                {-1.0,  0.5,  2.0}
+        Tensor target = Tensor.from2D(new float[][]{
+                { 0.5f,  0.0f, -0.5f},
+                { 1.0f,  1.0f,  1.0f},
+                {-1.0f,  0.5f,  2.0f}
         });
 
-        double lr = 0.1;
+        double lr = 0.1f;
 
         double prev = oneSgdStepMSE(pe, w, seqLen, target, lr);
         boolean improved = false;
@@ -89,21 +86,18 @@ public class PositionalEmbeddingTest {
                                         double lr) {
         w.zeroGrad();
 
-        // forward
         Tensor y = pe.forward(seqLen);
         TestSupport.assertTensorShape(y, seqLen, target.cols);
 
-        // MSE loss + grad wrt output
         MSELoss mse = new MSELoss();
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
         pe.backward(gradOut);
 
-        // manual SGD update: only first seqLen rows should update
         for (int r = 0; r < seqLen; r++) {
             for (int c = 0; c < w.value.cols; c++) {
-                w.value.data[r][c] -= lr * w.grad.data[r][c];
+                w.value.data[r * w.value.cols + c] -= lr * w.grad.data[r * w.grad.cols + c];
             }
         }
 

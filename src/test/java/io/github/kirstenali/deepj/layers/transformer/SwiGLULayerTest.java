@@ -46,7 +46,7 @@ class SwiGLULayerTest {
         Tensor y = layer.forward(x);
         for (int r = 0; r < y.rows; r++) {
             for (int c = 0; c < y.cols; c++) {
-                assertTrue(Double.isFinite(y.data[r][c]),
+                assertTrue(Double.isFinite(y.data[r * y.cols + c]),
                         "output must be finite at [" + r + "," + c + "]");
             }
         }
@@ -78,7 +78,7 @@ class SwiGLULayerTest {
         layer.forward(x);
         layer.backward(Tensor.ones(2, 4));
 
-        double totalGrad = 0;
+        float totalGrad = 0.0f;
         for (Parameter p : layer.parameters()) totalGrad += p.grad.sumAbs();
         assertTrue(totalGrad > 0, "At least one parameter should have a non-zero gradient");
     }
@@ -87,8 +87,8 @@ class SwiGLULayerTest {
     void backward_numerical_gradient_check() {
         int dModel = 4;
         int dFF    = 8;
-        double eps = 1e-5;
-        double tol = 1e-4;
+        float eps = 1e-5f;
+        float tol = 1e-4f;
 
         SwiGLULayer layer = new SwiGLULayer(dModel, dFF, new Random(6));
         Tensor x = randomTensor(2, dModel, 17);
@@ -100,18 +100,18 @@ class SwiGLULayerTest {
         // Numerical gradient for each element of x
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < x.cols; c++) {
-                double orig = x.data[r][c];
+                float orig = x.get(r, c);
 
-                x.data[r][c] = orig + eps;
-                double fPlus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
+                x.set(r, c, orig + eps);
+                float fPlus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
 
-                x.data[r][c] = orig - eps;
-                double fMinus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
+                x.set(r, c, orig - eps);
+                float fMinus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
 
-                x.data[r][c] = orig;
+                x.set(r, c, orig);
 
-                double numerical = (fPlus - fMinus) / (2 * eps);
-                assertEquals(numerical, analyticGrad.data[r][c], tol,
+                float numerical = (fPlus - fMinus) / (2 * eps);
+                assertEquals(numerical, analyticGrad.get(r, c), tol,
                         "Gradient mismatch at [" + r + "," + c + "]");
             }
         }
@@ -122,7 +122,7 @@ class SwiGLULayerTest {
     @Test
     void learning_reduces_mse_loss_within_a_few_steps() {
         SwiGLULayer layer = new SwiGLULayer(4, 8, new Random(7));
-        AdamW opt = new AdamW(0.01, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
         Tensor x      = randomTensor(3, 4, 21);
         Tensor target = Tensor.zeros(3, 4);
@@ -169,22 +169,21 @@ class SwiGLULayerTest {
         return Tensor.random(rows, cols, new Random(seed));
     }
 
-    private static double sumAll(Tensor t) {
-        double s = 0;
+    private static float sumAll(Tensor t) {
+        float s = 0.0f;
         for (int r = 0; r < t.rows; r++)
             for (int c = 0; c < t.cols; c++)
-                s += t.data[r][c];
+                s += t.data[r * t.cols + c];
         return s;
     }
 
-    private static double trainOneStep(SwiGLULayer layer, AdamW opt, Tensor x, Tensor target) {
+    private static float trainOneStep(SwiGLULayer layer, AdamW opt, Tensor x, Tensor target) {
         Tensor y = layer.forward(x);
         MSELoss mse = new MSELoss();
-        double loss = mse.loss(y, target);
+        float loss = mse.loss(y, target);
         layer.backward(mse.gradient(y, target));
         opt.step(layer.parameters());
         for (Parameter p : layer.parameters()) p.zeroGrad();
         return loss;
     }
 }
-

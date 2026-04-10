@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CpuBackendTest {
 
-    private static final double EPS = 1e-9;
+    private static final double EPS = 1e-6f;
 
     private CpuBackend backend;
 
@@ -25,7 +25,7 @@ class CpuBackendTest {
 
         for (int r = 0; r < expected.length; r++) {
             for (int c = 0; c < expected[0].length; c++) {
-                assertEquals(expected[r][c], actual.data[r][c], EPS,
+                assertEquals(expected[r][c], actual.data[r * actual.cols + c], EPS,
                         "Mismatch at [" + r + "][" + c + "]");
             }
         }
@@ -38,8 +38,8 @@ class CpuBackendTest {
         assertEquals(2, t.rows);
         assertEquals(3, t.cols);
         assertTensorEquals(new double[][]{
-                {0.0, 0.0, 0.0},
-                {0.0, 0.0, 0.0}
+                {0.0f, 0.0f, 0.0f},
+                {0.0f, 0.0f, 0.0f}
         }, t);
     }
 
@@ -48,8 +48,8 @@ class CpuBackendTest {
         Tensor t = backend.ones(2, 3);
 
         assertTensorEquals(new double[][]{
-                {1.0, 1.0, 1.0},
-                {1.0, 1.0, 1.0}
+                {1.0f, 1.0f, 1.0f},
+                {1.0f, 1.0f, 1.0f}
         }, t);
     }
 
@@ -63,7 +63,7 @@ class CpuBackendTest {
 
         for (int r = 0; r < t1.rows; r++) {
             for (int c = 0; c < t1.cols; c++) {
-                assertEquals(t1.data[r][c], t2.data[r][c], EPS);
+                assertEquals(t1.data[r * t1.cols + c], t2.data[r * t2.cols + c], EPS);
             }
         }
     }
@@ -73,37 +73,21 @@ class CpuBackendTest {
         Tensor mask = backend.causalMask(4);
 
         assertTensorEquals(new double[][]{
-                {0.0, -1e9, -1e9, -1e9},
-                {0.0, 0.0, -1e9, -1e9},
-                {0.0, 0.0, 0.0, -1e9},
-                {0.0, 0.0, 0.0, 0.0}
+                {0.0f, -1e9f, -1e9f, -1e9f},
+                {0.0f, 0.0f, -1e9f, -1e9f},
+                {0.0f, 0.0f, 0.0f, -1e9f},
+                {0.0f, 0.0f, 0.0f, 0.0f}
         }, mask);
     }
 
-    @Test
-    void flattenAndUnflatten_shouldRoundTrip() {
-        Tensor t = new Tensor(new double[][]{
-                {1, 2, 3},
-                {4, 5, 6}
-        });
-
-        double[] flat = backend.flattenTensor(t);
-        assertArrayEquals(new double[]{1, 2, 3, 4, 5, 6}, flat, EPS);
-
-        Tensor rebuilt = backend.unflattenToTensor(flat, 2, 3);
-        assertTensorEquals(new double[][]{
-                {1, 2, 3},
-                {4, 5, 6}
-        }, rebuilt);
-    }
 
     @Test
     void matmul_shouldMultiplyMatrices() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {7, 8},
                 {9, 10},
                 {11, 12}
@@ -119,11 +103,11 @@ class CpuBackendTest {
 
     @Test
     void matmul_shouldThrowOnShapeMismatch() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {1, 2, 3}
         });
 
@@ -132,11 +116,11 @@ class CpuBackendTest {
 
     @Test
     void add_shouldAddElementwise() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {10, 20},
                 {30, 40}
         });
@@ -151,11 +135,11 @@ class CpuBackendTest {
 
     @Test
     void subtract_shouldSubtractElementwise() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {10, 20},
                 {30, 40}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
@@ -170,11 +154,11 @@ class CpuBackendTest {
 
     @Test
     void multiply_shouldMultiplyElementwise() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {10, 20},
                 {30, 40}
         });
@@ -189,11 +173,11 @@ class CpuBackendTest {
 
     @Test
     void divide_shouldDivideElementwise() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {10, 20},
                 {30, 40}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {2, 4},
                 {5, 8}
         });
@@ -208,10 +192,10 @@ class CpuBackendTest {
 
     @Test
     void add_shouldThrowOnShapeMismatch() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {1},
                 {2}
         });
@@ -221,10 +205,10 @@ class CpuBackendTest {
 
     @Test
     void subtract_shouldThrowOnShapeMismatch() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {1},
                 {2}
         });
@@ -234,10 +218,10 @@ class CpuBackendTest {
 
     @Test
     void multiply_shouldThrowOnShapeMismatch() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {1},
                 {2}
         });
@@ -247,10 +231,10 @@ class CpuBackendTest {
 
     @Test
     void divide_shouldThrowOnShapeMismatch() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2}
         });
-        Tensor b = new Tensor(new double[][]{
+        Tensor b = Tensor.from2D(new float[][]{
                 {1},
                 {2}
         });
@@ -260,11 +244,11 @@ class CpuBackendTest {
 
     @Test
     void addRowVector_shouldBroadcastAcrossRows() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor row = new Tensor(new double[][]{
+        Tensor row = Tensor.from2D(new float[][]{
                 {10, 20, 30}
         });
 
@@ -278,11 +262,11 @@ class CpuBackendTest {
 
     @Test
     void addBroadcastRows_shouldBroadcastAcrossRows() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor row = new Tensor(new double[][]{
+        Tensor row = Tensor.from2D(new float[][]{
                 {10, 20, 30}
         });
 
@@ -296,11 +280,11 @@ class CpuBackendTest {
 
     @Test
     void multiplyBroadcastRows_shouldBroadcastAcrossRows() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor row = new Tensor(new double[][]{
+        Tensor row = Tensor.from2D(new float[][]{
                 {10, 20, 30}
         });
 
@@ -314,11 +298,11 @@ class CpuBackendTest {
 
     @Test
     void addRowVector_shouldThrowOnInvalidShape() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor invalidRow = new Tensor(new double[][]{
+        Tensor invalidRow = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
@@ -328,11 +312,11 @@ class CpuBackendTest {
 
     @Test
     void multiplyBroadcastRows_shouldThrowOnInvalidShape() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor invalidRow = new Tensor(new double[][]{
+        Tensor invalidRow = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
@@ -342,11 +326,11 @@ class CpuBackendTest {
 
     @Test
     void addBroadcastCols_shouldBroadcastDownColumns() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor col = new Tensor(new double[][]{
+        Tensor col = Tensor.from2D(new float[][]{
                 {10},
                 {100}
         });
@@ -361,11 +345,11 @@ class CpuBackendTest {
 
     @Test
     void subtractBroadcastCols_shouldBroadcastDownColumns() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {11, 12, 13},
                 {104, 105, 106}
         });
-        Tensor col = new Tensor(new double[][]{
+        Tensor col = Tensor.from2D(new float[][]{
                 {10},
                 {100}
         });
@@ -380,11 +364,11 @@ class CpuBackendTest {
 
     @Test
     void multiplyBroadcastCols_shouldBroadcastDownColumns() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
-        Tensor col = new Tensor(new double[][]{
+        Tensor col = Tensor.from2D(new float[][]{
                 {10},
                 {100}
         });
@@ -399,11 +383,11 @@ class CpuBackendTest {
 
     @Test
     void divideBroadcastCols_shouldBroadcastDownColumns() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {10, 20},
                 {300, 400}
         });
-        Tensor col = new Tensor(new double[][]{
+        Tensor col = Tensor.from2D(new float[][]{
                 {10},
                 {100}
         });
@@ -418,11 +402,11 @@ class CpuBackendTest {
 
     @Test
     void addBroadcastCols_shouldThrowOnInvalidShape() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor invalidCol = new Tensor(new double[][]{
+        Tensor invalidCol = Tensor.from2D(new float[][]{
                 {1, 2}
         });
 
@@ -431,11 +415,11 @@ class CpuBackendTest {
 
     @Test
     void subtractBroadcastCols_shouldThrowOnInvalidShape() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor invalidCol = new Tensor(new double[][]{
+        Tensor invalidCol = Tensor.from2D(new float[][]{
                 {1, 2}
         });
 
@@ -444,11 +428,11 @@ class CpuBackendTest {
 
     @Test
     void multiplyBroadcastCols_shouldThrowOnInvalidShape() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor invalidCol = new Tensor(new double[][]{
+        Tensor invalidCol = Tensor.from2D(new float[][]{
                 {1, 2}
         });
 
@@ -457,11 +441,11 @@ class CpuBackendTest {
 
     @Test
     void divideBroadcastCols_shouldThrowOnInvalidShape() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
-        Tensor invalidCol = new Tensor(new double[][]{
+        Tensor invalidCol = Tensor.from2D(new float[][]{
                 {1, 2}
         });
 
@@ -470,7 +454,7 @@ class CpuBackendTest {
 
     @Test
     void sumRows_shouldReduceRowsIntoSingleRow() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
@@ -484,7 +468,7 @@ class CpuBackendTest {
 
     @Test
     void sumAlongRows_shouldSumEachRow() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
@@ -499,7 +483,7 @@ class CpuBackendTest {
 
     @Test
     void sumAlongCols_shouldAliasSumRows() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
@@ -513,7 +497,7 @@ class CpuBackendTest {
 
     @Test
     void meanAlongRows_shouldComputeRowMeans() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {2, 4, 6},
                 {1, 3, 5}
         });
@@ -528,7 +512,7 @@ class CpuBackendTest {
 
     @Test
     void varianceAlongRows_shouldComputeRowVariance() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {2, 2, 2}
         });
@@ -536,14 +520,14 @@ class CpuBackendTest {
         Tensor result = backend.varianceAlongRows(a);
 
         assertTensorEquals(new double[][]{
-                {2.0 / 3.0},
-                {0.0}
+                {2.0f / 3.0f},
+                {0.0f}
         }, result);
     }
 
     @Test
     void transpose_shouldSwapRowsAndCols() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
@@ -559,22 +543,22 @@ class CpuBackendTest {
 
     @Test
     void clamp_shouldLimitValuesToRange() {
-        Tensor a = new Tensor(new double[][]{
-                {-2, 0.5, 3},
+        Tensor a = Tensor.from2D(new float[][]{
+                {-2, 0.5f, 3},
                 {10, -1, 2}
         });
 
         Tensor result = backend.clamp(a, 0, 2);
 
         assertTensorEquals(new double[][]{
-                {0, 0.5, 2},
+                {0, 0.5f, 2},
                 {2, 0, 2}
         }, result);
     }
 
     @Test
     void sqrt_shouldApplyElementwise() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 4},
                 {9, 16}
         });
@@ -589,7 +573,7 @@ class CpuBackendTest {
 
     @Test
     void pow_shouldApplyElementwise() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
@@ -604,7 +588,7 @@ class CpuBackendTest {
 
     @Test
     void multiplyScalar_shouldApplyToAllElements() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
@@ -619,7 +603,7 @@ class CpuBackendTest {
 
     @Test
     void addScalar_shouldApplyToAllElements() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2},
                 {3, 4}
         });
@@ -634,7 +618,7 @@ class CpuBackendTest {
 
     @Test
     void divideScalar_shouldApplyToAllElements() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {10, 20},
                 {30, 40}
         });
@@ -649,21 +633,21 @@ class CpuBackendTest {
 
     @Test
     void sum_shouldReturnTotalOfAllElements() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {1, 2, 3},
                 {4, 5, 6}
         });
 
-        assertEquals(21.0, backend.sum(a), EPS);
+        assertEquals(21.0f, backend.sum(a), EPS);
     }
 
     @Test
     void sumAbs_shouldReturnAbsoluteTotalOfAllElements() {
-        Tensor a = new Tensor(new double[][]{
+        Tensor a = Tensor.from2D(new float[][]{
                 {-1, -2, 3},
                 {-4, 5, -6}
         });
 
-        assertEquals(21.0, backend.sumAbs(a), EPS);
+        assertEquals(21.0f, backend.sumAbs(a), EPS);
     }
 }

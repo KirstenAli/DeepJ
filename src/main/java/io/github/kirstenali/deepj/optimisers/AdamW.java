@@ -13,18 +13,18 @@ import java.util.Map;
  */
 public final class AdamW implements ParameterOptimizer {
 
-    private final double lr;
-    private final double beta1;
-    private final double beta2;
-    private final double eps;
-    private final double weightDecay;
+    private final float lr;
+    private final float beta1;
+    private final float beta2;
+    private final float eps;
+    private final float weightDecay;
 
     private long step = 0;
 
     private final Map<Parameter, Tensor> m = new IdentityHashMap<>();
     private final Map<Parameter, Tensor> v = new IdentityHashMap<>();
 
-    public AdamW(double lr, double beta1, double beta2, double eps, double weightDecay) {
+    public AdamW(float lr, float beta1, float beta2, float eps, float weightDecay) {
         validateHyperparameters(lr, beta1, beta2, eps);
 
         this.lr = lr;
@@ -34,8 +34,8 @@ public final class AdamW implements ParameterOptimizer {
         this.weightDecay = weightDecay;
     }
 
-    public static AdamW defaultAdamW(double lr) {
-        return new AdamW(lr, 0.9, 0.999, 1e-8, 0.01);
+    public static AdamW defaultAdamW(float lr) {
+        return new AdamW(lr, 0.9f, 0.999f, 1e-8f, 0.01f);
     }
 
     @Override
@@ -46,8 +46,8 @@ public final class AdamW implements ParameterOptimizer {
 
         step++;
 
-        double bc1 = 1.0 - Math.pow(beta1, step);
-        double bc2 = 1.0 - Math.pow(beta2, step);
+        float bc1 = 1.0f - (float) Math.pow(beta1, step);
+        float bc2 = 1.0f - (float) Math.pow(beta2, step);
 
         for (Parameter p : params) {
             if (p != null) {
@@ -56,7 +56,7 @@ public final class AdamW implements ParameterOptimizer {
         }
     }
 
-    private void validateHyperparameters(double lr, double beta1, double beta2, double eps) {
+    private void validateHyperparameters(float lr, float beta1, float beta2, float eps) {
         if (lr <= 0) {
             throw new IllegalArgumentException("lr must be > 0");
         }
@@ -71,7 +71,7 @@ public final class AdamW implements ParameterOptimizer {
         }
     }
 
-    private void stepParam(Parameter p, double bc1, double bc2) {
+    private void stepParam(Parameter p, float bc1, float bc2) {
         Tensor w = p.value;
         Tensor g = p.grad;
 

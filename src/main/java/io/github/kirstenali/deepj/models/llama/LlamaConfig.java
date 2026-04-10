@@ -9,12 +9,12 @@ public record LlamaConfig(
         int nHeads,
         int nLayers,
         int dFF,
-        double gradClipNorm
+        float gradClipNorm
 ) implements TransformerConfig {
 
     /** Convenience constructor with {@code gradClipNorm = 1.0}. */
     public LlamaConfig(int vocabSize, int maxSeqLen, int dModel, int nHeads, int nLayers, int dFF) {
-        this(vocabSize, maxSeqLen, dModel, nHeads, nLayers, dFF, 1.0);
+        this(vocabSize, maxSeqLen, dModel, nHeads, nLayers, dFF, 1.0f);
     }
 
     public LlamaConfig {

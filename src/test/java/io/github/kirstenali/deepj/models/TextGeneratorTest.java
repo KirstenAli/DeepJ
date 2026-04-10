@@ -33,7 +33,7 @@ public class TextGeneratorTest {
 
     @Test
     void generate_runsAndReturnsNonEmptyString() {
-        String out = TextGenerator.generate(model, tok, cfg, "hi", 8, 1.0, 0, 2L);
+        String out = TextGenerator.generate(model, tok, cfg, "hi", 8, 1.0f, 0, 2L);
 
         assertNotNull(out);
         assertTrue(out.length() >= 2, "output must include at least the prompt");
@@ -43,16 +43,16 @@ public class TextGeneratorTest {
 
     @Test
     void sameSeedProducesSameOutput() {
-        String a = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8, 5, 42L);
-        String b = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8, 5, 42L);
+        String a = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8f, 5, 42L);
+        String b = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8f, 5, 42L);
 
         assertEquals(a, b, "identical seeds must produce identical output");
     }
 
     @Test
     void differentSeedsProduceDifferentOutput() {
-        String a = TextGenerator.generate(model, tok, cfg, "hello", 20, 1.0, 0, 1L);
-        String b = TextGenerator.generate(model, tok, cfg, "hello", 20, 1.0, 0, 999L);
+        String a = TextGenerator.generate(model, tok, cfg, "hello", 20, 1.0f, 0, 1L);
+        String b = TextGenerator.generate(model, tok, cfg, "hello", 20, 1.0f, 0, 999L);
 
         // Not guaranteed but overwhelmingly likely with 20 tokens
         assertNotEquals(a, b, "different seeds should usually diverge");
@@ -63,7 +63,7 @@ public class TextGeneratorTest {
     @Test
     void outputStartsWithPrompt() {
         String prompt = "abc";
-        String out = TextGenerator.generate(model, tok, cfg, prompt, 5, 1.0, 0, 7L);
+        String out = TextGenerator.generate(model, tok, cfg, prompt, 5, 1.0f, 0, 7L);
 
         assertTrue(out.startsWith(prompt), "output must begin with the prompt");
     }
@@ -73,15 +73,15 @@ public class TextGeneratorTest {
     @Test
     void zeroNewTokensReturnsPromptOnly() {
         String prompt = "test";
-        String out = TextGenerator.generate(model, tok, cfg, prompt, 0, 1.0, 0, 1L);
+        String out = TextGenerator.generate(model, tok, cfg, prompt, 0, 1.0f, 0, 1L);
 
         assertEquals(prompt, out, "zero new tokens should return the prompt unchanged");
     }
 
     @Test
     void outputGrowsWithMoreTokens() {
-        String short_ = TextGenerator.generate(model, tok, cfg, "x", 2, 1.0, 0, 5L);
-        String long_  = TextGenerator.generate(model, tok, cfg, "x", 20, 1.0, 0, 5L);
+        String short_ = TextGenerator.generate(model, tok, cfg, "x", 2, 1.0f, 0, 5L);
+        String long_  = TextGenerator.generate(model, tok, cfg, "x", 20, 1.0f, 0, 5L);
 
         assertTrue(long_.length() > short_.length(), "more tokens should produce longer output");
     }
@@ -91,8 +91,8 @@ public class TextGeneratorTest {
     @Test
     void topKOneIsGreedy() {
         // topK=1 always picks the highest-probability token → deterministic regardless of seed
-        String a = TextGenerator.generate(model, tok, cfg, "hi", 10, 1.0, 1, 1L);
-        String b = TextGenerator.generate(model, tok, cfg, "hi", 10, 1.0, 1, 999L);
+        String a = TextGenerator.generate(model, tok, cfg, "hi", 10, 1.0f, 1, 1L);
+        String b = TextGenerator.generate(model, tok, cfg, "hi", 10, 1.0f, 1, 999L);
 
         assertEquals(a, b, "topK=1 should be greedy and seed-independent");
     }
@@ -100,7 +100,7 @@ public class TextGeneratorTest {
     @Test
     void topKZeroUsesFullVocab() {
         // Should not throw — topK=0 means "use all logits"
-        String out = TextGenerator.generate(model, tok, cfg, "hi", 5, 1.0, 0, 1L);
+        String out = TextGenerator.generate(model, tok, cfg, "hi", 5, 1.0f, 0, 1L);
         assertNotNull(out);
     }
 
@@ -110,24 +110,24 @@ public class TextGeneratorTest {
     @Test
     void negativeMaxNewTokensThrows() {
         assertThrows(IllegalArgumentException.class,
-                () -> TextGenerator.generate(model, tok, cfg, "x", -1, 1.0, 0, 1L));
+                () -> TextGenerator.generate(model, tok, cfg, "x", -1, 1.0f, 0, 1L));
     }
 
     @Test
     void zeroTemperatureThrows() {
         assertThrows(IllegalArgumentException.class,
-                () -> TextGenerator.generate(model, tok, cfg, "x", 5, 0.0, 0, 1L));
+                () -> TextGenerator.generate(model, tok, cfg, "x", 5, 0.0f, 0, 1L));
     }
 
     @Test
     void negativeTemperatureThrows() {
         assertThrows(IllegalArgumentException.class,
-                () -> TextGenerator.generate(model, tok, cfg, "x", 5, -0.5, 0, 1L));
+                () -> TextGenerator.generate(model, tok, cfg, "x", 5, -0.5f, 0, 1L));
     }
 
     @Test
     void negativeTopKThrows() {
         assertThrows(IllegalArgumentException.class,
-                () -> TextGenerator.generate(model, tok, cfg, "x", 5, 1.0, -1, 1L));
+                () -> TextGenerator.generate(model, tok, cfg, "x", 5, 1.0f, -1, 1L));
     }
 }

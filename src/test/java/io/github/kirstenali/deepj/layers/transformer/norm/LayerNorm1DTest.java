@@ -15,16 +15,16 @@ public class LayerNorm1DTest {
     @Test
     void gammaBeta_update_can_reduce_mse_loss_within_a_few_steps() {
         LayerNorm1D ln = new LayerNorm1D(3);
-        AdamW opt = new AdamW(0.05, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.05f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
-        Tensor x = new Tensor(new double[][]{
-                { 1.0,  2.0,  3.0},
-                { 2.0,  0.0, -2.0}
+        Tensor x = Tensor.from2D(new float[][]{
+                { 1.0f,  2.0f,  3.0f},
+                { 2.0f,  0.0f, -2.0f}
         });
 
-        Tensor target = new Tensor(new double[][]{
-                { 0.5,  0.5,  0.5},
-                {-0.5, -0.5, -0.5}
+        Tensor target = Tensor.from2D(new float[][]{
+                { 0.5f,  0.5f,  0.5f},
+                {-0.5f, -0.5f, -0.5f}
         });
 
         double prev = oneStepMSE(ln, opt, x, target);

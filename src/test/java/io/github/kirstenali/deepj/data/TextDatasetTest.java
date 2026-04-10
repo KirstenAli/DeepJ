@@ -35,4 +35,15 @@ public class TextDatasetTest {
             }
         }
     }
+
+    @Test
+    void nextBatch_handlesMinimumValidTokenLength() {
+        int[] tokens = new int[]{10, 11, 12, 13, 14}; // seqLen=4 => seqLen+1
+        TextDataset ds = new TextDataset(tokens, 4, 7L);
+
+        Batch b = ds.nextBatch(1);
+
+        Assertions.assertArrayEquals(new int[]{10, 11, 12, 13}, b.x()[0]);
+        Assertions.assertArrayEquals(new int[]{11, 12, 13, 14}, b.y()[0]);
+    }
 }

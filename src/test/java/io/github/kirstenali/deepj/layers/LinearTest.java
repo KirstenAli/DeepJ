@@ -23,24 +23,24 @@ public class LinearTest {
         Parameter W = ps.get(0);
         Parameter b = ps.get(1);
 
-        W.value = new Tensor(new double[][]{
+        W.value = Tensor.from2D(new float[][]{
                 {1, 0, -1},
                 {2, 1,  0}
         });
-        b.value = new Tensor(new double[][]{{0.5, -0.5, 1.0}});
+        b.value = Tensor.from2D(new float[][]{{0.5f, -0.5f, 1.0f}});
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new float[][]{
                 {1, 2},
                 {-1, 0}
         });
 
         Tensor y = lin.forward(x);
-        TestSupport.assertTensorAllClose(y, new Tensor(new double[][]{
-                {5.5, 1.5, 0.0},
-                {-0.5, -0.5, 2.0}
-        }), 1e-12);
+        TestSupport.assertTensorAllClose(y, Tensor.from2D(new float[][]{
+                {5.5f, 1.5f, 0.0f},
+                {-0.5f, -0.5f, 2.0f}
+        }), 1e-12f);
 
-        Tensor gradOut = new Tensor(new double[][]{
+        Tensor gradOut = Tensor.from2D(new float[][]{
                 {1, 1, 1},
                 {2, 0, -1}
         });
@@ -56,14 +56,14 @@ public class LinearTest {
     @Test
     void linear_can_reduce_mse_loss_with_optimizer_step() {
         Linear lin = new Linear(2, 3, new Random(1));
-        AdamW opt = new AdamW(0.05, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.05f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new float[][]{
                 {1, 2},
                 {-1, 0}
         });
 
-        Tensor target = new Tensor(new double[][]{
+        Tensor target = Tensor.from2D(new float[][]{
                 {0, 0, 0},
                 {0, 0, 0}
         });

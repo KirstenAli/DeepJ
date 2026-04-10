@@ -2,10 +2,12 @@ package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 
+import java.util.Arrays;
 import java.util.Random;
 
 public class Tensor {
-    public final double[][] data;
+    /** Flat row-major storage: element (r, c) lives at data[r * cols + c]. */
+    public final float[] data;
     public final int rows, cols;
 
     /**
@@ -33,24 +35,32 @@ public class Tensor {
     public Tensor(int rows, int cols) {
         this.rows = rows;
         this.cols = cols;
-        this.data = new double[rows][cols];
+        this.data = new float[rows * cols];
     }
 
-    public Tensor(double[][] data) {
-        this.rows = data.length;
-        this.cols = data[0].length;
-        this.data = new double[rows][cols];
-        for (int i = 0; i < rows; i++) {
-            if (data[i].length != cols)
-                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
-            System.arraycopy(data[i], 0, this.data[i], 0, cols);
-        }
+    /** Copy constructor — creates an independent deep copy. */
+    public Tensor(Tensor source) {
+        if (source == null) throw new IllegalArgumentException("source cannot be null");
+        source.materialize();
+        this.rows = source.rows;
+        this.cols = source.cols;
+        this.data = Arrays.copyOf(source.data, source.data.length);
+        // Never share backend-owned GPU handles across tensor copies.
+        this.gpuTag = null;
     }
 
     /**
-     * Ensures this tensor's {@code data[][]} is up to date with any pending GPU computation.
+     * Returns a fresh {@code float[]} copy of row {@code r}.
+     * Convenience for tests and debugging; not a view.
+     */
+    public float[] rowData(int r) {
+        return Arrays.copyOfRange(data, r * cols, (r + 1) * cols);
+    }
+
+    /**
+     * Ensures this tensor's {@code data[]} is up to date with any pending GPU computation.
      * No-op if this tensor has no GPU handle or is already materialized.
-     * Call this before reading {@code data[][]} directly.
+     * Call this before reading {@code data[]} directly.
      */
     public void materialize() {
         if (gpuTag != null) {
@@ -75,9 +85,9 @@ public class Tensor {
     public Tensor multiplyBroadcastRows(Tensor rowVector) { return backend().multiplyBroadcastRows(this, rowVector); }
 
     // ── scalar ops ──────────────────────────────────────────────────
-    public Tensor multiplyScalar(double s) { return backend().multiplyScalar(this, s); }
-    public Tensor addScalar(double s) { return backend().addScalar(this, s); }
-    public Tensor divideScalar(double s) { return backend().divideScalar(this, s); }
+    public Tensor multiplyScalar(float s) { return backend().multiplyScalar(this, s); }
+    public Tensor addScalar(float s) { return backend().addScalar(this, s); }
+    public Tensor divideScalar(float s) { return backend().divideScalar(this, s); }
 
     // ── reductions ──────────────────────────────────────────────────
     public Tensor sumRows() { return backend().sumRows(this); }
@@ -87,14 +97,14 @@ public class Tensor {
     public Tensor varianceAlongRows() { return backend().varianceAlongRows(this); }
     public Tensor maxAlongRows() { return backend().maxAlongRows(this); }
     // ── reductions (scalar-returning — trigger materialization) ──
-    public double sum() { materialize(); return backend().sum(this); }
-    public double sumAbs() { materialize(); return backend().sumAbs(this); }
+    public float sum() { materialize(); return backend().sum(this); }
+    public float sumAbs() { materialize(); return backend().sumAbs(this); }
 
     // ── unary math ──────────────────────────────────────────────────
-    public Tensor clamp(double min, double max) { return backend().clamp(this, min, max); }
+    public Tensor clamp(float min, float max) { return backend().clamp(this, min, max); }
     public Tensor transpose() { return backend().transpose(this); }
     public Tensor sqrt() { return backend().sqrt(this); }
-    public Tensor pow(double exponent) { return backend().pow(this, exponent); }
+    public Tensor pow(float exponent) { return backend().pow(this, exponent); }
     public Tensor neg() { return backend().neg(this); }
     public Tensor exp() { return backend().exp(this); }
     public Tensor log() { return backend().log(this); }
@@ -113,9 +123,9 @@ public class Tensor {
     public Tensor multiplyInPlace(Tensor b)      { backend().multiplyInPlace(this, b); return this; }
     public Tensor divideInPlace(Tensor b)        { backend().divideInPlace(this, b); return this; }
 
-    public Tensor multiplyScalarInPlace(double s) { backend().multiplyScalarInPlace(this, s); return this; }
-    public Tensor addScalarInPlace(double s)      { backend().addScalarInPlace(this, s); return this; }
-    public Tensor divideScalarInPlace(double s)   { backend().divideScalarInPlace(this, s); return this; }
+    public Tensor multiplyScalarInPlace(float s) { backend().multiplyScalarInPlace(this, s); return this; }
+    public Tensor addScalarInPlace(float s)      { backend().addScalarInPlace(this, s); return this; }
+    public Tensor divideScalarInPlace(float s)   { backend().divideScalarInPlace(this, s); return this; }
 
     public Tensor sqrtInPlace()    { backend().sqrtInPlace(this); return this; }
     public Tensor negInPlace()     { backend().negInPlace(this); return this; }
@@ -131,12 +141,12 @@ public class Tensor {
     public Tensor softmaxBackward(Tensor softmaxOut) { return backend().softmaxBackward(this, softmaxOut); }
 
     // ── fused high-level ops ────────────────────────────────────────
-    public double crossEntropyLoss(int[] targets) { materialize(); return backend().crossEntropyLoss(this, targets); }
+    public float crossEntropyLoss(int[] targets) { materialize(); return backend().crossEntropyLoss(this, targets); }
     public Tensor crossEntropyGradient(int[] targets) { return backend().crossEntropyGradient(this, targets); }
 
     public static void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
-                                   double lr, double beta1, double beta2, double eps,
-                                   double weightDecay, double bc1, double bc2) {
+                                   float lr, float beta1, float beta2, float eps,
+                                   float weightDecay, float bc1, float bc2) {
         backend().adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
     }
 
@@ -145,8 +155,8 @@ public class Tensor {
     }
 
     // ── data accessors (trigger materialization) ────────────────
-    public double get(int r, int c) { materialize(); return backend().get(this, r, c); }
-    public void set(int r, int c, double value) { materialize(); backend().set(this, r, c, value); }
+    public float get(int r, int c) { materialize(); return backend().get(this, r, c); }
+    public void set(int r, int c, float value) { materialize(); backend().set(this, r, c, value); }
     public Tensor getRow(int row) { materialize(); return backend().getRow(this, row); }
     public void setRow(int row, Tensor source, int srcRow) { materialize(); source.materialize(); backend().setRow(this, row, source, srcRow); }
 
@@ -168,8 +178,23 @@ public class Tensor {
     public static Tensor ones(int rows, int cols) { return backend().ones(rows, cols); }
     public static Tensor random(int rows, int cols, Random rand) { return backend().random(rows, cols, rand); }
     public static Tensor causalMask(int size) { return backend().causalMask(size); }
-    public static Tensor unflattenToTensor(double[] flat, int rows, int cols) { return backend().unflattenToTensor(flat, rows, cols); }
-    public static double[] flattenTensor(Tensor t) { t.materialize(); return backend().flattenTensor(t); }
+
+    /**
+     * Build a tensor from 2-D row-major data.
+     * Preferred API for literal matrix construction.
+     */
+    public static Tensor from2D(float[][] data) {
+        int rows = data.length;
+        int cols = data[0].length;
+        Tensor t = new Tensor(rows, cols);
+        for (int r = 0; r < rows; r++) {
+            if (data[r].length != cols) {
+                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
+            }
+            System.arraycopy(data[r], 0, t.data, r * cols, cols);
+        }
+        return t;
+    }
 
     // ── shape checks ────────────────────────────────────────────────
     public static void requireSameShape(Tensor a, Tensor b, String op) {

@@ -38,7 +38,7 @@ public final class TextDataset {
         int maxStart = tokens.length - (seqLen + 1);
 
         for (int b = 0; b < batchSize; b++) {
-            int start = rnd.nextInt(maxStart);
+            int start = rnd.nextInt(maxStart + 1);
             for (int t = 0; t < seqLen; t++) {
                 x[b][t] = tokens[start + t];
                 y[b][t] = tokens[start + t + 1];

@@ -15,8 +15,10 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  */
 public final class CrossEntropyLoss implements LossFunction {
 
+    private static final float TARGET_INTEGER_EPS = 1e-6f;
+
     @Override
-    public double loss(Tensor predicted, Tensor actual) {
+    public float loss(Tensor predicted, Tensor actual) {
         int[] y = toIntTargets(actual);
         return loss(predicted, y);
     }
@@ -30,7 +32,7 @@ public final class CrossEntropyLoss implements LossFunction {
     /**
      * Convenience helper: compute loss from logits and int targets.
      */
-    public static double loss(Tensor logits, int[] targets) {
+    public static float loss(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
         return logits.crossEntropyLoss(targets);
     }
@@ -53,9 +55,20 @@ public final class CrossEntropyLoss implements LossFunction {
             );
         }
 
+        actual.materialize();
         int[] y = new int[actual.rows];
         for (int i = 0; i < actual.rows; i++) {
-            y[i] = (int) Math.round(actual.get(i, 0));
+            float value = actual.data[i]; // cols=1, so data[i*1+0] = data[i]
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException("target value at row " + i + " must be finite");
+            }
+
+            int asInt = (int) value;
+            if (Math.abs(value - asInt) > TARGET_INTEGER_EPS) {
+                throw new IllegalArgumentException(
+                        "target value at row " + i + " must be an integer class id, got " + value);
+            }
+            y[i] = asInt;
         }
         return y;
     }
@@ -66,11 +79,10 @@ public final class CrossEntropyLoss implements LossFunction {
     public static Tensor fromIntTargets(int[] targets) {
         Tensor t = new Tensor(targets.length, 1);
         for (int i = 0; i < targets.length; i++) {
-            t.set(i, 0, targets[i]);
+            t.data[i] = targets[i]; // cols=1, so data[i*1+0] = data[i]
         }
         return t;
     }
-
 
     private static void checkTargets(Tensor logits, int[] targets) {
         if (logits == null) {

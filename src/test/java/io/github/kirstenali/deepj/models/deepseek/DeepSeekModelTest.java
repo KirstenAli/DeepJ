@@ -83,7 +83,7 @@ public class DeepSeekModelTest {
         model.backward(dLogits);
 
         boolean anyNonZero = model.parameters().stream()
-                .anyMatch(p -> p.grad.sumAbs() > 0.0);
+                .anyMatch(p -> p.grad.sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one parameter gradient must be non-zero after backward");
     }
 
@@ -108,7 +108,7 @@ public class DeepSeekModelTest {
     @Test
     void generate_runsAndStartsWithPrompt() {
         Tokenizer tok = new ByteTokenizer();
-        String out = TextGenerator.generate(model, tok, cfg, "hi", 8, 1.0, 0, 1L);
+        String out = TextGenerator.generate(model, tok, cfg, "hi", 8, 1.0f, 0, 1L);
 
         assertNotNull(out);
         assertTrue(out.startsWith("hi"));
@@ -117,8 +117,8 @@ public class DeepSeekModelTest {
     @Test
     void generate_sameSeedProducesSameOutput() {
         Tokenizer tok = new ByteTokenizer();
-        String a = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8, 5, 42L);
-        String b = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8, 5, 42L);
+        String a = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8f, 5, 42L);
+        String b = TextGenerator.generate(model, tok, cfg, "hello", 10, 0.8f, 5, 42L);
 
         assertEquals(a, b);
     }

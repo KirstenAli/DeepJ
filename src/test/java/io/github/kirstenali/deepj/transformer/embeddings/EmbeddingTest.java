@@ -15,19 +15,18 @@ public class EmbeddingTest {
     void forward_pullsCorrectRows_fromWeightMatrix() {
         Embedding emb = new Embedding(5, 3, new Random(1));
 
-        // Overwrite weights with deterministic values: row i = [i, i+1, i+2]
         for (int i = 0; i < 5; i++) {
-            emb.weight().value.data[i][0] = i;
-            emb.weight().value.data[i][1] = i + 1;
-            emb.weight().value.data[i][2] = i + 2;
+            emb.weight().value.data[i * 3 + 0] = i;
+            emb.weight().value.data[i * 3 + 1] = i + 1;
+            emb.weight().value.data[i * 3 + 2] = i + 2;
         }
 
         Tensor out = emb.forward(new int[]{3, 1, 3});
         TestSupport.assertTensorShape(out, 3, 3);
 
-        assertArrayEquals(new double[]{3, 4, 5}, out.data[0], 1e-12);
-        assertArrayEquals(new double[]{1, 2, 3}, out.data[1], 1e-12);
-        assertArrayEquals(new double[]{3, 4, 5}, out.data[2], 1e-12);
+        assertArrayEquals(new float[]{3, 4, 5}, out.rowData(0), 1e-6f);
+        assertArrayEquals(new float[]{1, 2, 3}, out.rowData(1), 1e-6f);
+        assertArrayEquals(new float[]{3, 4, 5}, out.rowData(2), 1e-6f);
     }
 
     @Test
@@ -37,20 +36,20 @@ public class EmbeddingTest {
 
         emb.forward(new int[]{1, 1, 3});
 
-        Tensor gradOut = new Tensor(new double[][]{
-                {1.0, 2.0},
-                {3.0, 4.0},
-                {5.0, 6.0}
+        Tensor gradOut = Tensor.from2D(new float[][]{
+                {1.0f, 2.0f},
+                {3.0f, 4.0f},
+                {5.0f, 6.0f}
         });
         emb.backward(gradOut);
 
         // id=1 appears twice => grads sum
-        assertEquals(1.0 + 3.0, emb.weight().grad.data[1][0], 1e-12);
-        assertEquals(2.0 + 4.0, emb.weight().grad.data[1][1], 1e-12);
+        assertEquals(1.0f + 3.0f, emb.weight().grad.data[1 * 2 + 0], 1e-12f);
+        assertEquals(2.0f + 4.0f, emb.weight().grad.data[1 * 2 + 1], 1e-12f);
 
         // id=3 appears once
-        assertEquals(5.0, emb.weight().grad.data[3][0], 1e-12);
-        assertEquals(6.0, emb.weight().grad.data[3][1], 1e-12);
+        assertEquals(5.0f, emb.weight().grad.data[3 * 2 + 0], 1e-12f);
+        assertEquals(6.0f, emb.weight().grad.data[3 * 2 + 1], 1e-12f);
     }
 
     @Test
@@ -65,11 +64,11 @@ public class EmbeddingTest {
         Embedding emb = new Embedding(6, 3, new Random(4));
 
         int id = 2;
-        Tensor target = new Tensor(new double[][]{
-                { 0.25, -0.50, 1.25 }
+        Tensor target = Tensor.from2D(new float[][]{
+                { 0.25f, -0.50f, 1.25f }
         });
 
-        double lr = 0.1;
+        double lr = 0.1f;
 
         double prev = oneSgdStepMSE(emb, id, target, lr);
         boolean improved = false;
@@ -103,7 +102,7 @@ public class EmbeddingTest {
         Tensor dW = emb.weight().grad;
 
         for (int c = 0; c < W.cols; c++) {
-            W.data[id][c] -= lr * dW.data[id][c];
+            W.data[id * W.cols + c] -= lr * dW.data[id * dW.cols + c];
         }
 
         return loss;

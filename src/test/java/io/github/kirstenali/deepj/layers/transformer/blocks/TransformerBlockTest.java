@@ -24,23 +24,23 @@ public class TransformerBlockTest {
             p.zeroGrad();
         }
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new float[][]{
                 { 1,  2,  3,  4},
                 {-1, -2, -3, -4}
         });
 
         Tensor y = block.forward(x);
-        TestSupport.assertTensorAllClose(x, y, 1e-12);
+        TestSupport.assertTensorAllClose(x, y, 1e-12f);
     }
 
     @Test
     void backward_returnsSameShape_andAccumulatesSomeGradients() {
         GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(2));
 
-        Tensor x = new Tensor(new double[][]{
-                { 0.2, -0.1,  0.3,  0.0},
-                { 0.0,  0.4, -0.2,  0.1},
-                {-0.3,  0.2,  0.1, -0.4}
+        Tensor x = Tensor.from2D(new float[][]{
+                { 0.2f, -0.1f,  0.3f,  0.0f},
+                { 0.0f,  0.4f, -0.2f,  0.1f},
+                {-0.3f,  0.2f,  0.1f, -0.4f}
         });
 
         Tensor y = block.forward(x);
@@ -50,20 +50,20 @@ public class TransformerBlockTest {
         TestSupport.assertTensorShape(gradIn, x.rows, x.cols);
 
         // Not every param is guaranteed to be non-zero, but at least one should be.
-        double totalGrad = 0.0;
+        double totalGrad = 0.0f;
         for (Parameter p : block.parameters()) totalGrad += p.grad.sumAbs();
-        assertTrue(totalGrad > 0.0, "Expected some non-zero gradients in block parameters");
+        assertTrue(totalGrad > 0.0f, "Expected some non-zero gradients in block parameters");
     }
 
     @Test
     void learning_can_reduce_mse_loss_within_a_few_steps() {
         GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(3));
-        AdamW opt = new AdamW(0.01, 0.9, 0.999, 1e-8, 0.0);
+        AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
-        Tensor x = new Tensor(new double[][]{
-                { 0.2, -0.1,  0.3,  0.0},
-                { 0.0,  0.4, -0.2,  0.1},
-                {-0.3,  0.2,  0.1, -0.4}
+        Tensor x = Tensor.from2D(new float[][]{
+                { 0.2f, -0.1f,  0.3f,  0.0f},
+                { 0.0f,  0.4f, -0.2f,  0.1f},
+                {-0.3f,  0.2f,  0.1f, -0.4f}
         });
 
         // Simple deterministic target: all zeros (same shape).

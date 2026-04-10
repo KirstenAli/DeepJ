@@ -13,11 +13,11 @@ public interface TransformerConfig {
     int nHeads();
     int nLayers();
     int dFF();
-    double gradClipNorm();
+    float gradClipNorm();
 
     /** Validates the fields common to all transformer configs. Call from each record's compact constructor. */
     static void validateCommon(int vocabSize, int maxSeqLen, int dModel,
-                               int nHeads, int nLayers, int dFF, double gradClipNorm) {
+                               int nHeads, int nLayers, int dFF, float gradClipNorm) {
         if (vocabSize <= 0) throw new IllegalArgumentException("vocabSize must be > 0");
         if (maxSeqLen <= 0) throw new IllegalArgumentException("maxSeqLen must be > 0");
         if (dModel <= 0)    throw new IllegalArgumentException("dModel must be > 0");
@@ -26,7 +26,7 @@ public interface TransformerConfig {
         if (dFF <= 0)       throw new IllegalArgumentException("dFF must be > 0");
         if (dModel % nHeads != 0)
             throw new IllegalArgumentException("dModel must be divisible by nHeads");
-        if (!Double.isFinite(gradClipNorm) || gradClipNorm <= 0.0)
+        if (!Float.isFinite(gradClipNorm) || gradClipNorm <= 0.0f)
             throw new IllegalArgumentException("gradClipNorm must be finite and > 0");
     }
 }

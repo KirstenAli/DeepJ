@@ -23,6 +23,6 @@ public interface CausalLM extends Trainable {
     void backward(Tensor dLogits);
 
     /** Global gradient-clipping threshold (e.g. {@code 1.0}). */
-    double gradClipNorm();
+    float gradClipNorm();
 }
 

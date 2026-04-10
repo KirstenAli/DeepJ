@@ -69,14 +69,14 @@ public final class GPTModel extends DecoderOnlyModel {
     // ── Gradient clipping ──────────────────────────────────────────
 
     @Override
-    public double gradClipNorm() {
+    public float gradClipNorm() {
         return cfg.gradClipNorm();
     }
 
     // ── Init scale (GPT-2 stabilisation trick) ─────────────────────
 
-    private void applyInitScale(double factor) {
-        if (factor == 1.0) return;
+    private void applyInitScale(float factor) {
+        if (factor == 1.0f) return;
         for (Parameter p : parameters()) {
             p.value.multiplyScalarInPlace(factor);
         }

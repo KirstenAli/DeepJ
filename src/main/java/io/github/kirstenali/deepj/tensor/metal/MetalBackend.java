@@ -60,8 +60,6 @@ public final class MetalBackend implements TensorBackend {
     @Override public Tensor ones(int rows, int cols) { return cpuFallback.ones(rows, cols); }
     @Override public Tensor random(int rows, int cols, Random rand) { return cpuFallback.random(rows, cols, rand); }
     @Override public Tensor causalMask(int size) { return cpuFallback.causalMask(size); }
-    @Override public Tensor unflattenToTensor(double[] flat, int rows, int cols) { return cpuFallback.unflattenToTensor(flat, rows, cols); }
-    @Override public double[] flattenTensor(Tensor t) { ensureCpu(t); return cpuFallback.flattenTensor(t); }
 
     // ── LAZY matmul ────────────────────────────────────────────────
 
@@ -177,26 +175,26 @@ public final class MetalBackend implements TensorBackend {
     // ── LAZY scalar ops ────────────────────────────────────────────
 
     @Override
-    public Tensor multiplyScalar(Tensor a, double scalar) {
+    public Tensor multiplyScalar(Tensor a, float scalar) {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
-        graph.recordMultiplyScalar(ga, gOut, (float) scalar);
+        graph.recordMultiplyScalar(ga, gOut, scalar);
         return gpuOut(gOut);
     }
 
     @Override
-    public Tensor addScalar(Tensor a, double scalar) {
+    public Tensor addScalar(Tensor a, float scalar) {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
-        graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, (float) scalar);
+        graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, scalar);
         return gpuOut(gOut);
     }
 
     @Override
-    public Tensor divideScalar(Tensor a, double scalar) {
+    public Tensor divideScalar(Tensor a, float scalar) {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
-        graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, (float) scalar);
+        graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, scalar);
         return gpuOut(gOut);
     }
 
@@ -240,12 +238,12 @@ public final class MetalBackend implements TensorBackend {
     }
 
     @Override public Tensor maxAlongRows(Tensor a) { ensureCpu(a); return cpuFallback.maxAlongRows(a); }
-    @Override public double sum(Tensor a) { ensureCpu(a); return cpuFallback.sum(a); }
-    @Override public double sumAbs(Tensor a) { ensureCpu(a); return cpuFallback.sumAbs(a); }
+    @Override public float sum(Tensor a) { ensureCpu(a); return cpuFallback.sum(a); }
+    @Override public float sumAbs(Tensor a) { ensureCpu(a); return cpuFallback.sumAbs(a); }
 
     // ── unary math — CPU only ──────────────────────────────────────
 
-    @Override public Tensor clamp(Tensor a, double min, double max) { ensureCpu(a); return cpuFallback.clamp(a, min, max); }
+    @Override public Tensor clamp(Tensor a, float min, float max) { ensureCpu(a); return cpuFallback.clamp(a, min, max); }
     @Override
     public Tensor transpose(Tensor a) {
         GpuBuffer ga = gpuIn(a);
@@ -253,7 +251,7 @@ public final class MetalBackend implements TensorBackend {
         graph.recordTranspose(ga, gOut, a.rows, a.cols);
         return gpuOut(gOut);
     }
-    @Override public Tensor pow(Tensor a, double exponent) { ensureCpu(a); return cpuFallback.pow(a, exponent); }
+    @Override public Tensor pow(Tensor a, float exponent) { ensureCpu(a); return cpuFallback.pow(a, exponent); }
 
     // ── LAZY unary math ────────────────────────────────────────────
 
@@ -402,26 +400,26 @@ public final class MetalBackend implements TensorBackend {
     }
 
     @Override
-    public void multiplyScalarInPlace(Tensor a, double s) {
+    public void multiplyScalarInPlace(Tensor a, float s) {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
-        graph.recordMultiplyScalar(ga, gOut, (float) s);
+        graph.recordMultiplyScalar(ga, gOut, s);
         bindInPlaceResult(a, gOut);
     }
 
     @Override
-    public void addScalarInPlace(Tensor a, double s) {
+    public void addScalarInPlace(Tensor a, float s) {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
-        graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, (float) s);
+        graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, s);
         bindInPlaceResult(a, gOut);
     }
 
     @Override
-    public void divideScalarInPlace(Tensor a, double s) {
+    public void divideScalarInPlace(Tensor a, float s) {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
-        graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, (float) s);
+        graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, s);
         bindInPlaceResult(a, gOut);
     }
 
@@ -491,7 +489,7 @@ public final class MetalBackend implements TensorBackend {
 
     // ── fused ops ──────────────────────────────────────────────────
 
-    @Override public double crossEntropyLoss(Tensor logits, int[] targets) { ensureCpu(logits); return cpuFallback.crossEntropyLoss(logits, targets); }
+    @Override public float crossEntropyLoss(Tensor logits, int[] targets) { ensureCpu(logits); return cpuFallback.crossEntropyLoss(logits, targets); }
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
@@ -499,17 +497,17 @@ public final class MetalBackend implements TensorBackend {
         Tensor probs = softmaxRows(logits);
         Tensor oneHot = new Tensor(logits.rows, logits.cols);
         for (int r = 0; r < logits.rows; r++) {
-            oneHot.data[r][targets[r]] = 1.0;
+            oneHot.data[r * logits.cols + targets[r]] = 1.0f;
         }
         probs.subtractInPlace(oneHot);
-        probs.multiplyScalarInPlace(1.0 / logits.rows);
+        probs.multiplyScalarInPlace(1.0f / logits.rows);
         return probs;
     }
 
     @Override
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
-                            double lr, double beta1, double beta2, double eps,
-                            double weightDecay, double bc1, double bc2) {
+                            float lr, float beta1, float beta2, float eps,
+                            float weightDecay, float bc1, float bc2) {
         Tensor.requireSameShape(w, g, "adamWUpdate");
         Tensor.requireSameShape(w, mt, "adamWUpdate");
         Tensor.requireSameShape(w, vt, "adamWUpdate");
@@ -520,8 +518,8 @@ public final class MetalBackend implements TensorBackend {
         GpuBuffer gvt = gpuIn(vt);
         graph.recordAdamWUpdate(
                 gw, gg, gmt, gvt,
-                (float) lr, (float) beta1, (float) beta2, (float) eps,
-                (float) weightDecay, (float) bc1, (float) bc2,
+                lr, beta1, beta2, eps,
+                weightDecay, bc1, bc2,
                 w.rows * w.cols
         );
 
@@ -548,8 +546,8 @@ public final class MetalBackend implements TensorBackend {
 
     // ── data accessors (CPU only) ──────────────────────────────────
 
-    @Override public double get(Tensor t, int r, int c) { ensureCpu(t); return cpuFallback.get(t, r, c); }
-    @Override public void set(Tensor t, int r, int c, double value) { ensureCpu(t); cpuFallback.set(t, r, c, value); }
+    @Override public float get(Tensor t, int r, int c) { ensureCpu(t); return cpuFallback.get(t, r, c); }
+    @Override public void set(Tensor t, int r, int c, float value) { ensureCpu(t); cpuFallback.set(t, r, c, value); }
     @Override public Tensor getRow(Tensor t, int row) { ensureCpu(t); return cpuFallback.getRow(t, row); }
     @Override public void setRow(Tensor t, int row, Tensor source, int srcRow) { ensureCpu(t, source); cpuFallback.setRow(t, row, source, srcRow); }
     @Override public Tensor sliceRows(Tensor t, int[] rowIndices, int cols) { ensureCpu(t); return cpuFallback.sliceRows(t, rowIndices, cols); }

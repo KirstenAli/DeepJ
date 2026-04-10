@@ -11,7 +11,7 @@ import java.util.List;
  */
 public final class LayerNorm1D implements NormLayer {
 
-    private static final double EPS = 1e-5;
+    private static final float EPS = 1e-5f;
 
     private final int dim;
 

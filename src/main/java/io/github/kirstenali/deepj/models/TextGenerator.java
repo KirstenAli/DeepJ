@@ -23,21 +23,21 @@ public final class TextGenerator {
 
     public static String generate(
             GPTModel model, Tokenizer tok, GPTConfig cfg,
-            String prompt, int maxNewTokens, double temperature, int topK, long seed
+            String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
     }
 
     public static String generate(
             LlamaModel model, Tokenizer tok, TransformerConfig cfg,
-            String prompt, int maxNewTokens, double temperature, int topK, long seed
+            String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
     }
 
     public static String generate(
             DeepSeekModel model, Tokenizer tok, TransformerConfig cfg,
-            String prompt, int maxNewTokens, double temperature, int topK, long seed
+            String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
     }
@@ -53,7 +53,7 @@ public final class TextGenerator {
             Tokenizer tok,
             String prompt,
             int maxNewTokens,
-            double temperature,
+            float temperature,
             int topK,
             long seed
     ) {
@@ -69,7 +69,7 @@ public final class TextGenerator {
             Tokenizer tok,
             String prompt,
             int maxNewTokens,
-            double temperature,
+            float temperature,
             int topK,
             long seed
     ) {
@@ -89,47 +89,50 @@ public final class TextGenerator {
     // ── Autoregressive step ────────────────────────────────────────
 
     private static int nextToken(Function<int[], Tensor> forwarder, int maxSeqLen, int[] ids,
-                                 double temperature, int topK, Random rnd) {
+                                 float temperature, int topK, Random rnd) {
         int[] context = last(ids, maxSeqLen);
         Tensor logits = forwarder.apply(context);
-        double[] lastLogits = Tensor.flattenTensor(logits.getRow(logits.rows - 1));
+        logits.materialize();
+        // Extract last row directly from flat storage — no backend round-trip.
+        float[] lastLogits = Arrays.copyOfRange(logits.data,
+                (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
     }
 
     // ── Sampling ───────────────────────────────────────────────────
 
-    private static int sampleFromLogits(double[] logits, double temperature, int topK, Random rnd) {
+    private static int sampleFromLogits(float[] logits, float temperature, int topK, Random rnd) {
         int[] topIndices = topKIndices(logits, topK);
-        double[] probs = stableSoftmax(logits, topIndices, temperature);
+        float[] probs = stableSoftmax(logits, topIndices, temperature);
         return categoricalSample(topIndices, probs, rnd);
     }
 
-    private static int[] topKIndices(double[] logits, int topK) {
+    private static int[] topKIndices(float[] logits, int topK) {
         int[] order = argsortDescending(logits);
         int k = (topK == 0) ? logits.length : Math.min(topK, logits.length);
         return Arrays.copyOf(order, k);
     }
 
-    private static double[] stableSoftmax(double[] logits, int[] indices, double temperature) {
-        double max = findMaxScaledLogit(logits, indices, temperature);
+    private static float[] stableSoftmax(float[] logits, int[] indices, float temperature) {
+        float max = findMaxScaledLogit(logits, indices, temperature);
         return computeProbs(logits, indices, temperature, max);
     }
 
-    private static double findMaxScaledLogit(double[] logits, int[] indices, double temperature) {
-        double max = Double.NEGATIVE_INFINITY;
+    private static float findMaxScaledLogit(float[] logits, int[] indices, float temperature) {
+        float max = Float.NEGATIVE_INFINITY;
         for (int idx : indices) {
-            double v = logits[idx] / temperature;
+            float v = logits[idx] / temperature;
             if (v > max) max = v;
         }
         return max;
     }
 
-    private static double[] computeProbs(double[] logits, int[] indices,
-                                         double temperature, double max) {
-        double[] probs = new double[indices.length];
-        double sum = 0.0;
+    private static float[] computeProbs(float[] logits, int[] indices,
+                                         float temperature, float max) {
+        float[] probs = new float[indices.length];
+        float sum = 0.0f;
         for (int i = 0; i < indices.length; i++) {
-            double p = Math.exp(logits[indices[i]] / temperature - max);
+            float p = (float) Math.exp(logits[indices[i]] / temperature - max);
             probs[i] = p;
             sum += p;
         }
@@ -137,9 +140,9 @@ public final class TextGenerator {
         return probs;
     }
 
-    private static int categoricalSample(int[] indices, double[] probs, Random rnd) {
-        double r = rnd.nextDouble();
-        double cum = 0.0;
+    private static int categoricalSample(int[] indices, float[] probs, Random rnd) {
+        float r = rnd.nextFloat();
+        float cum = 0.0f;
         for (int i = 0; i < probs.length; i++) {
             cum += probs[i];
             if (r <= cum) return indices[i];
@@ -149,18 +152,18 @@ public final class TextGenerator {
 
     // ── Validation ─────────────────────────────────────────────────
 
-    private static void validateArgs(int maxNewTokens, double temperature, int topK) {
+    private static void validateArgs(int maxNewTokens, float temperature, int topK) {
         if (maxNewTokens < 0) throw new IllegalArgumentException("maxNewTokens must be >= 0");
-        if (temperature <= 0) throw new IllegalArgumentException("temperature must be > 0");
+        if (temperature <= 0.0f) throw new IllegalArgumentException("temperature must be > 0");
         if (topK < 0)         throw new IllegalArgumentException("topK must be >= 0");
     }
 
     // ── Array utilities ────────────────────────────────────────────
 
-    private static int[] argsortDescending(double[] a) {
+    private static int[] argsortDescending(float[] a) {
         Integer[] idx = new Integer[a.length];
         for (int i = 0; i < a.length; i++) idx[i] = i;
-        Arrays.sort(idx, (i, j) -> Double.compare(a[j], a[i]));
+        Arrays.sort(idx, (i, j) -> Float.compare(a[j], a[i]));
         int[] out = new int[a.length];
         for (int i = 0; i < a.length; i++) out[i] = idx[i];
         return out;

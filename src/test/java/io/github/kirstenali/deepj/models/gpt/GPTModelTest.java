@@ -12,14 +12,14 @@ public class GPTModelTest {
     @Test
     void config_defaultsIncludeStabilityKnobs() {
         GPTConfig cfg = new GPTConfig(11, 8, 4, 2, 1, 8);
-        assertEquals(0.2, cfg.initScale(), 1e-12);
-        assertEquals(1.0, cfg.gradClipNorm(), 1e-12);
+        assertEquals(0.2f, cfg.initScale(), 1e-12f);
+        assertEquals(1.0f, cfg.gradClipNorm(), 1e-12f);
     }
 
     @Test
     void model_appliesInitScaleFromConfig() {
-        GPTConfig base = new GPTConfig(11, 8, 4, 2, 1, 8, 1.0, 1.0);
-        GPTConfig scaled = new GPTConfig(11, 8, 4, 2, 1, 8, 0.2, 1.0);
+        GPTConfig base = new GPTConfig(11, 8, 4, 2, 1, 8, 1.0f, 1.0f);
+        GPTConfig scaled = new GPTConfig(11, 8, 4, 2, 1, 8, 0.2f, 1.0f);
 
         GPTModel mBase = new GPTModel(base, 1234L);
         GPTModel mScaled = new GPTModel(scaled, 1234L);
@@ -27,21 +27,21 @@ public class GPTModelTest {
         double baseAbs = mBase.parameters().get(0).value.sumAbs();
         double scaledAbs = mScaled.parameters().get(0).value.sumAbs();
 
-        assertTrue(baseAbs > 0.0);
-        assertEquals(0.2, scaledAbs / baseAbs, 1e-6);
-        assertEquals(1.0, mBase.gradClipNorm(), 1e-12);
+        assertTrue(baseAbs > 0.0f);
+        assertEquals(0.2f, scaledAbs / baseAbs, 1e-6f);
+        assertEquals(1.0f, mBase.gradClipNorm(), 1e-12f);
     }
 
     @Test
     void config_rejectsInvalidStabilityKnobs() {
         assertThrows(IllegalArgumentException.class,
-                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 0.0, 1.0));
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 0.0f, 1.0f));
         assertThrows(IllegalArgumentException.class,
-                () -> new GPTConfig(11, 8, 4, 2, 1, 8, Double.NaN, 1.0));
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, Float.NaN, 1.0f));
         assertThrows(IllegalArgumentException.class,
-                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 1.0, 0.0));
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 1.0f, 0.0f));
         assertThrows(IllegalArgumentException.class,
-                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 1.0, Double.NaN));
+                () -> new GPTConfig(11, 8, 4, 2, 1, 8, 1.0f, Float.NaN));
     }
 
     @Test
@@ -107,7 +107,7 @@ public class GPTModelTest {
         // upstream grad: make it non-uniform to reduce risk of accidental cancellation
         Tensor dLogits = Tensor.zeros(logits.rows, logits.cols);
         for (int r = 0; r < dLogits.rows; r++) {
-            dLogits.data[r][(r + 3) % dLogits.cols] = 1.0;
+            dLogits.data[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0f;
         }
 
         // zero all grads before backward
@@ -118,11 +118,11 @@ public class GPTModelTest {
         // First parameter is token embedding weight (see GPTModel.parameters()).
         Parameter tokW = model.parameters().get(0);
 
-        assertTrue(tokW.grad.sumAbs() > 0.0, "Expected non-zero token embedding grads");
+        assertTrue(tokW.grad.sumAbs() > 0.0f, "Expected non-zero token embedding grads");
 
         // Specific used ids should have non-zero rows.
-        assertTrue (new Tensor(new double[][]{tokW.grad.data[5]}).sumAbs() > 0.0, "id=5 row grad should be non-zero");
-        assertTrue(new Tensor(new double[][]{tokW.grad.data[1]}).sumAbs() > 0.0, "id=1 row grad should be non-zero");
-        assertTrue(new Tensor(new double[][]{tokW.grad.data[2]}).sumAbs() > 0.0, "id=2 row grad should be non-zero");
+        assertTrue (tokW.grad.getRow(5).sumAbs() > 0.0f, "id=5 row grad should be non-zero");
+        assertTrue(tokW.grad.getRow(1).sumAbs() > 0.0f, "id=1 row grad should be non-zero");
+        assertTrue(tokW.grad.getRow(2).sumAbs() > 0.0f, "id=2 row grad should be non-zero");
     }
 }

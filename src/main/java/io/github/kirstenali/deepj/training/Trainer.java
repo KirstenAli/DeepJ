@@ -18,12 +18,12 @@ public final class Trainer {
         /**
          * Runs one optimization step and returns the average loss for that step.
          */
-        double trainStep(int batchSize);
+        float trainStep(int batchSize);
     }
 
     @FunctionalInterface
     public interface StepHook {
-        void onStep(int step, double loss, double ema) throws Exception;
+        void onStep(int step, float loss, float ema) throws Exception;
     }
 
     private final StepFunction stepFn;
@@ -33,7 +33,7 @@ public final class Trainer {
         this.stepFn = stepFn;
     }
 
-    public double trainStep(int batchSize) {
+    public float trainStep(int batchSize) {
         return stepFn.trainStep(batchSize);
     }
 
@@ -45,8 +45,8 @@ public final class Trainer {
             int maxSteps,
             int batchSize,
             int logEvery,
-            double emaBeta,
-            Double targetEmaLoss
+            float emaBeta,
+            Float targetEmaLoss
     ) {
         return train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, DEFAULT_RELEASE_EVERY_STEPS, null);
     }
@@ -55,8 +55,8 @@ public final class Trainer {
             int maxSteps,
             int batchSize,
             int logEvery,
-            double emaBeta,
-            Double targetEmaLoss,
+            float emaBeta,
+            Float targetEmaLoss,
             int releaseEverySteps
     ) {
         return train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, releaseEverySteps, null);
@@ -70,8 +70,8 @@ public final class Trainer {
             int maxSteps,
             int batchSize,
             int logEvery,
-            double emaBeta,
-            Double targetEmaLoss,
+            float emaBeta,
+            Float targetEmaLoss,
             StepHook stepHook
     ) {
         return train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, DEFAULT_RELEASE_EVERY_STEPS, stepHook);
@@ -85,16 +85,16 @@ public final class Trainer {
             int maxSteps,
             int batchSize,
             int logEvery,
-            double emaBeta,
-            Double targetEmaLoss,
+            float emaBeta,
+            Float targetEmaLoss,
             int releaseEverySteps,
             StepHook stepHook
     ) {
         validateTrainArgs(maxSteps, batchSize, logEvery, emaBeta, releaseEverySteps);
 
-        double ema = Double.NaN;
+        float ema = Float.NaN;
         int step;
-        double lastLoss = Double.NaN;
+        float lastLoss = Float.NaN;
 
         try {
             for (step = 0; step < maxSteps; step++) {
@@ -117,7 +117,7 @@ public final class Trainer {
         return new TrainingResult(stepsRun, lastLoss, ema);
     }
 
-    private static void validateTrainArgs(int maxSteps, int batchSize, int logEvery, double emaBeta, int releaseEverySteps) {
+    private static void validateTrainArgs(int maxSteps, int batchSize, int logEvery, float emaBeta, int releaseEverySteps) {
         if (maxSteps <= 0) throw new IllegalArgumentException("maxSteps must be > 0");
         if (batchSize <= 0) throw new IllegalArgumentException("batchSize must be > 0");
         if (logEvery <= 0) throw new IllegalArgumentException("logEvery must be > 0");
@@ -125,17 +125,17 @@ public final class Trainer {
         if (releaseEverySteps < 0) throw new IllegalArgumentException("releaseEverySteps must be >= 0");
     }
 
-    private static double updateEma(double ema, double emaBeta, double lastLoss) {
-        return Double.isNaN(ema) ? lastLoss : (emaBeta * ema + (1.0 - emaBeta) * lastLoss);
+    private static float updateEma(float ema, float emaBeta, float lastLoss) {
+        return Float.isNaN(ema) ? lastLoss : (emaBeta * ema + (1.0f - emaBeta) * lastLoss);
     }
 
-    private static void maybeLog(int step, int logEvery, double lastLoss, double ema) {
+    private static void maybeLog(int step, int logEvery, float lastLoss, float ema) {
         if (step % logEvery == 0) {
             System.out.printf("step=%d loss=%.6f ema=%.6f%n", step, lastLoss, ema);
         }
     }
 
-    private static void invokeStepHookSafely(StepHook stepHook, int step, double lastLoss, double ema) {
+    private static void invokeStepHookSafely(StepHook stepHook, int step, float lastLoss, float ema) {
         if (stepHook == null) return;
         try {
             stepHook.onStep(step, lastLoss, ema);
@@ -150,7 +150,7 @@ public final class Trainer {
         }
     }
 
-    private static boolean shouldEarlyStop(Double targetEmaLoss, double ema) {
+    private static boolean shouldEarlyStop(Float targetEmaLoss, float ema) {
         return targetEmaLoss != null && ema <= targetEmaLoss;
     }
 
