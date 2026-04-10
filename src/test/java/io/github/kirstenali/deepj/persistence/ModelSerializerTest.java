@@ -19,11 +19,11 @@ public class ModelSerializerTest {
     @Test
     void saveAndLoad_roundTripsParameterValues() throws IOException {
         List<Parameter> original = List.of(
-                new Parameter(new Tensor(new double[][]{
+                new Parameter(Tensor.from2D(new double[][]{
                         {1.0, 2.0},
                         {3.0, 4.0}
                 })),
-                new Parameter(new Tensor(new double[][]{
+                new Parameter(Tensor.from2D(new double[][]{
                         {5.0, 6.0, 7.0}
                 }))
         );
@@ -32,11 +32,11 @@ public class ModelSerializerTest {
         ModelSerializer.save(original, file);
 
         List<Parameter> loaded = List.of(
-                new Parameter(new Tensor(new double[][]{
+                new Parameter(Tensor.from2D(new double[][]{
                         {0.0, 0.0},
                         {0.0, 0.0}
                 })),
-                new Parameter(new Tensor(new double[][]{
+                new Parameter(Tensor.from2D(new double[][]{
                         {0.0, 0.0, 0.0}
                 }))
         );
@@ -50,7 +50,7 @@ public class ModelSerializerTest {
     @Test
     void save_createsParentDirectories() throws IOException {
         List<Parameter> params = List.of(
-                new Parameter(new Tensor(new double[][]{{1.0}}))
+                new Parameter(Tensor.from2D(new double[][]{{1.0}}))
         );
 
         Path file = tempDir.resolve("nested").resolve("dir").resolve("model.bin");
@@ -62,15 +62,15 @@ public class ModelSerializerTest {
     @Test
     void load_throwsWhenParameterCountMismatch() throws IOException {
         List<Parameter> saved = List.of(
-                new Parameter(new Tensor(new double[][]{{1.0}})),
-                new Parameter(new Tensor(new double[][]{{2.0}}))
+                new Parameter(Tensor.from2D(new double[][]{{1.0}})),
+                new Parameter(Tensor.from2D(new double[][]{{2.0}}))
         );
 
         Path file = tempDir.resolve("model.bin");
         ModelSerializer.save(saved, file);
 
         List<Parameter> target = List.of(
-                new Parameter(new Tensor(new double[][]{{0.0}}))
+                new Parameter(Tensor.from2D(new double[][]{{0.0}}))
         );
 
         IOException ex = assertThrows(IOException.class, () -> ModelSerializer.load(target, file));
@@ -80,7 +80,7 @@ public class ModelSerializerTest {
     @Test
     void load_throwsWhenShapeMismatch() throws IOException {
         List<Parameter> saved = List.of(
-                new Parameter(new Tensor(new double[][]{
+                new Parameter(Tensor.from2D(new double[][]{
                         {1.0, 2.0},
                         {3.0, 4.0}
                 }))
@@ -90,7 +90,7 @@ public class ModelSerializerTest {
         ModelSerializer.save(saved, file);
 
         List<Parameter> target = List.of(
-                new Parameter(new Tensor(new double[][]{
+                new Parameter(Tensor.from2D(new double[][]{
                         {0.0, 0.0, 0.0}
                 }))
         );

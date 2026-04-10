@@ -440,7 +440,7 @@
             <div class="card">
                 <div class="card-icon icon-blue">📐</div>
                 <h3>Tensor Engine</h3>
-                <p>2-D tensors with 60+ operations. Pluggable backends — swap between CPU and Metal GPU with one line.</p>
+                <p>2-D tensors with 60+ operations, backed by flat float32 storage for efficient CPU/GPU transfer. Pluggable backends — swap between CPU and Metal GPU with one line.</p>
             </div>
             <div class="card">
                 <div class="card-icon icon-green">🧱</div>
@@ -541,7 +541,7 @@
                     while unsupported ops fall back to CPU with on-demand materialization.
                     Tensor state remains coherent across lazy execution and periodic resource release.
                     Reading values on CPU (<code>materialize()</code>, <code>get</code>, <code>set</code>,
-                    <code>print</code>, or raw <code>data[][]</code> access) triggers a sync/readback boundary.
+                    <code>print</code>, or raw <code>data[]</code> access) triggers a sync/readback boundary.
                 </p>
             </div>
             <div>
@@ -557,7 +557,7 @@
 │                                │
 │  e.materialize()               │       flush all 3 ops in one batch
 │                           ◀──download── GPU buffer E
-│  read e.data[][]               │</div>
+│  read e.data[]                 │</div>
             </div>
         </div>
 

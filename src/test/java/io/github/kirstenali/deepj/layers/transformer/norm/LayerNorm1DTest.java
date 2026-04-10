@@ -17,12 +17,12 @@ public class LayerNorm1DTest {
         LayerNorm1D ln = new LayerNorm1D(3);
         AdamW opt = new AdamW(0.05, 0.9, 0.999, 1e-8, 0.0);
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new double[][]{
                 { 1.0,  2.0,  3.0},
                 { 2.0,  0.0, -2.0}
         });
 
-        Tensor target = new Tensor(new double[][]{
+        Tensor target = Tensor.from2D(new double[][]{
                 { 0.5,  0.5,  0.5},
                 {-0.5, -0.5, -0.5}
         });

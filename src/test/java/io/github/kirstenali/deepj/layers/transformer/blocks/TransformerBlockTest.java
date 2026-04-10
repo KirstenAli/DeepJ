@@ -24,7 +24,7 @@ public class TransformerBlockTest {
             p.zeroGrad();
         }
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new double[][]{
                 { 1,  2,  3,  4},
                 {-1, -2, -3, -4}
         });
@@ -37,7 +37,7 @@ public class TransformerBlockTest {
     void backward_returnsSameShape_andAccumulatesSomeGradients() {
         GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(2));
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new double[][]{
                 { 0.2, -0.1,  0.3,  0.0},
                 { 0.0,  0.4, -0.2,  0.1},
                 {-0.3,  0.2,  0.1, -0.4}
@@ -60,7 +60,7 @@ public class TransformerBlockTest {
         GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(3));
         AdamW opt = new AdamW(0.01, 0.9, 0.999, 1e-8, 0.0);
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new double[][]{
                 { 0.2, -0.1,  0.3,  0.0},
                 { 0.0,  0.4, -0.2,  0.1},
                 {-0.3,  0.2,  0.1, -0.4}

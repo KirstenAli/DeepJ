@@ -24,9 +24,9 @@ public class EmbeddingTest {
         Tensor out = emb.forward(new int[]{3, 1, 3});
         TestSupport.assertTensorShape(out, 3, 3);
 
-        assertArrayEquals(new double[]{3, 4, 5}, out.rowData(0), 1e-12);
-        assertArrayEquals(new double[]{1, 2, 3}, out.rowData(1), 1e-12);
-        assertArrayEquals(new double[]{3, 4, 5}, out.rowData(2), 1e-12);
+        assertArrayEquals(new float[]{3, 4, 5}, out.rowData(0), 1e-6f);
+        assertArrayEquals(new float[]{1, 2, 3}, out.rowData(1), 1e-6f);
+        assertArrayEquals(new float[]{3, 4, 5}, out.rowData(2), 1e-6f);
     }
 
     @Test
@@ -36,7 +36,7 @@ public class EmbeddingTest {
 
         emb.forward(new int[]{1, 1, 3});
 
-        Tensor gradOut = new Tensor(new double[][]{
+        Tensor gradOut = Tensor.from2D(new double[][]{
                 {1.0, 2.0},
                 {3.0, 4.0},
                 {5.0, 6.0}
@@ -64,7 +64,7 @@ public class EmbeddingTest {
         Embedding emb = new Embedding(6, 3, new Random(4));
 
         int id = 2;
-        Tensor target = new Tensor(new double[][]{
+        Tensor target = Tensor.from2D(new double[][]{
                 { 0.25, -0.50, 1.25 }
         });
 

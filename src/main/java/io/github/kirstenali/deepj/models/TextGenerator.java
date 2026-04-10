@@ -94,31 +94,31 @@ public final class TextGenerator {
         Tensor logits = forwarder.apply(context);
         logits.materialize();
         // Extract last row directly from flat storage — no backend round-trip.
-        double[] lastLogits = Arrays.copyOfRange(logits.data,
+        float[] lastLogits = Arrays.copyOfRange(logits.data,
                 (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
     }
 
     // ── Sampling ───────────────────────────────────────────────────
 
-    private static int sampleFromLogits(double[] logits, double temperature, int topK, Random rnd) {
+    private static int sampleFromLogits(float[] logits, double temperature, int topK, Random rnd) {
         int[] topIndices = topKIndices(logits, topK);
         double[] probs = stableSoftmax(logits, topIndices, temperature);
         return categoricalSample(topIndices, probs, rnd);
     }
 
-    private static int[] topKIndices(double[] logits, int topK) {
+    private static int[] topKIndices(float[] logits, int topK) {
         int[] order = argsortDescending(logits);
         int k = (topK == 0) ? logits.length : Math.min(topK, logits.length);
         return Arrays.copyOf(order, k);
     }
 
-    private static double[] stableSoftmax(double[] logits, int[] indices, double temperature) {
+    private static double[] stableSoftmax(float[] logits, int[] indices, double temperature) {
         double max = findMaxScaledLogit(logits, indices, temperature);
         return computeProbs(logits, indices, temperature, max);
     }
 
-    private static double findMaxScaledLogit(double[] logits, int[] indices, double temperature) {
+    private static double findMaxScaledLogit(float[] logits, int[] indices, double temperature) {
         double max = Double.NEGATIVE_INFINITY;
         for (int idx : indices) {
             double v = logits[idx] / temperature;
@@ -127,7 +127,7 @@ public final class TextGenerator {
         return max;
     }
 
-    private static double[] computeProbs(double[] logits, int[] indices,
+    private static double[] computeProbs(float[] logits, int[] indices,
                                          double temperature, double max) {
         double[] probs = new double[indices.length];
         double sum = 0.0;
@@ -160,10 +160,10 @@ public final class TextGenerator {
 
     // ── Array utilities ────────────────────────────────────────────
 
-    private static int[] argsortDescending(double[] a) {
+    private static int[] argsortDescending(float[] a) {
         Integer[] idx = new Integer[a.length];
         for (int i = 0; i < a.length; i++) idx[i] = i;
-        Arrays.sort(idx, (i, j) -> Double.compare(a[j], a[i]));
+        Arrays.sort(idx, (i, j) -> Float.compare(a[j], a[i]));
         int[] out = new int[a.length];
         for (int i = 0; i < a.length; i++) out[i] = idx[i];
         return out;

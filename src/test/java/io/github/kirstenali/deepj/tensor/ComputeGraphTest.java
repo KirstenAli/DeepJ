@@ -35,7 +35,7 @@ class ComputeGraphTest {
 
     @Test
     void ensureGpuBufferAssignsGpuTag() {
-        Tensor t = new Tensor(new double[][]{{1, 2}, {3, 4}});
+        Tensor t = Tensor.from2D(new double[][]{{1, 2}, {3, 4}});
         assertNull(t.getGpuTag());
 
         GpuBuffer buf = graph.ensureGpuBuffer(t);
@@ -57,12 +57,12 @@ class ComputeGraphTest {
 
     @Test
     void ensureGpuBufferReUploadsWhenNeedsUpload() {
-        Tensor t = new Tensor(new double[][]{{1.0}});
+        Tensor t = Tensor.from2D(new double[][]{{1.0}});
         GpuBuffer buf = graph.ensureGpuBuffer(t);
 
         // Simulate CPU modification (e.g. after adamWUpdate)
         buf.needsUpload = true;
-        t.data[0] = 99.0;
+        t.data[0] = 99.0f;
 
         graph.ensureGpuBuffer(t);
         assertFalse(buf.needsUpload, "needsUpload should be cleared after re-scheduling");
@@ -188,7 +188,7 @@ class ComputeGraphTest {
 
     @Test
     void flushAllocatesUploadsAndExecutes() {
-        Tensor t = new Tensor(new double[][]{{1, 2}, {3, 4}});
+        Tensor t = Tensor.from2D(new double[][]{{1, 2}, {3, 4}});
         GpuBuffer in = graph.ensureGpuBuffer(t);
         GpuBuffer out = graph.newOutputBuffer(2, 2);
         graph.recordUnary(ComputeGraph.OP_NEG, in, out);
@@ -232,7 +232,7 @@ class ComputeGraphTest {
 
     @Test
     void secondFlushOnlyExecutesNewOps() {
-        Tensor t = new Tensor(new double[][]{{1}});
+        Tensor t = Tensor.from2D(new double[][]{{1}});
         GpuBuffer in = graph.ensureGpuBuffer(t);
         GpuBuffer out1 = graph.newOutputBuffer(1, 1);
         graph.recordUnary(ComputeGraph.OP_SQRT, in, out1);
@@ -273,7 +273,7 @@ class ComputeGraphTest {
 
     @Test
     void materializeFlushesAndDownloads() {
-        Tensor input = new Tensor(new double[][]{{2.0, 4.0}});
+        Tensor input = Tensor.from2D(new double[][]{{2.0, 4.0}});
         GpuBuffer in = graph.ensureGpuBuffer(input);
         GpuBuffer outBuf = graph.newOutputBuffer(1, 2);
         graph.recordUnary(ComputeGraph.OP_SQRT, in, outBuf);
@@ -308,7 +308,7 @@ class ComputeGraphTest {
 
     @Test
     void materializeSkipsAlreadyFreshBuffer() {
-        Tensor t = new Tensor(new double[][]{{1}});
+        Tensor t = Tensor.from2D(new double[][]{{1}});
         GpuBuffer buf = graph.ensureGpuBuffer(t);
         buf.cpuStale = false;
 
@@ -318,7 +318,7 @@ class ComputeGraphTest {
 
     @Test
     void doubleMaterializeDoesNotDownloadTwice() {
-        Tensor input = new Tensor(new double[][]{{5.0}});
+        Tensor input = Tensor.from2D(new double[][]{{5.0}});
         GpuBuffer in = graph.ensureGpuBuffer(input);
         GpuBuffer outBuf = graph.newOutputBuffer(1, 1);
         graph.recordUnary(ComputeGraph.OP_NEG, in, outBuf);
@@ -336,7 +336,7 @@ class ComputeGraphTest {
 
     @Test
     void releaseAllReleasesBuffersAndResetsState() {
-        Tensor t = new Tensor(new double[][]{{1, 2}});
+        Tensor t = Tensor.from2D(new double[][]{{1, 2}});
         graph.ensureGpuBuffer(t);
         GpuBuffer out = graph.newOutputBuffer(1, 2);
         graph.recordUnary(ComputeGraph.OP_NEG, graph.ensureGpuBuffer(t), out);
@@ -347,7 +347,7 @@ class ComputeGraphTest {
         assertTrue(graph.isEmpty(), "graph should be empty after releaseAll");
 
         // Should be able to start fresh
-        GpuBuffer fresh = graph.ensureGpuBuffer(new Tensor(new double[][]{{9}}));
+        GpuBuffer fresh = graph.ensureGpuBuffer(Tensor.from2D(new double[][]{{9}}));
         assertEquals(0, fresh.id, "buffer ids should restart from 0 after releaseAll");
     }
 
@@ -387,7 +387,7 @@ class ComputeGraphTest {
 
     @Test
     void releaseAllMaterializesStaleTrackedTensor() {
-        Tensor t = new Tensor(new double[][]{{1.0}});
+        Tensor t = Tensor.from2D(new double[][]{{1.0}});
         GpuBuffer buf = graph.ensureGpuBuffer(t);
         graph.flush();
 
@@ -449,7 +449,7 @@ class ComputeGraphTest {
 
     @Test
     void flushMarksBuffersAsAllocatedOnGpu() {
-        Tensor t      = new Tensor(new double[][]{{1.0}});
+        Tensor t      = Tensor.from2D(new double[][]{{1.0}});
         GpuBuffer in  = graph.ensureGpuBuffer(t);
         GpuBuffer out = graph.newOutputBuffer(1, 1);
         // createOutputTensor registers 'out' in the tracking map so markAllocatedBuffers can reach it
@@ -483,7 +483,7 @@ class ComputeGraphTest {
 
     @Test
     void bufferWhoseTagWasReplacedIsReleasedOnFlush() {
-        Tensor t      = new Tensor(new double[][]{{1.0}});
+        Tensor t      = Tensor.from2D(new double[][]{{1.0}});
         GpuBuffer old = graph.ensureGpuBuffer(t);
         graph.flush(); // allocate and upload
 
@@ -505,7 +505,7 @@ class ComputeGraphTest {
 
     @Test
     void bufferWithClearedGpuTagIsReleasedOnFlush() {
-        Tensor t = new Tensor(new double[][]{{2.0}});
+        Tensor t = Tensor.from2D(new double[][]{{2.0}});
         GpuBuffer buf = graph.ensureGpuBuffer(t);
         graph.flush();
 
@@ -526,7 +526,7 @@ class ComputeGraphTest {
 
     @Test
     void releaseAllClearsTensorGpuTags() {
-        Tensor t = new Tensor(new double[][]{{3.0}});
+        Tensor t = Tensor.from2D(new double[][]{{3.0}});
         graph.ensureGpuBuffer(t);
 
         assertNotNull(t.getGpuTag(), "gpu tag should be set before releaseAll");

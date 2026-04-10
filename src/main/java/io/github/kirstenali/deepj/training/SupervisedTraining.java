@@ -39,8 +39,9 @@ public final class SupervisedTraining {
                 xb = xAll;
                 yb = yAll;
             } else {
-                xb = Tensor.sampleRows(xAll, batchSize, rnd);
-                yb = Tensor.sampleRows(yAll, batchSize, rnd);
+                int[] rowIndices = sampleIndices(xAll.rows, batchSize, rnd);
+                xb = Tensor.sliceRows(xAll, rowIndices, xAll.cols);
+                yb = Tensor.sliceRows(yAll, rowIndices, yAll.cols);
             }
 
             Tensor pred = model.forward(xb);
@@ -54,5 +55,13 @@ public final class SupervisedTraining {
 
             return loss;
         });
+    }
+
+    private static int[] sampleIndices(int rowCount, int batchSize, Random rnd) {
+        int[] indices = new int[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+            indices[i] = rnd.nextInt(rowCount);
+        }
+        return indices;
     }
 }

@@ -33,6 +33,6 @@ public final class Parameter {
     }
 
     private void clearGradData() {
-        Arrays.fill(grad.data, 0.0);
+        Arrays.fill(grad.data, 0.0f);
     }
 }

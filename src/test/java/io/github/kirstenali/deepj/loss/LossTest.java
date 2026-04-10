@@ -10,8 +10,8 @@ public class LossTest {
     @Test
     void mseLoss_matchesSimpleCase() {
         MSELoss mse = new MSELoss();
-        Tensor yHat = new Tensor(new double[][]{{1, 2}});
-        Tensor y = new Tensor(new double[][]{{3, 0}});
+        Tensor yHat = Tensor.from2D(new double[][]{{1, 2}});
+        Tensor y = Tensor.from2D(new double[][]{{3, 0}});
 
         double loss = mse.loss(yHat, y);
         // mean((1-3)^2, (2-0)^2) = mean(4,4) = 4
@@ -19,14 +19,14 @@ public class LossTest {
 
         Tensor g = mse.gradient(yHat, y);
         // d/dyHat mean((yHat-y)^2) = 2*(yHat-y)/N ; N=2
-        TestSupport.assertTensorAllClose(g, new Tensor(new double[][]{{-2, 2}}), 1e-12);
+        TestSupport.assertTensorAllClose(g, Tensor.from2D(new double[][]{{-2, 2}}), 1e-12);
     }
 
     @Test
     void crossEntropyLoss_decreasesWhenCorrectLogitIncreases() {
         // 1 token, vocab 3
-        Tensor logits1 = new Tensor(new double[][]{{0, 0, 0}});
-        Tensor logits2 = new Tensor(new double[][]{{0, 0, 5}});
+        Tensor logits1 = Tensor.from2D(new double[][]{{0, 0, 0}});
+        Tensor logits2 = Tensor.from2D(new double[][]{{0, 0, 5}});
         int[] target = new int[]{2};
 
         double l1 = CrossEntropyLoss.loss(logits1, target);
@@ -36,7 +36,7 @@ public class LossTest {
 
     @Test
     void crossEntropyGradient_shapeAndRowSumZero() {
-        Tensor logits = new Tensor(new double[][]{
+        Tensor logits = Tensor.from2D(new double[][]{
                 {1, 2, 3},
                 {3, 2, 1}
         });
@@ -48,13 +48,13 @@ public class LossTest {
         for (int r = 0; r < g.rows; r++) {
             double sum = 0.0;
             for (int c = 0; c < g.cols; c++) sum += g.data[r * g.cols + c];
-            Assertions.assertEquals(0.0, sum, 1e-9, "softmax-crossentropy grad rows should sum to 0");
+            Assertions.assertEquals(0.0, sum, 1e-6, "softmax-crossentropy grad rows should sum to 0");
         }
     }
 
     @Test
     void crossEntropyGradient_matchesSoftmaxMinusOneHot_singleRow() {
-        Tensor logits = new Tensor(new double[][]{{1, 2, 3}});
+        Tensor logits = Tensor.from2D(new double[][]{{1, 2, 3}});
         int[] target = new int[]{2};
 
         Tensor g = CrossEntropyLoss.gradient(logits, target);
@@ -71,8 +71,17 @@ public class LossTest {
         double p2 = c / s;
 
         // grad = softmax - oneHot(target)
-        Assertions.assertEquals(p0, g.data[0], 1e-8);
-        Assertions.assertEquals(p1, g.data[1], 1e-8);
-        Assertions.assertEquals(p2 - 1.0, g.data[2], 1e-8);
+        Assertions.assertEquals(p0, g.data[0], 1e-6);
+        Assertions.assertEquals(p1, g.data[1], 1e-6);
+        Assertions.assertEquals(p2 - 1.0, g.data[2], 1e-6);
+    }
+
+    @Test
+    void crossEntropyRejectsNonIntegerTensorTargets() {
+        Tensor logits = Tensor.from2D(new double[][]{{1, 2, 3}});
+        Tensor badTargets = Tensor.from2D(new double[][]{{1.5}});
+
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new CrossEntropyLoss().loss(logits, badTargets));
     }
 }

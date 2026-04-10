@@ -24,9 +24,9 @@ public class PositionalEmbeddingTest {
 
         Tensor out = pe.forward(3);
         TestSupport.assertTensorShape(out, 3, 2);
-        assertArrayEquals(new double[]{10, 20}, out.rowData(0), 1e-12);
-        assertArrayEquals(new double[]{11, 21}, out.rowData(1), 1e-12);
-        assertArrayEquals(new double[]{12, 22}, out.rowData(2), 1e-12);
+        assertArrayEquals(new float[]{10, 20}, out.rowData(0), 1e-6f);
+        assertArrayEquals(new float[]{11, 21}, out.rowData(1), 1e-6f);
+        assertArrayEquals(new float[]{12, 22}, out.rowData(2), 1e-6f);
     }
 
     @Test
@@ -59,7 +59,7 @@ public class PositionalEmbeddingTest {
 
         int seqLen = 3;
 
-        Tensor target = new Tensor(new double[][]{
+        Tensor target = Tensor.from2D(new double[][]{
                 { 0.5,  0.0, -0.5},
                 { 1.0,  1.0,  1.0},
                 {-1.0,  0.5,  2.0}

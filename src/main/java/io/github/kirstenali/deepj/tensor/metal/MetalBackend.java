@@ -60,8 +60,8 @@ public final class MetalBackend implements TensorBackend {
     @Override public Tensor ones(int rows, int cols) { return cpuFallback.ones(rows, cols); }
     @Override public Tensor random(int rows, int cols, Random rand) { return cpuFallback.random(rows, cols, rand); }
     @Override public Tensor causalMask(int size) { return cpuFallback.causalMask(size); }
-    @Override public Tensor unflattenToTensor(double[] flat, int rows, int cols) { return cpuFallback.unflattenToTensor(flat, rows, cols); }
-    @Override public double[] flattenTensor(Tensor t) { ensureCpu(t); return cpuFallback.flattenTensor(t); }
+    @Override public Tensor unflattenToTensor(float[] flat, int rows, int cols) { return cpuFallback.unflattenToTensor(flat, rows, cols); }
+    @Override public float[] flattenTensor(Tensor t) { ensureCpu(t); return cpuFallback.flattenTensor(t); }
 
     // ── LAZY matmul ────────────────────────────────────────────────
 
@@ -499,7 +499,7 @@ public final class MetalBackend implements TensorBackend {
         Tensor probs = softmaxRows(logits);
         Tensor oneHot = new Tensor(logits.rows, logits.cols);
         for (int r = 0; r < logits.rows; r++) {
-            oneHot.data[r * logits.cols + targets[r]] = 1.0;
+            oneHot.data[r * logits.cols + targets[r]] = 1.0f;
         }
         probs.subtractInPlace(oneHot);
         probs.multiplyScalarInPlace(1.0 / logits.rows);

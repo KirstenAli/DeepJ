@@ -113,7 +113,7 @@ gradient.multiplyScalarInPlace(0.5).addInPlace(bias).reluInPlace();
 ```
 
 `CpuBackend` overrides every in-place method for true zero-allocation —
-the function writes directly into the input's `data[][]`, no temporary
+the function writes directly into the input's flat `data[]`, no temporary
 tensor is created. `MetalBackend` also overrides in-place ops to keep
 execution lazy and GPU-resident (no forced CPU materialization in the
 hot training path). In-place GPU results are rebound through
@@ -134,8 +134,8 @@ DeepJExecutor.setNumThreads(8);           // override thread count
 
 ## 📊 Tensor
 
-`Tensor` is a 2-D matrix of `double` values — the core data type for
-every operation in DeepJ. All methods route through the active
+`Tensor` is a 2-D matrix abstraction backed by flat row-major `float[]`
+storage — the core data type for every operation in DeepJ. All methods route through the active
 `TensorBackend`, so the same code runs on CPU or GPU.
 
 ### Creating tensors
@@ -145,7 +145,7 @@ every operation in DeepJ. All methods route through the active
 Tensor a = new Tensor(3, 4);              // 3 rows × 4 cols, all zeros
 
 // From data
-Tensor b = new Tensor(new double[][]{
+Tensor b = Tensor.from2D(new double[][]{
         {1, 2, 3},
         {4, 5, 6}
 });                                        // 2 × 3, deep-copied
@@ -162,7 +162,7 @@ Tensor m = Tensor.causalMask(8);                  // 8 × 8, upper triangle = -1
 ```java
 a.rows   // number of rows
 a.cols   // number of columns
-a.data   // raw double[][] (trigger materialize() first if on GPU)
+a.data   // raw flat float[] row-major storage (trigger materialize() first if on GPU)
 ```
 
 ### Operations by category
@@ -260,7 +260,7 @@ aliasing can affect correctness.
 
 ### GPU materialization
 
-When the Metal backend is active, `data[][]` may be stale. Call
+When the Metal backend is active, `data[]` may be stale. Call
 `materialize()` before reading raw data, or use accessor methods
 (`get`, `set`, `getRow`, `sum`, `print`) which materialise automatically:
 
@@ -273,7 +273,7 @@ a.print("my tensor");   // auto-materialises
 ### Flatten / unflatten
 
 ```java
-double[] flat = Tensor.flattenTensor(a);                 // row-major flat array
+float[] flat = Tensor.flattenTensor(a);                  // row-major flat array
 Tensor t = Tensor.unflattenToTensor(flat, rows, cols);   // back to 2-D
 ```
 
@@ -335,13 +335,13 @@ DeepJExecutor.shutdown();
 Train a small feed-forward neural network with supervised training.
 
 ```java
-Tensor x = new Tensor(new double[][]{
+Tensor x = Tensor.from2D(new double[][]{
         {1, 0, 0},
         {0, 1, 0},
         {0, 0, 1}
 });
 
-Tensor y = new Tensor(new double[][]{
+Tensor y = Tensor.from2D(new double[][]{
         {0, 0, 1},
         {0, 1, 0},
         {1, 0, 0}
@@ -1272,7 +1272,7 @@ CPU                              GPU
  │                                │
  │  e.materialize()               │       flush all 3 ops in one batch
  │                           ◀──download── GPU buffer E
- │  read e.data[][]               │
+ │  read e.data[]                 │
 ```
 
 Key points:

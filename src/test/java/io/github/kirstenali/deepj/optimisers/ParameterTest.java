@@ -8,11 +8,11 @@ public class ParameterTest {
 
     @Test
     void zeroGrad_clearsToZeros() {
-        Parameter p = new Parameter(new Tensor(new double[][]{{1,2},{3,4}}));
+        Parameter p = new Parameter(Tensor.from2D(new double[][]{{1,2},{3,4}}));
         Tensor originalGrad = p.grad;
 
-        p.grad.data[0 * 2 + 0] = 7.0;
-        p.grad.data[1 * 2 + 1] = -3.0;
+        p.grad.data[0 * 2 + 0] = 7.0f;
+        p.grad.data[1 * 2 + 1] = -3.0f;
         p.zeroGrad();
 
         Assertions.assertSame(originalGrad, p.grad);
@@ -24,7 +24,7 @@ public class ParameterTest {
 
     @Test
     void zeroGrad_gpuTaggedGrad_replacesBuffer() {
-        Parameter p = new Parameter(new Tensor(new double[][]{{1, 2}, {3, 4}}));
+        Parameter p = new Parameter(Tensor.from2D(new double[][]{{1, 2}, {3, 4}}));
         Tensor originalGrad = p.grad;
         p.grad.setGpuTag(new Object());
 

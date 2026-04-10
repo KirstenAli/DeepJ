@@ -107,7 +107,7 @@ public class GPTModelTest {
         // upstream grad: make it non-uniform to reduce risk of accidental cancellation
         Tensor dLogits = Tensor.zeros(logits.rows, logits.cols);
         for (int r = 0; r < dLogits.rows; r++) {
-            dLogits.data[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0;
+            dLogits.data[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0f;
         }
 
         // zero all grads before backward

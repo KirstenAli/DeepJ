@@ -117,7 +117,7 @@ public final class MultiHeadLatentAttention implements Layer {
         Tensor outH     = applyAttentionToValues(attnProb, vh, seqLen);
         Tensor merged   = mergeHeads(outH, seqLen);
 
-        cache = new ForwardCache(x, cQ, cKV, qhRope, khRope, attnProb, outH, merged);
+        cache = new ForwardCache(x, cQ, cKV, qhRope, khRope, vh, attnProb, outH, merged);
 
         return merged.matmul(Wo.value);
     }
@@ -134,10 +134,9 @@ public final class MultiHeadLatentAttention implements Layer {
 
         // Attention backward
         Tensor dOutH = splitHeads(dMerged, seqLen);
-        Tensor vh    = splitHeads(cache.cKV().matmul(Wuv.value), seqLen);
 
         HeadOps.AttentionGrads attnGrads = HeadOps.backwardAttentionAndValues(
-                dOutH, vh, cache.attnProb, softmax, scale, nHeads, seqLen, headDim);
+                dOutH, cache.vh, cache.attnProb, softmax, scale, nHeads, seqLen, headDim);
 
         HeadOps.QKGrads qkGrads = HeadOps.backwardQueriesAndKeys(
                 attnGrads.dScores(), cache.qhRope, cache.khRope, nHeads, seqLen, headDim);
@@ -217,6 +216,7 @@ public final class MultiHeadLatentAttention implements Layer {
             Tensor cKV,
             Tensor qhRope,
             Tensor khRope,
+            Tensor vh,
             Tensor attnProb,
             Tensor outH,
             Tensor merged) {}

@@ -12,11 +12,11 @@ public class AdamWTest {
     void step_matchesKnown1x1Case_withoutWeightDecay() {
         AdamW opt = new AdamW(0.1, 0.9, 0.999, 1e-8, 0.0);
 
-        Parameter p = new Parameter(new Tensor(new double[][]{{1.0}}));
-        p.grad = new Tensor(new double[][]{{1.0}});
+        Parameter p = new Parameter(Tensor.from2D(new double[][]{{1.0}}));
+        p.grad = Tensor.from2D(new double[][]{{1.0}});
 
         opt.step(List.of(p));
-        Assertions.assertEquals(0.9, p.value.data[0], 1e-9);
+        Assertions.assertEquals(0.9, p.value.data[0], 1e-6);
 
         opt.step(List.of(p));
         Assertions.assertEquals(0.8, p.value.data[0], 1e-6);
@@ -26,8 +26,8 @@ public class AdamWTest {
     void weightDecay_shrinksWeightsEvenWithZeroGrad() {
         AdamW opt = new AdamW(0.1, 0.9, 0.999, 1e-8, 0.1);
 
-        Parameter p = new Parameter(new Tensor(new double[][]{{10.0}}));
-        p.grad = new Tensor(new double[][]{{0.0}});
+        Parameter p = new Parameter(Tensor.from2D(new double[][]{{10.0}}));
+        p.grad = Tensor.from2D(new double[][]{{0.0}});
 
         opt.step(List.of(p));
         Assertions.assertTrue(p.value.data[0] < 10.0);

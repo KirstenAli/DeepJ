@@ -10,8 +10,8 @@ public interface TensorBackend {
     Tensor random(int rows, int cols, Random rand);
     Tensor causalMask(int size);
 
-    Tensor unflattenToTensor(double[] flat, int rows, int cols);
-    double[] flattenTensor(Tensor t);
+    Tensor unflattenToTensor(float[] flat, int rows, int cols);
+    float[] flattenTensor(Tensor t);
 
     // ── element-wise binary ────────────────────────────────────────────
     Tensor matmul(Tensor a, Tensor b);

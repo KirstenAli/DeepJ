@@ -100,19 +100,18 @@ class SwiGLULayerTest {
         // Numerical gradient for each element of x
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < x.cols; c++) {
-                int i = r * x.cols + c;
-                double orig = x.data[i];
+                double orig = x.get(r, c);
 
-                x.data[i] = orig + eps;
+                x.set(r, c, orig + eps);
                 double fPlus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
 
-                x.data[i] = orig - eps;
+                x.set(r, c, orig - eps);
                 double fMinus = sumAll(new SwiGLULayer(dModel, dFF, new Random(6)).forward(x));
 
-                x.data[i] = orig;
+                x.set(r, c, orig);
 
                 double numerical = (fPlus - fMinus) / (2 * eps);
-                assertEquals(numerical, analyticGrad.data[i], tol,
+                assertEquals(numerical, analyticGrad.get(r, c), tol,
                         "Gradient mismatch at [" + r + "," + c + "]");
             }
         }

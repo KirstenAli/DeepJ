@@ -80,7 +80,11 @@ public final class CausalLMTraining {
         double gradNormSq = 0.0;
         for (Parameter p : params) {
             if (p.grad != null) {
-                double l2sq = p.grad.multiply(p.grad).sum();
+                p.grad.materialize();
+                double l2sq = 0.0;
+                for (float v : p.grad.data) {
+                    l2sq += v * v;
+                }
                 if (!Double.isFinite(l2sq)) {
                     throw new IllegalStateException("Non-finite gradient encountered during training");
                 }

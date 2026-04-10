@@ -182,7 +182,7 @@ public final class MetalBackendTest {
             Tensor std = new Tensor(16, 1);
             for (int r = 0; r < std.rows; r++) {
                 // std is rows×1: flat index r*1+0 = r
-                std.data[r] = 0.5 + Math.abs(xHat.data[r * xHat.cols]);
+                std.data[r] = 0.5f + Math.abs(xHat.data[r * xHat.cols]);
             }
 
             Tensor expected = cpu.layerNormBackward(dXHat, xHat, std, dXHat.cols);

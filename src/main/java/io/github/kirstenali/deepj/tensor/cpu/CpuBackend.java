@@ -44,7 +44,7 @@ public final class CpuBackend implements TensorBackend {
     static void applyUnary(Tensor a, Tensor out, DoubleUnaryOperator fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
-            for (int c = 0; c < a.cols; c++) out.data[base + c] = fn.applyAsDouble(a.data[base + c]);
+            for (int c = 0; c < a.cols; c++) out.data[base + c] = (float) fn.applyAsDouble(a.data[base + c]);
         });
     }
 
@@ -59,7 +59,7 @@ public final class CpuBackend implements TensorBackend {
     static void applyBinary(Tensor a, Tensor b, Tensor out, DoubleBinaryOperator fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
-            for (int c = 0; c < a.cols; c++) out.data[base + c] = fn.applyAsDouble(a.data[base + c], b.data[base + c]);
+            for (int c = 0; c < a.cols; c++) out.data[base + c] = (float) fn.applyAsDouble(a.data[base + c], b.data[base + c]);
         });
     }
 
@@ -74,7 +74,7 @@ public final class CpuBackend implements TensorBackend {
     static void applyScalar(Tensor a, double s, Tensor out, DoubleBinaryOperator fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
-            for (int c = 0; c < a.cols; c++) out.data[base + c] = fn.applyAsDouble(a.data[base + c], s);
+            for (int c = 0; c < a.cols; c++) out.data[base + c] = (float) fn.applyAsDouble(a.data[base + c], s);
         });
     }
 
@@ -91,7 +91,7 @@ public final class CpuBackend implements TensorBackend {
         DeepJExecutor.forRange(0, a.rows, r -> {
             double v = col.data[r]; // col is Rx1 → data[r*1+0] = data[r]
             int base = r * a.cols;
-            for (int c = 0; c < a.cols; c++) out.data[base + c] = fn.applyAsDouble(a.data[base + c], v);
+            for (int c = 0; c < a.cols; c++) out.data[base + c] = (float) fn.applyAsDouble(a.data[base + c], v);
         });
     }
 
@@ -107,7 +107,7 @@ public final class CpuBackend implements TensorBackend {
     static void applyRowBroadcast(Tensor a, Tensor row, Tensor out, DoubleBinaryOperator fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
-            for (int c = 0; c < a.cols; c++) out.data[base + c] = fn.applyAsDouble(a.data[base + c], row.data[c]);
+            for (int c = 0; c < a.cols; c++) out.data[base + c] = (float) fn.applyAsDouble(a.data[base + c], row.data[c]);
         });
     }
 
@@ -129,14 +129,14 @@ public final class CpuBackend implements TensorBackend {
     @Override
     public Tensor ones(int rows, int cols) {
         Tensor result = new Tensor(rows, cols);
-        Arrays.fill(result.data, 1.0);
+        Arrays.fill(result.data, 1.0f);
         return result;
     }
 
     @Override
     public Tensor random(int rows, int cols, Random rand) {
         Tensor t = new Tensor(rows, cols);
-        for (int i = 0; i < t.data.length; i++) t.data[i] = rand.nextGaussian() * 0.1;
+        for (int i = 0; i < t.data.length; i++) t.data[i] = (float) (rand.nextGaussian() * 0.1);
         return t;
     }
 
@@ -145,20 +145,20 @@ public final class CpuBackend implements TensorBackend {
         Tensor mask = new Tensor(size, size);
         DeepJExecutor.forRange(0, size, r -> {
             int base = r * size;
-            for (int c = 0; c < size; c++) mask.data[base + c] = (c > r) ? -1e9 : 0.0;
+            for (int c = 0; c < size; c++) mask.data[base + c] = (c > r) ? -1e9f : 0.0f;
         });
         return mask;
     }
 
     @Override
-    public Tensor unflattenToTensor(double[] flat, int rows, int cols) {
+    public Tensor unflattenToTensor(float[] flat, int rows, int cols) {
         Tensor t = new Tensor(rows, cols);
         System.arraycopy(flat, 0, t.data, 0, flat.length);
         return t;
     }
 
     @Override
-    public double[] flattenTensor(Tensor t) {
+    public float[] flattenTensor(Tensor t) {
         return Arrays.copyOf(t.data, t.data.length);
     }
 
@@ -235,7 +235,7 @@ public final class CpuBackend implements TensorBackend {
             double sum = 0.0;
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) sum += a.data[base + c];
-            result.data[r] = sum;
+            result.data[r] = (float) sum;
         });
         return result;
     }
@@ -250,7 +250,7 @@ public final class CpuBackend implements TensorBackend {
             double sum = 0.0;
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) sum += a.data[base + c];
-            result.data[r] = sum * invCols;
+            result.data[r] = (float) (sum * invCols);
         });
         return result;
     }
@@ -269,7 +269,7 @@ public final class CpuBackend implements TensorBackend {
                 double diff = a.data[base + c] - mean;
                 acc += diff * diff;
             }
-            result.data[r] = acc * invCols;
+            result.data[r] = (float) (acc * invCols);
         });
         return result;
     }
@@ -281,7 +281,7 @@ public final class CpuBackend implements TensorBackend {
             int base = r * a.cols;
             double max = Double.NEGATIVE_INFINITY;
             for (int c = 0; c < a.cols; c++) if (a.data[base + c] > max) max = a.data[base + c];
-            result.data[r] = max;
+            result.data[r] = (float) max;
         });
         return result;
     }
@@ -289,14 +289,14 @@ public final class CpuBackend implements TensorBackend {
     @Override
     public double sum(Tensor a) {
         double s = 0.0;
-        for (double v : a.data) s += v;
+        for (float v : a.data) s += v;
         return s;
     }
 
     @Override
     public double sumAbs(Tensor a) {
         double s = 0.0;
-        for (double v : a.data) s += Math.abs(v);
+        for (float v : a.data) s += Math.abs(v);
         return s;
     }
 
@@ -377,7 +377,7 @@ public final class CpuBackend implements TensorBackend {
             double sumExp = 0.0;
             for (int c = 0; c < logits.cols; c++) {
                 double e = Math.exp(logits.data[base + c] - max);
-                result.data[base + c] = e;
+                result.data[base + c] = (float) e;
                 sumExp += e;
             }
 
@@ -399,7 +399,7 @@ public final class CpuBackend implements TensorBackend {
             for (int c = 0; c < gradOutput.cols; c++) dot += gradOutput.data[base + c] * softmaxOut.data[base + c];
 
             for (int c = 0; c < gradOutput.cols; c++)
-                result.data[base + c] = softmaxOut.data[base + c] * (gradOutput.data[base + c] - dot);
+                result.data[base + c] = (float) (softmaxOut.data[base + c] * (gradOutput.data[base + c] - dot));
         });
 
         return result;
@@ -442,8 +442,8 @@ public final class CpuBackend implements TensorBackend {
             for (int c = 0; c < logits.cols; c++) if (logits.data[base + c] > max) max = logits.data[base + c];
             double sumExp = 0.0;
             for (int c = 0; c < logits.cols; c++) sumExp += Math.exp(logits.data[base + c] - max);
-            for (int c = 0; c < logits.cols; c++) grad.data[base + c] = Math.exp(logits.data[base + c] - max) / sumExp;
-            grad.data[base + targets[i]] -= 1.0;
+            for (int c = 0; c < logits.cols; c++) grad.data[base + c] = (float) (Math.exp(logits.data[base + c] - max) / sumExp);
+            grad.data[base + targets[i]] -= 1.0f;
         }
 
         divideScalarInPlace(grad, logits.rows);
@@ -461,8 +461,8 @@ public final class CpuBackend implements TensorBackend {
             double mNew = beta1 * mt.data[i] + (1.0 - beta1) * grad;
             double vNew = beta2 * vt.data[i] + (1.0 - beta2) * (grad * grad);
 
-            mt.data[i] = mNew;
-            vt.data[i] = vNew;
+            mt.data[i] = (float) mNew;
+            vt.data[i] = (float) vNew;
 
             double mHat = mNew / bc1;
             double vHat = vNew / bc2;
@@ -471,7 +471,7 @@ public final class CpuBackend implements TensorBackend {
 
             if (weightDecay != 0.0) update += lr * weightDecay * w.data[i];
 
-            w.data[i] -= update;
+            w.data[i] -= (float) update;
         }
     }
 
@@ -495,7 +495,7 @@ public final class CpuBackend implements TensorBackend {
             for (int c = 0; c < dim; c++) {
                 double d  = dXHat.data[base + c];
                 double xh = xHat.data[base + c];
-                dX.data[base + c] = invStd * (d - sumD / dim - xh * (sumDXHatXHat / dim));
+                dX.data[base + c] = (float) (invStd * (d - sumD / dim - xh * (sumDXHatXHat / dim)));
             }
         });
 
@@ -507,7 +507,7 @@ public final class CpuBackend implements TensorBackend {
     // ══════════════════════════════════════════════════════════════════
 
     @Override public double get(Tensor t, int r, int c)           { return t.data[r * t.cols + c]; }
-    @Override public void   set(Tensor t, int r, int c, double v) { t.data[r * t.cols + c] = v; }
+    @Override public void   set(Tensor t, int r, int c, double v) { t.data[r * t.cols + c] = (float) v; }
 
     @Override
     public Tensor getRow(Tensor t, int row) {

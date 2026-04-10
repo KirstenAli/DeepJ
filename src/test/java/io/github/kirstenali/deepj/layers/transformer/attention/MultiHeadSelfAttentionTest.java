@@ -35,14 +35,14 @@ public class MultiHeadSelfAttentionTest {
         assertEquals(4, ps.size());
 
         Tensor I = Tensor.zeros(dModel, dModel);
-        for (int i = 0; i < dModel; i++) I.data[i * dModel + i] = 1.0;
+        for (int i = 0; i < dModel; i++) I.data[i * dModel + i] = 1.0f;
 
         for (Parameter p : ps) {
             p.value = I;
             p.zeroGrad();
         }
 
-        Tensor x1 = new Tensor(new double[][]{
+        Tensor x1 = Tensor.from2D(new double[][]{
                 {1, 0, 0, 0},
                 {0, 1, 0, 0},
                 {0, 0, 1, 0},
@@ -75,7 +75,7 @@ public class MultiHeadSelfAttentionTest {
 
         MultiHeadSelfAttention attn = new MultiHeadSelfAttention(dModel, nHeads, true, new Random(7));
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new double[][]{
                 { 0.1,  0.2, -0.3,  0.4},
                 { 0.0, -0.5,  0.6,  0.1},
                 { 0.9,  0.8,  0.7, -0.2}
@@ -99,13 +99,13 @@ public class MultiHeadSelfAttentionTest {
         MultiHeadSelfAttention attn = new MultiHeadSelfAttention(4, 2, true, new Random(1));
         AdamW opt = new AdamW(0.01, 0.9, 0.999, 1e-8, 0.0);
 
-        Tensor x = new Tensor(new double[][]{
+        Tensor x = Tensor.from2D(new double[][]{
                 {1, 0, 0, 0},
                 {0, 1, 0, 0},
                 {0, 0, 1, 0}
         });
 
-        Tensor target = new Tensor(new double[][]{
+        Tensor target = Tensor.from2D(new double[][]{
                 {0, 1, 0, 0},
                 {0, 0, 1, 0},
                 {0, 0, 0, 1}

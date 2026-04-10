@@ -80,7 +80,7 @@ public class MultiHeadSelfAttention implements Layer {
         Tensor mergedBeforeWo = mergeHeads(outH, x.rows);
 
         cache = new ForwardCache(x, proj.Q, proj.K, proj.V,
-                cachedQh, cachedKh, attnProb, outH, mergedBeforeWo);
+                cachedQh, cachedKh, vh, attnProb, outH, mergedBeforeWo);
 
         return mergedBeforeWo.matmul(Wo.value);
     }
@@ -95,9 +95,8 @@ public class MultiHeadSelfAttention implements Layer {
 
         Tensor dMerged = backwardOutputProjection(dOut);
         Tensor dOutH   = splitHeads(dMerged);
-        Tensor vh      = splitHeads(cache.V);
 
-        HeadOps.AttentionGrads attnBackward = backwardAttentionAndValues(dOutH, vh, seqLen);
+        HeadOps.AttentionGrads attnBackward = backwardAttentionAndValues(dOutH, cache.vh, seqLen);
 
         // Use cached (post-hook) heads so score gradients stay in the transformed space.
         HeadOps.QKGrads qkBackward = backwardQueriesAndKeys(
@@ -266,6 +265,7 @@ public class MultiHeadSelfAttention implements Layer {
             Tensor x,
             Tensor Q, Tensor K, Tensor V,
             Tensor cachedQh, Tensor cachedKh,
+            Tensor vh,
             Tensor attnProb,
             Tensor outH,
             Tensor mergedBeforeWo) {}

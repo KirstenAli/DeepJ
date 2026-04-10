@@ -10,7 +10,7 @@ class TensorAdaptersTest {
 
     @Test
     void packF32ProducesRowMajorFloatArray() {
-        Tensor t = new Tensor(new double[][]{
+        Tensor t = Tensor.from2D(new double[][]{
                 {1.0, 2.0, 3.0},
                 {4.0, 5.0, 6.0}
         });
@@ -23,7 +23,7 @@ class TensorAdaptersTest {
 
     @Test
     void packF32SingleElement() {
-        Tensor t = new Tensor(new double[][]{{42.5}});
+        Tensor t = Tensor.from2D(new double[][]{{42.5}});
         float[] packed = TensorAdapters.packF32(t);
         assertEquals(1, packed.length);
         assertEquals(42.5f, packed[0]);
@@ -32,9 +32,9 @@ class TensorAdaptersTest {
     @Test
     void packF32TruncatesDoublePrecision() {
         // 1/3 has different representations in double vs float
-        Tensor t = new Tensor(new double[][]{{1.0 / 3.0}});
+        Tensor t = Tensor.from2D(new double[][]{{1.0 / 3.0}});
         float[] packed = TensorAdapters.packF32(t);
-        assertEquals((float) (1.0 / 3.0), packed[0]);
+        assertEquals(1.0f / 3.0f, packed[0]);
     }
 
     // -- unpackF32 -----------------------------------------------------------
@@ -66,7 +66,7 @@ class TensorAdaptersTest {
 
     @Test
     void unpackF32IntoOverwritesExistingData() {
-        Tensor t = new Tensor(new double[][]{
+        Tensor t = Tensor.from2D(new double[][]{
                 {99, 99, 99},
                 {99, 99, 99}
         });
@@ -83,7 +83,7 @@ class TensorAdaptersTest {
 
     @Test
     void packThenUnpackIsIdentity() {
-        Tensor original = new Tensor(new double[][]{
+        Tensor original = Tensor.from2D(new double[][]{
                 {1.5, -2.5},
                 {0.0,  3.0},
                 {7.0, -1.0}
@@ -97,7 +97,7 @@ class TensorAdaptersTest {
         for (int r = 0; r < original.rows; r++) {
             for (int c = 0; c < original.cols; c++) {
                 // float precision: compare at float tolerance
-                assertEquals((float) original.data[r * original.cols + c], (float) restored.data[r * restored.cols + c]);
+                assertEquals(original.data[r * original.cols + c], restored.data[r * restored.cols + c]);
             }
         }
     }

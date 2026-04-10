@@ -7,6 +7,7 @@ public final class TestSupport {
 
     private TestSupport() {}
 
+
     public static void assertTensorShape(Tensor t, int rows, int cols) {
         Assertions.assertNotNull(t, "tensor must not be null");
         Assertions.assertEquals(rows, t.rows, "rows");

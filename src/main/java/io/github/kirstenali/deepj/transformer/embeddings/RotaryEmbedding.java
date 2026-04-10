@@ -33,8 +33,8 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 public final class RotaryEmbedding {
 
     private final int halfDim;
-    private final double[][] cosTable;  // [maxSeqLen × halfDim]
-    private final double[][] sinTable;  // [maxSeqLen × halfDim]
+    private final float[][] cosTable;  // [maxSeqLen × halfDim]
+    private final float[][] sinTable;  // [maxSeqLen × halfDim]
 
     /**
      * Pre-computes the cos/sin rotation tables.
@@ -51,14 +51,14 @@ public final class RotaryEmbedding {
         }
 
         this.halfDim  = headDim / 2;
-        this.cosTable = new double[maxSeqLen][this.halfDim];
-        this.sinTable = new double[maxSeqLen][this.halfDim];
+        this.cosTable = new float[maxSeqLen][this.halfDim];
+        this.sinTable = new float[maxSeqLen][this.halfDim];
 
         for (int pos = 0; pos < maxSeqLen; pos++) {
             for (int i = 0; i < this.halfDim; i++) {
                 double theta = pos / Math.pow(10_000.0, (2.0 * i) / headDim);
-                cosTable[pos][i] = Math.cos(theta);
-                sinTable[pos][i] = Math.sin(theta);
+                cosTable[pos][i] = (float) Math.cos(theta);
+                sinTable[pos][i] = (float) Math.sin(theta);
             }
         }
     }
@@ -73,6 +73,7 @@ public final class RotaryEmbedding {
      */
     public Tensor apply(Tensor t, int seqLen, int nHeads) {
         validateSeqLen(seqLen);
+        t.materialize();
         Tensor result = Tensor.zeros(t.rows, t.cols);
         for (int h = 0; h < nHeads; h++)
             for (int pos = 0; pos < seqLen; pos++)
@@ -90,6 +91,7 @@ public final class RotaryEmbedding {
      */
     public Tensor applyBackward(Tensor t, int seqLen, int nHeads) {
         validateSeqLen(seqLen);
+        t.materialize();
         Tensor result = Tensor.zeros(t.rows, t.cols);
         for (int h = 0; h < nHeads; h++)
             for (int pos = 0; pos < seqLen; pos++)
@@ -103,10 +105,10 @@ public final class RotaryEmbedding {
     private void rotatePositionForward(Tensor result, Tensor t, int row, int pos) {
         int base = row * t.cols;
         for (int i = 0; i < halfDim; i++) {
-            double cos = cosTable[pos][i];
-            double sin = sinTable[pos][i];
-            double x0  = t.data[base + 2 * i];
-            double x1  = t.data[base + 2 * i + 1];
+            float cos = cosTable[pos][i];
+            float sin = sinTable[pos][i];
+            float x0  = t.data[base + 2 * i];
+            float x1  = t.data[base + 2 * i + 1];
             result.data[base + 2 * i]     = x0 * cos - x1 * sin;
             result.data[base + 2 * i + 1] = x0 * sin + x1 * cos;
         }
@@ -116,11 +118,11 @@ public final class RotaryEmbedding {
     private void rotatePositionInverse(Tensor result, Tensor t, int row, int pos) {
         int base = row * t.cols;
         for (int i = 0; i < halfDim; i++) {
-            double cos = cosTable[pos][i];
-            double sin = sinTable[pos][i];
-            double x0  = t.data[base + 2 * i];
-            double x1  = t.data[base + 2 * i + 1];
-            result.data[base + 2 * i]     =  x0 * cos + x1 * sin;
+            float cos = cosTable[pos][i];
+            float sin = sinTable[pos][i];
+            float x0  = t.data[base + 2 * i];
+            float x1  = t.data[base + 2 * i + 1];
+            result.data[base + 2 * i]     = x0 * cos + x1 * sin;
             result.data[base + 2 * i + 1] = -x0 * sin + x1 * cos;
         }
     }

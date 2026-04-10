@@ -53,9 +53,20 @@ public final class CrossEntropyLoss implements LossFunction {
             );
         }
 
+        actual.materialize();
         int[] y = new int[actual.rows];
         for (int i = 0; i < actual.rows; i++) {
-            y[i] = (int) Math.round(actual.data[i]); // cols=1, so data[i*1+0] = data[i]
+            float value = actual.data[i]; // cols=1, so data[i*1+0] = data[i]
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException("target value at row " + i + " must be finite");
+            }
+
+            int asInt = (int) value;
+            if (Math.abs(value - asInt) > 1e-6f) {
+                throw new IllegalArgumentException(
+                        "target value at row " + i + " must be an integer class id, got " + value);
+            }
+            y[i] = asInt;
         }
         return y;
     }

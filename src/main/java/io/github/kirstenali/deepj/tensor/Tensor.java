@@ -7,7 +7,7 @@ import java.util.Random;
 
 public class Tensor {
     /** Flat row-major storage: element (r, c) lives at data[r * cols + c]. */
-    public final double[] data;
+    public final float[] data;
     public final int rows, cols;
 
     /**
@@ -35,33 +35,25 @@ public class Tensor {
     public Tensor(int rows, int cols) {
         this.rows = rows;
         this.cols = cols;
-        this.data = new double[rows * cols];
+        this.data = new float[rows * cols];
     }
 
     /** Copy constructor — creates an independent deep copy. */
     public Tensor(Tensor source) {
+        if (source == null) throw new IllegalArgumentException("source cannot be null");
+        source.materialize();
         this.rows = source.rows;
         this.cols = source.cols;
         this.data = Arrays.copyOf(source.data, source.data.length);
-    }
-
-    /** Accepts a 2-D jagged array and flattens it into row-major storage. */
-    public Tensor(double[][] data) {
-        this.rows = data.length;
-        this.cols = data[0].length;
-        this.data = new double[rows * cols];
-        for (int i = 0; i < rows; i++) {
-            if (data[i].length != cols)
-                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
-            System.arraycopy(data[i], 0, this.data, i * cols, cols);
-        }
+        // Never share backend-owned GPU handles across tensor copies.
+        this.gpuTag = null;
     }
 
     /**
-     * Returns a fresh {@code double[]} copy of row {@code r}.
+     * Returns a fresh {@code float[]} copy of row {@code r}.
      * Convenience for tests and debugging; not a view.
      */
-    public double[] rowData(int r) {
+    public float[] rowData(int r) {
         return Arrays.copyOfRange(data, r * cols, (r + 1) * cols);
     }
 
@@ -186,8 +178,41 @@ public class Tensor {
     public static Tensor ones(int rows, int cols) { return backend().ones(rows, cols); }
     public static Tensor random(int rows, int cols, Random rand) { return backend().random(rows, cols, rand); }
     public static Tensor causalMask(int size) { return backend().causalMask(size); }
-    public static Tensor unflattenToTensor(double[] flat, int rows, int cols) { return backend().unflattenToTensor(flat, rows, cols); }
-    public static double[] flattenTensor(Tensor t) { t.materialize(); return backend().flattenTensor(t); }
+    public static Tensor unflattenToTensor(float[] flat, int rows, int cols) { return backend().unflattenToTensor(flat, rows, cols); }
+    public static float[] flattenTensor(Tensor t) { t.materialize(); return backend().flattenTensor(t); }
+
+    /**
+     * Build a tensor from 2-D row-major data.
+     * Preferred API for literal matrix construction.
+     */
+    public static Tensor from2D(float[][] data) {
+        int rows = data.length;
+        int cols = data[0].length;
+        Tensor t = new Tensor(rows, cols);
+        for (int r = 0; r < rows; r++) {
+            if (data[r].length != cols) {
+                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
+            }
+            System.arraycopy(data[r], 0, t.data, r * cols, cols);
+        }
+        return t;
+    }
+
+    /** Backward-compatible matrix literal helper that narrows to float storage. */
+    public static Tensor from2D(double[][] data) {
+        int rows = data.length;
+        int cols = data[0].length;
+        Tensor t = new Tensor(rows, cols);
+        for (int r = 0; r < rows; r++) {
+            if (data[r].length != cols) {
+                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
+            }
+            for (int c = 0; c < cols; c++) {
+                t.data[r * cols + c] = (float) data[r][c];
+            }
+        }
+        return t;
+    }
 
     // ── shape checks ────────────────────────────────────────────────
     public static void requireSameShape(Tensor a, Tensor b, String op) {
