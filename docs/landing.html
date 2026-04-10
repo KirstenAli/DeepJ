@@ -460,7 +460,7 @@
             <div class="card">
                 <div class="card-icon icon-green">⚡</div>
                 <h3>Metal GPU Backend</h3>
-                <p>Lazy, GPU-resident execution on Apple Silicon. Ops record into a command stream and flush in one batch — up to 36× faster than multithreaded CPU.</p>
+                <p>Lazy, GPU-resident execution on Apple Silicon. Ops record into a command stream and flush in one batch — up to 68× faster than multithreaded CPU.</p>
             </div>
             <div class="card">
                 <div class="card-icon icon-amber">🏋️</div>
@@ -675,23 +675,23 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
     <div class="container reveal">
         <div class="section-label label-amber">Performance</div>
         <h2>Metal GPU Benchmarks</h2>
-        <p class="section-desc">Chained-pipeline benchmarks on a <strong>512 × 512</strong> matrix (262,144 elements), measured on Apple Silicon.
+        <p class="section-desc">Chained-pipeline benchmarks on a <strong>2024 × 2024</strong> matrix (4,096,576 elements), measured on Apple Silicon.
             Multiple lazy ops record into one command buffer, then a single <code>materialize()</code> flushes them all.
             CPU timings use the default <strong>multithreaded</strong> <code>DeepJExecutor</code> (parallel enabled).</p>
         <div class="table-scroll">
             <table class="bench-table">
                 <thead><tr><th>Pipeline</th><th>CPU (ms)</th><th>GPU (ms)</th><th>Speedup</th></tr></thead>
                 <tbody>
-                <tr><td>5 mixed ops (1 matmul)</td><td>19.296</td><td>1.686</td><td><span class="speedup">11×</span></td></tr>
-                <tr><td>10 mixed ops (2 matmuls)</td><td>40.876</td><td>1.750</td><td><span class="speedup-high">23×</span></td></tr>
-                <tr><td>20 mixed ops (4 matmuls)</td><td>104.231</td><td>3.147</td><td><span class="speedup-high">33×</span></td></tr>
-                <tr><td>50 mixed ops (10 matmuls)</td><td>226.345</td><td>6.902</td><td><span class="speedup-high">33×</span></td></tr>
-                <tr><td>linear fwd (3 ops)</td><td>18.967</td><td>1.358</td><td><span class="speedup">14×</span></td></tr>
-                <tr><td>attention fwd (4 ops)</td><td>40.332</td><td>1.594</td><td><span class="speedup-high">25×</span></td></tr>
-                <tr><td>fwd + loss grad (6 ops)</td><td>40.645</td><td>2.013</td><td><span class="speedup-high">20×</span></td></tr>
-                <tr><td>backward (6 ops, 2 matmuls)</td><td>42.140</td><td>1.736</td><td><span class="speedup-high">24×</span></td></tr>
-                <tr><td>mini train step (9 ops)</td><td>46.088</td><td>2.014</td><td><span class="speedup-high">23×</span></td></tr>
-                <tr><td>full train step (13 ops)</td><td>85.293</td><td>2.383</td><td><span class="speedup-high">36×</span></td></tr>
+                <tr><td>5 mixed ops (1 matmul)</td><td>374.922</td><td>14.088</td><td><span class="speedup-high">26.61×</span></td></tr>
+                <tr><td>10 mixed ops (2 matmuls)</td><td>760.566</td><td>25.294</td><td><span class="speedup-high">30.07×</span></td></tr>
+                <tr><td>20 mixed ops (4 matmuls)</td><td>4463.425</td><td>71.673</td><td><span class="speedup-high">62.28×</span></td></tr>
+                <tr><td>50 mixed ops (10 matmuls)</td><td>9918.657</td><td>158.317</td><td><span class="speedup-high">62.65×</span></td></tr>
+                <tr><td>linear fwd (3 ops)</td><td>866.960</td><td>17.032</td><td><span class="speedup-high">50.90×</span></td></tr>
+                <tr><td>attention fwd (4 ops)</td><td>1709.401</td><td>25.236</td><td><span class="speedup-high">67.74×</span></td></tr>
+                <tr><td>fwd + loss grad (6 ops)</td><td>1759.048</td><td>34.268</td><td><span class="speedup-high">51.33×</span></td></tr>
+                <tr><td>backward (6 ops, 2 matmuls)</td><td>1769.151</td><td>31.267</td><td><span class="speedup-high">56.58×</span></td></tr>
+                <tr><td>mini train step (9 ops)</td><td>1752.929</td><td>28.748</td><td><span class="speedup-high">60.98×</span></td></tr>
+                <tr><td>full train step (13 ops)</td><td>3506.517</td><td>69.564</td><td><span class="speedup-high">50.41×</span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -700,7 +700,7 @@ trainer.<span class="fn">train</span>(<span class="num">10_000_000</span>, <span
         </p>
         <pre><code>mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
     '-Djunit.jupiter.conditions.deactivate=org.junit.jupiter.engine.extension.DisabledCondition' \
-    -DskipTests=false -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10 -Dperf.inplace.steps=100</code></pre>
+    -DskipTests=false -Dperf.size=2024 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10 -Dperf.inplace.steps=100</code></pre>
     </div>
 </section>
 

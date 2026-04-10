@@ -1283,7 +1283,7 @@ in just 2–3 native calls, minimising driver overhead.
 
 ## ⚡ Metal GPU Performance
 
-Chained-pipeline benchmarks on a **512 × 512** matrix (262,144 elements),
+Chained-pipeline benchmarks on a **2024 × 2024** matrix (4,096,576 elements),
 measured on Apple Silicon with `-Dperf.iters.cpu=3` and `-Dperf.iters.gpu=10`.
 Multiple lazy GPU ops are recorded into one command buffer, then a single
 `materialize()` flushes them all — matching how the GPU runs during training.
@@ -1291,28 +1291,27 @@ CPU timings use the default multithreaded `DeepJExecutor` (parallel enabled).
 
 | Pipeline | CPU (ms) | GPU (ms) | Speedup |
 |---|---:|---:|---:|
-| 5 mixed ops (1 matmul) | 19.296 | 1.686 | 11.45× |
-| 10 mixed ops (2 matmuls) | 40.876 | 1.750 | 23.35× |
-| 20 mixed ops (4 matmuls) | 104.231 | 3.147 | 33.12× |
-| 50 mixed ops (10 matmuls) | 226.345 | 6.902 | 32.80× |
-| linear fwd (3 ops) | 18.967 | 1.358 | 13.96× |
-| attention fwd (4 ops) | 40.332 | 1.594 | 25.30× |
-| fwd + loss grad (6 ops) | 40.645 | 2.013 | 20.19× |
-| backward (6 ops, 2 matmuls) | 42.140 | 1.736 | 24.28× |
-| mini train step (9 ops) | 46.088 | 2.014 | 22.89× |
-| full train step (13 ops) | 85.293 | 2.383 | 35.79× |
+| 5 mixed ops (1 matmul) | 374.922 | 14.088 | 26.61× |
+| 10 mixed ops (2 matmuls) | 760.566 | 25.294 | 30.07× |
+| 20 mixed ops (4 matmuls) | 4463.425 | 71.673 | 62.28× |
+| 50 mixed ops (10 matmuls) | 9918.657 | 158.317 | 62.65× |
+| linear fwd (3 ops) | 866.960 | 17.032 | 50.90× |
+| attention fwd (4 ops) | 1709.401 | 25.236 | 67.74× |
+| fwd + loss grad (6 ops) | 1759.048 | 34.268 | 51.33× |
+| backward (6 ops, 2 matmuls) | 1769.151 | 31.267 | 56.58× |
+| mini train step (9 ops) | 1752.929 | 28.748 | 60.98× |
+| full train step (13 ops) | 3506.517 | 69.564 | 50.41× |
 
 > **Key takeaway:** the lazy compute graph batches many GPU kernels into a
-> single command buffer. As chain depth grows the speedup climbs — a full
-> forward + backward + optimise step runs **~36× faster** on Metal vs
-> multithreaded CPU.
+> single command buffer. As chain depth grows, speedups climb, with **peak
+> measured speedup reaching ~68×** on Metal vs multithreaded CPU.
 
 Run the benchmark yourself:
 
 ```bash
 mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
     '-Djunit.jupiter.conditions.deactivate=org.junit.jupiter.engine.extension.DisabledCondition' \
-    -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10 -Dperf.inplace.steps=100 \
+    -Dperf.size=2024 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10 -Dperf.inplace.steps=100 \
     -Dsurefire.useFile=false
 ```
 

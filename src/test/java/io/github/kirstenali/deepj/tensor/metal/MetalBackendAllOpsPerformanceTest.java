@@ -51,7 +51,7 @@ public final class MetalBackendAllOpsPerformanceTest {
         previousBackend = Tensor.backend();
         Tensor.setBackend(gpu);
 
-        N      = intProp("perf.size", 512);
+        N      = intProp("perf.size", 2024);
         IT_CPU = intProp("perf.iters.cpu", 3);
         IT_GPU = intProp("perf.iters.gpu", 10);
 
