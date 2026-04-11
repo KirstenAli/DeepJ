@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,10 +26,10 @@ public final class BPEModelIO {
             out.writeInt(model.endOfWordId());
 
             writeVocab(out, model.idToBytes());
-            writeTokenKeyToId(out, model.tokenKeyToId());
+            writeStringIntMap(out, model.tokenKeyToId());
             writeMerges(out, model.merges());
             writeMergeToNewId(out, model.mergeToNewId());
-            writeSpecialTokens(out, model.specialTokenToId());
+            writeStringIntMap(out, model.specialTokenToId());
         }
     }
 
@@ -48,10 +47,10 @@ public final class BPEModelIO {
 
             int endOfWordId = in.readInt();
             List<byte[]> idToBytes = readVocab(in);
-            Map<String, Integer> tokenKeyToId = readTokenKeyToId(in);
+            Map<String, Integer> tokenKeyToId = readStringIntMap(in);
             List<TokenPair> merges = readMerges(in);
             Map<TokenPair, Integer> mergeToNewId = readMergeToNewId(in);
-            Map<String, Integer> specialTokenToId = readSpecialTokens(in);
+            Map<String, Integer> specialTokenToId = readStringIntMap(in);
 
             return new BPEModel(
                     idToBytes,
@@ -78,20 +77,13 @@ public final class BPEModelIO {
         List<byte[]> vocab = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             int len = in.readInt();
-            requireNonNegativeLength(len, "vocab");
-            byte[] token = readExactBytes(in, len, "vocab bytes");
+            requireNonNegativeLength(len);
+            byte[] token = readExactBytes(in, len);
             vocab.add(token);
         }
         return vocab;
     }
 
-    private static void writeTokenKeyToId(DataOutputStream out, Map<String, Integer> tokenKeyToId) throws IOException {
-        writeStringIntMap(out, tokenKeyToId);
-    }
-
-    private static Map<String, Integer> readTokenKeyToId(DataInputStream in) throws IOException {
-        return readStringIntMap(in);
-    }
 
     private static void writeMerges(DataOutputStream out, List<TokenPair> merges) throws IOException {
         out.writeInt(merges.size());
@@ -131,18 +123,11 @@ public final class BPEModelIO {
         return map;
     }
 
-    private static void writeSpecialTokens(DataOutputStream out, Map<String, Integer> specialTokenToId) throws IOException {
-        writeStringIntMap(out, specialTokenToId);
-    }
-
-    private static Map<String, Integer> readSpecialTokens(DataInputStream in) throws IOException {
-        return readStringIntMap(in);
-    }
 
     private static void writeStringIntMap(DataOutputStream out, Map<String, Integer> map) throws IOException {
         out.writeInt(map.size());
         List<Map.Entry<String, Integer>> entries = new ArrayList<>(map.entrySet());
-        entries.sort(Comparator.comparing(Map.Entry::getKey));
+        entries.sort(Map.Entry.comparingByKey());
         for (Map.Entry<String, Integer> e : entries) {
             out.writeUTF(e.getKey());
             out.writeInt(e.getValue());
@@ -158,16 +143,16 @@ public final class BPEModelIO {
         return map;
     }
 
-    private static void requireNonNegativeLength(int len, String section) throws IOException {
+    private static void requireNonNegativeLength(int len) throws IOException {
         if (len < 0) {
-            throw new IOException("Negative token length in " + section);
+            throw new IOException("Negative token length in vocab");
         }
     }
 
-    private static byte[] readExactBytes(DataInputStream in, int len, String section) throws IOException {
+    private static byte[] readExactBytes(DataInputStream in, int len) throws IOException {
         byte[] bytes = in.readNBytes(len);
         if (bytes.length != len) {
-            throw new IOException("Unexpected EOF while reading " + section);
+            throw new IOException("Unexpected EOF while reading vocab bytes");
         }
         return bytes;
     }

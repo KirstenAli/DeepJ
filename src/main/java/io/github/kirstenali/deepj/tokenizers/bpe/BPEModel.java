@@ -2,9 +2,9 @@ package io.github.kirstenali.deepj.tokenizers.bpe;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public record BPEModel(
         List<byte[]> idToBytes,
@@ -51,9 +51,15 @@ public record BPEModel(
         return deepCopyBytes(idToBytes);
     }
 
+    /** Package-private fast path — returns the internal unmodifiable list without deep-copying byte arrays.
+     *  Safe for read-only access within this package (e.g. decode). */
+    List<byte[]> idToBytesView() {
+        return idToBytes;
+    }
+
     @Override
     public Map<String, Integer> specialTokenToId() {
-        return Map.copyOf(specialTokenToId);
+        return specialTokenToId; // already Map.copyOf'd in constructor
     }
 
     public int vocabSize() {
@@ -65,11 +71,8 @@ public record BPEModel(
     }
 
     public Map<Integer, String> idToSpecialToken() {
-        Map<Integer, String> out = new HashMap<>(specialTokenToId.size());
-        for (Map.Entry<String, Integer> e : specialTokenToId.entrySet()) {
-            out.put(e.getValue(), e.getKey());
-        }
-        return Map.copyOf(out);
+        return specialTokenToId.entrySet().stream()
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getValue, Map.Entry::getKey));
     }
 
     private static List<byte[]> deepCopyBytes(List<byte[]> source) {

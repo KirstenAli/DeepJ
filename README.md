@@ -991,15 +991,15 @@ Tokenizer tok = new BPETokenizer(bpe);
 int[] ids = tok.encode("hello world");
 String text = tok.decode(ids);
 
-// Production helper: reserves <BOS>, <EOS>, <PAD>
-BPETokenizer prodTok = new BPETrainer().trainProductionTokenizer(corpusText, 1000);
+// Convenience helper: reserves <BOS>, <EOS>, <PAD> automatically
+BPETokenizer tok = new BPETrainer().trainTokenizerWithDefaults(corpusText, 1000);
 
 // Versioned binary tokenizer persistence
-BPEModelIO.save(Path.of("tokenizer.bpe"), prodTok.model());
+BPEModelIO.save(Path.of("tokenizer.bpe"), tok.model());
 BPETokenizer loadedTok = new BPETokenizer(BPEModelIO.load(Path.of("tokenizer.bpe")));
 
-int[] prodIds = loadedTok.encode("<BOS> hello world <EOS>");
-String prodText = loadedTok.decode(prodIds);
+int[] ids  = loadedTok.encode("<BOS> hello world <EOS>");
+String text = loadedTok.decode(ids);
 ```
 
 ---

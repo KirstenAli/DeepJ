@@ -6,35 +6,72 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public record BPETokenizer(BPEModel model) implements Tokenizer {
+public final class BPETokenizer implements Tokenizer {
+
+    private final BPEModel model;
+
+    // Precomputed once at construction — model is immutable so these never change.
+    private final int              endOfWordId;
+    private final List<TokenPair>  merges;
+    private final Map<TokenPair, Integer> mergeToNewId;
+    private final List<SpecialTokenEntry> sortedSpecials;
+    private final Map<Integer, String>    idToSpecial;
+
+    public BPETokenizer(BPEModel model) {
+        this.model        = model;
+        this.endOfWordId  = model.endOfWordId();
+        this.merges       = model.merges();
+        this.mergeToNewId = model.mergeToNewId();
+
+        SpecialTokenViews views = buildSpecialTokenViews(model.specialTokenToId());
+        this.idToSpecial    = views.idToSpecial();
+        this.sortedSpecials = views.sortedSpecials();
+    }
+
+    /** Builds both special-token views in a single pass to avoid iterating the map twice. */
+    private static SpecialTokenViews buildSpecialTokenViews(Map<String, Integer> specials) {
+        Map<Integer, String> inverse = new HashMap<>(specials.size());
+        List<SpecialTokenEntry> sorted = new ArrayList<>(specials.size());
+
+        for (Map.Entry<String, Integer> e : specials.entrySet()) {
+            inverse.put(e.getValue(), e.getKey());
+            sorted.add(new SpecialTokenEntry(e.getKey(), e.getValue()));
+        }
+        sorted.sort(Comparator.comparingInt((SpecialTokenEntry e) -> e.token().length()).reversed());
+
+        return new SpecialTokenViews(Map.copyOf(inverse), List.copyOf(sorted));
+    }
+
+
+    public BPEModel model() {
+        return model;
+    }
 
     @Override
     public int[] encode(String text) {
         List<Integer> ids = new ArrayList<>();
-        if (!model.hasSpecialTokens()) {
+        if (sortedSpecials.isEmpty()) {
             appendEncodedSegment(ids, text);
             return toIntArray(ids);
         }
-
-        List<SpecialTokenEntry> specialsByLength = sortedSpecialTokensByLength();
-        encodeWithSpecialTokens(text, specialsByLength, ids);
+        encodeWithSpecialTokens(text, ids);
         return toIntArray(ids);
     }
 
-    private void encodeWithSpecialTokens(String text, List<SpecialTokenEntry> specialsByLength, List<Integer> ids) {
+    private void encodeWithSpecialTokens(String text, List<Integer> ids) {
         int cursor = 0;
         while (cursor < text.length()) {
-            SpecialTokenEntry matched = findSpecialTokenAt(text, cursor, specialsByLength);
+            SpecialTokenEntry matched = findSpecialTokenAt(text, cursor);
             if (matched != null) {
                 ids.add(matched.id());
                 cursor += matched.token().length();
                 continue;
             }
-
-            int nextSpecialIndex = nextSpecialStart(text, cursor, specialsByLength);
+            int nextSpecialIndex = nextSpecialStart(text, cursor);
             appendEncodedSegment(ids, text.substring(cursor, nextSpecialIndex));
             cursor = nextSpecialIndex;
         }
@@ -52,15 +89,15 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
 
     @Override
     public String decode(int[] ids) {
+        // idToBytesView() avoids the deep-copy done by idToBytes() — safe here because we only read.
+        List<byte[]> vocab = model.idToBytesView();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         StringBuilder textOut = new StringBuilder();
         boolean touchedSpecial = false;
-        List<byte[]> vocab = model.idToBytes();
-        Map<Integer, String> idToSpecial = model.idToSpecialToken();
 
         for (int id : ids) {
             validateTokenId(id, vocab.size());
-            touchedSpecial |= appendDecodedToken(id, vocab, idToSpecial, out, textOut);
+            touchedSpecial |= appendDecodedToken(id, vocab, out, textOut);
         }
 
         if (!touchedSpecial) {
@@ -79,7 +116,6 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
     private boolean appendDecodedToken(
             int id,
             List<byte[]> vocab,
-            Map<Integer, String> idToSpecial,
             ByteArrayOutputStream out,
             StringBuilder textOut
     ) {
@@ -89,7 +125,7 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
             return true;
         }
 
-        if (id == model.endOfWordId()) {
+        if (id == endOfWordId) {
             return false;
         }
 
@@ -104,14 +140,17 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
     }
 
     private List<Integer> encodePiece(String piece) {
-        List<Integer> tokens = BPEBytes.toTokenIds(piece, model.endOfWordId());
+        List<Integer> tokens = BPEBytes.toTokenIds(piece, endOfWordId);
 
-        for (TokenPair merge : model.merges()) {
-            int mergedId = model.mergeToNewId().get(merge);
+        for (TokenPair merge : merges) {
+            Integer mergedId = mergeToNewId.get(merge);
+            if (mergedId == null) {
+                throw new IllegalStateException("merge table inconsistency: no id for " + merge);
+            }
             tokens = BPEBytes.mergePair(tokens, merge, mergedId);
         }
 
-        if (!tokens.isEmpty() && tokens.get(tokens.size() - 1) == model.endOfWordId()) {
+        if (!tokens.isEmpty() && tokens.get(tokens.size() - 1) == endOfWordId) {
             tokens.remove(tokens.size() - 1);
         }
 
@@ -126,17 +165,8 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
         out.reset();
     }
 
-    private List<SpecialTokenEntry> sortedSpecialTokensByLength() {
-        List<SpecialTokenEntry> entries = new ArrayList<>();
-        for (Map.Entry<String, Integer> e : model.specialTokenToId().entrySet()) {
-            entries.add(new SpecialTokenEntry(e.getKey(), e.getValue()));
-        }
-        entries.sort(Comparator.comparingInt((SpecialTokenEntry e) -> e.token().length()).reversed());
-        return entries;
-    }
-
-    private static SpecialTokenEntry findSpecialTokenAt(String text, int index, List<SpecialTokenEntry> specials) {
-        for (SpecialTokenEntry special : specials) {
+    private SpecialTokenEntry findSpecialTokenAt(String text, int index) {
+        for (SpecialTokenEntry special : sortedSpecials) {
             if (text.startsWith(special.token(), index)) {
                 return special;
             }
@@ -144,9 +174,9 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
         return null;
     }
 
-    private static int nextSpecialStart(String text, int cursor, List<SpecialTokenEntry> specials) {
+    private int nextSpecialStart(String text, int cursor) {
         int next = text.length();
-        for (SpecialTokenEntry special : specials) {
+        for (SpecialTokenEntry special : sortedSpecials) {
             int idx = text.indexOf(special.token(), cursor);
             if (idx >= 0 && idx < next) {
                 next = idx;
@@ -155,7 +185,8 @@ public record BPETokenizer(BPEModel model) implements Tokenizer {
         return next;
     }
 
-    private record SpecialTokenEntry(String token, int id) {
-    }
+    private record SpecialTokenEntry(String token, int id) {}
+
+    private record SpecialTokenViews(Map<Integer, String> idToSpecial, List<SpecialTokenEntry> sortedSpecials) {}
 
 }

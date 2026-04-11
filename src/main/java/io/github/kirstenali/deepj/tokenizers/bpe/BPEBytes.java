@@ -9,9 +9,6 @@ final class BPEBytes {
     private BPEBytes() {
     }
 
-    static byte[] utf8(String text) {
-        return text.getBytes(StandardCharsets.UTF_8);
-    }
 
     static String key(byte[] bytes) {
         return new String(bytes, StandardCharsets.ISO_8859_1);
@@ -54,28 +51,41 @@ final class BPEBytes {
     }
 
     static List<Integer> mergePair(List<Integer> tokens, TokenPair pair, int newId) {
-        List<Integer> out = new ArrayList<>(tokens.size());
-        int i = 0;
+        int firstMatch = firstMatchIndex(tokens, pair);
+        if (firstMatch < 0) {
+            return tokens;
+        }
+        return applyMergeFrom(tokens, pair, newId, firstMatch);
+    }
 
-        while (i < tokens.size()) {
-            if (i < tokens.size() - 1
-                    && tokens.get(i) == pair.left()
-                    && tokens.get(i + 1) == pair.right()) {
+    private static int firstMatchIndex(List<Integer> tokens, TokenPair pair) {
+        for (int i = 0, n = tokens.size() - 1; i < n; i++) {
+            if (tokens.get(i) == pair.left() && tokens.get(i + 1) == pair.right()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static List<Integer> applyMergeFrom(List<Integer> tokens, TokenPair pair, int newId, int startFrom) {
+        List<Integer> out = new ArrayList<>(tokens.size());
+        out.addAll(tokens.subList(0, startFrom));
+        int i = startFrom;
+        int n = tokens.size();
+        while (i < n) {
+            if (i < n - 1 && tokens.get(i) == pair.left() && tokens.get(i + 1) == pair.right()) {
                 out.add(newId);
                 i += 2;
             } else {
-                out.add(tokens.get(i));
-                i++;
+                out.add(tokens.get(i++));
             }
         }
-
         return out;
     }
 
     static List<Integer> toTokenIds(String piece, int endOfWordId) {
-        byte[] bytes = utf8(piece);
+        byte[] bytes = piece.getBytes(StandardCharsets.UTF_8);
         List<Integer> word = new ArrayList<>(bytes.length + 1);
-
         for (byte b : bytes) {
             word.add(b & 0xFF);
         }
