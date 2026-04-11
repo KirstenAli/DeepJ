@@ -222,6 +222,25 @@ public final class MetalBackend implements TensorBackend {
         return gpuOut(gOut);
     }
 
+    @Override
+    public float sum(Tensor a) {
+        Tensor colSums = sumRows(a);
+        Tensor scalar = sumAlongRows(colSums);
+        scalar.materialize();
+        return scalar.data[0];
+    }
+
+    @Override
+    public float sumAbs(Tensor a) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gRowAbsSums = graph.newOutputBuffer(a.rows, 1);
+        graph.recordSumAbs(ga, gRowAbsSums, a.rows, a.cols);
+        Tensor rowAbsSums = gpuOut(gRowAbsSums);
+        Tensor scalar = sumRows(rowAbsSums);
+        scalar.materialize();
+        return scalar.data[0];
+    }
+
     // ── unary math ─────────────────────────────────────────────────
 
     @Override
@@ -495,6 +514,22 @@ public final class MetalBackend implements TensorBackend {
         probs.subtractInPlace(oneHot);
         probs.multiplyScalarInPlace(1.0f / logits.rows);
         return probs;
+    }
+
+    @Override
+    public float crossEntropyLoss(Tensor logits, int[] targets) {
+        Tensor.requireTargetsMatchRows(logits, targets);
+
+        Tensor targetTensor = TensorAdapters.fromIntColumn(targets);
+        GpuBuffer gLogits = gpuIn(logits);
+        GpuBuffer gTargets = gpuIn(targetTensor);
+        GpuBuffer gRowLosses = graph.newOutputBuffer(logits.rows, 1);
+        graph.recordCrossEntropyLoss(gLogits, gTargets, gRowLosses, logits.rows, logits.cols);
+
+        Tensor rowLosses = gpuOut(gRowLosses);
+        Tensor scalar = sumRows(rowLosses).divideScalar(logits.rows);
+        scalar.materialize();
+        return scalar.data[0];
     }
 
     @Override

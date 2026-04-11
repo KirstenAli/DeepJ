@@ -171,6 +171,34 @@ public final class MetalBackendTest {
     }
 
     @Test
+    void scalarSumAbsAndCrossEntropyLossMatchCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor a = randomTensor(23, 17, 126L);
+            float expectedSumAbs = cpu.sumAbs(a);
+            float actualSumAbs = gpuBackend.sumAbs(a);
+            assertEquals(expectedSumAbs, actualSumAbs, 1e-4f);
+
+            Tensor logits = randomTensor(19, 31, 127L);
+            int[] targets = new int[logits.rows];
+            Random rnd = new Random(128L);
+            for (int r = 0; r < targets.length; r++) {
+                targets[r] = rnd.nextInt(logits.cols);
+            }
+
+            float expectedCe = cpu.crossEntropyLoss(logits, targets);
+            float actualCe = gpuBackend.crossEntropyLoss(logits, targets);
+            assertEquals(expectedCe, actualCe, 1e-4f);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
     void softmaxBackwardMatchesCpu() {
         MetalBackend gpuBackend = new MetalBackend();
         TensorBackend oldBackend = Tensor.backend();

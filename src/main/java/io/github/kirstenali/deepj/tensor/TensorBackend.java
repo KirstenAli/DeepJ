@@ -35,6 +35,8 @@ public interface TensorBackend {
     Tensor meanAlongRows(Tensor a);
     Tensor varianceAlongRows(Tensor a);
     Tensor maxAlongRows(Tensor a);
+    float sum(Tensor a);
+    float sumAbs(Tensor a);
 
     // ── unary math ─────────────────────────────────────────────────────
     Tensor transpose(Tensor a);
@@ -58,6 +60,7 @@ public interface TensorBackend {
     Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut);
 
     // ── fused high-level ops ───────────────────────────────────────────
+    float crossEntropyLoss(Tensor logits, int[] targets);
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
 
     /**

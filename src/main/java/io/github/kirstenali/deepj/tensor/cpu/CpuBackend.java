@@ -279,12 +279,14 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
+    @Override
     public float sum(Tensor a) {
         float s = 0.0f;
         for (float v : a.data) s += v;
         return s;
     }
 
+    @Override
     public float sumAbs(Tensor a) {
         float s = 0.0f;
         for (float v : a.data) s += Math.abs(v);
@@ -427,6 +429,7 @@ public final class CpuBackend implements TensorBackend {
     //  Fused high-level ops
     // ══════════════════════════════════════════════════════════════════
 
+    @Override
     public float crossEntropyLoss(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
 

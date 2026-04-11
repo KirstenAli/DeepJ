@@ -189,22 +189,20 @@ public class Tensor {
         return t;
     }
 
-    // ── CPU-backed ops (all direct CPU_ACCESS calls grouped together) ───────
-    // ── reductions (scalar-returning — trigger materialization) ──
+    // ── scalar reductions/loss (backend-routed) ───────────────────
     public float sum() {
-        materialize();
-        return CPU_ACCESS.sum(this);
+        return backend().sum(this);
     }
 
     public float sumAbs() {
-        materialize();
-        return CPU_ACCESS.sumAbs(this);
+        return backend().sumAbs(this);
     }
 
     public float crossEntropyLoss(int[] targets) {
-        materialize();
-        return CPU_ACCESS.crossEntropyLoss(this, targets);
+        return backend().crossEntropyLoss(this, targets);
     }
+
+    // ── CPU-backed ops (all direct CPU_ACCESS calls grouped together) ───────
 
     // ── data accessors (trigger materialization) ────────────────
     public float get(int r, int c) {
@@ -234,8 +232,7 @@ public class Tensor {
         t.materialize();
         return CPU_ACCESS.sliceRows(t, rowIndices, cols);
     }
-
-
+    
     public static Tensor sampleRows(Tensor t, int n, Random rnd) {
         t.materialize();
         return CPU_ACCESS.sampleRows(t, n, rnd);
