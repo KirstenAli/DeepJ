@@ -381,9 +381,9 @@ class ComputeGraphTest {
                 ComputeGraph.OP_SUM_ALONG_ROWS, ComputeGraph.OP_MAX_ALONG_ROWS,
                 ComputeGraph.OP_CLAMP, ComputeGraph.OP_POW,
                 ComputeGraph.OP_SCATTER_ADD_ROWS, ComputeGraph.OP_SUM_ABS,
-                ComputeGraph.OP_CROSS_ENTROPY_LOSS
+                ComputeGraph.OP_CROSS_ENTROPY_LOSS, ComputeGraph.OP_CROSS_ENTROPY_GRADIENT
         };
-        assertEquals(39, codes.length);
+        assertEquals(40, codes.length);
         assertEquals(codes.length, java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
     }

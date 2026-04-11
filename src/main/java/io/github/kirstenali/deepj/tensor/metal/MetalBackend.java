@@ -506,14 +506,12 @@ public final class MetalBackend implements TensorBackend {
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
-        Tensor probs = softmaxRows(logits);
-        Tensor oneHot = new Tensor(logits.rows, logits.cols);
-        for (int r = 0; r < logits.rows; r++) {
-            oneHot.data[r * logits.cols + targets[r]] = 1.0f;
-        }
-        probs.subtractInPlace(oneHot);
-        probs.multiplyScalarInPlace(1.0f / logits.rows);
-        return probs;
+        Tensor targetTensor = TensorAdapters.fromIntColumn(targets);
+        GpuBuffer gLogits = gpuIn(logits);
+        GpuBuffer gTargets = gpuIn(targetTensor);
+        GpuBuffer gOut = graph.newOutputBuffer(logits.rows, logits.cols);
+        graph.recordCrossEntropyGradient(gLogits, gTargets, gOut, logits.rows, logits.cols);
+        return gpuOut(gOut);
     }
 
     @Override

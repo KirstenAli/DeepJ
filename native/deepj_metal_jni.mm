@@ -37,6 +37,7 @@ struct MetalContext {
     id<MTLComputePipelineState> maxAlongRowsPSO;
     id<MTLComputePipelineState> sumAbsPSO;
     id<MTLComputePipelineState> crossEntropyLossPSO;
+    id<MTLComputePipelineState> crossEntropyGradPSO;
     id<MTLComputePipelineState> clampPSO;
     id<MTLComputePipelineState> powPSO;
     id<MTLComputePipelineState> scatterAddRowsPSO;
@@ -342,6 +343,36 @@ kernel void kernel_cross_entropy_loss(device const float* logits [[buffer(0)]],
     }
 
     out[row] = log(sumExp) + maxVal - logits[base + (uint)target];
+}
+
+kernel void kernel_cross_entropy_gradient(device const float* logits [[buffer(0)]],
+                                          device const float* targets [[buffer(1)]],
+                                          device float* out           [[buffer(2)]],
+                                          device const uint2* dims    [[buffer(3)]],
+                                          uint row [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    if (row >= rows) return;
+
+    uint base = row * cols;
+    int target = (int)targets[row];
+
+    float maxVal = -INFINITY;
+    for (uint c = 0; c < cols; c++) {
+        maxVal = max(maxVal, logits[base + c]);
+    }
+
+    float sumExp = 0.0f;
+    for (uint c = 0; c < cols; c++) {
+        sumExp += exp(logits[base + c] - maxVal);
+    }
+
+    float invRows = 1.0f / (float)rows;
+    for (uint c = 0; c < cols; c++) {
+        float p = exp(logits[base + c] - maxVal) / sumExp;
+        if ((int)c == target) p -= 1.0f;
+        out[base + c] = p * invRows;
+    }
 }
 
 kernel void kernel_clamp(device const float* a        [[buffer(0)]],
@@ -654,6 +685,7 @@ static MetalContext* getContext() {
         gCtx->maxAlongRowsPSO   = makePSO(library, @"kernel_max_along_rows");
         gCtx->sumAbsPSO         = makePSO(library, @"kernel_sum_abs");
         gCtx->crossEntropyLossPSO = makePSO(library, @"kernel_cross_entropy_loss");
+        gCtx->crossEntropyGradPSO = makePSO(library, @"kernel_cross_entropy_gradient");
         gCtx->clampPSO          = makePSO(library, @"kernel_clamp");
         gCtx->powPSO            = makePSO(library, @"kernel_pow");
         gCtx->scatterAddRowsPSO = makePSO(library, @"kernel_scatter_add_rows");
@@ -1078,6 +1110,7 @@ static constexpr int OP_POW = 36;
 static constexpr int OP_SCATTER_ADD_ROWS = 37;
 static constexpr int OP_SUM_ABS = 38;
 static constexpr int OP_CROSS_ENTROPY_LOSS = 39;
+static constexpr int OP_CROSS_ENTROPY_GRADIENT = 40;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -1530,6 +1563,30 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc setBuffer:dimsBuf                offset:0 atIndex:3];
                     NSUInteger dispatchN = (NSUInteger)rows;
                     NSUInteger tpg = MIN(dispatchN, ctx->crossEntropyLossPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(dispatchN, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 6;
+                    break;
+                }
+
+                // ── Cross-entropy gradient: [op, logits, targets, out, rows, cols] ─
+                case OP_CROSS_ENTROPY_GRADIENT: {
+                    int logitsId = cmd[pos+1], targetsId = cmd[pos+2], outId = cmd[pos+3];
+                    uint32_t rows = (uint32_t)cmd[pos+4];
+                    uint32_t cols = (uint32_t)cmd[pos+5];
+                    uint32_t dims[2] = { rows, cols };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->crossEntropyGradPSO];
+                    [enc setBuffer:gBufferPool[logitsId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[targetsId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
+                    NSUInteger dispatchN = (NSUInteger)rows;
+                    NSUInteger tpg = MIN(dispatchN, ctx->crossEntropyGradPSO.maxTotalThreadsPerThreadgroup);
                     [enc dispatchThreads:MTLSizeMake(dispatchN, 1, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 6;

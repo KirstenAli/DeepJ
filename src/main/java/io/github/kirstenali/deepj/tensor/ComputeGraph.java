@@ -55,6 +55,7 @@ public final class ComputeGraph {
     public static final int OP_SCATTER_ADD_ROWS = 37;
     public static final int OP_SUM_ABS = 38;
     public static final int OP_CROSS_ENTROPY_LOSS = 39;
+    public static final int OP_CROSS_ENTROPY_GRADIENT = 40;
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
@@ -84,7 +85,7 @@ public final class ComputeGraph {
     }
 
     private static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_CROSS_ENTROPY_LOSS + 1];
+        OpMeta[] meta = new OpMeta[OP_CROSS_ENTROPY_GRADIENT + 1];
 
         // Unary: [op, in, out, n]
         registerMeta(meta, OP_SQRT, 4, 1, 2);
@@ -120,6 +121,7 @@ public final class ComputeGraph {
         registerMeta(meta, OP_SCATTER_ADD_ROWS, 7, 1, 2, 3);
         registerMeta(meta, OP_SUM_ABS, 5, 1, 2);
         registerMeta(meta, OP_CROSS_ENTROPY_LOSS, 6, 1, 2, 3);
+        registerMeta(meta, OP_CROSS_ENTROPY_GRADIENT, 6, 1, 2, 3);
 
         // 3-input ops with shape args
         registerMeta(meta, OP_SOFTMAX_BACKWARD, 6, 1, 2, 3);
@@ -359,6 +361,18 @@ public final class ComputeGraph {
     public void recordCrossEntropyLoss(GpuBuffer logits, GpuBuffer targets, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_CROSS_ENTROPY_LOSS);
+        emitInt(logits.id);
+        emitInt(targets.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
+    }
+
+    /** Record cross-entropy gradient: [OP_CROSS_ENTROPY_GRADIENT, logitsId, targetsId, outId, rows, cols] */
+    public void recordCrossEntropyGradient(GpuBuffer logits, GpuBuffer targets, GpuBuffer out, int rows, int cols) {
+        beginOp(6);
+        emitInt(OP_CROSS_ENTROPY_GRADIENT);
         emitInt(logits.id);
         emitInt(targets.id);
         emitInt(out.id);
