@@ -267,6 +267,7 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
+    @Override
     public Tensor maxAlongRows(Tensor a) {
         Tensor result = new Tensor(a.rows, 1);
         DeepJExecutor.forRange(0, a.rows, r -> {
@@ -304,9 +305,9 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
-    public Tensor clamp(Tensor a, float min, float max) { return newUnary(a, x -> Math.min(max, Math.max(min, x))); }
+    @Override public Tensor clamp(Tensor a, float min, float max) { return newUnary(a, x -> Math.min(max, Math.max(min, x))); }
     @Override public Tensor sqrt(Tensor a)                          { return newUnary(a, CpuBackend::fSqrt); }
-    public Tensor pow(Tensor a, float exponent)                    { return newUnary(a, x -> fPow(x, exponent)); }
+    @Override public Tensor pow(Tensor a, float exponent)                    { return newUnary(a, x -> fPow(x, exponent)); }
     @Override public Tensor neg(Tensor a)                           { return newUnary(a, x -> -x); }
     @Override public Tensor exp(Tensor a)                           { return newUnary(a, CpuBackend::fExp); }
     @Override public Tensor log(Tensor a)                           { return newUnary(a, CpuBackend::fLog); }
@@ -535,6 +536,7 @@ public final class CpuBackend implements TensorBackend {
         return out;
     }
 
+    @Override
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
         for (int i = 0; i < indices.length; i++) {
             int tBase = indices[i] * target.cols;

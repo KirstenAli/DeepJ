@@ -49,6 +49,10 @@ public final class ComputeGraph {
     public static final int OP_VARIANCE_ALONG_ROWS = 31;
     public static final int OP_MULTIPLY_BROADCAST_COLS = 32;
     public static final int OP_SUM_ALONG_ROWS = 33;
+    public static final int OP_MAX_ALONG_ROWS = 34;
+    public static final int OP_CLAMP = 35;
+    public static final int OP_POW = 36;
+    public static final int OP_SCATTER_ADD_ROWS = 37;
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
@@ -78,7 +82,7 @@ public final class ComputeGraph {
     }
 
     private static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_SUM_ALONG_ROWS + 1];
+        OpMeta[] meta = new OpMeta[OP_SCATTER_ADD_ROWS + 1];
 
         // Unary: [op, in, out, n]
         registerMeta(meta, OP_SQRT, 4, 1, 2);
@@ -107,7 +111,11 @@ public final class ComputeGraph {
         registerMeta(meta, OP_MEAN_ALONG_ROWS, 5, 1, 2);
         registerMeta(meta, OP_VARIANCE_ALONG_ROWS, 5, 1, 2);
         registerMeta(meta, OP_SUM_ALONG_ROWS, 5, 1, 2);
+        registerMeta(meta, OP_MAX_ALONG_ROWS, 5, 1, 2);
         registerMeta(meta, OP_SOFTMAX_ROWS, 5, 1, 2);
+        registerMeta(meta, OP_CLAMP, 6, 1, 2);
+        registerMeta(meta, OP_POW, 5, 1, 2);
+        registerMeta(meta, OP_SCATTER_ADD_ROWS, 7, 1, 2, 3);
 
         // 3-input ops with shape args
         registerMeta(meta, OP_SOFTMAX_BACKWARD, 6, 1, 2, 3);
@@ -292,6 +300,43 @@ public final class ComputeGraph {
         emitInt(out.id);
         emitFloatBits(scalar);
         emitInt(out.floatCount());
+        endOp();
+    }
+
+    /** Record pow: [OP_POW, inId, outId, exponentBits, n] */
+    public void recordPow(GpuBuffer in, GpuBuffer out, float exponent) {
+        beginOp(5);
+        emitInt(OP_POW);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitFloatBits(exponent);
+        emitInt(out.floatCount());
+        endOp();
+    }
+
+    /** Record clamp: [OP_CLAMP, inId, outId, minBits, maxBits, n] */
+    public void recordClamp(GpuBuffer in, GpuBuffer out, float min, float max) {
+        beginOp(6);
+        emitInt(OP_CLAMP);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitFloatBits(min);
+        emitFloatBits(max);
+        emitInt(out.floatCount());
+        endOp();
+    }
+
+    /** Record scatter-add-rows: [OP_SCATTER_ADD_ROWS, targetId, indicesId, gradId, targetRows, targetCols, nIdx] */
+    public void recordScatterAddRows(GpuBuffer target, GpuBuffer indices, GpuBuffer grad,
+                                     int targetRows, int targetCols, int nIndices) {
+        beginOp(7);
+        emitInt(OP_SCATTER_ADD_ROWS);
+        emitInt(target.id);
+        emitInt(indices.id);
+        emitInt(grad.id);
+        emitInt(targetRows);
+        emitInt(targetCols);
+        emitInt(nIndices);
         endOp();
     }
 

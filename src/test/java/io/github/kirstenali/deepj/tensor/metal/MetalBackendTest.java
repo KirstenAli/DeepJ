@@ -134,6 +134,43 @@ public final class MetalBackendTest {
     }
 
     @Test
+    void maxClampPowAndScatterAddRowsMatchCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor a = randomTensor(16, 20, 121L);
+            assertTensorClose(cpu.maxAlongRows(a), gpuBackend.maxAlongRows(a), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.clamp(a, -0.25f, 0.35f), gpuBackend.clamp(a, -0.25f, 0.35f), 1e-4f, 1e-4f);
+            assertTensorClose(cpu.pow(a, 2.0f), gpuBackend.pow(a, 2.0f), 1e-4f, 1e-4f);
+
+            // Unique indices: exercises GPU scatter path.
+            Tensor targetCpuUnique = randomTensor(10, 8, 122L);
+            Tensor targetGpuUnique = new Tensor(targetCpuUnique);
+            Tensor gradUnique = randomTensor(6, 8, 123L);
+            int[] uniqueIndices = new int[]{3, 1, 7, 2, 4, 5};
+
+            cpu.scatterAddRows(targetCpuUnique, uniqueIndices, gradUnique);
+            Tensor.scatterAddRows(targetGpuUnique, uniqueIndices, gradUnique);
+            assertTensorClose(targetCpuUnique, targetGpuUnique, 1e-4f, 1e-4f);
+
+            // Duplicate indices: exercises deterministic fallback path.
+            Tensor targetCpuDup = randomTensor(10, 8, 124L);
+            Tensor targetGpuDup = new Tensor(targetCpuDup);
+            Tensor gradDup = randomTensor(6, 8, 125L);
+            int[] dupIndices = new int[]{3, 1, 7, 1, 4, 3};
+
+            cpu.scatterAddRows(targetCpuDup, dupIndices, gradDup);
+            Tensor.scatterAddRows(targetGpuDup, dupIndices, gradDup);
+            assertTensorClose(targetCpuDup, targetGpuDup, 1e-4f, 1e-4f);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
     void softmaxBackwardMatchesCpu() {
         MetalBackend gpuBackend = new MetalBackend();
         TensorBackend oldBackend = Tensor.backend();

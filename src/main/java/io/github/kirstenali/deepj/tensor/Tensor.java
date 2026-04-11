@@ -155,6 +155,23 @@ public class Tensor {
         return backend().layerNormBackward(dXHat, xHat, std, dim);
     }
 
+    // ── backend-routed misc ops ─────────────────────────────────────
+    public Tensor maxAlongRows() {
+        return backend().maxAlongRows(this);
+    }
+
+    public Tensor clamp(float min, float max) {
+        return backend().clamp(this, min, max);
+    }
+
+    public Tensor pow(float exponent) {
+        return backend().pow(this, exponent);
+    }
+
+    public static void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
+        backend().scatterAddRows(target, indices, grad);
+    }
+
     /**
      * Build a tensor from 2-D row-major data.
      * Preferred API for literal matrix construction.
@@ -173,11 +190,6 @@ public class Tensor {
     }
 
     // ── CPU-backed ops (all direct CPU_ACCESS calls grouped together) ───────
-    public Tensor maxAlongRows() {
-        materialize();
-        return CPU_ACCESS.maxAlongRows(this);
-    }
-
     // ── reductions (scalar-returning — trigger materialization) ──
     public float sum() {
         materialize();
@@ -187,16 +199,6 @@ public class Tensor {
     public float sumAbs() {
         materialize();
         return CPU_ACCESS.sumAbs(this);
-    }
-
-    public Tensor clamp(float min, float max) {
-        materialize();
-        return CPU_ACCESS.clamp(this, min, max);
-    }
-
-    public Tensor pow(float exponent) {
-        materialize();
-        return CPU_ACCESS.pow(this, exponent);
     }
 
     public float crossEntropyLoss(int[] targets) {
@@ -233,12 +235,6 @@ public class Tensor {
         return CPU_ACCESS.sliceRows(t, rowIndices, cols);
     }
 
-    public static void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
-        target.materialize();
-        grad.materialize();
-        CPU_ACCESS.scatterAddRows(target, indices, grad);
-        markGpuNeedsUpload(target);
-    }
 
     public static Tensor sampleRows(Tensor t, int n, Random rnd) {
         t.materialize();

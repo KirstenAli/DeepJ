@@ -34,10 +34,13 @@ public interface TensorBackend {
     Tensor sumAlongCols(Tensor a);
     Tensor meanAlongRows(Tensor a);
     Tensor varianceAlongRows(Tensor a);
+    Tensor maxAlongRows(Tensor a);
 
     // ── unary math ─────────────────────────────────────────────────────
     Tensor transpose(Tensor a);
+    Tensor clamp(Tensor a, float min, float max);
     Tensor sqrt(Tensor a);
+    Tensor pow(Tensor a, float exponent);
     Tensor neg(Tensor a);
     Tensor exp(Tensor a);
     Tensor log(Tensor a);
@@ -68,6 +71,9 @@ public interface TensorBackend {
      * LayerNorm backward through normalization (given dXHat, xHat, std).
      */
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
+
+    // ── row access/scatter helpers ───────────────────────────────────────
+    void scatterAddRows(Tensor target, int[] indices, Tensor grad);
 
 
     // ── in-place operations (write result back into first argument) ─

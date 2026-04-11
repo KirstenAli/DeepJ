@@ -1,9 +1,11 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.*;
+import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 
 public final class MetalBackend implements TensorBackend {
     private final ComputeGraph graph = new ComputeGraph(new MetalGpuRuntime());
+    private static final CpuBackend CPU_FALLBACK = new CpuBackend();
 
     private static void requireRowVector(Tensor rowVector, Tensor target) {
         if (rowVector.rows != 1 || rowVector.cols != target.cols) {
@@ -212,6 +214,14 @@ public final class MetalBackend implements TensorBackend {
         return gpuOut(gOut);
     }
 
+    @Override
+    public Tensor maxAlongRows(Tensor a) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, 1);
+        graph.recordReduction(ComputeGraph.OP_MAX_ALONG_ROWS, ga, gOut, a.rows, a.cols);
+        return gpuOut(gOut);
+    }
+
     // ── unary math ─────────────────────────────────────────────────
 
     @Override
@@ -221,6 +231,23 @@ public final class MetalBackend implements TensorBackend {
         graph.recordTranspose(ga, gOut, a.rows, a.cols);
         return gpuOut(gOut);
     }
+
+    @Override
+    public Tensor clamp(Tensor a, float min, float max) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordClamp(ga, gOut, min, max);
+        return gpuOut(gOut);
+    }
+
+    @Override
+    public Tensor pow(Tensor a, float exponent) {
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        graph.recordPow(ga, gOut, exponent);
+        return gpuOut(gOut);
+    }
+
     // ── LAZY unary math ────────────────────────────────────────────
 
     @Override
@@ -508,6 +535,66 @@ public final class MetalBackend implements TensorBackend {
         GpuBuffer gOut   = graph.newOutputBuffer(dXHat.rows, dXHat.cols);
         graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.rows, dXHat.cols);
         return gpuOut(gOut);
+    }
+
+    private static void validateScatterAddRowsInputs(Tensor target, int[] indices, Tensor grad) {
+        if (indices.length != grad.rows) {
+            throw new IllegalArgumentException(
+                    "scatterAddRows: indices length " + indices.length + " must match grad rows " + grad.rows);
+        }
+        if (target.cols != grad.cols) {
+            throw new IllegalArgumentException(
+                    "scatterAddRows: target cols " + target.cols + " must match grad cols " + grad.cols);
+        }
+    }
+
+    private static boolean hasDuplicateValidIndices(int[] indices, int targetRows) {
+        boolean[] seen = new boolean[targetRows];
+        for (int idx : indices) {
+            if (idx < 0 || idx >= targetRows) continue;
+            if (seen[idx]) return true;
+            seen[idx] = true;
+        }
+        return false;
+    }
+
+    private static Tensor buildIndexTensor(int[] indices) {
+        return TensorAdapters.fromIntColumn(indices);
+    }
+
+    private void runDeterministicScatterFallback(Tensor target, int[] indices, Tensor grad) {
+        target.materialize();
+        grad.materialize();
+        CPU_FALLBACK.scatterAddRows(target, indices, grad);
+        if (target.getGpuTag() instanceof GpuBuffer gb) {
+            gb.needsUpload = true;
+            gb.cpuStale = false;
+        }
+    }
+
+    private void recordGpuScatterAddRows(Tensor target, Tensor grad, Tensor indexTensor, int[] indices) {
+        GpuBuffer gTarget = gpuIn(target);
+        GpuBuffer gGrad = gpuIn(grad);
+        GpuBuffer gIndices = gpuIn(indexTensor);
+
+        graph.recordScatterAddRows(gTarget, gIndices, gGrad, target.rows, target.cols, indices.length);
+        gTarget.cpuStale = true;
+        gTarget.needsUpload = false;
+    }
+
+    @Override
+    public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
+        validateScatterAddRowsInputs(target, indices, grad);
+        if (indices.length == 0) return;
+
+        // Duplicate row updates are order-sensitive; use CPU fallback for deterministic accumulation.
+        if (hasDuplicateValidIndices(indices, target.rows)) {
+            runDeterministicScatterFallback(target, indices, grad);
+            return;
+        }
+
+        Tensor indexTensor = buildIndexTensor(indices);
+        recordGpuScatterAddRows(target, grad, indexTensor, indices);
     }
 
     @Override

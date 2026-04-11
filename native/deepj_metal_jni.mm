@@ -34,6 +34,10 @@ struct MetalContext {
     id<MTLComputePipelineState> sumAlongRowsPSO;
     id<MTLComputePipelineState> meanAlongRowsPSO;
     id<MTLComputePipelineState> varianceAlongRowsPSO;
+    id<MTLComputePipelineState> maxAlongRowsPSO;
+    id<MTLComputePipelineState> clampPSO;
+    id<MTLComputePipelineState> powPSO;
+    id<MTLComputePipelineState> scatterAddRowsPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
     id<MTLComputePipelineState> expPSO;
@@ -275,6 +279,58 @@ kernel void kernel_variance_along_rows(device const float* a      [[buffer(0)]],
         acc += d * d;
     }
     out[row] = acc / (float)cols;
+}
+
+kernel void kernel_max_along_rows(device const float* a      [[buffer(0)]],
+                                  device float* out          [[buffer(1)]],
+                                  device const uint2* dims   [[buffer(2)]],
+                                  uint row [[thread_position_in_grid]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    if (row >= rows) return;
+
+    uint base = row * cols;
+    float m = -INFINITY;
+    for (uint c = 0; c < cols; c++) {
+        m = max(m, a[base + c]);
+    }
+    out[row] = m;
+}
+
+kernel void kernel_clamp(device const float* a        [[buffer(0)]],
+                         device float* out            [[buffer(1)]],
+                         device const float2* minMax  [[buffer(2)]],
+                         uint id [[thread_position_in_grid]]) {
+    float lo = minMax[0].x;
+    float hi = minMax[0].y;
+    out[id] = min(hi, max(lo, a[id]));
+}
+
+kernel void kernel_pow(device const float* a        [[buffer(0)]],
+                       device float* out            [[buffer(1)]],
+                       device const float* exponent [[buffer(2)]],
+                       uint id [[thread_position_in_grid]]) {
+    out[id] = pow(a[id], exponent[0]);
+}
+
+kernel void kernel_scatter_add_rows(device float* target      [[buffer(0)]],
+                                    device const float* indices [[buffer(1)]],
+                                    device const float* grad    [[buffer(2)]],
+                                    device const uint3* dims    [[buffer(3)]],
+                                    uint id [[thread_position_in_grid]]) {
+    uint targetRows = dims[0].x;
+    uint targetCols = dims[0].y;
+    uint nIdx = dims[0].z;
+
+    uint total = nIdx * targetCols;
+    if (id >= total) return;
+
+    uint i = id / targetCols;
+    uint c = id % targetCols;
+    uint row = (uint)indices[i];
+    if (row >= targetRows) return;
+
+    target[row * targetCols + c] += grad[i * targetCols + c];
 }
 
 // ── unary math ──
@@ -548,6 +604,10 @@ static MetalContext* getContext() {
         gCtx->sumAlongRowsPSO   = makePSO(library, @"kernel_sum_along_rows");
         gCtx->meanAlongRowsPSO  = makePSO(library, @"kernel_mean_along_rows");
         gCtx->varianceAlongRowsPSO = makePSO(library, @"kernel_variance_along_rows");
+        gCtx->maxAlongRowsPSO   = makePSO(library, @"kernel_max_along_rows");
+        gCtx->clampPSO          = makePSO(library, @"kernel_clamp");
+        gCtx->powPSO            = makePSO(library, @"kernel_pow");
+        gCtx->scatterAddRowsPSO = makePSO(library, @"kernel_scatter_add_rows");
         gCtx->sqrtPSO           = makePSO(library, @"kernel_sqrt");
         gCtx->negPSO            = makePSO(library, @"kernel_neg");
         gCtx->expPSO            = makePSO(library, @"kernel_exp");
@@ -963,6 +1023,10 @@ static constexpr int OP_MEAN_ALONG_ROWS = 30;
 static constexpr int OP_VARIANCE_ALONG_ROWS = 31;
 static constexpr int OP_MULTIPLY_BROADCAST_COLS = 32;
 static constexpr int OP_SUM_ALONG_ROWS = 33;
+static constexpr int OP_MAX_ALONG_ROWS = 34;
+static constexpr int OP_CLAMP = 35;
+static constexpr int OP_POW = 36;
+static constexpr int OP_SCATTER_ADD_ROWS = 37;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -1172,7 +1236,8 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                 // ── Scalar multiply/add/divide: [op, in, out, scalarBits, n] ────
                 case OP_MULTIPLY_SCALAR:
                 case OP_ADD_SCALAR:
-                case OP_DIVIDE_SCALAR: {
+                case OP_DIVIDE_SCALAR:
+                case OP_POW: {
                     int inId = cmd[pos+1], outId = cmd[pos+2];
                     float scalar;
                     int bits = cmd[pos+3];
@@ -1188,6 +1253,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                         case OP_MULTIPLY_SCALAR: pso = ctx->multiplyScalarPSO; break;
                         case OP_ADD_SCALAR:      pso = ctx->addScalarPSO; break;
                         case OP_DIVIDE_SCALAR:   pso = ctx->divideScalarPSO; break;
+                        case OP_POW:             pso = ctx->powPSO; break;
                         default: pso = ctx->multiplyScalarPSO; break;
                     }
 
@@ -1200,6 +1266,32 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc dispatchThreads:MTLSizeMake(n, 1, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 5;
+                    break;
+                }
+
+                // ── Clamp: [op, in, out, minBits, maxBits, n] ───────────
+                case OP_CLAMP: {
+                    int inId = cmd[pos+1], outId = cmd[pos+2];
+                    float minV, maxV;
+                    int minBits = cmd[pos+3], maxBits = cmd[pos+4];
+                    std::memcpy(&minV, &minBits, sizeof(float));
+                    std::memcpy(&maxV, &maxBits, sizeof(float));
+                    int n = cmd[pos+5];
+
+                    float minMax[2] = { minV, maxV };
+                    id<MTLBuffer> minMaxBuf = [ctx->device newBufferWithBytes:minMax
+                                               length:sizeof(minMax)
+                                               options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->clampPSO];
+                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
+                    [enc setBuffer:minMaxBuf          offset:0 atIndex:2];
+                    NSUInteger tpg = MIN((NSUInteger)n, ctx->clampPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 6;
                     break;
                 }
 
@@ -1223,6 +1315,31 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc dispatchThreads:MTLSizeMake(total, 1, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 5;
+                    break;
+                }
+
+                // ── Scatter add rows (in-place): [op, target, indices, grad, targetRows, targetCols, nIdx] ──
+                case OP_SCATTER_ADD_ROWS: {
+                    int targetId = cmd[pos+1], indicesId = cmd[pos+2], gradId = cmd[pos+3];
+                    uint32_t targetRows = (uint32_t)cmd[pos+4];
+                    uint32_t targetCols = (uint32_t)cmd[pos+5];
+                    uint32_t nIdx = (uint32_t)cmd[pos+6];
+                    uint32_t dims[3] = { targetRows, targetCols, nIdx };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    NSUInteger total = (NSUInteger)nIdx * (NSUInteger)targetCols;
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->scatterAddRowsPSO];
+                    [enc setBuffer:gBufferPool[targetId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[indicesId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[gradId]    offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
+                    NSUInteger tpg = MIN(total, ctx->scatterAddRowsPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 7;
                     break;
                 }
 
@@ -1270,7 +1387,8 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                 case OP_SUM_ROWS:
                 case OP_SUM_ALONG_ROWS:
                 case OP_MEAN_ALONG_ROWS:
-                case OP_VARIANCE_ALONG_ROWS: {
+                case OP_VARIANCE_ALONG_ROWS:
+                case OP_MAX_ALONG_ROWS: {
                     int inId = cmd[pos+1], outId = cmd[pos+2];
                     uint32_t rows = (uint32_t)cmd[pos+3];
                     uint32_t cols = (uint32_t)cmd[pos+4];
@@ -1296,6 +1414,10 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                             break;
                         case OP_VARIANCE_ALONG_ROWS:
                             pso = ctx->varianceAlongRowsPSO;
+                            dispatchN = (NSUInteger)rows;
+                            break;
+                        case OP_MAX_ALONG_ROWS:
+                            pso = ctx->maxAlongRowsPSO;
                             dispatchN = (NSUInteger)rows;
                             break;
                         default:
