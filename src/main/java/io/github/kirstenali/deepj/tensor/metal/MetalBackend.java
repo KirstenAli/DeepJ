@@ -1,11 +1,13 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.*;
-import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public final class MetalBackend implements TensorBackend {
     private final ComputeGraph graph = new ComputeGraph(new MetalGpuRuntime());
-    private static final CpuBackend CPU_FALLBACK = new CpuBackend();
+    private final Map<Integer, Tensor> intColumnScratchByLength = new HashMap<>();
 
     private static void requireRowVector(Tensor rowVector, Tensor target) {
         if (rowVector.rows != 1 || rowVector.cols != target.cols) {
@@ -29,6 +31,26 @@ public final class MetalBackend implements TensorBackend {
     /** Wrap a GPU output buffer in a tracked Tensor. */
     private Tensor gpuOut(GpuBuffer buf) {
         return graph.createOutputTensor(buf);
+    }
+
+    private static void markNeedsUpload(Tensor t) {
+        if (t.getGpuTag() instanceof GpuBuffer gb) {
+            gb.needsUpload = true;
+            gb.cpuStale = false;
+        }
+    }
+
+    private Tensor reusableIntColumn(int[] values) {
+        Tensor t = intColumnScratchByLength.get(values.length);
+        if (t == null) {
+            t = new Tensor(values.length, 1);
+            intColumnScratchByLength.put(values.length, t);
+        }
+        for (int i = 0; i < values.length; i++) {
+            t.data[i] = values[i];
+        }
+        markNeedsUpload(t);
+        return t;
     }
 
     // ── materializeTensor (called by Tensor.materialize()) ──────
@@ -224,8 +246,10 @@ public final class MetalBackend implements TensorBackend {
 
     @Override
     public float sum(Tensor a) {
-        Tensor colSums = sumRows(a);
-        Tensor scalar = sumAlongRows(colSums);
+        GpuBuffer ga = gpuIn(a);
+        GpuBuffer gOut = graph.newOutputBuffer(1, 1);
+        graph.recordSumScalar(ga, gOut, a.rows, a.cols);
+        Tensor scalar = gpuOut(gOut);
         scalar.materialize();
         return scalar.data[0];
     }
@@ -506,7 +530,7 @@ public final class MetalBackend implements TensorBackend {
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
-        Tensor targetTensor = TensorAdapters.fromIntColumn(targets);
+        Tensor targetTensor = reusableIntColumn(targets);
         GpuBuffer gLogits = gpuIn(logits);
         GpuBuffer gTargets = gpuIn(targetTensor);
         GpuBuffer gOut = graph.newOutputBuffer(logits.rows, logits.cols);
@@ -518,7 +542,7 @@ public final class MetalBackend implements TensorBackend {
     public float crossEntropyLoss(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
 
-        Tensor targetTensor = TensorAdapters.fromIntColumn(targets);
+        Tensor targetTensor = reusableIntColumn(targets);
         GpuBuffer gLogits = gpuIn(logits);
         GpuBuffer gTargets = gpuIn(targetTensor);
         GpuBuffer gRowLosses = graph.newOutputBuffer(logits.rows, 1);
@@ -581,36 +605,12 @@ public final class MetalBackend implements TensorBackend {
         }
     }
 
-    private static boolean hasDuplicateValidIndices(int[] indices, int targetRows) {
-        boolean[] seen = new boolean[targetRows];
-        for (int idx : indices) {
-            if (idx < 0 || idx >= targetRows) continue;
-            if (seen[idx]) return true;
-            seen[idx] = true;
-        }
-        return false;
-    }
-
-    private static Tensor buildIndexTensor(int[] indices) {
-        return TensorAdapters.fromIntColumn(indices);
-    }
-
-    private void runDeterministicScatterFallback(Tensor target, int[] indices, Tensor grad) {
-        target.materialize();
-        grad.materialize();
-        CPU_FALLBACK.scatterAddRows(target, indices, grad);
-        if (target.getGpuTag() instanceof GpuBuffer gb) {
-            gb.needsUpload = true;
-            gb.cpuStale = false;
-        }
-    }
-
-    private void recordGpuScatterAddRows(Tensor target, Tensor grad, Tensor indexTensor, int[] indices) {
+    private void recordGpuScatterAddRowsAtomic(Tensor target, Tensor grad, Tensor indexTensor, int[] indices) {
         GpuBuffer gTarget = gpuIn(target);
         GpuBuffer gGrad = gpuIn(grad);
         GpuBuffer gIndices = gpuIn(indexTensor);
 
-        graph.recordScatterAddRows(gTarget, gIndices, gGrad, target.rows, target.cols, indices.length);
+        graph.recordScatterAddRowsAtomic(gTarget, gIndices, gGrad, target.rows, target.cols, indices.length);
         gTarget.cpuStale = true;
         gTarget.needsUpload = false;
     }
@@ -620,18 +620,14 @@ public final class MetalBackend implements TensorBackend {
         validateScatterAddRowsInputs(target, indices, grad);
         if (indices.length == 0) return;
 
-        // Duplicate row updates are order-sensitive; use CPU fallback for deterministic accumulation.
-        if (hasDuplicateValidIndices(indices, target.rows)) {
-            runDeterministicScatterFallback(target, indices, grad);
-            return;
-        }
-
-        Tensor indexTensor = buildIndexTensor(indices);
-        recordGpuScatterAddRows(target, grad, indexTensor, indices);
+        Tensor indexTensor = reusableIntColumn(indices);
+        // Always use the atomic GPU path so duplicate indices stay parallel.
+        recordGpuScatterAddRowsAtomic(target, grad, indexTensor, indices);
     }
 
     @Override
     public void releaseResources() {
         graph.releaseAll();
+        intColumnScratchByLength.clear();
     }
 }

@@ -56,6 +56,8 @@ public final class ComputeGraph {
     public static final int OP_SUM_ABS = 38;
     public static final int OP_CROSS_ENTROPY_LOSS = 39;
     public static final int OP_CROSS_ENTROPY_GRADIENT = 40;
+    public static final int OP_SUM_SCALAR = 41;
+    public static final int OP_SCATTER_ADD_ROWS_ATOMIC = 42;
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
@@ -85,7 +87,7 @@ public final class ComputeGraph {
     }
 
     private static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_CROSS_ENTROPY_GRADIENT + 1];
+        OpMeta[] meta = new OpMeta[OP_SCATTER_ADD_ROWS_ATOMIC + 1];
 
         // Unary: [op, in, out, n]
         registerMeta(meta, OP_SQRT, 4, 1, 2);
@@ -122,6 +124,8 @@ public final class ComputeGraph {
         registerMeta(meta, OP_SUM_ABS, 5, 1, 2);
         registerMeta(meta, OP_CROSS_ENTROPY_LOSS, 6, 1, 2, 3);
         registerMeta(meta, OP_CROSS_ENTROPY_GRADIENT, 6, 1, 2, 3);
+        registerMeta(meta, OP_SUM_SCALAR, 5, 1, 2);
+        registerMeta(meta, OP_SCATTER_ADD_ROWS_ATOMIC, 7, 1, 2, 3);
 
         // 3-input ops with shape args
         registerMeta(meta, OP_SOFTMAX_BACKWARD, 6, 1, 2, 3);
@@ -346,6 +350,20 @@ public final class ComputeGraph {
         endOp();
     }
 
+    /** Record scatter-add-rows (atomic): [OP_SCATTER_ADD_ROWS_ATOMIC, targetId, indicesId, gradId, targetRows, targetCols, nIdx] */
+    public void recordScatterAddRowsAtomic(GpuBuffer target, GpuBuffer indices, GpuBuffer grad,
+                                           int targetRows, int targetCols, int nIndices) {
+        beginOp(7);
+        emitInt(OP_SCATTER_ADD_ROWS_ATOMIC);
+        emitInt(target.id);
+        emitInt(indices.id);
+        emitInt(grad.id);
+        emitInt(targetRows);
+        emitInt(targetCols);
+        emitInt(nIndices);
+        endOp();
+    }
+
     /** Record sum-abs row reduction: [OP_SUM_ABS, inId, outId, rows, cols] */
     public void recordSumAbs(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
@@ -375,6 +393,17 @@ public final class ComputeGraph {
         emitInt(OP_CROSS_ENTROPY_GRADIENT);
         emitInt(logits.id);
         emitInt(targets.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
+    }
+
+    /** Record scalar sum reduction: [OP_SUM_SCALAR, inId, outId, rows, cols] */
+    public void recordSumScalar(GpuBuffer in, GpuBuffer out, int rows, int cols) {
+        beginOp(5);
+        emitInt(OP_SUM_SCALAR);
+        emitInt(in.id);
         emitInt(out.id);
         emitInt(rows);
         emitInt(cols);

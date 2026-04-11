@@ -127,6 +127,7 @@ public final class MetalBackendTest {
             assertTensorClose(cpu.sumAlongCols(a), gpuBackend.sumAlongCols(a), 1e-4f, 1e-4f);
             assertTensorClose(cpu.meanAlongRows(a), gpuBackend.meanAlongRows(a), 1e-4f, 1e-4f);
             assertTensorClose(cpu.varianceAlongRows(a), gpuBackend.varianceAlongRows(a), 1e-4f, 1e-4f);
+            assertEquals(cpu.sum(a), gpuBackend.sum(a), 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -155,7 +156,7 @@ public final class MetalBackendTest {
             Tensor.scatterAddRows(targetGpuUnique, uniqueIndices, gradUnique);
             assertTensorClose(targetCpuUnique, targetGpuUnique, 1e-4f, 1e-4f);
 
-            // Duplicate indices: exercises deterministic fallback path.
+            // Duplicate indices: uses atomic GPU accumulation.
             Tensor targetCpuDup = randomTensor(10, 8, 124L);
             Tensor targetGpuDup = new Tensor(targetCpuDup);
             Tensor gradDup = randomTensor(6, 8, 125L);
@@ -163,7 +164,32 @@ public final class MetalBackendTest {
 
             cpu.scatterAddRows(targetCpuDup, dupIndices, gradDup);
             Tensor.scatterAddRows(targetGpuDup, dupIndices, gradDup);
-            assertTensorClose(targetCpuDup, targetGpuDup, 1e-4f, 1e-4f);
+            assertTensorClose(targetCpuDup, targetGpuDup, 1e-3f, 1e-3f);
+        } finally {
+            gpuBackend.releaseResources();
+            Tensor.setBackend(oldBackend);
+        }
+    }
+
+    @Test
+    void scatterAddRowsDuplicateIndicesAtomicModeMatchesCpu() {
+        MetalBackend gpuBackend = new MetalBackend();
+        TensorBackend oldBackend = Tensor.backend();
+        Tensor.setBackend(gpuBackend);
+
+        try {
+            Tensor targetCpuDup = randomTensor(64, 32, 129L);
+            Tensor targetGpuDup = new Tensor(targetCpuDup);
+            Tensor gradDup = randomTensor(128, 32, 130L);
+            int[] dupIndices = new int[128];
+            Random rnd = new Random(131L);
+            for (int i = 0; i < dupIndices.length; i++) {
+                dupIndices[i] = rnd.nextInt(targetCpuDup.rows);
+            }
+
+            cpu.scatterAddRows(targetCpuDup, dupIndices, gradDup);
+            Tensor.scatterAddRows(targetGpuDup, dupIndices, gradDup);
+            assertTensorClose(targetCpuDup, targetGpuDup, 1e-3f, 1e-3f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -192,6 +218,19 @@ public final class MetalBackendTest {
             float expectedCe = cpu.crossEntropyLoss(logits, targets);
             float actualCe = gpuBackend.crossEntropyLoss(logits, targets);
             assertEquals(expectedCe, actualCe, 1e-4f);
+
+            // Wide-column cases exercise threadgroup-strided column reductions.
+            Tensor wideA = randomTensor(29, 513, 132L);
+            assertEquals(cpu.sumAbs(wideA), gpuBackend.sumAbs(wideA), 1e-3f);
+
+            Tensor wideLogits = randomTensor(23, 777, 133L);
+            int[] wideTargets = new int[wideLogits.rows];
+            Random wideRnd = new Random(134L);
+            for (int r = 0; r < wideTargets.length; r++) {
+                wideTargets[r] = wideRnd.nextInt(wideLogits.cols);
+            }
+            assertEquals(cpu.crossEntropyLoss(wideLogits, wideTargets),
+                    gpuBackend.crossEntropyLoss(wideLogits, wideTargets), 1e-3f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -213,6 +252,13 @@ public final class MetalBackendTest {
             Tensor actual = gpuBackend.softmaxBackward(gradOutput, softmaxOut);
 
             assertTensorClose(expected, actual, 1e-4f, 1e-4f);
+
+            Tensor gradOutputWide = randomTensor(17, 769, 12L);
+            Tensor logitsWide = randomTensor(17, 769, 13L);
+            Tensor softmaxOutWide = cpu.softmaxRows(logitsWide);
+            Tensor expectedWide = cpu.softmaxBackward(gradOutputWide, softmaxOutWide);
+            Tensor actualWide = gpuBackend.softmaxBackward(gradOutputWide, softmaxOutWide);
+            assertTensorClose(expectedWide, actualWide, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -249,6 +295,16 @@ public final class MetalBackendTest {
             Tensor actual = gpuBackend.layerNormBackward(dXHat, xHat, std, dXHat.cols);
 
             assertTensorClose(expected, actual, 1e-4f, 1e-4f);
+
+            Tensor dXHatWide = randomTensor(11, 777, 33L);
+            Tensor xHatWide = randomTensor(11, 777, 34L);
+            Tensor stdWide = new Tensor(11, 1);
+            for (int r = 0; r < stdWide.rows; r++) {
+                stdWide.data[r] = 0.5f + Math.abs(xHatWide.data[r * xHatWide.cols]);
+            }
+            Tensor expectedWide = cpu.layerNormBackward(dXHatWide, xHatWide, stdWide, dXHatWide.cols);
+            Tensor actualWide = gpuBackend.layerNormBackward(dXHatWide, xHatWide, stdWide, dXHatWide.cols);
+            assertTensorClose(expectedWide, actualWide, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
@@ -285,6 +341,16 @@ public final class MetalBackendTest {
             Tensor actual = gpuBackend.crossEntropyGradient(logits, targets);
 
             assertTensorClose(expected, actual, 1e-4f, 1e-4f);
+
+            Tensor wideLogits = randomTensor(17, 769, 53L);
+            int[] wideTargets = new int[wideLogits.rows];
+            Random wideRnd = new Random(54L);
+            for (int r = 0; r < wideTargets.length; r++) {
+                wideTargets[r] = wideRnd.nextInt(wideLogits.cols);
+            }
+            Tensor expectedWide = cpu.crossEntropyGradient(wideLogits, wideTargets);
+            Tensor actualWide = gpuBackend.crossEntropyGradient(wideLogits, wideTargets);
+            assertTensorClose(expectedWide, actualWide, 1e-4f, 1e-4f);
         } finally {
             gpuBackend.releaseResources();
             Tensor.setBackend(oldBackend);
