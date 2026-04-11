@@ -538,11 +538,11 @@
                 <pre><code><span class="typ">MetalBackend</span> metal = <span class="kw">new</span> <span class="typ">MetalBackend</span>();
 <span class="typ">Tensor</span>.<span class="fn">setBackend</span>(metal);</code></pre>
                 <p style="color: var(--text-dim); margin-top: 12px;">
-                    Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
-                    while unsupported ops fall back to CPU with on-demand materialization.
+                    Operations route through the Metal backend entrypoint and record into a lazy compute graph.
                     Tensor state remains coherent across lazy execution and periodic resource release.
                     Reading values on CPU (<code>materialize()</code>, <code>get</code>, <code>set</code>,
                     <code>print</code>, or raw <code>data[]</code> access) triggers a sync/readback boundary.
+                    Keep op recording and materialization on the same backend instance so graph ownership stays aligned.
                 </p>
             </div>
             <div>

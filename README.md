@@ -74,7 +74,7 @@ Every tensor operation routes through a pluggable `TensorBackend`.
 The default is `CpuBackend`; swap to `MetalBackend` for GPU acceleration:
 
 ```java
-Tensor.setBackend(new MetalBackend());  // GPU-backed where kernels exist; otherwise CPU fallback
+Tensor.setBackend(new MetalBackend());  // route tensor ops through lazy Metal compute graph
 Tensor.setBackend(new CpuBackend());    // back to CPU
 ```
 
@@ -93,7 +93,7 @@ record matmul  →  record relu  →  record softmax  →  flush (one GPU dispat
 
 Tensors stay GPU-resident between ops — data only transfers on explicit
 materialization/accessor calls (`materialize`, `get`, `set`, etc.) or
-when a CPU-fallback op needs it.
+when CPU-side reads/writes are requested.
 
 ### Zero-allocation in-place ops (CPU)
 
@@ -1242,11 +1242,9 @@ no external format dependencies.
 ## 🖥️ Metal GPU Backend (macOS)
 
 DeepJ ships with an optional **Metal GPU backend** for macOS Apple Silicon.
-GPU kernels cover core training-path ops (matmul, element-wise math,
-softmax/softmax backward, layernorm backward, AdamW update, and several
-broadcast/reduction ops). Ops without Metal kernels still fall back to CPU.
-CPU ↔ GPU transfer is automatic and only happens when materialization is
-required.
+`TensorBackend` operations are recorded into a lazy Metal compute graph and
+executed in batches on flush/materialization boundaries. CPU ↔ GPU transfer is
+automatic and only happens when CPU-side access requires synchronization.
 
 ### Enabling the backend
 
@@ -1259,8 +1257,8 @@ Tensor.setBackend(metal);
 ```
 
 That's it — all `Tensor` operations route through the same backend entrypoint.
-If a Metal kernel exists, the op is recorded for GPU execution; otherwise it
-falls back to CPU with on-demand materialization.
+Use one backend instance consistently for a given execution path so op
+recording and materialization share the same compute graph ownership.
 
 ### GPU-resident tensor design
 
@@ -1292,7 +1290,7 @@ Key points:
 -   **Materialization on demand:** call `materialize()` (or use accessors like `get`, `set`, `print`) before reading CPU data
 -   **Staleness tracking:** each tensor knows whether its CPU or GPU copy is current via `GpuBuffer.cpuStale` / `needsUpload` flags
 -   **Zero-copy reuse:** a tensor's GPU buffer persists across operations — subsequent ops reuse it without re-uploading
--   **CPU-fallback ops** materialise tensors on demand and delegate to `CpuBackend`
+-   **Backend ownership safety:** keep op recording and materialization on the same backend instance
 
 A full forward + backward pass records hundreds of GPU ops and executes them
 in just 2–3 native calls, minimising driver overhead.
