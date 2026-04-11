@@ -1,14 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
-import java.util.Random;
-
 public interface TensorBackend {
 
-    // ── factories ──────────────────────────────────────────────────────
-    Tensor zeros(int rows, int cols);
-    Tensor ones(int rows, int cols);
-    Tensor random(int rows, int cols, Random rand);
-    Tensor causalMask(int size);
 
 
     // ── element-wise binary ────────────────────────────────────────────
@@ -41,16 +34,10 @@ public interface TensorBackend {
     Tensor sumAlongCols(Tensor a);
     Tensor meanAlongRows(Tensor a);
     Tensor varianceAlongRows(Tensor a);
-    Tensor maxAlongRows(Tensor a);
-
-    float sum(Tensor a);
-    float sumAbs(Tensor a);
 
     // ── unary math ─────────────────────────────────────────────────────
-    Tensor clamp(Tensor a, float min, float max);
     Tensor transpose(Tensor a);
     Tensor sqrt(Tensor a);
-    Tensor pow(Tensor a, float exponent);
     Tensor neg(Tensor a);
     Tensor exp(Tensor a);
     Tensor log(Tensor a);
@@ -68,7 +55,6 @@ public interface TensorBackend {
     Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut);
 
     // ── fused high-level ops ───────────────────────────────────────────
-    float crossEntropyLoss(Tensor logits, int[] targets);
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
 
     /**
@@ -83,23 +69,6 @@ public interface TensorBackend {
      */
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
 
-    // ── data accessors (for code that must touch elements) ─────────────
-    float get(Tensor t, int r, int c);
-    void set(Tensor t, int r, int c, float value);
-    Tensor getRow(Tensor t, int row);
-    void setRow(Tensor t, int row, Tensor source, int srcRow);
-
-    /** Gather rows by index (for embedding lookup). */
-    Tensor sliceRows(Tensor t, int[] rowIndices, int cols);
-
-    /** Scatter-add: target.data[indices[i]] += grad.data[i] (for embedding backward). */
-    void scatterAddRows(Tensor target, int[] indices, Tensor grad);
-
-    /** Sample random rows from t. */
-    Tensor sampleRows(Tensor t, int n, Random rnd);
-
-    // ── debug ──────────────────────────────────────────────────────────
-    void print(Tensor t, String label);
 
     // ── in-place operations (write result back into first argument) ─
     //

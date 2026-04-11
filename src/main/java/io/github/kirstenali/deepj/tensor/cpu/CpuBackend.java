@@ -135,26 +135,22 @@ public final class CpuBackend implements TensorBackend {
     //  Factories
     // ══════════════════════════════════════════════════════════════════
 
-    @Override
     public Tensor zeros(int rows, int cols) {
         return new Tensor(rows, cols);
     }
 
-    @Override
     public Tensor ones(int rows, int cols) {
         Tensor result = new Tensor(rows, cols);
         Arrays.fill(result.data, 1.0f);
         return result;
     }
 
-    @Override
     public Tensor random(int rows, int cols, Random rand) {
         Tensor t = new Tensor(rows, cols);
         for (int i = 0; i < t.data.length; i++) t.data[i] = (float) (rand.nextGaussian() * 0.1);
         return t;
     }
 
-    @Override
     public Tensor causalMask(int size) {
         Tensor mask = new Tensor(size, size);
         DeepJExecutor.forRange(0, size, r -> {
@@ -271,7 +267,6 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
-    @Override
     public Tensor maxAlongRows(Tensor a) {
         Tensor result = new Tensor(a.rows, 1);
         DeepJExecutor.forRange(0, a.rows, r -> {
@@ -283,14 +278,12 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
-    @Override
     public float sum(Tensor a) {
         float s = 0.0f;
         for (float v : a.data) s += v;
         return s;
     }
 
-    @Override
     public float sumAbs(Tensor a) {
         float s = 0.0f;
         for (float v : a.data) s += Math.abs(v);
@@ -311,9 +304,9 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
-    @Override public Tensor clamp(Tensor a, float min, float max) { return newUnary(a, x -> Math.min(max, Math.max(min, x))); }
+    public Tensor clamp(Tensor a, float min, float max) { return newUnary(a, x -> Math.min(max, Math.max(min, x))); }
     @Override public Tensor sqrt(Tensor a)                          { return newUnary(a, CpuBackend::fSqrt); }
-    @Override public Tensor pow(Tensor a, float exponent)          { return newUnary(a, x -> fPow(x, exponent)); }
+    public Tensor pow(Tensor a, float exponent)                    { return newUnary(a, x -> fPow(x, exponent)); }
     @Override public Tensor neg(Tensor a)                           { return newUnary(a, x -> -x); }
     @Override public Tensor exp(Tensor a)                           { return newUnary(a, CpuBackend::fExp); }
     @Override public Tensor log(Tensor a)                           { return newUnary(a, CpuBackend::fLog); }
@@ -433,7 +426,6 @@ public final class CpuBackend implements TensorBackend {
     //  Fused high-level ops
     // ══════════════════════════════════════════════════════════════════
 
-    @Override
     public float crossEntropyLoss(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
 
@@ -523,22 +515,19 @@ public final class CpuBackend implements TensorBackend {
     //  Data accessors
     // ══════════════════════════════════════════════════════════════════
 
-    @Override public float get(Tensor t, int r, int c)           { return t.data[r * t.cols + c]; }
-    @Override public void   set(Tensor t, int r, int c, float v) { t.data[r * t.cols + c] = v; }
+    public float get(Tensor t, int r, int c)           { return t.data[r * t.cols + c]; }
+    public void   set(Tensor t, int r, int c, float v) { t.data[r * t.cols + c] = v; }
 
-    @Override
     public Tensor getRow(Tensor t, int row) {
         Tensor result = new Tensor(1, t.cols);
         System.arraycopy(t.data, row * t.cols, result.data, 0, t.cols);
         return result;
     }
 
-    @Override
     public void setRow(Tensor t, int row, Tensor source, int srcRow) {
         System.arraycopy(source.data, srcRow * source.cols, t.data, row * t.cols, t.cols);
     }
 
-    @Override
     public Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
         Tensor out = new Tensor(rowIndices.length, cols);
         for (int i = 0; i < rowIndices.length; i++)
@@ -546,7 +535,6 @@ public final class CpuBackend implements TensorBackend {
         return out;
     }
 
-    @Override
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
         for (int i = 0; i < indices.length; i++) {
             int tBase = indices[i] * target.cols;
@@ -555,7 +543,6 @@ public final class CpuBackend implements TensorBackend {
         }
     }
 
-    @Override
     public Tensor sampleRows(Tensor t, int n, Random rnd) {
         Tensor out = new Tensor(n, t.cols);
         for (int i = 0; i < n; i++) {
@@ -591,7 +578,6 @@ public final class CpuBackend implements TensorBackend {
     //  Debug
     // ══════════════════════════════════════════════════════════════════
 
-    @Override
     public void print(Tensor t, String label) {
         System.out.println(label);
         for (int r = 0; r < t.rows; r++) {

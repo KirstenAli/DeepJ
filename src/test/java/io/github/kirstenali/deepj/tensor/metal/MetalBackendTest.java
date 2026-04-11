@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Basic correctness checks for selected Metal backend ops against CPU references. */
 public final class MetalBackendTest {
 
-    private static TensorBackend cpu;
+    private static CpuBackend cpu;
     private static TensorBackend gpu;
     private static TensorBackend previousBackend;
 

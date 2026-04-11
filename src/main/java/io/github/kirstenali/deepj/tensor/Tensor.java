@@ -22,6 +22,14 @@ public class Tensor {
     public void setGpuTag(Object tag) { this.gpuTag = tag; }
 
     private static volatile TensorBackend BACKEND = new CpuBackend(); // default
+    private static final CpuBackend CPU_ACCESS = new CpuBackend();
+
+    private static void markGpuNeedsUpload(Tensor t) {
+        if (t.getGpuTag() instanceof GpuBuffer gb) {
+            gb.needsUpload = true;
+            gb.cpuStale = false;
+        }
+    }
 
     public static void setBackend(TensorBackend backend) {
         if (backend == null) throw new IllegalArgumentException("backend cannot be null");
@@ -95,16 +103,32 @@ public class Tensor {
     public Tensor sumAlongCols() { return backend().sumAlongCols(this); }
     public Tensor meanAlongRows() { return backend().meanAlongRows(this); }
     public Tensor varianceAlongRows() { return backend().varianceAlongRows(this); }
-    public Tensor maxAlongRows() { return backend().maxAlongRows(this); }
+    public Tensor maxAlongRows() {
+        materialize();
+        return CPU_ACCESS.maxAlongRows(this);
+    }
     // ── reductions (scalar-returning — trigger materialization) ──
-    public float sum() { materialize(); return backend().sum(this); }
-    public float sumAbs() { materialize(); return backend().sumAbs(this); }
+    public float sum() {
+        materialize();
+        return CPU_ACCESS.sum(this);
+    }
+
+    public float sumAbs() {
+        materialize();
+        return CPU_ACCESS.sumAbs(this);
+    }
 
     // ── unary math ──────────────────────────────────────────────────
-    public Tensor clamp(float min, float max) { return backend().clamp(this, min, max); }
+    public Tensor clamp(float min, float max) {
+        materialize();
+        return CPU_ACCESS.clamp(this, min, max);
+    }
     public Tensor transpose() { return backend().transpose(this); }
     public Tensor sqrt() { return backend().sqrt(this); }
-    public Tensor pow(float exponent) { return backend().pow(this, exponent); }
+    public Tensor pow(float exponent) {
+        materialize();
+        return CPU_ACCESS.pow(this, exponent);
+    }
     public Tensor neg() { return backend().neg(this); }
     public Tensor exp() { return backend().exp(this); }
     public Tensor log() { return backend().log(this); }
@@ -141,7 +165,10 @@ public class Tensor {
     public Tensor softmaxBackward(Tensor softmaxOut) { return backend().softmaxBackward(this, softmaxOut); }
 
     // ── fused high-level ops ────────────────────────────────────────
-    public float crossEntropyLoss(int[] targets) { materialize(); return backend().crossEntropyLoss(this, targets); }
+    public float crossEntropyLoss(int[] targets) {
+        materialize();
+        return CPU_ACCESS.crossEntropyLoss(this, targets);
+    }
     public Tensor crossEntropyGradient(int[] targets) { return backend().crossEntropyGradient(this, targets); }
 
     public static void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
@@ -155,29 +182,57 @@ public class Tensor {
     }
 
     // ── data accessors (trigger materialization) ────────────────
-    public float get(int r, int c) { materialize(); return backend().get(this, r, c); }
-    public void set(int r, int c, float value) { materialize(); backend().set(this, r, c, value); }
-    public Tensor getRow(int row) { materialize(); return backend().getRow(this, row); }
-    public void setRow(int row, Tensor source, int srcRow) { materialize(); source.materialize(); backend().setRow(this, row, source, srcRow); }
+    public float get(int r, int c) {
+        materialize();
+        return CPU_ACCESS.get(this, r, c);
+    }
+
+    public void set(int r, int c, float value) {
+        materialize();
+        CPU_ACCESS.set(this, r, c, value);
+        markGpuNeedsUpload(this);
+    }
+
+    public Tensor getRow(int row) {
+        materialize();
+        return CPU_ACCESS.getRow(this, row);
+    }
+
+    public void setRow(int row, Tensor source, int srcRow) {
+        materialize();
+        source.materialize();
+        CPU_ACCESS.setRow(this, row, source, srcRow);
+        markGpuNeedsUpload(this);
+    }
 
     public static Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
-        return backend().sliceRows(t, rowIndices, cols);
+        t.materialize();
+        return CPU_ACCESS.sliceRows(t, rowIndices, cols);
     }
+
     public static void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
-        backend().scatterAddRows(target, indices, grad);
+        target.materialize();
+        grad.materialize();
+        CPU_ACCESS.scatterAddRows(target, indices, grad);
+        markGpuNeedsUpload(target);
     }
+
     public static Tensor sampleRows(Tensor t, int n, Random rnd) {
-        return backend().sampleRows(t, n, rnd);
+        t.materialize();
+        return CPU_ACCESS.sampleRows(t, n, rnd);
     }
 
     // ── debug (trigger materialization) ─────────────────────────
-    public void print(String label) { materialize(); backend().print(this, label); }
+    public void print(String label) {
+        materialize();
+        CPU_ACCESS.print(this, label);
+    }
 
     // ── static factories ────────────────────────────────────────────
-    public static Tensor zeros(int rows, int cols) { return backend().zeros(rows, cols); }
-    public static Tensor ones(int rows, int cols) { return backend().ones(rows, cols); }
-    public static Tensor random(int rows, int cols, Random rand) { return backend().random(rows, cols, rand); }
-    public static Tensor causalMask(int size) { return backend().causalMask(size); }
+    public static Tensor zeros(int rows, int cols) { return CPU_ACCESS.zeros(rows, cols); }
+    public static Tensor ones(int rows, int cols) { return CPU_ACCESS.ones(rows, cols); }
+    public static Tensor random(int rows, int cols, Random rand) { return CPU_ACCESS.random(rows, cols, rand); }
+    public static Tensor causalMask(int size) { return CPU_ACCESS.causalMask(size); }
 
     /**
      * Build a tensor from 2-D row-major data.
