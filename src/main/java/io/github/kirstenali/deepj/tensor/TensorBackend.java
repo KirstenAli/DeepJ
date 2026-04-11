@@ -71,41 +71,23 @@ public interface TensorBackend {
 
 
     // ── in-place operations (write result back into first argument) ─
-    //
-    // Default implementations allocate a temporary tensor and copy.
-    // CpuBackend overrides these for true zero-allocation in-place.
+    void addInPlace(Tensor a, Tensor b);
+    void subtractInPlace(Tensor a, Tensor b);
+    void multiplyInPlace(Tensor a, Tensor b);
+    void divideInPlace(Tensor a, Tensor b);
 
-    default void addInPlace(Tensor a, Tensor b)              { copyIntoMaterialized(add(a, b), a); }
-    default void subtractInPlace(Tensor a, Tensor b)          { copyIntoMaterialized(subtract(a, b), a); }
-    default void multiplyInPlace(Tensor a, Tensor b)          { copyIntoMaterialized(multiply(a, b), a); }
-    default void divideInPlace(Tensor a, Tensor b)            { copyIntoMaterialized(divide(a, b), a); }
+    void multiplyScalarInPlace(Tensor a, float s);
+    void addScalarInPlace(Tensor a, float s);
+    void divideScalarInPlace(Tensor a, float s);
 
-    default void multiplyScalarInPlace(Tensor a, float s)    { copyIntoMaterialized(multiplyScalar(a, s), a); }
-    default void addScalarInPlace(Tensor a, float s)         { copyIntoMaterialized(addScalar(a, s), a); }
-    default void divideScalarInPlace(Tensor a, float s)      { copyIntoMaterialized(divideScalar(a, s), a); }
-
-    default void sqrtInPlace(Tensor a)     { copyIntoMaterialized(sqrt(a), a); }
-    default void negInPlace(Tensor a)      { copyIntoMaterialized(neg(a), a); }
-    default void expInPlace(Tensor a)      { copyIntoMaterialized(exp(a), a); }
-    default void logInPlace(Tensor a)      { copyIntoMaterialized(log(a), a); }
-    default void reluInPlace(Tensor a)     { copyIntoMaterialized(relu(a), a); }
-    default void geluInPlace(Tensor a)     { copyIntoMaterialized(gelu(a), a); }
-    default void tanhInPlace(Tensor a)     { copyIntoMaterialized(tanh(a), a); }
-    default void sigmoidInPlace(Tensor a)  { copyIntoMaterialized(sigmoid(a), a); }
-
-    /** Copy src data into dst (same shape). Used by default in-place implementations. */
-    private static void copyInto(Tensor src, Tensor dst) {
-        System.arraycopy(src.data, 0, dst.data, 0, src.data.length);
-    }
-
-    /**
-     * For lazy backends, force source/destination CPU views up to date before copy.
-     */
-    private void copyIntoMaterialized(Tensor src, Tensor dst) {
-        materializeTensor(src);
-        materializeTensor(dst);
-        copyInto(src, dst);
-    }
+    void sqrtInPlace(Tensor a);
+    void negInPlace(Tensor a);
+    void expInPlace(Tensor a);
+    void logInPlace(Tensor a);
+    void reluInPlace(Tensor a);
+    void geluInPlace(Tensor a);
+    void tanhInPlace(Tensor a);
+    void sigmoidInPlace(Tensor a);
 
     // ── lazy execution support ─────────────────────────────────────────
     /**

@@ -59,7 +59,7 @@ DeepJ is organised into focused packages:
 | `models.llama` | `LlamaModel`, `LlamaConfig` |
 | `models.deepseek` | `DeepSeekModel`, `DeepSeekConfig` |
 | `tokenizers` | `Tokenizer` interface, `ByteTokenizer`, BPE pipeline (`BPETrainer`, `BPETokenizer`, `BPEModelIO`) |
-| `data` | `TextDataset`, `Batch` |
+| `data` | `TextDataset` (streaming, memory-mapped), `Batch` |
 | `persistence` | `Persistable` interface, `ModelSerializer` (binary save/load) |
 | `chatui` | `BaseChatApp`, `ChatService` — optional JavaFX chat interface |
 
@@ -1008,11 +1008,16 @@ String text = loadedTok.decode(ids);
 
 ### TextDataset
 
-Simple in-memory dataset that tokenises a text file and samples random
-contiguous chunks for causal language model training.
+Streaming, memory-mapped dataset that tokenises a text file and samples
+random contiguous chunks for causal language model training.
+
+The source text is streamed line-by-line (never loaded fully into heap),
+tokenised in bounded chunks, and written to a temporary binary file.
+That file is then memory-mapped so the OS pages token data in and out
+on demand — datasets larger than available RAM work without changes.
 
 ```java
-// From a file
+// From a file (streamed + memory-mapped — works for any file size)
 TextDataset ds = TextDataset.fromFile(
         Path.of("corpus.txt"),
         tok,    // any Tokenizer
@@ -1020,7 +1025,7 @@ TextDataset ds = TextDataset.fromFile(
         123     // seed
 );
 
-// Or from pre-tokenised ids
+// Or from pre-tokenised ids (small data / tests)
 TextDataset ds = new TextDataset(tokenIds, 256, 123);
 
 // Sample a batch

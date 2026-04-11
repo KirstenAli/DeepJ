@@ -103,32 +103,10 @@ public class Tensor {
     public Tensor sumAlongCols() { return backend().sumAlongCols(this); }
     public Tensor meanAlongRows() { return backend().meanAlongRows(this); }
     public Tensor varianceAlongRows() { return backend().varianceAlongRows(this); }
-    public Tensor maxAlongRows() {
-        materialize();
-        return CPU_ACCESS.maxAlongRows(this);
-    }
-    // ── reductions (scalar-returning — trigger materialization) ──
-    public float sum() {
-        materialize();
-        return CPU_ACCESS.sum(this);
-    }
-
-    public float sumAbs() {
-        materialize();
-        return CPU_ACCESS.sumAbs(this);
-    }
 
     // ── unary math ──────────────────────────────────────────────────
-    public Tensor clamp(float min, float max) {
-        materialize();
-        return CPU_ACCESS.clamp(this, min, max);
-    }
     public Tensor transpose() { return backend().transpose(this); }
     public Tensor sqrt() { return backend().sqrt(this); }
-    public Tensor pow(float exponent) {
-        materialize();
-        return CPU_ACCESS.pow(this, exponent);
-    }
     public Tensor neg() { return backend().neg(this); }
     public Tensor exp() { return backend().exp(this); }
     public Tensor log() { return backend().log(this); }
@@ -165,10 +143,6 @@ public class Tensor {
     public Tensor softmaxBackward(Tensor softmaxOut) { return backend().softmaxBackward(this, softmaxOut); }
 
     // ── fused high-level ops ────────────────────────────────────────
-    public float crossEntropyLoss(int[] targets) {
-        materialize();
-        return CPU_ACCESS.crossEntropyLoss(this, targets);
-    }
     public Tensor crossEntropyGradient(int[] targets) { return backend().crossEntropyGradient(this, targets); }
 
     public static void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
@@ -179,6 +153,55 @@ public class Tensor {
 
     public static Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
         return backend().layerNormBackward(dXHat, xHat, std, dim);
+    }
+
+    /**
+     * Build a tensor from 2-D row-major data.
+     * Preferred API for literal matrix construction.
+     */
+    public static Tensor from2D(float[][] data) {
+        int rows = data.length;
+        int cols = data[0].length;
+        Tensor t = new Tensor(rows, cols);
+        for (int r = 0; r < rows; r++) {
+            if (data[r].length != cols) {
+                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
+            }
+            System.arraycopy(data[r], 0, t.data, r * cols, cols);
+        }
+        return t;
+    }
+
+    // ── CPU-backed ops (all direct CPU_ACCESS calls grouped together) ───────
+    public Tensor maxAlongRows() {
+        materialize();
+        return CPU_ACCESS.maxAlongRows(this);
+    }
+
+    // ── reductions (scalar-returning — trigger materialization) ──
+    public float sum() {
+        materialize();
+        return CPU_ACCESS.sum(this);
+    }
+
+    public float sumAbs() {
+        materialize();
+        return CPU_ACCESS.sumAbs(this);
+    }
+
+    public Tensor clamp(float min, float max) {
+        materialize();
+        return CPU_ACCESS.clamp(this, min, max);
+    }
+
+    public Tensor pow(float exponent) {
+        materialize();
+        return CPU_ACCESS.pow(this, exponent);
+    }
+
+    public float crossEntropyLoss(int[] targets) {
+        materialize();
+        return CPU_ACCESS.crossEntropyLoss(this, targets);
     }
 
     // ── data accessors (trigger materialization) ────────────────
@@ -234,22 +257,6 @@ public class Tensor {
     public static Tensor random(int rows, int cols, Random rand) { return CPU_ACCESS.random(rows, cols, rand); }
     public static Tensor causalMask(int size) { return CPU_ACCESS.causalMask(size); }
 
-    /**
-     * Build a tensor from 2-D row-major data.
-     * Preferred API for literal matrix construction.
-     */
-    public static Tensor from2D(float[][] data) {
-        int rows = data.length;
-        int cols = data[0].length;
-        Tensor t = new Tensor(rows, cols);
-        for (int r = 0; r < rows; r++) {
-            if (data[r].length != cols) {
-                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
-            }
-            System.arraycopy(data[r], 0, t.data, r * cols, cols);
-        }
-        return t;
-    }
 
     // ── shape checks ────────────────────────────────────────────────
     public static void requireSameShape(Tensor a, Tensor b, String op) {
