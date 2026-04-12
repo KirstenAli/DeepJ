@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.loss;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorAdapters;
 
 /**
  * Cross-entropy loss with integer class targets.
@@ -77,11 +78,7 @@ public final class CrossEntropyLoss implements LossFunction {
      * Builds a [n x 1] Tensor from int[] targets.
      */
     public static Tensor fromIntTargets(int[] targets) {
-        Tensor t = new Tensor(targets.length, 1);
-        for (int i = 0; i < targets.length; i++) {
-            t.data[i] = targets[i]; // cols=1, so data[i*1+0] = data[i]
-        }
-        return t;
+        return TensorAdapters.fromIntColumn(targets);
     }
 
     private static void checkTargets(Tensor logits, int[] targets) {

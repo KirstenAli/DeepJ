@@ -22,6 +22,14 @@ public class Tensor {
     public void setGpuTag(Object tag) { this.gpuTag = tag; }
 
     private static volatile TensorBackend BACKEND = new CpuBackend(); // default
+    private static final CpuBackend CPU_ACCESS = new CpuBackend();
+
+    private static void markGpuNeedsUpload(Tensor t) {
+        if (t.getGpuTag() instanceof GpuBuffer gb) {
+            gb.needsUpload = true;
+            gb.cpuStale = false;
+        }
+    }
 
     public static void setBackend(TensorBackend backend) {
         if (backend == null) throw new IllegalArgumentException("backend cannot be null");
@@ -95,16 +103,10 @@ public class Tensor {
     public Tensor sumAlongCols() { return backend().sumAlongCols(this); }
     public Tensor meanAlongRows() { return backend().meanAlongRows(this); }
     public Tensor varianceAlongRows() { return backend().varianceAlongRows(this); }
-    public Tensor maxAlongRows() { return backend().maxAlongRows(this); }
-    // ── reductions (scalar-returning — trigger materialization) ──
-    public float sum() { materialize(); return backend().sum(this); }
-    public float sumAbs() { materialize(); return backend().sumAbs(this); }
 
     // ── unary math ──────────────────────────────────────────────────
-    public Tensor clamp(float min, float max) { return backend().clamp(this, min, max); }
     public Tensor transpose() { return backend().transpose(this); }
     public Tensor sqrt() { return backend().sqrt(this); }
-    public Tensor pow(float exponent) { return backend().pow(this, exponent); }
     public Tensor neg() { return backend().neg(this); }
     public Tensor exp() { return backend().exp(this); }
     public Tensor log() { return backend().log(this); }
@@ -141,7 +143,6 @@ public class Tensor {
     public Tensor softmaxBackward(Tensor softmaxOut) { return backend().softmaxBackward(this, softmaxOut); }
 
     // ── fused high-level ops ────────────────────────────────────────
-    public float crossEntropyLoss(int[] targets) { materialize(); return backend().crossEntropyLoss(this, targets); }
     public Tensor crossEntropyGradient(int[] targets) { return backend().crossEntropyGradient(this, targets); }
 
     public static void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
@@ -154,30 +155,22 @@ public class Tensor {
         return backend().layerNormBackward(dXHat, xHat, std, dim);
     }
 
-    // ── data accessors (trigger materialization) ────────────────
-    public float get(int r, int c) { materialize(); return backend().get(this, r, c); }
-    public void set(int r, int c, float value) { materialize(); backend().set(this, r, c, value); }
-    public Tensor getRow(int row) { materialize(); return backend().getRow(this, row); }
-    public void setRow(int row, Tensor source, int srcRow) { materialize(); source.materialize(); backend().setRow(this, row, source, srcRow); }
-
-    public static Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
-        return backend().sliceRows(t, rowIndices, cols);
+    // ── backend-routed misc ops ─────────────────────────────────────
+    public Tensor maxAlongRows() {
+        return backend().maxAlongRows(this);
     }
+
+    public Tensor clamp(float min, float max) {
+        return backend().clamp(this, min, max);
+    }
+
+    public Tensor pow(float exponent) {
+        return backend().pow(this, exponent);
+    }
+
     public static void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
         backend().scatterAddRows(target, indices, grad);
     }
-    public static Tensor sampleRows(Tensor t, int n, Random rnd) {
-        return backend().sampleRows(t, n, rnd);
-    }
-
-    // ── debug (trigger materialization) ─────────────────────────
-    public void print(String label) { materialize(); backend().print(this, label); }
-
-    // ── static factories ────────────────────────────────────────────
-    public static Tensor zeros(int rows, int cols) { return backend().zeros(rows, cols); }
-    public static Tensor ones(int rows, int cols) { return backend().ones(rows, cols); }
-    public static Tensor random(int rows, int cols, Random rand) { return backend().random(rows, cols, rand); }
-    public static Tensor causalMask(int size) { return backend().causalMask(size); }
 
     /**
      * Build a tensor from 2-D row-major data.
@@ -195,6 +188,68 @@ public class Tensor {
         }
         return t;
     }
+
+    // ── scalar reductions/loss (backend-routed) ───────────────────
+    public float sum() {
+        return backend().sum(this);
+    }
+
+    public float sumAbs() {
+        return backend().sumAbs(this);
+    }
+
+    public float crossEntropyLoss(int[] targets) {
+        return backend().crossEntropyLoss(this, targets);
+    }
+
+    // ── CPU-backed ops (all direct CPU_ACCESS calls grouped together) ───────
+
+    // ── data accessors (trigger materialization) ────────────────
+    public float get(int r, int c) {
+        materialize();
+        return CPU_ACCESS.get(this, r, c);
+    }
+
+    public void set(int r, int c, float value) {
+        materialize();
+        CPU_ACCESS.set(this, r, c, value);
+        markGpuNeedsUpload(this);
+    }
+
+    public Tensor getRow(int row) {
+        materialize();
+        return CPU_ACCESS.getRow(this, row);
+    }
+
+    public void setRow(int row, Tensor source, int srcRow) {
+        materialize();
+        source.materialize();
+        CPU_ACCESS.setRow(this, row, source, srcRow);
+        markGpuNeedsUpload(this);
+    }
+
+    public static Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
+        t.materialize();
+        return CPU_ACCESS.sliceRows(t, rowIndices, cols);
+    }
+    
+    public static Tensor sampleRows(Tensor t, int n, Random rnd) {
+        t.materialize();
+        return CPU_ACCESS.sampleRows(t, n, rnd);
+    }
+
+    // ── debug (trigger materialization) ─────────────────────────
+    public void print(String label) {
+        materialize();
+        CPU_ACCESS.print(this, label);
+    }
+
+    // ── static factories ────────────────────────────────────────────
+    public static Tensor zeros(int rows, int cols) { return CPU_ACCESS.zeros(rows, cols); }
+    public static Tensor ones(int rows, int cols) { return CPU_ACCESS.ones(rows, cols); }
+    public static Tensor random(int rows, int cols, Random rand) { return CPU_ACCESS.random(rows, cols, rand); }
+    public static Tensor causalMask(int size) { return CPU_ACCESS.causalMask(size); }
+
 
     // ── shape checks ────────────────────────────────────────────────
     public static void requireSameShape(Tensor a, Tensor b, String op) {

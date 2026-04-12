@@ -29,7 +29,7 @@ import java.util.Random;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public final class MetalBackendAllOpsPerformanceTest {
 
-    private static TensorBackend cpu;
+    private static CpuBackend cpu;
     private static TensorBackend gpu;
     private static TensorBackend previousBackend;
 

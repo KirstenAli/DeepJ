@@ -1,14 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
-import java.util.Random;
-
 public interface TensorBackend {
 
-    // ── factories ──────────────────────────────────────────────────────
-    Tensor zeros(int rows, int cols);
-    Tensor ones(int rows, int cols);
-    Tensor random(int rows, int cols, Random rand);
-    Tensor causalMask(int size);
 
 
     // ── element-wise binary ────────────────────────────────────────────
@@ -42,13 +35,12 @@ public interface TensorBackend {
     Tensor meanAlongRows(Tensor a);
     Tensor varianceAlongRows(Tensor a);
     Tensor maxAlongRows(Tensor a);
-
     float sum(Tensor a);
     float sumAbs(Tensor a);
 
     // ── unary math ─────────────────────────────────────────────────────
-    Tensor clamp(Tensor a, float min, float max);
     Tensor transpose(Tensor a);
+    Tensor clamp(Tensor a, float min, float max);
     Tensor sqrt(Tensor a);
     Tensor pow(Tensor a, float exponent);
     Tensor neg(Tensor a);
@@ -83,60 +75,28 @@ public interface TensorBackend {
      */
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
 
-    // ── data accessors (for code that must touch elements) ─────────────
-    float get(Tensor t, int r, int c);
-    void set(Tensor t, int r, int c, float value);
-    Tensor getRow(Tensor t, int row);
-    void setRow(Tensor t, int row, Tensor source, int srcRow);
-
-    /** Gather rows by index (for embedding lookup). */
-    Tensor sliceRows(Tensor t, int[] rowIndices, int cols);
-
-    /** Scatter-add: target.data[indices[i]] += grad.data[i] (for embedding backward). */
+    // ── row access/scatter helpers ───────────────────────────────────────
     void scatterAddRows(Tensor target, int[] indices, Tensor grad);
 
-    /** Sample random rows from t. */
-    Tensor sampleRows(Tensor t, int n, Random rnd);
-
-    // ── debug ──────────────────────────────────────────────────────────
-    void print(Tensor t, String label);
 
     // ── in-place operations (write result back into first argument) ─
-    //
-    // Default implementations allocate a temporary tensor and copy.
-    // CpuBackend overrides these for true zero-allocation in-place.
+    void addInPlace(Tensor a, Tensor b);
+    void subtractInPlace(Tensor a, Tensor b);
+    void multiplyInPlace(Tensor a, Tensor b);
+    void divideInPlace(Tensor a, Tensor b);
 
-    default void addInPlace(Tensor a, Tensor b)              { copyIntoMaterialized(add(a, b), a); }
-    default void subtractInPlace(Tensor a, Tensor b)          { copyIntoMaterialized(subtract(a, b), a); }
-    default void multiplyInPlace(Tensor a, Tensor b)          { copyIntoMaterialized(multiply(a, b), a); }
-    default void divideInPlace(Tensor a, Tensor b)            { copyIntoMaterialized(divide(a, b), a); }
+    void multiplyScalarInPlace(Tensor a, float s);
+    void addScalarInPlace(Tensor a, float s);
+    void divideScalarInPlace(Tensor a, float s);
 
-    default void multiplyScalarInPlace(Tensor a, float s)    { copyIntoMaterialized(multiplyScalar(a, s), a); }
-    default void addScalarInPlace(Tensor a, float s)         { copyIntoMaterialized(addScalar(a, s), a); }
-    default void divideScalarInPlace(Tensor a, float s)      { copyIntoMaterialized(divideScalar(a, s), a); }
-
-    default void sqrtInPlace(Tensor a)     { copyIntoMaterialized(sqrt(a), a); }
-    default void negInPlace(Tensor a)      { copyIntoMaterialized(neg(a), a); }
-    default void expInPlace(Tensor a)      { copyIntoMaterialized(exp(a), a); }
-    default void logInPlace(Tensor a)      { copyIntoMaterialized(log(a), a); }
-    default void reluInPlace(Tensor a)     { copyIntoMaterialized(relu(a), a); }
-    default void geluInPlace(Tensor a)     { copyIntoMaterialized(gelu(a), a); }
-    default void tanhInPlace(Tensor a)     { copyIntoMaterialized(tanh(a), a); }
-    default void sigmoidInPlace(Tensor a)  { copyIntoMaterialized(sigmoid(a), a); }
-
-    /** Copy src data into dst (same shape). Used by default in-place implementations. */
-    private static void copyInto(Tensor src, Tensor dst) {
-        System.arraycopy(src.data, 0, dst.data, 0, src.data.length);
-    }
-
-    /**
-     * For lazy backends, force source/destination CPU views up to date before copy.
-     */
-    private void copyIntoMaterialized(Tensor src, Tensor dst) {
-        materializeTensor(src);
-        materializeTensor(dst);
-        copyInto(src, dst);
-    }
+    void sqrtInPlace(Tensor a);
+    void negInPlace(Tensor a);
+    void expInPlace(Tensor a);
+    void logInPlace(Tensor a);
+    void reluInPlace(Tensor a);
+    void geluInPlace(Tensor a);
+    void tanhInPlace(Tensor a);
+    void sigmoidInPlace(Tensor a);
 
     // ── lazy execution support ─────────────────────────────────────────
     /**

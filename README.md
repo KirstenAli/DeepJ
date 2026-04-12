@@ -59,7 +59,7 @@ DeepJ is organised into focused packages:
 | `models.llama` | `LlamaModel`, `LlamaConfig` |
 | `models.deepseek` | `DeepSeekModel`, `DeepSeekConfig` |
 | `tokenizers` | `Tokenizer` interface, `ByteTokenizer`, BPE pipeline (`BPETrainer`, `BPETokenizer`, `BPEModelIO`) |
-| `data` | `TextDataset`, `Batch` |
+| `data` | `TextDataset` (streaming, memory-mapped), `Batch` |
 | `persistence` | `Persistable` interface, `ModelSerializer` (binary save/load) |
 | `chatui` | `BaseChatApp`, `ChatService` — optional JavaFX chat interface |
 
@@ -74,7 +74,7 @@ Every tensor operation routes through a pluggable `TensorBackend`.
 The default is `CpuBackend`; swap to `MetalBackend` for GPU acceleration:
 
 ```java
-Tensor.setBackend(new MetalBackend());  // GPU-backed where kernels exist; otherwise CPU fallback
+Tensor.setBackend(new MetalBackend());  // route tensor ops through lazy Metal compute graph
 Tensor.setBackend(new CpuBackend());    // back to CPU
 ```
 
@@ -93,7 +93,7 @@ record matmul  →  record relu  →  record softmax  →  flush (one GPU dispat
 
 Tensors stay GPU-resident between ops — data only transfers on explicit
 materialization/accessor calls (`materialize`, `get`, `set`, etc.) or
-when a CPU-fallback op needs it.
+when CPU-side reads/writes are requested.
 
 ### Zero-allocation in-place ops (CPU)
 
@@ -983,8 +983,8 @@ encode/decode with subword tokens.
 // Train a BPE model from a corpus
 BPEModel bpe = new BPETrainer().train(corpusText, 1000);  // target vocab size
 
-// Or from a file
-BPEModel bpe = new BPETrainer().trainFromFile(Path.of("corpus.txt"), 1000);
+// Or from a file (streams a 50 MB sample — safe for multi-gigabyte corpora)
+BPEModel bpe = new BPETrainer().trainFromFile(Path.of("corpus.txt"), 1000, List.of());
 
 // Wrap as a Tokenizer
 Tokenizer tok = new BPETokenizer(bpe);
@@ -1008,11 +1008,16 @@ String text = loadedTok.decode(ids);
 
 ### TextDataset
 
-Simple in-memory dataset that tokenises a text file and samples random
-contiguous chunks for causal language model training.
+Streaming, memory-mapped dataset that tokenises a text file and samples
+random contiguous chunks for causal language model training.
+
+The source text is streamed line-by-line (never loaded fully into heap),
+tokenised in bounded chunks, and written to a temporary binary file.
+That file is then memory-mapped so the OS pages token data in and out
+on demand — datasets larger than available RAM work without changes.
 
 ```java
-// From a file
+// From a file (streamed + memory-mapped — works for any file size)
 TextDataset ds = TextDataset.fromFile(
         Path.of("corpus.txt"),
         tok,    // any Tokenizer
@@ -1020,8 +1025,6 @@ TextDataset ds = TextDataset.fromFile(
         123     // seed
 );
 
-// Or from pre-tokenised ids
-TextDataset ds = new TextDataset(tokenIds, 256, 123);
 
 // Sample a batch
 Batch batch = ds.nextBatch(4);  // batchSize = 4
@@ -1237,11 +1240,9 @@ no external format dependencies.
 ## 🖥️ Metal GPU Backend (macOS)
 
 DeepJ ships with an optional **Metal GPU backend** for macOS Apple Silicon.
-GPU kernels cover core training-path ops (matmul, element-wise math,
-softmax/softmax backward, layernorm backward, AdamW update, and several
-broadcast/reduction ops). Ops without Metal kernels still fall back to CPU.
-CPU ↔ GPU transfer is automatic and only happens when materialization is
-required.
+`TensorBackend` operations are recorded into a lazy Metal compute graph and
+executed in batches on flush/materialization boundaries. CPU ↔ GPU transfer is
+automatic and only happens when CPU-side access requires synchronization.
 
 ### Enabling the backend
 
@@ -1254,8 +1255,8 @@ Tensor.setBackend(metal);
 ```
 
 That's it — all `Tensor` operations route through the same backend entrypoint.
-If a Metal kernel exists, the op is recorded for GPU execution; otherwise it
-falls back to CPU with on-demand materialization.
+Use one backend instance consistently for a given execution path so op
+recording and materialization share the same compute graph ownership.
 
 ### GPU-resident tensor design
 
@@ -1287,7 +1288,7 @@ Key points:
 -   **Materialization on demand:** call `materialize()` (or use accessors like `get`, `set`, `print`) before reading CPU data
 -   **Staleness tracking:** each tensor knows whether its CPU or GPU copy is current via `GpuBuffer.cpuStale` / `needsUpload` flags
 -   **Zero-copy reuse:** a tensor's GPU buffer persists across operations — subsequent ops reuse it without re-uploading
--   **CPU-fallback ops** materialise tensors on demand and delegate to `CpuBackend`
+-   **Backend ownership safety:** keep op recording and materialization on the same backend instance
 
 A full forward + backward pass records hundreds of GPU ops and executes them
 in just 2–3 native calls, minimising driver overhead.

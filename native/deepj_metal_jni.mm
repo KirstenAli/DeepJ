@@ -34,6 +34,14 @@ struct MetalContext {
     id<MTLComputePipelineState> sumAlongRowsPSO;
     id<MTLComputePipelineState> meanAlongRowsPSO;
     id<MTLComputePipelineState> varianceAlongRowsPSO;
+    id<MTLComputePipelineState> maxAlongRowsPSO;
+    id<MTLComputePipelineState> sumAbsPSO;
+    id<MTLComputePipelineState> crossEntropyLossPSO;
+    id<MTLComputePipelineState> crossEntropyGradPSO;
+    id<MTLComputePipelineState> clampPSO;
+    id<MTLComputePipelineState> powPSO;
+    id<MTLComputePipelineState> scatterAddRowsPSO;
+    id<MTLComputePipelineState> scatterAddRowsAtomicPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
     id<MTLComputePipelineState> expPSO;
@@ -210,71 +218,397 @@ kernel void kernel_multiply_broadcast_rows(device const float* a      [[buffer(0
 kernel void kernel_sum_rows(device const float* a      [[buffer(0)]],
                             device float* out          [[buffer(1)]],
                             device const uint2* dims   [[buffer(2)]],
-                            uint col [[thread_position_in_grid]]) {
+                            uint3 gid [[thread_position_in_grid]],
+                            uint3 tid3 [[thread_position_in_threadgroup]],
+                            uint3 tptg [[threads_per_threadgroup]]) {
     uint rows = dims[0].x;
     uint cols = dims[0].y;
+    uint col = gid.x;
+    uint tid = tid3.y;
     if (col >= cols) return;
 
-    float s = 0.0f;
-    for (uint r = 0; r < rows; r++) {
-        s += a[r * cols + col];
+    threadgroup float scratch[1024];
+
+    float local = 0.0f;
+    for (uint r = tid; r < rows; r += tptg.y) {
+        local += a[r * cols + col];
     }
-    out[col] = s;
+    scratch[tid] = local;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.y >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) out[col] = scratch[0];
 }
 
 kernel void kernel_mean_along_rows(device const float* a      [[buffer(0)]],
                                    device float* out          [[buffer(1)]],
                                    device const uint2* dims   [[buffer(2)]],
-                                   uint row [[thread_position_in_grid]]) {
+                                   uint3 gid [[thread_position_in_grid]],
+                                   uint3 tid3 [[thread_position_in_threadgroup]],
+                                   uint3 tptg [[threads_per_threadgroup]]) {
     uint rows = dims[0].x;
     uint cols = dims[0].y;
+    uint row = gid.y;
+    uint tid = tid3.x;
     if (row >= rows) return;
 
+    threadgroup float scratch[1024];
+
     uint base = row * cols;
-    float s = 0.0f;
-    for (uint c = 0; c < cols; c++) {
-        s += a[base + c];
+    float local = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        local += a[base + c];
     }
-    out[row] = s / (float)cols;
+    scratch[tid] = local;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) out[row] = scratch[0] / (float)cols;
 }
 
 kernel void kernel_sum_along_rows(device const float* a      [[buffer(0)]],
                                   device float* out          [[buffer(1)]],
                                   device const uint2* dims   [[buffer(2)]],
-                                  uint row [[thread_position_in_grid]]) {
+                                  uint3 gid [[thread_position_in_grid]],
+                                  uint3 tid3 [[thread_position_in_threadgroup]],
+                                  uint3 tptg [[threads_per_threadgroup]]) {
     uint rows = dims[0].x;
     uint cols = dims[0].y;
+    uint row = gid.y;
+    uint tid = tid3.x;
     if (row >= rows) return;
 
+    threadgroup float scratch[1024];
+
     uint base = row * cols;
-    float s = 0.0f;
-    for (uint c = 0; c < cols; c++) {
-        s += a[base + c];
+    float local = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        local += a[base + c];
     }
-    out[row] = s;
+    scratch[tid] = local;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) out[row] = scratch[0];
 }
 
 kernel void kernel_variance_along_rows(device const float* a      [[buffer(0)]],
                                        device float* out          [[buffer(1)]],
                                        device const uint2* dims   [[buffer(2)]],
-                                       uint row [[thread_position_in_grid]]) {
+                                       uint3 gid [[thread_position_in_grid]],
+                                       uint3 tid3 [[thread_position_in_threadgroup]],
+                                       uint3 tptg [[threads_per_threadgroup]]) {
     uint rows = dims[0].x;
     uint cols = dims[0].y;
+    uint row = gid.y;
+    uint tid = tid3.x;
     if (row >= rows) return;
 
-    uint base = row * cols;
-    float s = 0.0f;
-    for (uint c = 0; c < cols; c++) {
-        s += a[base + c];
-    }
-    float mean = s / (float)cols;
+    threadgroup float scratch[1024];
 
-    float acc = 0.0f;
-    for (uint c = 0; c < cols; c++) {
-        float d = a[base + c] - mean;
-        acc += d * d;
+    uint base = row * cols;
+    float localSum = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localSum += a[base + c];
     }
-    out[row] = acc / (float)cols;
+    scratch[tid] = localSum;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    float mean = scratch[0] / (float)cols;
+
+    float localVar = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        float d = a[base + c] - mean;
+        localVar += d * d;
+    }
+    scratch[tid] = localVar;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) out[row] = scratch[0] / (float)cols;
+}
+
+kernel void kernel_max_along_rows(device const float* a      [[buffer(0)]],
+                                  device float* out          [[buffer(1)]],
+                                  device const uint2* dims   [[buffer(2)]],
+                                  uint3 gid [[thread_position_in_grid]],
+                                  uint3 tid3 [[thread_position_in_threadgroup]],
+                                  uint3 tptg [[threads_per_threadgroup]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint row = gid.y;
+    uint tid = tid3.x;
+    if (row >= rows) return;
+
+    threadgroup float scratch[1024];
+
+    uint base = row * cols;
+    float localMax = -INFINITY;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localMax = max(localMax, a[base + c]);
+    }
+    scratch[tid] = localMax;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) out[row] = scratch[0];
+}
+
+kernel void kernel_sum_abs(device const float* a      [[buffer(0)]],
+                           device float* out          [[buffer(1)]],
+                           device const uint2* dims   [[buffer(2)]],
+                           uint3 gid [[thread_position_in_grid]],
+                           uint3 tid3 [[thread_position_in_threadgroup]],
+                           uint3 tptg [[threads_per_threadgroup]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint row = gid.y;
+    uint tid = tid3.x;
+    if (row >= rows) return;
+
+    threadgroup float scratch[1024];
+
+    uint base = row * cols;
+    float local = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        local += fabs(a[base + c]);
+    }
+    scratch[tid] = local;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) out[row] = scratch[0];
+}
+
+kernel void kernel_cross_entropy_loss(device const float* logits [[buffer(0)]],
+                                      device const float* targets [[buffer(1)]],
+                                      device float* out           [[buffer(2)]],
+                                      device const uint2* dims    [[buffer(3)]],
+                                      uint3 gid [[thread_position_in_grid]],
+                                      uint3 tid3 [[thread_position_in_threadgroup]],
+                                      uint3 tptg [[threads_per_threadgroup]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint row = gid.y;
+    uint tid = tid3.x;
+    if (row >= rows) return;
+
+    threadgroup float scratch[1024];
+
+    uint base = row * cols;
+    float localMax = -INFINITY;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localMax = max(localMax, logits[base + c]);
+    }
+    scratch[tid] = localMax;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    float maxVal = scratch[0];
+
+    float localSumExp = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localSumExp += exp(logits[base + c] - maxVal);
+    }
+    scratch[tid] = localSumExp;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    float sumExp = scratch[0];
+
+    if (tid == 0) {
+        int target = (int)targets[row];
+        if (target < 0 || target >= (int)cols) {
+            out[row] = NAN;
+            return;
+        }
+        out[row] = log(sumExp) + maxVal - logits[base + (uint)target];
+    }
+}
+
+kernel void kernel_cross_entropy_gradient(device const float* logits [[buffer(0)]],
+                                          device const float* targets [[buffer(1)]],
+                                          device float* out           [[buffer(2)]],
+                                          device const uint2* dims    [[buffer(3)]],
+                                          uint3 gid [[thread_position_in_grid]],
+                                          uint3 tid3 [[thread_position_in_threadgroup]],
+                                          uint3 tptg [[threads_per_threadgroup]]) {
+    uint rows = dims[0].x;
+    uint cols = dims[0].y;
+    uint row = gid.y;
+    uint tid = tid3.x;
+    if (row >= rows) return;
+
+    threadgroup float scratch[1024];
+
+    uint base = row * cols;
+    int target = (int)targets[row];
+    if (target < 0 || target >= (int)cols) {
+        for (uint c = tid; c < cols; c += tptg.x) {
+            out[base + c] = NAN;
+        }
+        return;
+    }
+
+    float localMax = -INFINITY;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localMax = max(localMax, logits[base + c]);
+    }
+    scratch[tid] = localMax;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    float maxVal = scratch[0];
+
+    float localSumExp = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localSumExp += exp(logits[base + c] - maxVal);
+    }
+    scratch[tid] = localSumExp;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    float sumExp = scratch[0];
+
+    float invRows = 1.0f / (float)rows;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        float p = exp(logits[base + c] - maxVal) / sumExp;
+        if ((int)c == target) p -= 1.0f;
+        out[base + c] = p * invRows;
+    }
+}
+
+kernel void kernel_clamp(device const float* a        [[buffer(0)]],
+                         device float* out            [[buffer(1)]],
+                         device const float2* minMax  [[buffer(2)]],
+                         uint id [[thread_position_in_grid]]) {
+    float lo = minMax[0].x;
+    float hi = minMax[0].y;
+    out[id] = min(hi, max(lo, a[id]));
+}
+
+kernel void kernel_pow(device const float* a        [[buffer(0)]],
+                       device float* out            [[buffer(1)]],
+                       device const float* exponent [[buffer(2)]],
+                       uint id [[thread_position_in_grid]]) {
+    out[id] = pow(a[id], exponent[0]);
+}
+
+kernel void kernel_scatter_add_rows(device float* target      [[buffer(0)]],
+                                    device const float* indices [[buffer(1)]],
+                                    device const float* grad    [[buffer(2)]],
+                                    device const uint3* dims    [[buffer(3)]],
+                                    uint id [[thread_position_in_grid]]) {
+    uint targetRows = dims[0].x;
+    uint targetCols = dims[0].y;
+    uint nIdx = dims[0].z;
+
+    uint total = nIdx * targetCols;
+    if (id >= total) return;
+
+    uint i = id / targetCols;
+    uint c = id % targetCols;
+    uint row = (uint)indices[i];
+    if (row >= targetRows) return;
+
+    target[row * targetCols + c] += grad[i * targetCols + c];
+}
+
+inline void atomic_add_f32(device atomic_uint* addr, float value) {
+    uint expected = atomic_load_explicit(addr, memory_order_relaxed);
+    while (true) {
+        float current = as_type<float>(expected);
+        uint desired = as_type<uint>(current + value);
+        if (atomic_compare_exchange_weak_explicit(
+                addr, &expected, desired,
+                memory_order_relaxed, memory_order_relaxed)) {
+            return;
+        }
+    }
+}
+
+kernel void kernel_scatter_add_rows_atomic(device float* target        [[buffer(0)]],
+                                           device const float* indices [[buffer(1)]],
+                                           device const float* grad    [[buffer(2)]],
+                                           device const uint3* dims    [[buffer(3)]],
+                                           uint id [[thread_position_in_grid]]) {
+    uint targetRows = dims[0].x;
+    uint targetCols = dims[0].y;
+    uint nIdx = dims[0].z;
+
+    uint total = nIdx * targetCols;
+    if (id >= total) return;
+
+    uint i = id / targetCols;
+    uint c = id % targetCols;
+    uint row = (uint)indices[i];
+    if (row >= targetRows) return;
+
+    uint flat = row * targetCols + c;
+    device atomic_uint* targetAtomic = (device atomic_uint*)target;
+    atomic_add_f32(&targetAtomic[flat], grad[i * targetCols + c]);
 }
 
 // ── unary math ──
@@ -360,14 +694,31 @@ kernel void kernel_gelu_backward(device const float* input [[buffer(0)]],
 kernel void kernel_softmax_max(device const float* a     [[buffer(0)]],
                                device float* rowMax      [[buffer(1)]],
                                device const uint* dims   [[buffer(2)]],
-                               uint row [[thread_position_in_grid]]) {
+                               uint3 gid [[thread_position_in_grid]],
+                               uint3 tid3 [[thread_position_in_threadgroup]],
+                               uint3 tptg [[threads_per_threadgroup]]) {
     uint cols = dims[0];
+    uint row = gid.y;
+    uint tid = tid3.x;
+
+    threadgroup float scratch[1024];
+
     uint base = row * cols;
-    float mx = a[base];
-    for (uint c = 1; c < cols; c++) {
-        mx = max(mx, a[base + c]);
+    float localMax = -INFINITY;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localMax = max(localMax, a[base + c]);
     }
-    rowMax[row] = mx;
+    scratch[tid] = localMax;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) rowMax[row] = scratch[0];
 }
 
 kernel void kernel_softmax_expsum(device const float* a     [[buffer(0)]],
@@ -375,17 +726,34 @@ kernel void kernel_softmax_expsum(device const float* a     [[buffer(0)]],
                                   device const float* rowMax[[buffer(2)]],
                                   device float* rowSum      [[buffer(3)]],
                                   device const uint* dims   [[buffer(4)]],
-                                  uint row [[thread_position_in_grid]]) {
+                                  uint3 gid [[thread_position_in_grid]],
+                                  uint3 tid3 [[thread_position_in_threadgroup]],
+                                  uint3 tptg [[threads_per_threadgroup]]) {
     uint cols = dims[0];
+    uint row = gid.y;
+    uint tid = tid3.x;
+
+    threadgroup float scratch[1024];
+
     uint base = row * cols;
     float mx = rowMax[row];
-    float s = 0.0f;
-    for (uint c = 0; c < cols; c++) {
+    float local = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
         float e = exp(a[base + c] - mx);
         out[base + c] = e;
-        s += e;
+        local += e;
     }
-    rowSum[row] = s;
+    scratch[tid] = local;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    if (tid == 0) rowSum[row] = scratch[0];
 }
 
 kernel void kernel_softmax_norm(device float* out          [[buffer(0)]],
@@ -401,16 +769,33 @@ kernel void kernel_softmax_backward(device const float* gradOutput [[buffer(0)]]
                                     device const float* softmaxOut [[buffer(1)]],
                                     device float* out              [[buffer(2)]],
                                     device const uint* dims        [[buffer(3)]],
-                                    uint row [[thread_position_in_grid]]) {
+                                    uint3 gid [[thread_position_in_grid]],
+                                    uint3 tid3 [[thread_position_in_threadgroup]],
+                                    uint3 tptg [[threads_per_threadgroup]]) {
     uint cols = dims[0];
+    uint row = gid.y;
+    uint tid = tid3.x;
+
+    threadgroup float scratch[1024];
+
     uint base = row * cols;
 
-    float dot = 0.0f;
-    for (uint c = 0; c < cols; c++) {
-        dot += gradOutput[base + c] * softmaxOut[base + c];
+    float localDot = 0.0f;
+    for (uint c = tid; c < cols; c += tptg.x) {
+        localDot += gradOutput[base + c] * softmaxOut[base + c];
     }
+    scratch[tid] = localDot;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
 
-    for (uint c = 0; c < cols; c++) {
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratch[tid] += scratch[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    float dot = scratch[0];
+
+    for (uint c = tid; c < cols; c += tptg.x) {
         float s = softmaxOut[base + c];
         out[base + c] = s * (gradOutput[base + c] - dot);
     }
@@ -421,22 +806,44 @@ kernel void kernel_layernorm_backward(device const float* dXHat [[buffer(0)]],
                                       device const float* std   [[buffer(2)]],
                                       device float* out         [[buffer(3)]],
                                       device const uint* dims   [[buffer(4)]],
-                                      uint row [[thread_position_in_grid]]) {
+                                      uint3 gid [[thread_position_in_grid]],
+                                      uint3 tid3 [[thread_position_in_threadgroup]],
+                                      uint3 tptg [[threads_per_threadgroup]]) {
     uint cols = dims[0];
+    uint row = gid.y;
+    uint tid = tid3.x;
+
+    threadgroup float scratchA[1024];
+    threadgroup float scratchB[1024];
+
     uint base = row * cols;
 
     float invStd = 1.0f / std[row];
-    float sumD = 0.0f;
-    float sumDXHatXHat = 0.0f;
+    float localSumD = 0.0f;
+    float localSumDXHatXHat = 0.0f;
 
-    for (uint c = 0; c < cols; c++) {
+    for (uint c = tid; c < cols; c += tptg.x) {
         float d = dXHat[base + c];
-        sumD += d;
-        sumDXHatXHat += d * xHat[base + c];
+        localSumD += d;
+        localSumDXHatXHat += d * xHat[base + c];
+    }
+    scratchA[tid] = localSumD;
+    scratchB[tid] = localSumDXHatXHat;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            scratchA[tid] += scratchA[tid + stride];
+            scratchB[tid] += scratchB[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 
+    float sumD = scratchA[0];
+    float sumDXHatXHat = scratchB[0];
+
     float invCols = 1.0f / (float)cols;
-    for (uint c = 0; c < cols; c++) {
+    for (uint c = tid; c < cols; c += tptg.x) {
         float d = dXHat[base + c];
         float xh = xHat[base + c];
         out[base + c] = invStd * (d - sumD * invCols - xh * (sumDXHatXHat * invCols));
@@ -548,6 +955,14 @@ static MetalContext* getContext() {
         gCtx->sumAlongRowsPSO   = makePSO(library, @"kernel_sum_along_rows");
         gCtx->meanAlongRowsPSO  = makePSO(library, @"kernel_mean_along_rows");
         gCtx->varianceAlongRowsPSO = makePSO(library, @"kernel_variance_along_rows");
+        gCtx->maxAlongRowsPSO   = makePSO(library, @"kernel_max_along_rows");
+        gCtx->sumAbsPSO         = makePSO(library, @"kernel_sum_abs");
+        gCtx->crossEntropyLossPSO = makePSO(library, @"kernel_cross_entropy_loss");
+        gCtx->crossEntropyGradPSO = makePSO(library, @"kernel_cross_entropy_gradient");
+        gCtx->clampPSO          = makePSO(library, @"kernel_clamp");
+        gCtx->powPSO            = makePSO(library, @"kernel_pow");
+        gCtx->scatterAddRowsPSO = makePSO(library, @"kernel_scatter_add_rows");
+        gCtx->scatterAddRowsAtomicPSO = makePSO(library, @"kernel_scatter_add_rows_atomic");
         gCtx->sqrtPSO           = makePSO(library, @"kernel_sqrt");
         gCtx->negPSO            = makePSO(library, @"kernel_neg");
         gCtx->expPSO            = makePSO(library, @"kernel_exp");
@@ -963,6 +1378,15 @@ static constexpr int OP_MEAN_ALONG_ROWS = 30;
 static constexpr int OP_VARIANCE_ALONG_ROWS = 31;
 static constexpr int OP_MULTIPLY_BROADCAST_COLS = 32;
 static constexpr int OP_SUM_ALONG_ROWS = 33;
+static constexpr int OP_MAX_ALONG_ROWS = 34;
+static constexpr int OP_CLAMP = 35;
+static constexpr int OP_POW = 36;
+static constexpr int OP_SCATTER_ADD_ROWS = 37;
+static constexpr int OP_SUM_ABS = 38;
+static constexpr int OP_CROSS_ENTROPY_LOSS = 39;
+static constexpr int OP_CROSS_ENTROPY_GRADIENT = 40;
+static constexpr int OP_SUM_SCALAR = 41;
+static constexpr int OP_SCATTER_ADD_ROWS_ATOMIC = 42;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -970,6 +1394,24 @@ static id<MTLBuffer> requireBuffer(int id, const char* opName) {
         throw std::runtime_error(std::string(opName) + ": missing GPU buffer id=" + std::to_string(id));
     }
     return it->second;
+}
+
+static NSUInteger rowReductionWidth(id<MTLComputePipelineState> pso) {
+    NSUInteger limit = MIN((NSUInteger)1024, pso.maxTotalThreadsPerThreadgroup);
+    NSUInteger width = 1;
+    while ((width << 1) <= limit && (width << 1) <= 256) {
+        width <<= 1;
+    }
+    return width;
+}
+
+static NSUInteger colReductionHeight(id<MTLComputePipelineState> pso) {
+    NSUInteger limit = MIN((NSUInteger)1024, pso.maxTotalThreadsPerThreadgroup);
+    NSUInteger height = 1;
+    while ((height << 1) <= limit && (height << 1) <= 256) {
+        height <<= 1;
+    }
+    return height;
 }
 
 // Helper: encode a softmax 3-pass into an existing compute encoder
@@ -991,8 +1433,9 @@ static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &enc,
     [enc setBuffer:bufIn   offset:0 atIndex:0];
     [enc setBuffer:bufMax  offset:0 atIndex:1];
     [enc setBuffer:bufDims offset:0 atIndex:2];
-    NSUInteger tpg1 = MIN((NSUInteger)rows, ctx->softmaxMaxPSO.maxTotalThreadsPerThreadgroup);
-    [enc dispatchThreads:MTLSizeMake(rows, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg1, 1, 1)];
+    NSUInteger tpg1 = rowReductionWidth(ctx->softmaxMaxPSO);
+    [enc dispatchThreads:MTLSizeMake(tpg1, (NSUInteger)rows, 1)
+        threadsPerThreadgroup:MTLSizeMake(tpg1, 1, 1)];
 
     [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
 
@@ -1003,8 +1446,9 @@ static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &enc,
     [enc setBuffer:bufMax  offset:0 atIndex:2];
     [enc setBuffer:bufSum  offset:0 atIndex:3];
     [enc setBuffer:bufDims offset:0 atIndex:4];
-    NSUInteger tpg2 = MIN((NSUInteger)rows, ctx->softmaxExpSumPSO.maxTotalThreadsPerThreadgroup);
-    [enc dispatchThreads:MTLSizeMake(rows, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg2, 1, 1)];
+    NSUInteger tpg2 = rowReductionWidth(ctx->softmaxExpSumPSO);
+    [enc dispatchThreads:MTLSizeMake(tpg2, (NSUInteger)rows, 1)
+        threadsPerThreadgroup:MTLSizeMake(tpg2, 1, 1)];
 
     [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
 
@@ -1172,7 +1616,8 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                 // ── Scalar multiply/add/divide: [op, in, out, scalarBits, n] ────
                 case OP_MULTIPLY_SCALAR:
                 case OP_ADD_SCALAR:
-                case OP_DIVIDE_SCALAR: {
+                case OP_DIVIDE_SCALAR:
+                case OP_POW: {
                     int inId = cmd[pos+1], outId = cmd[pos+2];
                     float scalar;
                     int bits = cmd[pos+3];
@@ -1188,6 +1633,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                         case OP_MULTIPLY_SCALAR: pso = ctx->multiplyScalarPSO; break;
                         case OP_ADD_SCALAR:      pso = ctx->addScalarPSO; break;
                         case OP_DIVIDE_SCALAR:   pso = ctx->divideScalarPSO; break;
+                        case OP_POW:             pso = ctx->powPSO; break;
                         default: pso = ctx->multiplyScalarPSO; break;
                     }
 
@@ -1200,6 +1646,32 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc dispatchThreads:MTLSizeMake(n, 1, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 5;
+                    break;
+                }
+
+                // ── Clamp: [op, in, out, minBits, maxBits, n] ───────────
+                case OP_CLAMP: {
+                    int inId = cmd[pos+1], outId = cmd[pos+2];
+                    float minV, maxV;
+                    int minBits = cmd[pos+3], maxBits = cmd[pos+4];
+                    std::memcpy(&minV, &minBits, sizeof(float));
+                    std::memcpy(&maxV, &maxBits, sizeof(float));
+                    int n = cmd[pos+5];
+
+                    float minMax[2] = { minV, maxV };
+                    id<MTLBuffer> minMaxBuf = [ctx->device newBufferWithBytes:minMax
+                                               length:sizeof(minMax)
+                                               options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->clampPSO];
+                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
+                    [enc setBuffer:minMaxBuf          offset:0 atIndex:2];
+                    NSUInteger tpg = MIN((NSUInteger)n, ctx->clampPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 6;
                     break;
                 }
 
@@ -1223,6 +1695,56 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc dispatchThreads:MTLSizeMake(total, 1, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 5;
+                    break;
+                }
+
+                // ── Scatter add rows (in-place): [op, target, indices, grad, targetRows, targetCols, nIdx] ──
+                case OP_SCATTER_ADD_ROWS: {
+                    int targetId = cmd[pos+1], indicesId = cmd[pos+2], gradId = cmd[pos+3];
+                    uint32_t targetRows = (uint32_t)cmd[pos+4];
+                    uint32_t targetCols = (uint32_t)cmd[pos+5];
+                    uint32_t nIdx = (uint32_t)cmd[pos+6];
+                    uint32_t dims[3] = { targetRows, targetCols, nIdx };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    NSUInteger total = (NSUInteger)nIdx * (NSUInteger)targetCols;
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->scatterAddRowsPSO];
+                    [enc setBuffer:gBufferPool[targetId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[indicesId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[gradId]    offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
+                    NSUInteger tpg = MIN(total, ctx->scatterAddRowsPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 7;
+                    break;
+                }
+
+                // ── Scatter add rows (in-place atomic): [op, target, indices, grad, targetRows, targetCols, nIdx] ──
+                case OP_SCATTER_ADD_ROWS_ATOMIC: {
+                    int targetId = cmd[pos+1], indicesId = cmd[pos+2], gradId = cmd[pos+3];
+                    uint32_t targetRows = (uint32_t)cmd[pos+4];
+                    uint32_t targetCols = (uint32_t)cmd[pos+5];
+                    uint32_t nIdx = (uint32_t)cmd[pos+6];
+                    uint32_t dims[3] = { targetRows, targetCols, nIdx };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    NSUInteger total = (NSUInteger)nIdx * (NSUInteger)targetCols;
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->scatterAddRowsAtomicPSO];
+                    [enc setBuffer:gBufferPool[targetId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[indicesId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[gradId]    offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
+                    NSUInteger tpg = MIN(total, ctx->scatterAddRowsAtomicPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 7;
                     break;
                 }
 
@@ -1270,7 +1792,8 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                 case OP_SUM_ROWS:
                 case OP_SUM_ALONG_ROWS:
                 case OP_MEAN_ALONG_ROWS:
-                case OP_VARIANCE_ALONG_ROWS: {
+                case OP_VARIANCE_ALONG_ROWS:
+                case OP_MAX_ALONG_ROWS: {
                     int inId = cmd[pos+1], outId = cmd[pos+2];
                     uint32_t rows = (uint32_t)cmd[pos+3];
                     uint32_t cols = (uint32_t)cmd[pos+4];
@@ -1280,27 +1803,31 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                                              options:MTLResourceStorageModeShared];
 
                     id<MTLComputePipelineState> pso;
-                    NSUInteger dispatchN;
+                    bool rowWise;
                     switch (opCode) {
                         case OP_SUM_ROWS:
                             pso = ctx->sumRowsPSO;
-                            dispatchN = (NSUInteger)cols;
+                            rowWise = false;
                             break;
                         case OP_MEAN_ALONG_ROWS:
                             pso = ctx->meanAlongRowsPSO;
-                            dispatchN = (NSUInteger)rows;
+                            rowWise = true;
                             break;
                         case OP_SUM_ALONG_ROWS:
                             pso = ctx->sumAlongRowsPSO;
-                            dispatchN = (NSUInteger)rows;
+                            rowWise = true;
                             break;
                         case OP_VARIANCE_ALONG_ROWS:
                             pso = ctx->varianceAlongRowsPSO;
-                            dispatchN = (NSUInteger)rows;
+                            rowWise = true;
+                            break;
+                        case OP_MAX_ALONG_ROWS:
+                            pso = ctx->maxAlongRowsPSO;
+                            rowWise = true;
                             break;
                         default:
                             pso = ctx->sumRowsPSO;
-                            dispatchN = (NSUInteger)cols;
+                            rowWise = false;
                             break;
                     }
 
@@ -1309,10 +1836,129 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
                     [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
                     [enc setBuffer:dimsBuf            offset:0 atIndex:2];
-                    NSUInteger tpg = MIN(dispatchN, pso.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(dispatchN, 1, 1)
+                    if (rowWise) {
+                        NSUInteger tpg = rowReductionWidth(pso);
+                        [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
+                            threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    } else {
+                        NSUInteger tpg = colReductionHeight(pso);
+                        [enc dispatchThreads:MTLSizeMake((NSUInteger)cols, tpg, 1)
+                            threadsPerThreadgroup:MTLSizeMake(1, tpg, 1)];
+                    }
+                    pos += 5;
+                    break;
+                }
+
+                // ── Scalar sum-abs reduction: [op, in, out, rows, cols] ──────
+                case OP_SUM_ABS: {
+                    int inId = cmd[pos+1], outId = cmd[pos+2];
+                    uint32_t rows = (uint32_t)cmd[pos+3];
+                    uint32_t cols = (uint32_t)cmd[pos+4];
+                    uint32_t dims[2] = { rows, cols };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->sumAbsPSO];
+                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
+                    [enc setBuffer:dimsBuf            offset:0 atIndex:2];
+                    NSUInteger tpg = MIN((NSUInteger)256, ctx->sumAbsPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 5;
+                    break;
+                }
+
+                // ── Scalar sum reduction: [op, in, out, rows, cols] ──────────
+                case OP_SUM_SCALAR: {
+                    int inId = cmd[pos+1], outId = cmd[pos+2];
+                    uint32_t rows = (uint32_t)cmd[pos+3];
+                    uint32_t cols = (uint32_t)cmd[pos+4];
+
+                    id<MTLBuffer> tmpColSums = [ctx->device newBufferWithLength:(NSUInteger)cols * sizeof(float)
+                                                                        options:MTLResourceStorageModeShared];
+
+                    uint32_t dimsRows[2] = { rows, cols };
+                    id<MTLBuffer> dimsRowsBuf = [ctx->device newBufferWithBytes:dimsRows
+                                                 length:sizeof(dimsRows)
+                                                 options:MTLResourceStorageModeShared];
+
+                    uint32_t dimsScalar[2] = { 1u, cols };
+                    id<MTLBuffer> dimsScalarBuf = [ctx->device newBufferWithBytes:dimsScalar
+                                                   length:sizeof(dimsScalar)
+                                                   options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+
+                    // Pass 1: [rows x cols] -> [1 x cols]
+                    [enc setComputePipelineState:ctx->sumRowsPSO];
+                    [enc setBuffer:gBufferPool[inId] offset:0 atIndex:0];
+                    [enc setBuffer:tmpColSums        offset:0 atIndex:1];
+                    [enc setBuffer:dimsRowsBuf       offset:0 atIndex:2];
+                    NSUInteger tpg1 = colReductionHeight(ctx->sumRowsPSO);
+                    [enc dispatchThreads:MTLSizeMake((NSUInteger)cols, tpg1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(1, tpg1, 1)];
+
+                    [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
+
+                    // Pass 2: [1 x cols] -> [1 x 1]
+                    [enc setComputePipelineState:ctx->sumAlongRowsPSO];
+                    [enc setBuffer:tmpColSums        offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
+                    [enc setBuffer:dimsScalarBuf      offset:0 atIndex:2];
+                    NSUInteger tpg2 = MIN((NSUInteger)1, ctx->sumAlongRowsPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(1, 1, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg2, 1, 1)];
+
+                    pos += 5;
+                    break;
+                }
+
+                // ── Cross-entropy loss: [op, logits, targets, out, rows, cols] ─
+                case OP_CROSS_ENTROPY_LOSS: {
+                    int logitsId = cmd[pos+1], targetsId = cmd[pos+2], outId = cmd[pos+3];
+                    uint32_t rows = (uint32_t)cmd[pos+4];
+                    uint32_t cols = (uint32_t)cmd[pos+5];
+                    uint32_t dims[2] = { rows, cols };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->crossEntropyLossPSO];
+                    [enc setBuffer:gBufferPool[logitsId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[targetsId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
+                    NSUInteger tpg = MIN((NSUInteger)256, ctx->crossEntropyLossPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 6;
+                    break;
+                }
+
+                // ── Cross-entropy gradient: [op, logits, targets, out, rows, cols] ─
+                case OP_CROSS_ENTROPY_GRADIENT: {
+                    int logitsId = cmd[pos+1], targetsId = cmd[pos+2], outId = cmd[pos+3];
+                    uint32_t rows = (uint32_t)cmd[pos+4];
+                    uint32_t cols = (uint32_t)cmd[pos+5];
+                    uint32_t dims[2] = { rows, cols };
+                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
+                                             length:sizeof(dims)
+                                             options:MTLResourceStorageModeShared];
+
+                    if (!enc) enc = [cmdBuf computeCommandEncoder];
+                    [enc setComputePipelineState:ctx->crossEntropyGradPSO];
+                    [enc setBuffer:gBufferPool[logitsId]  offset:0 atIndex:0];
+                    [enc setBuffer:gBufferPool[targetsId] offset:0 atIndex:1];
+                    [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
+                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
+                    NSUInteger tpg = MIN((NSUInteger)256, ctx->crossEntropyGradPSO.maxTotalThreadsPerThreadgroup);
+                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
+                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+                    pos += 6;
                     break;
                 }
 
@@ -1376,8 +2022,8 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc setBuffer:gBufferPool[softmaxId] offset:0 atIndex:1];
                     [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
                     [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = MIN((NSUInteger)rows, ctx->softmaxBackwardPSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(rows, 1, 1)
+                    NSUInteger tpg = rowReductionWidth(ctx->softmaxBackwardPSO);
+                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 6;
                     break;
@@ -1399,8 +2045,8 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc setBuffer:gBufferPool[stdId]   offset:0 atIndex:2];
                     [enc setBuffer:gBufferPool[outId]   offset:0 atIndex:3];
                     [enc setBuffer:dimsBuf              offset:0 atIndex:4];
-                    NSUInteger tpg = MIN((NSUInteger)rows, ctx->layerNormBackwardPSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(rows, 1, 1)
+                    NSUInteger tpg = rowReductionWidth(ctx->layerNormBackwardPSO);
+                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 7;
                     break;

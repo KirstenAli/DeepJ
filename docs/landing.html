@@ -516,6 +516,7 @@
                 <tr><td><code>models.llama</code></td><td><code>LlamaModel</code>, <code>LlamaConfig</code></td></tr>
                 <tr><td><code>models.deepseek</code></td><td><code>DeepSeekModel</code>, <code>DeepSeekConfig</code></td></tr>
                 <tr><td><code>tokenizers</code></td><td><code>ByteTokenizer</code>, BPE pipeline (<code>BPETrainer</code>, <code>BPETokenizer</code>, <code>BPEModelIO</code>)</td></tr>
+                <tr><td><code>data</code></td><td><code>TextDataset</code> (streaming, memory-mapped), <code>Batch</code></td></tr>
                 <tr><td><code>persistence</code></td><td><code>ModelSerializer</code> — binary save/load</td></tr>
                 <tr><td><code>chatui</code></td><td><code>BaseChatApp</code>, <code>ChatService</code></td></tr>
                 </tbody>
@@ -537,11 +538,11 @@
                 <pre><code><span class="typ">MetalBackend</span> metal = <span class="kw">new</span> <span class="typ">MetalBackend</span>();
 <span class="typ">Tensor</span>.<span class="fn">setBackend</span>(metal);</code></pre>
                 <p style="color: var(--text-dim); margin-top: 12px;">
-                    Operations route through the Metal backend entrypoint; GPU kernels run on Metal,
-                    while unsupported ops fall back to CPU with on-demand materialization.
+                    Operations route through the Metal backend entrypoint and record into a lazy compute graph.
                     Tensor state remains coherent across lazy execution and periodic resource release.
                     Reading values on CPU (<code>materialize()</code>, <code>get</code>, <code>set</code>,
                     <code>print</code>, or raw <code>data[]</code> access) triggers a sync/readback boundary.
+                    Keep op recording and materialization on the same backend instance so graph ownership stays aligned.
                 </p>
             </div>
             <div>
