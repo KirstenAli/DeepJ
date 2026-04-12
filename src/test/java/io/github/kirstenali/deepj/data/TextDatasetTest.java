@@ -6,8 +6,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 public class TextDatasetTest {
 
@@ -38,9 +41,9 @@ public class TextDatasetTest {
     }
 
     @Test
-    void nextBatch_handlesMinimumValidTokenLength() {
+    void nextBatch_handlesMinimumValidTokenLength() throws IOException {
         int[] tokens = new int[]{10, 11, 12, 13, 14}; // seqLen=4 => seqLen+1
-        TextDataset ds = new TextDataset(tokens, 4, 7L);
+        TextDataset ds = fromTokens(tokens, 4, 7L);
 
         Batch b = ds.nextBatch(1);
 
@@ -85,7 +88,7 @@ public class TextDatasetTest {
         TextDataset mapped = TextDataset.fromFile(tmp, tok, seqLen, seed);
 
         // Direct int[] path
-        TextDataset direct = new TextDataset(tok.encode(text), seqLen, seed);
+        TextDataset direct = fromTokens(tok.encode(text), seqLen, seed);
 
         // Same seed → same random positions → identical batches
         Batch bMapped = mapped.nextBatch(3);
@@ -148,17 +151,57 @@ public class TextDatasetTest {
     void constructor_rejectsTooFewTokens() {
         int[] tokens = new int[]{1, 2, 3};
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> new TextDataset(tokens, 4, 1L));
+                () -> fromTokens(tokens, 4, 1L));
     }
 
     @Test
     void constructor_rejectsTooSmallSeqLen() {
         int[] tokens = new int[]{1, 2, 3, 4, 5};
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> new TextDataset(tokens, 1, 1L));
+                () -> fromTokens(tokens, 1, 1L));
+    }
+
+    @Test
+    void fromFile_multiSegment_readsAcrossChunkBoundary() throws IOException {
+        // 12 ASCII bytes → 12 tokens → 48 bytes on disk.
+        // chunkBytes=20 forces 3 segments (20 / 20 / 8), so every read crossing a
+        // boundary exercises the ChunkedIntBuffer dispatch logic.
+        String text = "abcdefghijkl"; // 12 chars, each a distinct byte id
+        Path tmp = writeTempFile(text);
+        Tokenizer tok = new ByteTokenizer();
+        int seqLen = 4;
+        long seed = 42L;
+
+        // Reference: single-segment mapping
+        TextDataset single = TextDataset.fromFile(tmp, tok, seqLen, seed);
+        // Force multi-segment: 20 bytes per chunk (= 5 ints), giving 3 chunks
+        TextDataset multi  = TextDataset.fromFile(tmp, tok, seqLen, seed, 20L);
+
+        Assertions.assertEquals(single.size(), multi.size());
+
+        // Same seed → identical batches
+        Batch bs = single.nextBatch(4);
+        Batch bm = multi.nextBatch(4);
+        for (int i = 0; i < 4; i++) {
+            Assertions.assertArrayEquals(bs.x()[i], bm.x()[i], "x mismatch at row " + i);
+            Assertions.assertArrayEquals(bs.y()[i], bm.y()[i], "y mismatch at row " + i);
+        }
     }
 
     // ── helpers ─────────────────────────────────────────────────────
+
+    /** Creates a {@link TextDataset} directly from a raw token array — for use in tests only. */
+    private static TextDataset fromTokens(int[] tokens, int seqLen, long seed) throws IOException {
+        Path tmp = Files.createTempFile("deepj-test-tokens-", ".bin");
+        tmp.toFile().deleteOnExit();
+        ByteBuffer buf = ByteBuffer.allocate(tokens.length * Integer.BYTES);
+        for (int t : tokens) buf.putInt(t);
+        buf.flip();
+        try (FileChannel ch = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
+            ch.write(buf);
+        }
+        return TextDataset.fromBinaryFile(tmp, seqLen, seed);
+    }
 
     private static Path writeTempFile(String content) throws IOException {
         Path tmp = Files.createTempFile("deepj-test-", ".txt");
