@@ -983,8 +983,8 @@ encode/decode with subword tokens.
 // Train a BPE model from a corpus
 BPEModel bpe = new BPETrainer().train(corpusText, 1000);  // target vocab size
 
-// Or from a file
-BPEModel bpe = new BPETrainer().trainFromFile(Path.of("corpus.txt"), 1000);
+// Or from a file (streams a 50 MB sample — safe for multi-gigabyte corpora)
+BPEModel bpe = new BPETrainer().trainFromFile(Path.of("corpus.txt"), 1000, List.of());
 
 // Wrap as a Tokenizer
 Tokenizer tok = new BPETokenizer(bpe);
@@ -1025,8 +1025,6 @@ TextDataset ds = TextDataset.fromFile(
         123     // seed
 );
 
-// Or from pre-tokenised ids (small data / tests)
-TextDataset ds = new TextDataset(tokenIds, 256, 123);
 
 // Sample a batch
 Batch batch = ds.nextBatch(4);  // batchSize = 4
