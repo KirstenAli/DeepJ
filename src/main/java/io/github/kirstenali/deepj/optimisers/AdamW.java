@@ -13,7 +13,7 @@ import java.util.Map;
  */
 public final class AdamW implements ParameterOptimizer {
 
-    private final float lr;
+    private float lr;
     private final float beta1;
     private final float beta2;
     private final float eps;
@@ -36,6 +36,22 @@ public final class AdamW implements ParameterOptimizer {
 
     public static AdamW defaultAdamW(float lr) {
         return new AdamW(lr, 0.9f, 0.999f, 1e-8f, 0.01f);
+    }
+
+    /** Current learning rate. */
+    public float lr() {
+        return lr;
+    }
+
+    /**
+     * Update the learning rate (e.g. from a warmup/cosine schedule).
+     * Per-parameter moment state ({@code m}, {@code v}) is preserved.
+     */
+    public void setLr(float lr) {
+        if (lr <= 0) {
+            throw new IllegalArgumentException("lr must be > 0");
+        }
+        this.lr = lr;
     }
 
     @Override
