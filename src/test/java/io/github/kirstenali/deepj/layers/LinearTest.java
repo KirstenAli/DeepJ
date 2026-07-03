@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Random;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class LinearTest {
 
@@ -92,5 +92,74 @@ public class LinearTest {
         for (Parameter p : lin.parameters()) p.zeroGrad();
 
         return loss;
+    }
+
+    // ── finite-difference gradient checks ────────────────────────────────────
+
+    @Test
+    void backward_numerical_gradient_check_input_weight_bias() {
+        int dIn = 3, dOut = 2;
+        float eps = 1e-3f;
+        float tol = 5e-3f;
+
+        Linear lin = new Linear(dIn, dOut, new Random(7));
+        Tensor x = Tensor.from2D(new float[][]{
+                { 0.5f, -1.0f,  2.0f},
+                { 1.5f,  0.3f, -0.7f}
+        });
+
+        lin.forward(x);
+        Tensor dX = lin.backward(Tensor.ones(x.rows, dOut));
+        Parameter W = lin.weight();
+        Parameter b = lin.bias();
+        float[] dW = W.grad.data.clone();
+        float[] db = b.grad.data.clone();
+
+        // ∂(Σ out)/∂x
+        for (int r = 0; r < x.rows; r++) {
+            for (int c = 0; c < dIn; c++) {
+                float orig = x.get(r, c);
+                x.set(r, c, orig + eps);
+                float fPlus = sumAll(lin.forward(x));
+                x.set(r, c, orig - eps);
+                float fMinus = sumAll(lin.forward(x));
+                x.set(r, c, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), dX.get(r, c), tol,
+                        "dX mismatch at [" + r + "," + c + "]");
+            }
+        }
+
+        // ∂(Σ out)/∂W
+        for (int i = 0; i < dIn; i++) {
+            for (int j = 0; j < dOut; j++) {
+                float orig = W.value.get(i, j);
+                W.value.set(i, j, orig + eps);
+                float fPlus = sumAll(lin.forward(x));
+                W.value.set(i, j, orig - eps);
+                float fMinus = sumAll(lin.forward(x));
+                W.value.set(i, j, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), dW[i * dOut + j], tol,
+                        "dW mismatch at [" + i + "," + j + "]");
+            }
+        }
+
+        // ∂(Σ out)/∂b
+        for (int j = 0; j < dOut; j++) {
+            float orig = b.value.get(0, j);
+            b.value.set(0, j, orig + eps);
+            float fPlus = sumAll(lin.forward(x));
+            b.value.set(0, j, orig - eps);
+            float fMinus = sumAll(lin.forward(x));
+            b.value.set(0, j, orig);
+            assertEquals((fPlus - fMinus) / (2 * eps), db[j], tol, "db mismatch at col " + j);
+        }
+    }
+
+    private static float sumAll(Tensor t) {
+        float s = 0.0f;
+        for (int r = 0; r < t.rows; r++)
+            for (int c = 0; c < t.cols; c++)
+                s += t.data[r * t.cols + c];
+        return s;
     }
 }

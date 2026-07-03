@@ -9,7 +9,7 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  * It encodes position by rotating pairs of Q and K head dimensions by position-dependent angles,
  * which causes relative-position information to appear naturally in dot-product attention scores.
  *
- * <p>Applied <em>inside</em> {@link io.github.kirstenali.deepj.layers.transformer.MultiHeadSelfAttention}
+ * <p>Applied <em>inside</em> {@link io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention}
  * after the Q/K projections are split into heads, before the scaled dot-product is computed.
  *
  * <h3>Math (per position {@code t}, pair index {@code i}):</h3>
@@ -25,6 +25,13 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  *   dx[2i]   =  d[2i]  · cos θ  +  d[2i+1] · sin θ
  *   dx[2i+1] = −d[2i]  · sin θ  +  d[2i+1] · cos θ
  * </pre>
+ *
+ * <p><b>Pairing convention:</b> this implementation uses the <em>interleaved</em> pairing of
+ * adjacent dimensions {@code (2i, 2i+1)} — the original RoPE / GPT-NeoX formulation — rather
+ * than the "half-split" pairing {@code (i, i + headDim/2)} used by some Llama/HF checkpoints.
+ * Both are mathematically valid and self-consistent as long as {@link #apply} and
+ * {@link #applyBackward} agree; however the two conventions are <em>not</em> weight-compatible
+ * with each other, so externally-trained RoPE weights must match this pairing.
  *
  * <p><b>Input tensor shape convention (split-head layout):</b>
  * {@code [nHeads × seqLen, headDim]} — head {@code h} occupies rows

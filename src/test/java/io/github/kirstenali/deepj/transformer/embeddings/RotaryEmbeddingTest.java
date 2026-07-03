@@ -265,5 +265,74 @@ class RotaryEmbeddingTest {
         for (int c = 0; c < t.cols; c++) s += t.data[base + c] * t.data[base + c];
         return Math.sqrt(s);
     }
+
+    // ── finite-difference gradient checks ────────────────────────────────────
+
+    @Test
+    void applyBackward_equals_gradient_of_apply() {
+        // apply() is a linear map y = R·x. For scalar L = Σ (g ⊙ apply(x)),
+        // dL/dx = Rᵀ·g = applyBackward(g). Verify against central finite differences.
+        int headDim = 4, seqLen = 3, nHeads = 2;
+        float eps = 1e-3f, tol = 3e-3f;
+        RotaryEmbedding rope = new RotaryEmbedding(headDim, 16);
+
+        Tensor x = Tensor.random(nHeads * seqLen, headDim, new Random(5));
+        Tensor g = Tensor.random(nHeads * seqLen, headDim, new Random(6)); // upstream grad
+
+        Tensor analytic = rope.applyBackward(g, seqLen, nHeads);
+
+        for (int r = 0; r < x.rows; r++) {
+            for (int c = 0; c < headDim; c++) {
+                float orig = x.get(r, c);
+                x.set(r, c, orig + eps);
+                float fPlus = weightedSum(rope.apply(x, seqLen, nHeads), g);
+                x.set(r, c, orig - eps);
+                float fMinus = weightedSum(rope.apply(x, seqLen, nHeads), g);
+                x.set(r, c, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), analytic.get(r, c), tol,
+                        "RoPE backward-as-gradient mismatch at [" + r + "," + c + "]");
+            }
+        }
+    }
+
+    @Test
+    void mhsa_with_rope_backward_matches_numerical_input_gradient() {
+        int dModel = 8, nHeads = 2, seqLen = 4;
+        float eps = 2e-3f, tol = 1e-2f;
+        RotaryEmbedding rope = new RotaryEmbedding(dModel / nHeads, 16);
+        RoPEMultiHeadSelfAttention attn =
+                new RoPEMultiHeadSelfAttention(dModel, nHeads, true, rope, new Random(12));
+        Tensor x = Tensor.random(seqLen, dModel, new Random(77));
+
+        attn.forward(x);
+        Tensor dX = attn.backward(Tensor.ones(seqLen, dModel));
+
+        for (int r = 0; r < seqLen; r++) {
+            for (int c = 0; c < dModel; c++) {
+                float orig = x.get(r, c);
+                x.set(r, c, orig + eps);
+                float fPlus = sumAll(attn.forward(x));
+                x.set(r, c, orig - eps);
+                float fMinus = sumAll(attn.forward(x));
+                x.set(r, c, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), dX.get(r, c), tol,
+                        "RoPE MHSA input grad mismatch at [" + r + "," + c + "]");
+            }
+        }
+    }
+
+    private static float sumAll(Tensor t) {
+        float s = 0.0f;
+        for (int r = 0; r < t.rows; r++)
+            for (int c = 0; c < t.cols; c++)
+                s += t.data[r * t.cols + c];
+        return s;
+    }
+
+    private static float weightedSum(Tensor y, Tensor g) {
+        float s = 0.0f;
+        for (int i = 0; i < y.data.length; i++) s += y.data[i] * g.data[i];
+        return s;
+    }
 }
 

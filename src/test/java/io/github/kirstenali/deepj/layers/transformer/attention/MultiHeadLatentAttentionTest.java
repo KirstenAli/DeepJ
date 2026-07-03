@@ -98,5 +98,35 @@ public class MultiHeadLatentAttentionTest {
 
         assertTrue(dX.sumAbs() > 0.0f, "input gradient must be non-zero");
     }
+
+    @Test
+    void backward_matchesNumericalInputGradient() {
+        float eps = 2e-3f, tol = 1.5e-2f;
+        Tensor x = Tensor.random(SEQ_LEN, D_MODEL, new Random(6L));
+
+        attn.forward(x);
+        Tensor dX = attn.backward(Tensor.ones(SEQ_LEN, D_MODEL));
+
+        for (int r = 0; r < SEQ_LEN; r++) {
+            for (int c = 0; c < D_MODEL; c++) {
+                float orig = x.get(r, c);
+                x.set(r, c, orig + eps);
+                float fPlus = sumAll(attn.forward(x));
+                x.set(r, c, orig - eps);
+                float fMinus = sumAll(attn.forward(x));
+                x.set(r, c, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), dX.get(r, c), tol,
+                        "MLA input grad mismatch at [" + r + "," + c + "]");
+            }
+        }
+    }
+
+    private static float sumAll(Tensor t) {
+        float s = 0.0f;
+        for (int r = 0; r < t.rows; r++)
+            for (int c = 0; c < t.cols; c++)
+                s += t.data[r * t.cols + c];
+        return s;
+    }
 }
 
