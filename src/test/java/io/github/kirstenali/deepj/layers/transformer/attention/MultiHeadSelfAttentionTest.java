@@ -141,4 +141,68 @@ public class MultiHeadSelfAttentionTest {
 
         return loss;
     }
+
+    // ── finite-difference gradient checks ────────────────────────────────────
+
+    @Test
+    void backward_matchesNumericalInputGradient() {
+        int dModel = 4, nHeads = 2, seqLen = 3;
+        float eps = 2e-3f, tol = 1e-2f;
+
+        MultiHeadSelfAttention attn = new MultiHeadSelfAttention(dModel, nHeads, true, new Random(7));
+        Tensor x = Tensor.random(seqLen, dModel, new Random(99));
+
+        attn.forward(x);
+        Tensor dX = attn.backward(Tensor.ones(seqLen, dModel));
+
+        for (int r = 0; r < seqLen; r++) {
+            for (int c = 0; c < dModel; c++) {
+                float orig = x.get(r, c);
+                x.set(r, c, orig + eps);
+                float fPlus = sumAll(attn.forward(x));
+                x.set(r, c, orig - eps);
+                float fMinus = sumAll(attn.forward(x));
+                x.set(r, c, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), dX.get(r, c), tol,
+                        "input grad mismatch at [" + r + "," + c + "]");
+            }
+        }
+    }
+
+    @Test
+    void backward_matchesNumericalOutputWeightGradient() {
+        int dModel = 4, nHeads = 2, seqLen = 3;
+        float eps = 2e-3f, tol = 1e-2f;
+
+        MultiHeadSelfAttention attn = new MultiHeadSelfAttention(dModel, nHeads, true, new Random(11));
+        Tensor x = Tensor.random(seqLen, dModel, new Random(31));
+
+        attn.forward(x);
+        attn.backward(Tensor.ones(seqLen, dModel));
+
+        // parameters() = [Wq, Wk, Wv, Wo]
+        Parameter Wo = attn.parameters().get(3);
+        float[] dWo = Wo.grad.data.clone();
+
+        for (int i = 0; i < dModel; i++) {
+            for (int j = 0; j < dModel; j++) {
+                float orig = Wo.value.get(i, j);
+                Wo.value.set(i, j, orig + eps);
+                float fPlus = sumAll(attn.forward(x));
+                Wo.value.set(i, j, orig - eps);
+                float fMinus = sumAll(attn.forward(x));
+                Wo.value.set(i, j, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), dWo[i * dModel + j], tol,
+                        "dWo mismatch at [" + i + "," + j + "]");
+            }
+        }
+    }
+
+    private static float sumAll(Tensor t) {
+        float s = 0.0f;
+        for (int r = 0; r < t.rows; r++)
+            for (int c = 0; c < t.cols; c++)
+                s += t.data[r * t.cols + c];
+        return s;
+    }
 }

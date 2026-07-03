@@ -84,4 +84,48 @@ public class LossTest {
         Assertions.assertThrows(IllegalArgumentException.class,
                 () -> new CrossEntropyLoss().loss(logits, badTargets));
     }
+
+    @Test
+    void crossEntropyGradient_multiRow_isSoftmaxMinusOneHot_dividedByRowCount() {
+        Tensor logits = Tensor.from2D(new float[][]{
+                {1, 2, 3},
+                {0, 0, 0}
+        });
+        int[] target = new int[]{2, 0};
+        int n = logits.rows;
+
+        Tensor g = CrossEntropyLoss.gradient(logits, target);
+        TestSupport.assertTensorShape(g, 2, 3);
+
+        // Row 0: softmax(1,2,3)
+        double a = Math.exp(1), b = Math.exp(2), c = Math.exp(3), s = a + b + c;
+        Assertions.assertEquals((a / s) / n, g.data[0], 1e-6f);
+        Assertions.assertEquals((b / s) / n, g.data[1], 1e-6f);
+        Assertions.assertEquals((c / s - 1.0) / n, g.data[2], 1e-6f);
+
+        // Row 1: uniform softmax = 1/3 each, target class 0
+        Assertions.assertEquals((1.0 / 3 - 1.0) / n, g.data[3], 1e-6f);
+        Assertions.assertEquals((1.0 / 3) / n, g.data[4], 1e-6f);
+        Assertions.assertEquals((1.0 / 3) / n, g.data[5], 1e-6f);
+    }
+
+    @Test
+    void mseLoss_averagesOverAllElements_multiRow() {
+        MSELoss mse = new MSELoss();
+        Tensor yHat = Tensor.from2D(new float[][]{
+                {1, 2},
+                {3, 4}
+        });
+        Tensor y = Tensor.zeros(2, 2);
+
+        // mean over rows·cols = 4 elements: (1+4+9+16)/4 = 7.5
+        Assertions.assertEquals(7.5f, mse.loss(yHat, y), 1e-6f);
+
+        // gradient = 2·(yHat − y)/(rows·cols), rows·cols = 4
+        Tensor g = mse.gradient(yHat, y);
+        TestSupport.assertTensorAllClose(g, Tensor.from2D(new float[][]{
+                {0.5f, 1.0f},
+                {1.5f, 2.0f}
+        }), 1e-6f);
+    }
 }

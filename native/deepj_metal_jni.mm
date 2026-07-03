@@ -1105,6 +1105,19 @@ static void runMatmulF32(const float* a, const float* b, float* out,
 //  Softmax (3-pass GPU)
 // ═══════════════════════════════════════════════════════════════════════
 
+// Largest power-of-two threadgroup width (<= 256) for the row-reduction
+// kernels. The tree reduction (stride = tptg.x >> 1) is only correct when the
+// threadgroup width is a power of two, and each row is cooperatively reduced by
+// one threadgroup laid out along the grid's X axis (row index = gid.y).
+static NSUInteger softmaxReductionWidth(id<MTLComputePipelineState> pso) {
+    NSUInteger limit = MIN((NSUInteger)256, pso.maxTotalThreadsPerThreadgroup);
+    NSUInteger width = 1;
+    while ((width << 1) <= limit) {
+        width <<= 1;
+    }
+    return width;
+}
+
 static void runSoftmaxRowsF32(const float* a, float* out, int rows, int cols) {
     @autoreleasepool {
         MetalContext* ctx = getContext();
@@ -1127,8 +1140,8 @@ static void runSoftmaxRowsF32(const float* a, float* out, int rows, int cols) {
             [enc setBuffer:bufA    offset:0 atIndex:0];
             [enc setBuffer:bufMax  offset:0 atIndex:1];
             [enc setBuffer:bufDims offset:0 atIndex:2];
-            NSUInteger tpg = MIN((NSUInteger)rows, ctx->softmaxMaxPSO.maxTotalThreadsPerThreadgroup);
-            [enc dispatchThreads:MTLSizeMake(rows, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+            NSUInteger tpg = softmaxReductionWidth(ctx->softmaxMaxPSO);
+            [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
             [enc endEncoding];
         }
 
@@ -1141,8 +1154,8 @@ static void runSoftmaxRowsF32(const float* a, float* out, int rows, int cols) {
             [enc setBuffer:bufMax  offset:0 atIndex:2];
             [enc setBuffer:bufSum  offset:0 atIndex:3];
             [enc setBuffer:bufDims offset:0 atIndex:4];
-            NSUInteger tpg = MIN((NSUInteger)rows, ctx->softmaxExpSumPSO.maxTotalThreadsPerThreadgroup);
-            [enc dispatchThreads:MTLSizeMake(rows, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
+            NSUInteger tpg = softmaxReductionWidth(ctx->softmaxExpSumPSO);
+            [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
             [enc endEncoding];
         }
 
@@ -1932,7 +1945,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc setBuffer:gBufferPool[targetsId] offset:0 atIndex:1];
                     [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
                     [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = MIN((NSUInteger)256, ctx->crossEntropyLossPSO.maxTotalThreadsPerThreadgroup);
+                    NSUInteger tpg = softmaxReductionWidth(ctx->crossEntropyLossPSO);
                     [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 6;
@@ -1955,7 +1968,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     [enc setBuffer:gBufferPool[targetsId] offset:0 atIndex:1];
                     [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
                     [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = MIN((NSUInteger)256, ctx->crossEntropyGradPSO.maxTotalThreadsPerThreadgroup);
+                    NSUInteger tpg = softmaxReductionWidth(ctx->crossEntropyGradPSO);
                     [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
                         threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
                     pos += 6;
