@@ -1357,6 +1357,29 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_softmaxRowsF32(
 
 static std::unordered_map<int, id<MTLBuffer>> gBufferPool;
 
+// Cache of MPSMatrixMultiplication kernels keyed by (m,n,k). Building an MPS
+// kernel is expensive, and matmul is the most frequent op in a transformer, so
+// re-allocating one per call was a major throughput sink. A given (m,n,k) shape
+// always maps to the same kernel; buffers are bound at encode time, so caching
+// by shape is correct. Only a handful of distinct shapes occur per model.
+static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCache;
+
+static MPSMatrixMultiplication* cachedMatmulKernel(MetalContext* ctx, int m, int n, int k) {
+    // m, n, k are all well below 2^21 for any realistic model, so pack losslessly.
+    uint64_t key = ((uint64_t)(uint32_t)m << 42) | ((uint64_t)(uint32_t)n << 21) | (uint64_t)(uint32_t)k;
+    auto it = gMatmulKernelCache.find(key);
+    if (it != gMatmulKernelCache.end()) return it->second;
+
+    MPSMatrixMultiplication* mm =
+        [[MPSMatrixMultiplication alloc] initWithDevice:ctx->device
+            transposeLeft:NO transposeRight:NO
+            resultRows:m resultColumns:n interiorColumns:k
+            alpha:1.0 beta:0.0];
+    gMatmulKernelCache[key] = mm;   // ARC retains the kernel in the map
+    return mm;
+}
+
+
 // Op codes — must match ComputeGraph.java
 static constexpr int OP_ADD            = 1;
 static constexpr int OP_SUBTRACT       = 2;
@@ -1997,11 +2020,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
                     MPSMatrix* matB = [[MPSMatrix alloc] initWithBuffer:gBufferPool[bId] descriptor:descB];
                     MPSMatrix* matC = [[MPSMatrix alloc] initWithBuffer:gBufferPool[outId] descriptor:descC];
 
-                    MPSMatrixMultiplication* mm =
-                        [[MPSMatrixMultiplication alloc] initWithDevice:ctx->device
-                            transposeLeft:NO transposeRight:NO
-                            resultRows:m resultColumns:n interiorColumns:k
-                            alpha:1.0 beta:0.0];
+                    MPSMatrixMultiplication* mm = cachedMatmulKernel(ctx, m, n, k);
 
                     [mm encodeToCommandBuffer:cmdBuf leftMatrix:matA rightMatrix:matB resultMatrix:matC];
                     pos += 7;
