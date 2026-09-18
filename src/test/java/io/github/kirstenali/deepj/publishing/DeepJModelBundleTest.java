@@ -15,6 +15,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -58,7 +59,9 @@ class DeepJModelBundleTest {
         assertTrue(json.contains("\"q_rank\": 4"));
         assertTrue(modelCard.contains("not an exact DeepSeek-V2/V3/R1 implementation"));
         assertTrue(modelCard.contains("## Usage"));
-        assertTrue(modelCard.contains("tree/deepj-0.6-tinystories-release"));
+        assertTrue(modelCard.contains("io.github.kirstenali"));
+        assertTrue(modelCard.contains("<version>0.6.0-alpha</version>"));
+        assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("model.load(directory.resolve(\"model.dj\"))"));
         assertTrue(modelCard.contains("0.2f, 1.0f"));
         assertDoesNotThrow(() -> new DeepSeekModel(config, 1L)

@@ -202,8 +202,19 @@ public final class DeepJModelBundle {
     }
 
     private static String usageHeader() {
-        return "Requires the [DeepJ 0.6 TinyStories release branch]"
-                + "(https://github.com/KirstenAli/DeepJ/tree/deepj-0.6-tinystories-release) "
-                + "or a later format-compatible build. Imports are omitted below.\n\n";
+        return """
+                Use [DeepJ 0.6.0-alpha from Maven Central](https://central.sonatype.com/artifact/io.github.kirstenali/deepj/0.6.0-alpha), or a later format-compatible release.
+
+                ```xml
+                <dependency>
+                    <groupId>io.github.kirstenali</groupId>
+                    <artifactId>deepj</artifactId>
+                    <version>0.6.0-alpha</version>
+                </dependency>
+                ```
+
+                Download this repository's `model.dj` and `tokenizer.bpe` into `downloaded-model`. Imports are omitted below.
+
+                """;
     }
 }
