@@ -58,6 +58,7 @@ class DeepJModelBundleTest {
         assertTrue(json.contains("\"q_rank\": 4"));
         assertTrue(modelCard.contains("not an exact DeepSeek-V2/V3/R1 implementation"));
         assertTrue(modelCard.contains("## Usage"));
+        assertTrue(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("model.load(directory.resolve(\"model.dj\"))"));
         assertTrue(modelCard.contains("0.2f, 1.0f"));
         assertDoesNotThrow(() -> new DeepSeekModel(config, 1L)

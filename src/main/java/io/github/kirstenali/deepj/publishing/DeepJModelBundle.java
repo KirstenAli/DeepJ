@@ -202,7 +202,8 @@ public final class DeepJModelBundle {
     }
 
     private static String usageHeader() {
-        return "Requires [DeepJ](https://github.com/KirstenAli/DeepJ) 0.6.0-alpha "
+        return "Requires the [DeepJ 0.6 TinyStories release branch]"
+                + "(https://github.com/KirstenAli/DeepJ/tree/deepj-0.6-tinystories-release) "
                 + "or a later format-compatible build. Imports are omitted below.\n\n";
     }
 }
