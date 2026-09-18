@@ -2,6 +2,9 @@ package io.github.kirstenali.deepj.tokenizers.bpe;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class BPERegressionTest {
@@ -36,5 +39,14 @@ class BPERegressionTest {
         leaked[0] = (byte) 'z';
 
         assertEquals((byte) 'a', model.idToBytes().get((int) 'a')[0]);
+    }
+
+    @Test
+    void modelRejectsMergeWithoutResultId() {
+        BPEModel valid = new BPETrainer().train("banana banana", 260);
+        List<TokenPair> merges = valid.merges();
+
+        assertThrows(IllegalArgumentException.class, () -> new BPEModel(
+                valid.idToBytes(), valid.tokenKeyToId(), merges, Map.of(), valid.endOfWordId()));
     }
 }

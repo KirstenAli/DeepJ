@@ -127,24 +127,23 @@ public final class DeepJExecutor {
         for (int t = 0; t < chunks; t++) {
             int s = startInclusive + t * chunkSize;
             int e = Math.min(endExclusive, s + chunkSize);
-
             if (s >= e) {
                 latch.countDown();
                 continue;
             }
+            exec.execute(() -> runChunk(s, e, latch, cancelled, firstError, body));
+        }
+    }
 
-            exec.execute(() -> {
-                try {
-                    for (int i = s; i < e && !cancelled.get(); i++) {
-                        body.accept(i);
-                    }
-                } catch (RuntimeException ex) {
-                    cancelled.set(true);
-                    firstError.compareAndSet(null, ex);
-                } finally {
-                    latch.countDown();
-                }
-            });
+    private static void runChunk(int start, int end, CountDownLatch latch, AtomicBoolean cancelled,
+                                 AtomicReference<RuntimeException> firstError, IntConsumer body) {
+        try {
+            for (int i = start; i < end && !cancelled.get(); i++) body.accept(i);
+        } catch (RuntimeException ex) {
+            cancelled.set(true);
+            firstError.compareAndSet(null, ex);
+        } finally {
+            latch.countDown();
         }
     }
 

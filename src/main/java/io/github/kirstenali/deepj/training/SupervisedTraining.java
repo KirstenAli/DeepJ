@@ -23,38 +23,37 @@ public final class SupervisedTraining {
             Tensor yAll,
             long seed
     ) {
+        validateInputs(model, lossFn, opt, xAll, yAll);
+        Random rnd = new Random(seed);
+        return new Trainer(batchSize -> trainBatch(model, lossFn, opt, xAll, yAll, rnd, batchSize));
+    }
+
+    private static void validateInputs(Layer model, LossFunction lossFn, ParameterOptimizer opt,
+                                       Tensor xAll, Tensor yAll) {
         if (model == null) throw new IllegalArgumentException("model must not be null");
         if (lossFn == null) throw new IllegalArgumentException("lossFn must not be null");
         if (opt == null) throw new IllegalArgumentException("opt must not be null");
         if (xAll == null || yAll == null) throw new IllegalArgumentException("xAll/yAll must not be null");
         if (xAll.rows != yAll.rows) throw new IllegalArgumentException("xAll.rows must equal yAll.rows");
+    }
 
-        Random rnd = new Random(seed);
+    private static float trainBatch(Layer model, LossFunction lossFn, ParameterOptimizer opt,
+                                    Tensor xAll, Tensor yAll, Random rnd, int batchSize) {
+        model.zeroGrad();
+        TensorBatch batch = selectBatch(xAll, yAll, rnd, batchSize);
+        Tensor prediction = model.forward(batch.x());
+        float loss = lossFn.loss(prediction, batch.y());
+        model.backward(lossFn.gradient(prediction, batch.y()));
+        opt.step(model.parameters());
+        return loss;
+    }
 
-        return new Trainer(batchSize -> {
-            model.zeroGrad();
-
-            Tensor xb, yb;
-            if (batchSize >= xAll.rows) {
-                xb = xAll;
-                yb = yAll;
-            } else {
-                int[] rowIndices = sampleIndices(xAll.rows, batchSize, rnd);
-                xb = Tensor.sliceRows(xAll, rowIndices, xAll.cols);
-                yb = Tensor.sliceRows(yAll, rowIndices, yAll.cols);
-            }
-
-            Tensor pred = model.forward(xb);
-            float loss = lossFn.loss(pred, yb);
-
-            Tensor dPred = lossFn.gradient(pred, yb);
-            model.backward(dPred);
-
-            // One optimizer step per batch
-            opt.step(model.parameters());
-
-            return loss;
-        });
+    private static TensorBatch selectBatch(Tensor xAll, Tensor yAll, Random rnd, int batchSize) {
+        if (batchSize >= xAll.rows) return new TensorBatch(xAll, yAll);
+        int[] rows = sampleIndices(xAll.rows, batchSize, rnd);
+        Tensor x = Tensor.sliceRows(xAll, rows, xAll.cols);
+        Tensor y = Tensor.sliceRows(yAll, rows, yAll.cols);
+        return new TensorBatch(x, y);
     }
 
     private static int[] sampleIndices(int rowCount, int batchSize, Random rnd) {
@@ -64,4 +63,6 @@ public final class SupervisedTraining {
         }
         return indices;
     }
+
+    private record TensorBatch(Tensor x, Tensor y) {}
 }

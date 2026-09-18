@@ -6,10 +6,17 @@ import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class DeepSeekModelTest {
+
+    @TempDir
+    Path tempDir;
 
     private DeepSeekConfig cfg;
     private DeepSeekModel model;
@@ -37,6 +44,8 @@ public class DeepSeekModelTest {
                 () -> new DeepSeekConfig(0, 16, 32, 4, 2, 64, 16, 8));
         assertThrows(IllegalArgumentException.class,
                 () -> new DeepSeekConfig(256, 16, 33, 4, 2, 64, 16, 8)); // dModel % nHeads != 0
+        assertThrows(IllegalArgumentException.class,
+                () -> new DeepSeekConfig(256, 16, 6, 2, 2, 64, 4, 2)); // odd RoPE head dimension
     }
 
     @Test
@@ -45,6 +54,26 @@ public class DeepSeekModelTest {
                 () -> new DeepSeekConfig(256, 16, 32, 4, 2, 64, 0, 8));
         assertThrows(IllegalArgumentException.class,
                 () -> new DeepSeekConfig(256, 16, 32, 4, 2, 64, 16, 0));
+    }
+
+    @Test
+    void configIncludesStableTrainingDefaults() {
+        assertEquals(0.2f, cfg.initScale(), 1e-12f);
+        assertEquals(1.0f, cfg.gradClipNorm(), 1e-12f);
+        assertThrows(IllegalArgumentException.class,
+                () -> new DeepSeekConfig(11, 8, 4, 2, 1, 8, 3, 2, 0.0f, 1.0f));
+    }
+
+    @Test
+    void modelAppliesInitScaleWithoutScalingNormGains() {
+        DeepSeekConfig unscaled = new DeepSeekConfig(11, 8, 4, 2, 1, 8, 3, 2, 1.0f, 1.0f);
+        DeepSeekConfig scaled = new DeepSeekConfig(11, 8, 4, 2, 1, 8, 3, 2, 0.2f, 1.0f);
+        DeepSeekModel baseModel = new DeepSeekModel(unscaled, 1234L);
+        DeepSeekModel scaledModel = new DeepSeekModel(scaled, 1234L);
+        float ratio = scaledModel.parameters().get(0).value.sumAbs()
+                / baseModel.parameters().get(0).value.sumAbs();
+        assertEquals(0.2f, ratio, 1e-6f);
+        assertTrue(scaledModel.parameters().stream().anyMatch(p -> isAllOnes(p.value)));
     }
 
     // ── forward ────────────────────────────────────────────────────
@@ -101,6 +130,18 @@ public class DeepSeekModelTest {
     @Test
     void gradClipNorm_matchesConfig() {
         assertEquals(cfg.gradClipNorm(), model.gradClipNorm());
+        assertSame(cfg, model.config());
+    }
+
+    @Test
+    void checkpointRoundTripPreservesLogits() throws IOException {
+        int[] ids = {1, 2, 3};
+        float[] expected = materializedData(model.forward(ids));
+        Path checkpoint = tempDir.resolve("deepseek.dj");
+        model.save(checkpoint);
+        DeepSeekModel restored = new DeepSeekModel(cfg, 99L);
+        restored.load(checkpoint);
+        assertArrayEquals(expected, materializedData(restored.forward(ids)));
     }
 
     // ── generation ─────────────────────────────────────────────────
@@ -122,5 +163,14 @@ public class DeepSeekModelTest {
 
         assertEquals(a, b);
     }
-}
 
+    private static float[] materializedData(Tensor tensor) {
+        tensor.materialize();
+        return tensor.data.clone();
+    }
+
+    private static boolean isAllOnes(Tensor tensor) {
+        for (float value : tensor.data) if (value != 1.0f) return false;
+        return true;
+    }
+}

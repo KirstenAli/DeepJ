@@ -10,7 +10,7 @@ import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 import java.util.Random;
 
 /**
- * Pre-LN Transformer block wired for Llama / Mistral / Qwen / DeepSeek style:
+ * Pre-LN transformer block with Llama-style full-head attention:
  * <pre>
  *   x = x + RoPE-Attn( RMSNorm(x) )
  *   x = x + SwiGLU(    RMSNorm(x) )
@@ -34,11 +34,18 @@ public final class LlamaTransformerBlock extends AbstractTransformerBlock {
      * @param rnd        random source for weight initialisation
      */
     public LlamaTransformerBlock(int dModel, int nHeads, int dFF, int maxSeqLen, Random rnd) {
-        RotaryEmbedding rope = new RotaryEmbedding(dModel / nHeads, maxSeqLen);
+        RotaryEmbedding rope = createRope(dModel, nHeads, maxSeqLen);
         this.ln1  = new RMSNorm1D(dModel);
         this.ln2  = new RMSNorm1D(dModel);
         this.attn = new RoPEMultiHeadSelfAttention(dModel, nHeads, true, rope, rnd);
         this.mlp  = new SwiGLULayer(dModel, dFF, rnd);
+    }
+
+    private static RotaryEmbedding createRope(int dModel, int nHeads, int maxSeqLen) {
+        if (dModel <= 0 || nHeads <= 0 || dModel % nHeads != 0) {
+            throw new IllegalArgumentException("dModel must be positive and divisible by nHeads");
+        }
+        return new RotaryEmbedding(dModel / nHeads, maxSeqLen);
     }
 
     @Override

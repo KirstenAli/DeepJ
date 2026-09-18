@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.tensor;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Collects GPU operations lazily and flushes them as a single command buffer.
@@ -66,7 +67,7 @@ public final class ComputeGraph {
 
     private final GpuRuntime runtime;
 
-    private int nextBufId = 0;
+    private static final AtomicInteger NEXT_BUFFER_ID = new AtomicInteger();
 
     private int[] cmdStream = new int[4096];
     private int cmdPos = 0;
@@ -88,8 +89,15 @@ public final class ComputeGraph {
 
     private static OpMeta[] buildOpMetadata() {
         OpMeta[] meta = new OpMeta[OP_SCATTER_ADD_ROWS_ATOMIC + 1];
+        registerUnaryMeta(meta);
+        registerBinaryMeta(meta);
+        registerReductionMeta(meta);
+        registerBroadcastMeta(meta);
+        registerComplexMeta(meta);
+        return meta;
+    }
 
-        // Unary: [op, in, out, n]
+    private static void registerUnaryMeta(OpMeta[] meta) {
         registerMeta(meta, OP_SQRT, 4, 1, 2);
         registerMeta(meta, OP_NEG, 4, 1, 2);
         registerMeta(meta, OP_EXP, 4, 1, 2);
@@ -98,16 +106,18 @@ public final class ComputeGraph {
         registerMeta(meta, OP_SIGMOID, 4, 1, 2);
         registerMeta(meta, OP_RELU, 4, 1, 2);
         registerMeta(meta, OP_GELU, 4, 1, 2);
+    }
 
-        // Binary elementwise: [op, a, b, out, n]
+    private static void registerBinaryMeta(OpMeta[] meta) {
         registerMeta(meta, OP_ADD, 5, 1, 2, 3);
         registerMeta(meta, OP_SUBTRACT, 5, 1, 2, 3);
         registerMeta(meta, OP_MULTIPLY, 5, 1, 2, 3);
         registerMeta(meta, OP_DIVIDE, 5, 1, 2, 3);
         registerMeta(meta, OP_RELU_BACKWARD, 5, 1, 2, 3);
         registerMeta(meta, OP_GELU_BACKWARD, 5, 1, 2, 3);
+    }
 
-        // Scalar and reduction style: [op, in, out, ..., ...]
+    private static void registerReductionMeta(OpMeta[] meta) {
         registerMeta(meta, OP_MULTIPLY_SCALAR, 5, 1, 2);
         registerMeta(meta, OP_ADD_SCALAR, 5, 1, 2);
         registerMeta(meta, OP_DIVIDE_SCALAR, 5, 1, 2);
@@ -126,8 +136,9 @@ public final class ComputeGraph {
         registerMeta(meta, OP_CROSS_ENTROPY_GRADIENT, 6, 1, 2, 3);
         registerMeta(meta, OP_SUM_SCALAR, 5, 1, 2);
         registerMeta(meta, OP_SCATTER_ADD_ROWS_ATOMIC, 7, 1, 2, 3);
+    }
 
-        // 3-input ops with shape args
+    private static void registerBroadcastMeta(OpMeta[] meta) {
         registerMeta(meta, OP_SOFTMAX_BACKWARD, 6, 1, 2, 3);
         registerMeta(meta, OP_ADD_ROW_VECTOR, 6, 1, 2, 3);
         registerMeta(meta, OP_ADD_BROADCAST_COLS, 6, 1, 2, 3);
@@ -135,15 +146,12 @@ public final class ComputeGraph {
         registerMeta(meta, OP_DIVIDE_BROADCAST_COLS, 6, 1, 2, 3);
         registerMeta(meta, OP_MULTIPLY_BROADCAST_ROWS, 6, 1, 2, 3);
         registerMeta(meta, OP_MULTIPLY_BROADCAST_COLS, 6, 1, 2, 3);
+    }
 
-        // Matmul and layernorm backward
+    private static void registerComplexMeta(OpMeta[] meta) {
         registerMeta(meta, OP_MATMUL, 7, 1, 2, 3);
         registerMeta(meta, OP_LAYERNORM_BACKWARD, 7, 1, 2, 3, 4);
-
-        // AdamW in-place update
         registerMeta(meta, OP_ADAMW_UPDATE, 13, 1, 2, 3, 4);
-
-        return meta;
     }
 
     private static void registerMeta(OpMeta[] meta, int op, int stride, int... bufferArgOffsets) {
@@ -188,7 +196,7 @@ public final class ComputeGraph {
     }
 
     private GpuBuffer createAndUploadInputBuffer(Tensor t) {
-        int id = nextBufId++;
+        int id = nextBufferId();
         GpuBuffer buf = new GpuBuffer(id, t.rows, t.cols, true);
         buf.allocatedOnGpu = false;
 
@@ -208,7 +216,7 @@ public final class ComputeGraph {
      * Allocate a new output buffer (result of a GPU op). Not yet allocated on native side.
      */
     public GpuBuffer newOutputBuffer(int rows, int cols) {
-        int id = nextBufId++;
+        int id = nextBufferId();
         GpuBuffer buf = new GpuBuffer(id, rows, cols, false);
         buf.cpuStale = true;
         buf.allocatedOnGpu = false;
@@ -736,7 +744,11 @@ public final class ComputeGraph {
         pendingUploadData.clear();
         cmdPos = 0;
         opCount = 0;
-        nextBufId = 0;
+    }
+
+    private static int nextBufferId() {
+        int id = NEXT_BUFFER_ID.getAndIncrement();
+        if (id < 0) throw new IllegalStateException("GPU buffer id space exhausted");
+        return id;
     }
 }
-

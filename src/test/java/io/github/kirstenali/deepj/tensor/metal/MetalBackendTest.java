@@ -21,7 +21,7 @@ public final class MetalBackendTest {
 
     @BeforeAll
     static void setUp() {
-        Assumptions.assumeTrue(MetalNative.AVAILABLE, "Metal native library not available");
+        Assumptions.assumeTrue(MetalBackend.isAvailable(), "Metal device not available");
         cpu = new CpuBackend();
         gpu = new MetalBackend();
         previousBackend = Tensor.backend();
@@ -41,7 +41,7 @@ public final class MetalBackendTest {
 
     @Test
     void metalNativeIsAvailable() {
-        assertTrue(MetalNative.AVAILABLE);
+        assertTrue(MetalBackend.isAvailable());
     }
 
     @Test

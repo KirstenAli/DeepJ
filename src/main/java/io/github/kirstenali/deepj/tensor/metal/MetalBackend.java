@@ -2,12 +2,17 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.*;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public final class MetalBackend implements TensorBackend {
-    private final ComputeGraph graph = new ComputeGraph(new MetalGpuRuntime());
-    private final Map<Integer, Tensor> intColumnScratchByLength = new HashMap<>();
+    private final ComputeGraph graph;
+
+    public MetalBackend() {
+        if (!isAvailable()) throw new IllegalStateException("Metal is not available on this system");
+        this.graph = new ComputeGraph(new MetalGpuRuntime());
+    }
+
+    public static boolean isAvailable() {
+        return MetalNative.AVAILABLE;
+    }
 
     private static void requireRowVector(Tensor rowVector, Tensor target) {
         if (rowVector.rows != 1 || rowVector.cols != target.cols) {
@@ -40,16 +45,11 @@ public final class MetalBackend implements TensorBackend {
         }
     }
 
-    private Tensor reusableIntColumn(int[] values) {
-        Tensor t = intColumnScratchByLength.get(values.length);
-        if (t == null) {
-            t = new Tensor(values.length, 1);
-            intColumnScratchByLength.put(values.length, t);
-        }
+    private static Tensor immutableIntColumn(int[] values) {
+        Tensor t = new Tensor(values.length, 1);
         for (int i = 0; i < values.length; i++) {
             t.data[i] = values[i];
         }
-        markNeedsUpload(t);
         return t;
     }
 
@@ -530,7 +530,7 @@ public final class MetalBackend implements TensorBackend {
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
-        Tensor targetTensor = reusableIntColumn(targets);
+        Tensor targetTensor = immutableIntColumn(targets);
         GpuBuffer gLogits = gpuIn(logits);
         GpuBuffer gTargets = gpuIn(targetTensor);
         GpuBuffer gOut = graph.newOutputBuffer(logits.rows, logits.cols);
@@ -542,7 +542,7 @@ public final class MetalBackend implements TensorBackend {
     public float crossEntropyLoss(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
 
-        Tensor targetTensor = reusableIntColumn(targets);
+        Tensor targetTensor = immutableIntColumn(targets);
         GpuBuffer gLogits = gpuIn(logits);
         GpuBuffer gTargets = gpuIn(targetTensor);
         GpuBuffer gRowLosses = graph.newOutputBuffer(logits.rows, 1);
@@ -620,7 +620,7 @@ public final class MetalBackend implements TensorBackend {
         validateScatterAddRowsInputs(target, indices, grad);
         if (indices.length == 0) return;
 
-        Tensor indexTensor = reusableIntColumn(indices);
+        Tensor indexTensor = immutableIntColumn(indices);
         // Always use the atomic GPU path so duplicate indices stay parallel.
         recordGpuScatterAddRowsAtomic(target, grad, indexTensor, indices);
     }
@@ -628,6 +628,5 @@ public final class MetalBackend implements TensorBackend {
     @Override
     public void releaseResources() {
         graph.releaseAll();
-        intColumnScratchByLength.clear();
     }
 }

@@ -6,7 +6,9 @@ import io.github.kirstenali.deepj.tensor.TensorAdapters;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -89,6 +91,30 @@ public class ModelSerializerTest {
 
         IOException ex = assertThrows(IOException.class, () -> ModelSerializer.load(target, file));
         assertTrue(ex.getMessage().contains("Shape mismatch"));
+    }
+
+    @Test
+    void load_supportsLegacyDoubleCheckpoint() throws IOException {
+        Path file = tempDir.resolve("legacy.bin");
+        try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(file))) {
+            out.writeInt(1);
+            out.writeInt(1);
+            out.writeInt(2);
+            out.writeDouble(1.25);
+            out.writeDouble(-2.5);
+        }
+
+        Parameter parameter = new Parameter(Tensor.zeros(1, 2));
+        ModelSerializer.load(List.of(parameter), file);
+        assertArrayEquals(new float[]{1.25f, -2.5f}, parameter.value.data);
+    }
+
+    @Test
+    void newFormatUsesFloat32Payloads() throws IOException {
+        Path file = tempDir.resolve("compact.bin");
+        ModelSerializer.save(List.of(new Parameter(rowTensor(1.0f, 2.0f))), file);
+
+        assertEquals(28L, Files.size(file));
     }
 
     private static void assertTensorEquals(Tensor expected, Tensor actual, double tol) {

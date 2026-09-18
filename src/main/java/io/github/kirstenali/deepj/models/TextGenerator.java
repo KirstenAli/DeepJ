@@ -76,21 +76,36 @@ public final class TextGenerator {
         validateArgs(maxNewTokens, temperature, topK);
 
         Random rnd = new Random(seed);
-        int[] ids = tok.encode(prompt).clone();
+        int[] promptIds = tok.encode(prompt);
+        requirePrompt(promptIds, maxNewTokens);
+        int[] ids = Arrays.copyOf(promptIds, promptIds.length + maxNewTokens);
+        int length = appendGeneratedTokens(forwarder, maxSeqLen, tok, ids,
+                promptIds.length, maxNewTokens, temperature, topK, rnd);
+        return tok.decode(Arrays.copyOf(ids, length));
+    }
 
+    private static int appendGeneratedTokens(Function<int[], Tensor> forwarder, int maxSeqLen,
+                                             Tokenizer tok, int[] ids, int length,
+                                             int maxNewTokens, float temperature, int topK,
+                                             Random rnd) {
+        if (hasTrailingEndToken(tok, ids, length)) return length;
         for (int i = 0; i < maxNewTokens; i++) {
-            int next = nextToken(forwarder, maxSeqLen, ids, temperature, topK, rnd);
-            ids = append(ids, next);
+            int token = nextToken(forwarder, maxSeqLen, ids, length, temperature, topK, rnd);
+            if (tok.isEndOfSequence(token)) break;
+            ids[length++] = token;
         }
+        return length;
+    }
 
-        return tok.decode(ids);
+    private static boolean hasTrailingEndToken(Tokenizer tokenizer, int[] ids, int length) {
+        return length > 0 && tokenizer.isEndOfSequence(ids[length - 1]);
     }
 
     // ── Autoregressive step ────────────────────────────────────────
 
-    private static int nextToken(Function<int[], Tensor> forwarder, int maxSeqLen, int[] ids,
-                                 float temperature, int topK, Random rnd) {
-        int[] context = last(ids, maxSeqLen);
+    private static int nextToken(Function<int[], Tensor> forwarder, int maxSeqLen,
+                                 int[] ids, int length, float temperature, int topK, Random rnd) {
+        int[] context = context(ids, length, maxSeqLen);
         Tensor logits = forwarder.apply(context);
         logits.materialize();
         // Extract last row directly from flat storage — no backend round-trip.
@@ -108,9 +123,12 @@ public final class TextGenerator {
     }
 
     private static int[] topKIndices(float[] logits, int topK) {
-        int[] order = argsortDescending(logits);
         int k = (topK == 0) ? logits.length : Math.min(topK, logits.length);
-        return Arrays.copyOf(order, k);
+        if (k == logits.length) return indices(logits.length);
+        int[] heap = new int[k];
+        for (int i = 0; i < logits.length; i++) offerTopIndex(heap, Math.min(i, k), i, logits);
+        sortDescending(heap, logits);
+        return heap;
     }
 
     private static float[] stableSoftmax(float[] logits, int[] indices, float temperature) {
@@ -154,30 +172,92 @@ public final class TextGenerator {
 
     private static void validateArgs(int maxNewTokens, float temperature, int topK) {
         if (maxNewTokens < 0) throw new IllegalArgumentException("maxNewTokens must be >= 0");
-        if (temperature <= 0.0f) throw new IllegalArgumentException("temperature must be > 0");
+        if (!Float.isFinite(temperature) || temperature <= 0.0f)
+            throw new IllegalArgumentException("temperature must be finite and > 0");
         if (topK < 0)         throw new IllegalArgumentException("topK must be >= 0");
+    }
+
+    private static void requirePrompt(int[] promptIds, int maxNewTokens) {
+        if (promptIds.length == 0 && maxNewTokens > 0) {
+            throw new IllegalArgumentException("prompt must encode to at least one token");
+        }
     }
 
     // ── Array utilities ────────────────────────────────────────────
 
-    private static int[] argsortDescending(float[] a) {
-        Integer[] idx = new Integer[a.length];
-        for (int i = 0; i < a.length; i++) idx[i] = i;
-        Arrays.sort(idx, (i, j) -> Float.compare(a[j], a[i]));
-        int[] out = new int[a.length];
-        for (int i = 0; i < a.length; i++) out[i] = idx[i];
-        return out;
+    private static int[] indices(int length) {
+        int[] indices = new int[length];
+        for (int i = 0; i < length; i++) indices[i] = i;
+        return indices;
     }
 
-    private static int[] last(int[] a, int n) {
-        if (a.length <= n) return a;
-        return Arrays.copyOfRange(a, a.length - n, a.length);
+    private static void offerTopIndex(int[] heap, int size, int index, float[] logits) {
+        if (size < heap.length) {
+            heap[size] = index;
+            siftUp(heap, size, logits);
+        } else if (isBetter(index, heap[0], logits)) {
+            heap[0] = index;
+            siftDown(heap, logits);
+        }
     }
 
-    private static int[] append(int[] a, int v) {
-        int[] out = Arrays.copyOf(a, a.length + 1);
-        out[a.length] = v;
-        return out;
+    private static void siftUp(int[] heap, int child, float[] logits) {
+        while (child > 0) {
+            int parent = (child - 1) / 2;
+            if (!isWorse(heap[child], heap[parent], logits)) return;
+            swap(heap, child, parent);
+            child = parent;
+        }
+    }
+
+    private static void siftDown(int[] heap, float[] logits) {
+        int parent = 0;
+        while (parent * 2 + 1 < heap.length) {
+            int child = worseChild(heap, parent, logits);
+            if (!isWorse(heap[child], heap[parent], logits)) return;
+            swap(heap, parent, child);
+            parent = child;
+        }
+    }
+
+    private static int worseChild(int[] heap, int parent, float[] logits) {
+        int left = parent * 2 + 1;
+        int right = left + 1;
+        if (right == heap.length || isWorse(heap[left], heap[right], logits)) return left;
+        return right;
+    }
+
+    private static boolean isBetter(int left, int right, float[] logits) {
+        int compared = Float.compare(logits[left], logits[right]);
+        return compared > 0 || compared == 0 && left < right;
+    }
+
+    private static boolean isWorse(int left, int right, float[] logits) {
+        int compared = Float.compare(logits[left], logits[right]);
+        return compared < 0 || compared == 0 && left > right;
+    }
+
+    private static void sortDescending(int[] indices, float[] logits) {
+        for (int i = 1; i < indices.length; i++) insert(indices, i, logits);
+    }
+
+    private static void insert(int[] indices, int position, float[] logits) {
+        int value = indices[position];
+        while (position > 0 && isBetter(value, indices[position - 1], logits)) {
+            indices[position] = indices[position - 1];
+            position--;
+        }
+        indices[position] = value;
+    }
+
+    private static void swap(int[] values, int left, int right) {
+        int value = values[left];
+        values[left] = values[right];
+        values[right] = value;
+    }
+
+    private static int[] context(int[] ids, int length, int maxSeqLen) {
+        int start = Math.max(0, length - maxSeqLen);
+        return Arrays.copyOfRange(ids, start, length);
     }
 }
-

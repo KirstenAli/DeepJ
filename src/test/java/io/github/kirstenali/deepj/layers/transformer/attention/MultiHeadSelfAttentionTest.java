@@ -19,6 +19,8 @@ public class MultiHeadSelfAttentionTest {
     void constructor_rejectsWhenDModelNotDivisibleByHeads() {
         assertThrows(IllegalArgumentException.class,
                 () -> new MultiHeadSelfAttention(5, 2, true, new Random(1)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new MultiHeadSelfAttention(4, 0, true, new Random(1)));
     }
 
     @Test

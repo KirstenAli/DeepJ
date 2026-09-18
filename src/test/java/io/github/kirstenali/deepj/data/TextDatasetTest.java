@@ -162,6 +162,31 @@ public class TextDatasetTest {
     }
 
     @Test
+    void fromBinaryFile_rejectsPartialToken() throws IOException {
+        Path tmp = Files.createTempFile("deepj-invalid-tokens-", ".bin");
+        Files.write(tmp, new byte[Integer.BYTES + 1]);
+
+        Assertions.assertThrows(IOException.class,
+                () -> TextDataset.fromBinaryFile(tmp, 2, 1L));
+    }
+
+    @Test
+    void fromBinaryFile_rejectsInvalidChunkSize() throws IOException {
+        int[] tokens = new int[]{1, 2, 3, 4, 5};
+        Path tmp = writeTokenFile(tokens);
+
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> TextDataset.fromBinaryFile(tmp, 2, 1L, 3L));
+    }
+
+    @Test
+    void nextBatch_rejectsEmptyBatch() throws IOException {
+        TextDataset ds = fromTokens(new int[]{1, 2, 3, 4, 5}, 2, 1L);
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> ds.nextBatch(0));
+    }
+
+    @Test
     void fromFile_multiSegment_readsAcrossChunkBoundary() throws IOException {
         // 12 ASCII bytes → 12 tokens → 48 bytes on disk.
         // chunkBytes=20 forces 3 segments (20 / 20 / 8), so every read crossing a
@@ -192,15 +217,18 @@ public class TextDatasetTest {
 
     /** Creates a {@link TextDataset} directly from a raw token array — for use in tests only. */
     private static TextDataset fromTokens(int[] tokens, int seqLen, long seed) throws IOException {
+        return TextDataset.fromBinaryFile(writeTokenFile(tokens), seqLen, seed);
+    }
+
+    private static Path writeTokenFile(int[] tokens) throws IOException {
         Path tmp = Files.createTempFile("deepj-test-tokens-", ".bin");
-        tmp.toFile().deleteOnExit();
         ByteBuffer buf = ByteBuffer.allocate(tokens.length * Integer.BYTES);
         for (int t : tokens) buf.putInt(t);
         buf.flip();
         try (FileChannel ch = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
             ch.write(buf);
         }
-        return TextDataset.fromBinaryFile(tmp, seqLen, seed);
+        return tmp;
     }
 
     private static Path writeTempFile(String content) throws IOException {

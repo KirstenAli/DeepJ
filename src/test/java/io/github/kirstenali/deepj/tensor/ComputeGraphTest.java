@@ -348,7 +348,7 @@ class ComputeGraphTest {
 
         // Should be able to start fresh
         GpuBuffer fresh = graph.ensureGpuBuffer(Tensor.from2D(new float[][]{{9}}));
-        assertEquals(0, fresh.id, "buffer ids should restart from 0 after releaseAll");
+        assertTrue(fresh.id > out.id, "buffer ids must stay globally unique after releaseAll");
     }
 
     @Test
@@ -590,4 +590,3 @@ class ComputeGraphTest {
         }
     }
 }
-

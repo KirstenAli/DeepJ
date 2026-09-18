@@ -44,7 +44,7 @@ public final class BPETrainer {
 
         VocabularyState      vocab            = createBaseVocabulary();
         Map<String, Integer> specialTokenToId = addSpecialTokens(vocab, normalizedSpecials);
-        List<List<Integer>>  words            = buildInitialWords(text, vocab.endOfWordId());
+        List<TrainingWord>   words            = buildInitialWords(text, vocab.endOfWordId());
 
         MergeResult result = trainMerges(words, vocab, targetVocabSize);
 
@@ -60,7 +60,13 @@ public final class BPETrainer {
     }
 
     public BPEModel trainFromFile(Path path, int targetVocabSize, List<String> specialTokens) throws IOException {
-        return train(readSample(path), targetVocabSize, specialTokens);
+        return trainFromFile(path, targetVocabSize, specialTokens, FILE_SAMPLE_CHARS);
+    }
+
+    public BPEModel trainFromFile(Path path, int targetVocabSize, List<String> specialTokens,
+                                  int sampleChars) throws IOException {
+        if (sampleChars <= 0) throw new IllegalArgumentException("sampleChars must be > 0");
+        return train(readSample(path, sampleChars), targetVocabSize, specialTokens);
     }
 
     public BPETokenizer trainTokenizer(String text, int targetVocabSize) {
@@ -165,19 +171,40 @@ public final class BPETrainer {
     // Word segmentation
     // -------------------------------------------------------------------------
 
-    private static List<List<Integer>> buildInitialWords(String text, int endOfWordId) {
-        List<List<Integer>> words = new ArrayList<>();
-        for (String piece : BPEBytes.splitPreserveWhitespace(text)) {
-            words.add(BPEBytes.toTokenIds(piece, endOfWordId));
-        }
+    private static List<TrainingWord> buildInitialWords(String text, int endOfWordId) {
+        Map<String, Integer> frequencies = countPieces(text);
+        List<TrainingWord> words = new ArrayList<>(frequencies.size());
+        frequencies.forEach((piece, count) -> words.add(trainingWord(piece, endOfWordId, count)));
         return words;
+    }
+
+    private static Map<String, Integer> countPieces(String text) {
+        Map<String, Integer> frequencies = new LinkedHashMap<>();
+        int start = 0;
+        while (start < text.length()) {
+            int end = endOfRun(text, start);
+            frequencies.merge(text.substring(start, end), 1, Integer::sum);
+            start = end;
+        }
+        return frequencies;
+    }
+
+    private static int endOfRun(String text, int start) {
+        boolean whitespace = Character.isWhitespace(text.charAt(start));
+        int end = start + 1;
+        while (end < text.length() && Character.isWhitespace(text.charAt(end)) == whitespace) end++;
+        return end;
+    }
+
+    private static TrainingWord trainingWord(String piece, int endOfWordId, int frequency) {
+        return new TrainingWord(BPEBytes.toTokenArray(piece, endOfWordId), frequency);
     }
 
     // -------------------------------------------------------------------------
     // Merge training loop
     // -------------------------------------------------------------------------
 
-    private static MergeResult trainMerges(List<List<Integer>> words, VocabularyState vocab, int targetVocabSize) {
+    private static MergeResult trainMerges(List<TrainingWord> words, VocabularyState vocab, int targetVocabSize) {
         List<TokenPair>         merges       = new ArrayList<>();
         Map<TokenPair, Integer> mergeToNewId = new HashMap<>();
         Map<TokenPair, Integer> counts       = countPairs(words, vocab.endOfWordId());
@@ -230,22 +257,20 @@ public final class BPETrainer {
     // Pair counting
     // -------------------------------------------------------------------------
 
-    private static Map<TokenPair, Integer> countPairs(List<List<Integer>> words, int endOfWordId) {
+    private static Map<TokenPair, Integer> countPairs(List<TrainingWord> words, int endOfWordId) {
         Map<TokenPair, Integer> counts = new HashMap<>();
-        for (List<Integer> word : words) {
+        for (TrainingWord word : words) {
             countPairsInWord(word, endOfWordId, counts);
         }
         return counts;
     }
 
-    private static void countPairsInWord(List<Integer> word, int endOfWordId, Map<TokenPair, Integer> counts) {
+    private static void countPairsInWord(TrainingWord word, int endOfWordId,
+                                         Map<TokenPair, Integer> counts) {
         for (int i = 0; i < word.size() - 1; i++) {
-            int left  = word.get(i);
             int right = word.get(i + 1);
-            if (right == endOfWordId) {
-                continue;
-            }
-            counts.merge(new TokenPair(left, right), 1, Integer::sum);
+            if (right == endOfWordId) continue;
+            counts.merge(new TokenPair(word.get(i), right), word.frequency(), Integer::sum);
         }
     }
 
@@ -295,10 +320,10 @@ public final class BPETrainer {
         );
     }
 
-    private static void applyMerge(List<List<Integer>> words, TokenPair pair, int newId,
+    private static void applyMerge(List<TrainingWord> words, TokenPair pair, int newId,
                                    int endOfWordId, Map<TokenPair, Integer> counts,
                                    PriorityQueue<PairEntry> queue) {
-        for (List<Integer> word : words) {
+        for (TrainingWord word : words) {
             applyMergeInPlace(word, pair, newId, endOfWordId, counts, queue);
         }
     }
@@ -312,43 +337,51 @@ public final class BPETrainer {
      * </pre>
      * This keeps the counts map accurate across rounds without a full rescan.
      */
-    private static void applyMergeInPlace(List<Integer> word, TokenPair pair, int newId,
+    private static void applyMergeInPlace(TrainingWord word, TokenPair pair, int newId,
                                           int endOfWordId, Map<TokenPair, Integer> counts,
                                           PriorityQueue<PairEntry> queue) {
         int write = 0;
         int read  = 0;
         int size  = word.size();
-
         while (read < size) {
-            boolean matched = read < size - 1
-                    && word.get(read)     == pair.left()
-                    && word.get(read + 1) == pair.right();
-
-            if (matched) {
-                if (write > 0) {
-                    int left = word.get(write - 1);
-                    adjustCount(counts, new TokenPair(left, pair.left()),  -1, queue);
-                    adjustCount(counts, new TokenPair(left, newId),        +1, queue);
-                }
-                int rightRead = read + 2;
-                if (rightRead < size) {
-                    int right = word.get(rightRead);
-                    if (right != endOfWordId) {
-                        adjustCount(counts, new TokenPair(pair.right(), right), -1, queue);
-                        adjustCount(counts, new TokenPair(newId,        right), +1, queue);
-                    }
-                }
-                adjustCount(counts, pair, -1, queue);
+            if (!matches(word, read, pair)) word.set(write++, word.get(read++));
+            else {
+                updateNeighborCounts(word, pair, newId, endOfWordId, counts, queue, write, read);
+                adjustCount(counts, pair, -word.frequency(), queue);
                 word.set(write++, newId);
                 read += 2;
-            } else {
-                word.set(write++, word.get(read++));
             }
         }
+        word.truncate(write);
+    }
 
-        if (write < size) {
-            word.subList(write, size).clear();
-        }
+    private static boolean matches(TrainingWord word, int index, TokenPair pair) {
+        return index + 1 < word.size()
+                && word.get(index) == pair.left()
+                && word.get(index + 1) == pair.right();
+    }
+
+    private static void updateNeighborCounts(TrainingWord word, TokenPair pair, int newId,
+                                             int endOfWordId, Map<TokenPair, Integer> counts,
+                                             PriorityQueue<PairEntry> queue, int write, int read) {
+        int frequency = word.frequency();
+        if (write > 0) updateLeftCounts(word.get(write - 1), pair, newId, frequency, counts, queue);
+        int rightIndex = read + 2;
+        if (rightIndex >= word.size()) return;
+        int right = word.get(rightIndex);
+        if (right != endOfWordId) updateRightCounts(right, pair, newId, frequency, counts, queue);
+    }
+
+    private static void updateLeftCounts(int left, TokenPair pair, int newId, int frequency,
+                                         Map<TokenPair, Integer> counts, PriorityQueue<PairEntry> queue) {
+        adjustCount(counts, new TokenPair(left, pair.left()), -frequency, queue);
+        adjustCount(counts, new TokenPair(left, newId), frequency, queue);
+    }
+
+    private static void updateRightCounts(int right, TokenPair pair, int newId, int frequency,
+                                          Map<TokenPair, Integer> counts, PriorityQueue<PairEntry> queue) {
+        adjustCount(counts, new TokenPair(pair.right(), right), -frequency, queue);
+        adjustCount(counts, new TokenPair(newId, right), frequency, queue);
     }
 
     private static void adjustCount(Map<TokenPair, Integer> counts, TokenPair pair, int delta,
@@ -358,7 +391,7 @@ public final class BPETrainer {
             counts.remove(pair);
         } else {
             counts.put(pair, updated);
-            if (delta > 0) queue.offer(new PairEntry(updated, pair));
+            if (updated > 1) queue.offer(new PairEntry(updated, pair));
         }
     }
 
@@ -371,18 +404,24 @@ public final class BPETrainer {
      * Uses a streaming {@link BufferedReader} so the full file is never loaded
      * into memory — safe even for multi-gigabyte corpora.
      */
-    private static String readSample(Path path) throws IOException {
-        StringBuilder sb = new StringBuilder(FILE_SAMPLE_CHARS);
+    private static String readSample(Path path, int sampleChars) throws IOException {
+        StringBuilder sb = new StringBuilder(sampleChars);
         try (BufferedReader br = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             char[] buf = new char[8192];
-            int remaining = FILE_SAMPLE_CHARS;
+            int remaining = sampleChars;
             int n;
             while (remaining > 0 && (n = br.read(buf, 0, Math.min(buf.length, remaining))) != -1) {
                 sb.append(buf, 0, n);
                 remaining -= n;
             }
         }
-        return sb.toString();
+        return removeDanglingHighSurrogate(sb);
+    }
+
+    private static String removeDanglingHighSurrogate(StringBuilder sample) {
+        int last = sample.length() - 1;
+        if (last >= 0 && Character.isHighSurrogate(sample.charAt(last))) sample.setLength(last);
+        return sample.toString();
     }
 
     // -------------------------------------------------------------------------
@@ -392,6 +431,28 @@ public final class BPETrainer {
     private record MergeResult(List<TokenPair> merges, Map<TokenPair, Integer> mergeToNewId) {}
 
     private record SelectedPair(TokenPair pair, byte[] merged) {}
+
+    private static final class TrainingWord {
+        private final int[] tokens;
+        private final int frequency;
+        private int size;
+
+        private TrainingWord(int[] tokens, int frequency) {
+            this.tokens = tokens;
+            this.frequency = frequency;
+            this.size = tokens.length;
+        }
+
+        int get(int index) { return tokens[index]; }
+
+        void set(int index, int token) { tokens[index] = token; }
+
+        int size() { return size; }
+
+        int frequency() { return frequency; }
+
+        void truncate(int newSize) { size = newSize; }
+    }
 
     /** Heap entry: ordered by count descending, then by pair ascending for deterministic tie-breaking. */
     private record PairEntry(int count, TokenPair pair) implements Comparable<PairEntry> {
@@ -407,4 +468,3 @@ public final class BPETrainer {
         boolean accept(TokenPair candidate, int count);
     }
 }
-

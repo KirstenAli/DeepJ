@@ -29,4 +29,11 @@ public interface TransformerConfig {
         if (!Float.isFinite(gradClipNorm) || gradClipNorm <= 0.0f)
             throw new IllegalArgumentException("gradClipNorm must be finite and > 0");
     }
+
+    /** Validates the even per-head width required by rotary embeddings. */
+    static void validateRotaryHeadDimension(int dModel, int nHeads) {
+        if ((dModel / nHeads) % 2 != 0) {
+            throw new IllegalArgumentException("Rotary attention requires an even head dimension");
+        }
+    }
 }

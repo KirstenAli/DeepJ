@@ -9,6 +9,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class BPEModelIOTest {
 
@@ -34,5 +35,17 @@ class BPEModelIOTest {
             Files.deleteIfExists(tmp);
         }
     }
-}
 
+    @Test
+    void load_rejectsTrailingData() throws IOException {
+        BPEModel model = new BPETrainer().train("hello hello", 270);
+        Path tmp = Files.createTempFile("deepj-bpe-trailing", ".bin");
+        try {
+            BPEModelIO.save(tmp, model);
+            Files.write(tmp, new byte[]{1}, java.nio.file.StandardOpenOption.APPEND);
+            assertThrows(IOException.class, () -> BPEModelIO.load(tmp));
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
+    }
+}

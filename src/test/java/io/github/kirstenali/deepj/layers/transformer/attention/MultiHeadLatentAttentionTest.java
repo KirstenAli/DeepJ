@@ -33,6 +33,11 @@ public class MultiHeadLatentAttentionTest {
         RotaryEmbedding rope = new RotaryEmbedding(8, MAX_SEQ);
         assertThrows(IllegalArgumentException.class,
                 () -> new MultiHeadLatentAttention(33, N_HEADS, Q_RANK, KV_RANK, rope, new Random()));
+        assertThrows(IllegalArgumentException.class,
+                () -> new MultiHeadLatentAttention(32, 0, Q_RANK, KV_RANK, rope, new Random()));
+        assertThrows(IllegalArgumentException.class,
+                () -> new MultiHeadLatentAttention(32, 4, Q_RANK, KV_RANK,
+                        new RotaryEmbedding(4, MAX_SEQ), new Random()));
     }
 
     @Test
@@ -129,4 +134,3 @@ public class MultiHeadLatentAttentionTest {
         return s;
     }
 }
-

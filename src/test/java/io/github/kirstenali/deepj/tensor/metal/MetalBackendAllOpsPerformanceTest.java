@@ -44,7 +44,7 @@ public final class MetalBackendAllOpsPerformanceTest {
 
     @BeforeAll
     static void setUp() {
-        Assumptions.assumeTrue(MetalNative.AVAILABLE, "Metal native library not available");
+        Assumptions.assumeTrue(MetalBackend.isAvailable(), "Metal device not available");
         cpu = new CpuBackend();
         gpu = new MetalBackend();
 
@@ -500,4 +500,3 @@ public final class MetalBackendAllOpsPerformanceTest {
         return new Tensor(t);
     }
 }
-

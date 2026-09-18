@@ -9,27 +9,39 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class BPETokenizer implements Tokenizer {
 
+    private static final List<String> END_OF_SEQUENCE_TOKENS =
+            List.of("<EOS>", "<|endoftext|>");
     private final BPEModel model;
 
     // Precomputed once at construction — model is immutable so these never change.
     private final int              endOfWordId;
-    private final List<TokenPair>  merges;
-    private final Map<TokenPair, Integer> mergeToNewId;
+    private final BPEMergeTable mergeTable;
     private final List<SpecialTokenEntry> sortedSpecials;
     private final Map<Integer, String>    idToSpecial;
+    private final Set<Integer>            endOfSequenceIds;
 
     public BPETokenizer(BPEModel model) {
         this.model        = model;
         this.endOfWordId  = model.endOfWordId();
-        this.merges       = model.merges();
-        this.mergeToNewId = model.mergeToNewId();
+        this.mergeTable   = new BPEMergeTable(model.merges(), model.mergeToNewId());
 
         SpecialTokenViews views = buildSpecialTokenViews(model.specialTokenToId());
         this.idToSpecial    = views.idToSpecial();
         this.sortedSpecials = views.sortedSpecials();
+        this.endOfSequenceIds = endOfSequenceIds(model.specialTokenToId());
+    }
+
+    private static Set<Integer> endOfSequenceIds(Map<String, Integer> specials) {
+        Set<Integer> ids = new java.util.HashSet<>();
+        for (String token : END_OF_SEQUENCE_TOKENS) {
+            Integer id = specials.get(token);
+            if (id != null) ids.add(id);
+        }
+        return Set.copyOf(ids);
     }
 
     /** Builds both special-token views in a single pass to avoid iterating the map twice. */
@@ -53,16 +65,16 @@ public final class BPETokenizer implements Tokenizer {
 
     @Override
     public int[] encode(String text) {
-        List<Integer> ids = new ArrayList<>();
+        IntArrayBuilder ids = new IntArrayBuilder(text.length());
         if (sortedSpecials.isEmpty()) {
-            appendEncodedSegment(ids, text);
-            return toIntArray(ids);
+            appendEncodedSegment(ids, text, 0, text.length());
+            return ids.toArray();
         }
         encodeWithSpecialTokens(text, ids);
-        return toIntArray(ids);
+        return ids.toArray();
     }
 
-    private void encodeWithSpecialTokens(String text, List<Integer> ids) {
+    private void encodeWithSpecialTokens(String text, IntArrayBuilder ids) {
         int cursor = 0;
         while (cursor < text.length()) {
             SpecialTokenEntry matched = findSpecialTokenAt(text, cursor);
@@ -72,19 +84,25 @@ public final class BPETokenizer implements Tokenizer {
                 continue;
             }
             int nextSpecialIndex = nextSpecialStart(text, cursor);
-            appendEncodedSegment(ids, text.substring(cursor, nextSpecialIndex));
+            appendEncodedSegment(ids, text, cursor, nextSpecialIndex);
             cursor = nextSpecialIndex;
         }
     }
 
-    private void appendEncodedSegment(List<Integer> ids, String segment) {
-        for (String piece : BPEBytes.splitPreserveWhitespace(segment)) {
-            ids.addAll(encodePiece(piece));
+    private void appendEncodedSegment(IntArrayBuilder ids, String text, int start, int end) {
+        int pieceStart = start;
+        while (pieceStart < end) {
+            int pieceEnd = findPieceEnd(text, pieceStart, end);
+            appendEncodedPiece(ids, text.substring(pieceStart, pieceEnd));
+            pieceStart = pieceEnd;
         }
     }
 
-    private static int[] toIntArray(List<Integer> ids) {
-        return ids.stream().mapToInt(Integer::intValue).toArray();
+    private static int findPieceEnd(String text, int start, int end) {
+        boolean whitespace = Character.isWhitespace(text.charAt(start));
+        int cursor = start + 1;
+        while (cursor < end && Character.isWhitespace(text.charAt(cursor)) == whitespace) cursor++;
+        return cursor;
     }
 
     @Override
@@ -139,22 +157,54 @@ public final class BPETokenizer implements Tokenizer {
         return model.vocabSize();
     }
 
-    private List<Integer> encodePiece(String piece) {
-        List<Integer> tokens = BPEBytes.toTokenIds(piece, endOfWordId);
+    @Override
+    public boolean isEndOfSequence(int tokenId) {
+        return endOfSequenceIds.contains(tokenId);
+    }
 
-        for (TokenPair merge : merges) {
-            Integer mergedId = mergeToNewId.get(merge);
-            if (mergedId == null) {
-                throw new IllegalStateException("merge table inconsistency: no id for " + merge);
+    private void appendEncodedPiece(IntArrayBuilder output, String piece) {
+        int[] tokens = BPEBytes.toTokenArray(piece, endOfWordId);
+        int size = applyMerges(tokens);
+        if (size > 0 && tokens[size - 1] == endOfWordId) size--;
+        output.addAll(tokens, size);
+    }
+
+    private int applyMerges(int[] tokens) {
+        int size = tokens.length;
+        int rank;
+        while ((rank = bestRank(tokens, size)) != BPEMergeTable.NO_MERGE) {
+            size = mergeInPlace(tokens, size, rank);
+        }
+        return size;
+    }
+
+    private int bestRank(int[] tokens, int size) {
+        int best = Integer.MAX_VALUE;
+        for (int i = 0; i < size - 1; i++) {
+            int rank = mergeTable.rank(tokens[i], tokens[i + 1]);
+            if (rank != BPEMergeTable.NO_MERGE && rank < best) best = rank;
+        }
+        return best == Integer.MAX_VALUE ? BPEMergeTable.NO_MERGE : best;
+    }
+
+    private int mergeInPlace(int[] tokens, int size, int rank) {
+        int read = 0;
+        int write = 0;
+        while (read < size) {
+            if (matches(tokens, read, size, rank)) {
+                tokens[write++] = mergeTable.result(rank);
+                read += 2;
+            } else {
+                tokens[write++] = tokens[read++];
             }
-            tokens = BPEBytes.mergePair(tokens, merge, mergedId);
         }
+        return write;
+    }
 
-        if (!tokens.isEmpty() && tokens.get(tokens.size() - 1) == endOfWordId) {
-            tokens.remove(tokens.size() - 1);
-        }
-
-        return tokens;
+    private boolean matches(int[] tokens, int index, int size, int rank) {
+        return index + 1 < size
+                && tokens[index] == mergeTable.left(rank)
+                && tokens[index + 1] == mergeTable.right(rank);
     }
 
     private static void flushBytes(ByteArrayOutputStream out, StringBuilder textOut) {

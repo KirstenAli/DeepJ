@@ -160,6 +160,15 @@ class RotaryEmbeddingTest {
         assertThrows(IllegalArgumentException.class, () -> rope.apply(x, 9, 1));
     }
 
+    @Test
+    void apply_rejectsInvalidLayout() {
+        RotaryEmbedding rope = new RotaryEmbedding(4, 8);
+        assertThrows(IllegalArgumentException.class, () -> rope.apply(Tensor.zeros(2, 4), 0, 1));
+        assertThrows(IllegalArgumentException.class, () -> rope.apply(Tensor.zeros(2, 4), 2, 0));
+        assertThrows(IllegalArgumentException.class, () -> rope.apply(Tensor.zeros(2, 2), 2, 1));
+        assertThrows(IllegalArgumentException.class, () -> rope.apply(Tensor.zeros(3, 4), 2, 1));
+    }
+
     // ── MHSA integration ─────────────────────────────────────────────────────
 
     @Test
@@ -335,4 +344,3 @@ class RotaryEmbeddingTest {
         return s;
     }
 }
-

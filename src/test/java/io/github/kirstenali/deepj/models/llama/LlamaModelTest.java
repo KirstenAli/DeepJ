@@ -7,10 +7,17 @@ import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class LlamaModelTest {
+
+    @TempDir
+    Path temporaryDirectory;
 
     private LlamaConfig cfg;
     private LlamaModel model;
@@ -38,6 +45,28 @@ public class LlamaModelTest {
     }
 
     @Test
+    void configIncludesStableTrainingDefaults() {
+        assertEquals(0.2f, cfg.initScale(), 1e-12f);
+        assertEquals(1.0f, cfg.gradClipNorm(), 1e-12f);
+        assertThrows(IllegalArgumentException.class,
+                () -> new LlamaConfig(11, 8, 4, 2, 1, 8, 0.0f, 1.0f));
+    }
+
+    @Test
+    void modelAppliesInitScaleAndUsesIndependentStreams() {
+        LlamaConfig base = new LlamaConfig(11, 8, 4, 2, 1, 8, 1.0f, 1.0f);
+        LlamaConfig scaled = new LlamaConfig(11, 8, 4, 2, 1, 8, 0.2f, 1.0f);
+        LlamaModel baseModel = new LlamaModel(base, 1234L);
+        LlamaModel scaledModel = new LlamaModel(scaled, 1234L);
+        float ratio = scaledModel.parameters().get(0).value.sumAbs()
+                / baseModel.parameters().get(0).value.sumAbs();
+        assertEquals(0.2f, ratio, 1e-6f);
+        assertTrue(scaledModel.parameters().stream().anyMatch(p -> isAllOnes(p.value)));
+        assertNotEquals(scaledModel.parameters().get(0).value.data[0],
+                scaledModel.parameters().get(3).value.data[0]);
+    }
+
+    @Test
     void config_rejectsInvalidParams() {
         assertThrows(IllegalArgumentException.class,
                 () -> new LlamaConfig(0, 16, 32, 4, 2, 64));
@@ -54,6 +83,9 @@ public class LlamaModelTest {
         // dModel not divisible by nHeads
         assertThrows(IllegalArgumentException.class,
                 () -> new LlamaConfig(256, 16, 33, 4, 2, 64));
+        // RoPE requires an even head dimension
+        assertThrows(IllegalArgumentException.class,
+                () -> new LlamaConfig(256, 16, 6, 2, 2, 64));
         // invalid gradClipNorm
         assertThrows(IllegalArgumentException.class,
                 () -> new LlamaConfig(256, 16, 32, 4, 2, 64, 0.0f));
@@ -113,6 +145,18 @@ public class LlamaModelTest {
     @Test
     void gradClipNorm_matchesConfig() {
         assertEquals(cfg.gradClipNorm(), model.gradClipNorm());
+        assertSame(cfg, model.config());
+    }
+
+    @Test
+    void checkpointRoundTripPreservesLogits() throws IOException {
+        int[] ids = {1, 2, 3};
+        float[] expected = materializedData(model.forward(ids));
+        Path checkpoint = temporaryDirectory.resolve("llama.dj");
+        model.save(checkpoint);
+        LlamaModel restored = new LlamaModel(cfg, 99L);
+        restored.load(checkpoint);
+        assertArrayEquals(expected, materializedData(restored.forward(ids)));
     }
 
     // ── generation ─────────────────────────────────────────────────
@@ -134,5 +178,14 @@ public class LlamaModelTest {
 
         assertEquals(a, b, "identical seeds must produce identical output");
     }
-}
 
+    private static float[] materializedData(Tensor tensor) {
+        tensor.materialize();
+        return tensor.data.clone();
+    }
+
+    private static boolean isAllOnes(Tensor tensor) {
+        for (float value : tensor.data) if (value != 1.0f) return false;
+        return true;
+    }
+}

@@ -10,15 +10,15 @@ import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 import java.util.Random;
 
 /**
- * Pre-LN Transformer block wired for DeepSeek-V2/V3/R1 style:
+ * Pre-LN transformer block with DeepSeek-style latent attention:
  * <pre>
  *   x = x + MLA( RMSNorm(x) )
  *   x = x + SwiGLU( RMSNorm(x) )
  * </pre>
  *
  * <p>Identical to {@link LlamaTransformerBlock} except attention uses
- * {@link MultiHeadLatentAttention} instead of RoPE-MHA, giving a smaller
- * KV cache footprint during inference.
+ * {@link MultiHeadLatentAttention} instead of RoPE-MHA. The latent representation
+ * can support a compressed cache in a future incremental decoder.
  */
 public final class DeepSeekTransformerBlock extends AbstractTransformerBlock {
 
@@ -38,11 +38,18 @@ public final class DeepSeekTransformerBlock extends AbstractTransformerBlock {
      */
     public DeepSeekTransformerBlock(int dModel, int nHeads, int qRank, int kvRank,
                                     int dFF, int maxSeqLen, Random rnd) {
-        RotaryEmbedding rope = new RotaryEmbedding(dModel / nHeads, maxSeqLen);
+        RotaryEmbedding rope = createRope(dModel, nHeads, maxSeqLen);
         this.ln1  = new RMSNorm1D(dModel);
         this.ln2  = new RMSNorm1D(dModel);
         this.attn = new MultiHeadLatentAttention(dModel, nHeads, qRank, kvRank, rope, rnd);
         this.mlp  = new SwiGLULayer(dModel, dFF, rnd);
+    }
+
+    private static RotaryEmbedding createRope(int dModel, int nHeads, int maxSeqLen) {
+        if (dModel <= 0 || nHeads <= 0 || dModel % nHeads != 0) {
+            throw new IllegalArgumentException("dModel must be positive and divisible by nHeads");
+        }
+        return new RotaryEmbedding(dModel / nHeads, maxSeqLen);
     }
 
     @Override

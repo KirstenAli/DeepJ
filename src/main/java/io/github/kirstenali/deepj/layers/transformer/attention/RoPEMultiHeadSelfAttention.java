@@ -8,7 +8,8 @@ import java.util.Random;
 /**
  * Multi-head self-attention with Rotary Positional Embedding (RoPE).
  *
- * <p>Used by Llama, Mistral, Qwen, DeepSeek, and GPT-NeoX. Extends
+ * <p>RoPE attention is common in model families such as Llama, Mistral, Qwen,
+ * DeepSeek, and GPT-NeoX. This compact implementation extends
  * {@link MultiHeadSelfAttention} and overrides only the two Q/K transform hooks —
  * all attention mechanics, causal masking, and backpropagation are inherited unchanged.
  *
@@ -45,6 +46,7 @@ public final class RoPEMultiHeadSelfAttention extends MultiHeadSelfAttention {
                                       RotaryEmbedding rope, Random rnd) {
         super(dModel, nHeads, causalMask, rnd);
         if (rope == null) throw new IllegalArgumentException("rope must not be null");
+        if (rope.headDim() != headDim) throw new IllegalArgumentException("RoPE head dimension does not match attention");
         this.rope = rope;
     }
 
@@ -66,4 +68,3 @@ public final class RoPEMultiHeadSelfAttention extends MultiHeadSelfAttention {
         return rope.applyBackward(gradHeads, seqLen, nHeads);
     }
 }
-
