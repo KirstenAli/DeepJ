@@ -24,7 +24,7 @@ DeepJ requires JDK 20 or newer.
 </dependency>
 ```
 
-API documentation is available in the [Javadoc](https://kirstenali.github.io/DeepJ/).
+API documentation is available in the [Javadoc](https://kirstenali.github.io/DeepJ/api/).
 
 ## What is included
 
