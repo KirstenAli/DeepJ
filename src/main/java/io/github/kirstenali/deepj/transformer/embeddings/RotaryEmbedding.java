@@ -12,7 +12,7 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  * <p>Applied <em>inside</em> {@link io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention}
  * after the Q/K projections are split into heads, before the scaled dot-product is computed.
  *
- * <h3>Math (per position {@code t}, pair index {@code i}):</h3>
+ * <h2>Math (per position {@code t}, pair index {@code i}):</h2>
  * <pre>
  *   θ_{t,i}  = t / 10000^(2i / headDim)
  *
@@ -20,7 +20,7 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  *   x_rot[2i+1] =  x[2i]  · sin θ  +  x[2i+1] · cos θ
  * </pre>
  *
- * <h3>Backward (transpose rotation — negate sin):</h3>
+ * <h2>Backward (transpose rotation — negate sin):</h2>
  * <pre>
  *   dx[2i]   =  d[2i]  · cos θ  +  d[2i+1] · sin θ
  *   dx[2i+1] = −d[2i]  · sin θ  +  d[2i+1] · cos θ
