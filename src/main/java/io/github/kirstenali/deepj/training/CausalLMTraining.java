@@ -2,8 +2,8 @@ package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.data.Batch;
+import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.CausalLM;
-import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -18,23 +18,28 @@ public final class CausalLMTraining {
 
     private CausalLMTraining() {}
 
-    public static Trainer trainer(CausalLM model, TextDataset dataset, float lr) {
-        ParameterOptimizer opt = AdamW.defaultAdamW(lr);
+    public static Trainer trainer(CausalLM model, BatchSource dataset, float lr) {
+        return trainer(model, dataset, AdamW.defaultAdamW(lr));
+    }
 
-        return new Trainer(batchSize -> {
-            model.zeroGrad();
-            Batch batch = dataset.nextBatch(batchSize);
-            List<Parameter> params = model.parameters();
-            float lossSum = accumulateBatchLossAndBackward(model, batch, batchSize);
-            float avgLoss = computeAverageLoss(lossSum, batchSize);
-            validateFiniteLoss(avgLoss);
-            averageGradients(params, batchSize);
-            clipGradientsGlobally(params, model.gradClipNorm());
+    public static Trainer trainer(CausalLM model, BatchSource dataset, ParameterOptimizer optimizer) {
+        if (model == null || dataset == null || optimizer == null) {
+            throw new IllegalArgumentException("model, dataset, and optimizer must not be null");
+        }
+        return new Trainer(batchSize -> trainStep(model, dataset, optimizer, batchSize));
+    }
 
-            opt.step(params);
-
-            return avgLoss;
-        });
+    private static float trainStep(CausalLM model, BatchSource dataset,
+                                   ParameterOptimizer optimizer, int batchSize) {
+        model.zeroGrad();
+        Batch batch = dataset.nextBatch(batchSize);
+        List<Parameter> params = model.parameters();
+        float loss = computeAverageLoss(accumulateBatchLossAndBackward(model, batch, batchSize), batchSize);
+        validateFiniteLoss(loss);
+        averageGradients(params, batchSize);
+        clipGradientsGlobally(params, model.gradClipNorm());
+        optimizer.step(params);
+        return loss;
     }
 
     private static float accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {

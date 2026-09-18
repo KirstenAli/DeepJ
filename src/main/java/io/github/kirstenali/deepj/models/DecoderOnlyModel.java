@@ -83,4 +83,20 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
         ps.addAll(lmHead.parameters());
         return ps;
     }
+
+    protected final void applyInitScale(float factor) {
+        if (factor == 1.0f) return;
+        for (Parameter parameter : parameters()) {
+            if (isRandomWeight(parameter.value)) parameter.value.multiplyScalarInPlace(factor);
+        }
+    }
+
+    private static boolean isRandomWeight(Tensor tensor) {
+        return !isFilledWith(tensor, 0.0f) && !isFilledWith(tensor, 1.0f);
+    }
+
+    private static boolean isFilledWith(Tensor tensor, float value) {
+        for (float element : tensor.data) if (element != value) return false;
+        return true;
+    }
 }

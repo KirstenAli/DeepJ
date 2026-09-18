@@ -56,23 +56,20 @@ public class ChatController {
 
     @FXML
     private void onBrowseModel() {
-        if (chatService == null) {
-            showBotMessage("Chat service is not configured.");
-            setStatus("Chat service not configured");
-            return;
-        }
+        if (!hasChatService()) return;
+        File file = chooseModelFile();
+        if (file == null) return;
+        loadModel(file);
+    }
 
+    private File chooseModelFile() {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Select Model File");
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Model Files", "*.bin")
-        );
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Model Files", "*.bin"));
+        return chooser.showOpenDialog(getWindowOwner());
+    }
 
-        File file = chooser.showOpenDialog(getWindowOwner());
-        if (file == null) {
-            return;
-        }
-
+    private void loadModel(File file) {
         try {
             chatService.loadModel(file.toPath());
             modelPathField.setText(file.getAbsolutePath());
@@ -86,53 +83,50 @@ public class ChatController {
 
     @FXML
     private void onSend() {
-        if (chatService == null) {
-            showBotMessage("Chat service is not configured.");
-            setStatus("Chat service not configured");
-            return;
-        }
-
+        if (!hasChatService()) return;
         String prompt = inputArea.getText().trim();
-        if (prompt.isEmpty()) {
-            return;
-        }
+        if (prompt.isEmpty() || !hasLoadedModel()) return;
+        GenerationSettings settings = readSettings();
+        if (settings == null) return;
+        prepareGeneration(prompt);
+        Task<String> task = generationTask(prompt, settings);
+        configureTaskHandlers(task);
+        startBackgroundTask(task, "gpt-generate-thread");
+    }
 
-        if (!chatService.isModelLoaded()) {
-            setStatus("Load a model first");
-            showBotMessage("Please load a model first.");
-            return;
-        }
-
-        int maxTokens;
-        float temperature;
-        int topK;
-        long seed;
-
+    private GenerationSettings readSettings() {
         try {
-            maxTokens = parseInt(maxTokensField.getText(), "Max tokens");
-            temperature = parseFloat(temperatureField.getText(), "Temperature");
-            topK = parseInt(topKField.getText(), "Top-k");
-            seed = parseLong(seedField.getText(), "Seed");
+            return new GenerationSettings(
+                    parseInt(maxTokensField.getText(), "Max tokens"),
+                    parseFloat(temperatureField.getText(), "Temperature"),
+                    parseInt(topKField.getText(), "Top-k"),
+                    parseLong(seedField.getText(), "Seed"));
         } catch (IllegalArgumentException e) {
             setStatus("Invalid settings");
             showBotMessage(e.getMessage());
-            return;
+            return null;
         }
+    }
 
+    private void prepareGeneration(String prompt) {
         showUserMessage(prompt);
         inputArea.clear();
-
         setBusy(true);
         showTypingIndicator();
         setStatus("Generating...");
+    }
 
-        Task<String> task = new Task<>() {
+    private Task<String> generationTask(String prompt, GenerationSettings settings) {
+        return new Task<>() {
             @Override
             protected String call() {
-                return chatService.generate(prompt, maxTokens, temperature, topK, seed);
+                return chatService.generate(prompt, settings.maxTokens(), settings.temperature(),
+                        settings.topK(), settings.seed());
             }
         };
+    }
 
+    private void configureTaskHandlers(Task<String> task) {
         task.setOnSucceeded(event -> {
             hideTypingIndicator();
             setBusy(false);
@@ -148,8 +142,20 @@ public class ChatController {
             showBotMessage("Generation failed: " + safeMessage(error));
             setStatus("Generation failed");
         });
+    }
 
-        startBackgroundTask(task, "gpt-generate-thread");
+    private boolean hasChatService() {
+        if (chatService != null) return true;
+        showBotMessage("Chat service is not configured.");
+        setStatus("Chat service not configured");
+        return false;
+    }
+
+    private boolean hasLoadedModel() {
+        if (chatService.isModelLoaded()) return true;
+        setStatus("Load a model first");
+        showBotMessage("Please load a model first.");
+        return false;
     }
 
     @FXML
@@ -269,4 +275,6 @@ public class ChatController {
     private javafx.stage.Window getWindowOwner() {
         return inputArea.getScene().getWindow();
     }
+
+    private record GenerationSettings(int maxTokens, float temperature, int topK, long seed) {}
 }

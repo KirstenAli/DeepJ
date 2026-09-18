@@ -1,0 +1,53 @@
+package io.github.kirstenali.deepj.training;
+
+import io.github.kirstenali.deepj.data.Batch;
+import io.github.kirstenali.deepj.data.BatchSource;
+import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
+import io.github.kirstenali.deepj.models.CausalLM;
+import io.github.kirstenali.deepj.tensor.Tensor;
+
+/** Evaluation helpers for causal language models. */
+public final class CausalLMEvaluation {
+
+    private CausalLMEvaluation() {}
+
+    public static EvaluationResult evaluate(CausalLM model, BatchSource source,
+                                            int batches, int batchSize) {
+        validate(model, source, batches, batchSize);
+        double lossSum = 0.0;
+        long sequenceCount = (long) batches * batchSize;
+        long tokens = 0L;
+        try {
+            for (int i = 0; i < batches; i++) {
+                Batch batch = source.nextBatch(batchSize);
+                lossSum += batchLoss(model, batch);
+                tokens += batchTokenCount(batch);
+            }
+        } finally {
+            Tensor.backend().releaseResources();
+        }
+        double loss = lossSum / sequenceCount;
+        return new EvaluationResult(loss, Math.exp(loss), tokens);
+    }
+
+    private static double batchLoss(CausalLM model, Batch batch) {
+        double loss = 0.0;
+        for (int row = 0; row < batch.x().length; row++) {
+            loss += CrossEntropyLoss.loss(model.forward(batch.x()[row]), batch.y()[row]);
+        }
+        return loss;
+    }
+
+    private static long batchTokenCount(Batch batch) {
+        return (long) batch.x().length * batch.x()[0].length;
+    }
+
+    private static void validate(CausalLM model, BatchSource source, int batches, int batchSize) {
+        if (model == null || source == null) {
+            throw new IllegalArgumentException("model and source must not be null");
+        }
+        if (batches <= 0 || batchSize <= 0) {
+            throw new IllegalArgumentException("batches and batchSize must be positive");
+        }
+    }
+}

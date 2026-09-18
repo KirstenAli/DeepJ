@@ -34,9 +34,7 @@ public class MultiHeadSelfAttention implements Layer {
     private final ActivationFunction softmax;
 
     public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd) {
-        if (dModel % nHeads != 0) {
-            throw new IllegalArgumentException("dModel must be divisible by nHeads");
-        }
+        validateDimensions(dModel, nHeads);
 
         this.dModel = dModel;
         this.nHeads = nHeads;
@@ -50,6 +48,12 @@ public class MultiHeadSelfAttention implements Layer {
         this.Wo = new Parameter(Tensor.random(dModel, dModel, rnd));
 
         this.softmax = new Softmax();
+    }
+
+    private static void validateDimensions(int dModel, int nHeads) {
+        if (dModel <= 0) throw new IllegalArgumentException("dModel must be > 0");
+        if (nHeads <= 0) throw new IllegalArgumentException("nHeads must be > 0");
+        if (dModel % nHeads != 0) throw new IllegalArgumentException("dModel must be divisible by nHeads");
     }
 
     // -------------------------------------------------------------------------
@@ -272,4 +276,3 @@ public class MultiHeadSelfAttention implements Layer {
 
     private record Projections(Tensor Q, Tensor K, Tensor V) {}
 }
-

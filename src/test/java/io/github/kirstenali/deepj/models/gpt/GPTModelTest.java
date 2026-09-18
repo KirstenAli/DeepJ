@@ -4,10 +4,17 @@ import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class GPTModelTest {
+
+    @TempDir
+    Path temporaryDirectory;
 
     @Test
     void config_defaultsIncludeStabilityKnobs() {
@@ -29,7 +36,31 @@ public class GPTModelTest {
 
         assertTrue(baseAbs > 0.0f);
         assertEquals(0.2f, scaledAbs / baseAbs, 1e-6f);
+        assertLayerNormGainsRemainOne(mScaled);
         assertEquals(1.0f, mBase.gradClipNorm(), 1e-12f);
+    }
+
+    @Test
+    void modelUsesIndependentInitializationStreams() {
+        GPTModel model = new GPTModel(new GPTConfig(11, 8, 4, 2, 1, 8), 1234L);
+        float embeddingFirst = model.parameters().get(0).value.data[0];
+        float attentionFirst = model.parameters().get(6).value.data[0];
+        assertNotEquals(embeddingFirst, attentionFirst);
+    }
+
+    private static void assertLayerNormGainsRemainOne(GPTModel model) {
+        long unitParameters = model.parameters().stream()
+                .map(parameter -> parameter.value)
+                .filter(GPTModelTest::isAllOnes)
+                .count();
+        assertTrue(unitParameters > 0, "LayerNorm gains must not be scaled");
+    }
+
+    private static boolean isAllOnes(Tensor tensor) {
+        for (float value : tensor.data) {
+            if (value != 1.0f) return false;
+        }
+        return true;
     }
 
     @Test
@@ -124,5 +155,23 @@ public class GPTModelTest {
         assertTrue (tokW.grad.getRow(5).sumAbs() > 0.0f, "id=5 row grad should be non-zero");
         assertTrue(tokW.grad.getRow(1).sumAbs() > 0.0f, "id=1 row grad should be non-zero");
         assertTrue(tokW.grad.getRow(2).sumAbs() > 0.0f, "id=2 row grad should be non-zero");
+    }
+
+    @Test
+    void checkpointRoundTripPreservesLogits() throws IOException {
+        GPTConfig config = new GPTConfig(11, 8, 4, 2, 1, 8);
+        GPTModel original = new GPTModel(config, 1L);
+        int[] ids = {1, 2, 3};
+        float[] expected = materializedData(original.forward(ids));
+        Path checkpoint = temporaryDirectory.resolve("gpt.dj");
+        original.save(checkpoint);
+        GPTModel restored = new GPTModel(config, 2L);
+        restored.load(checkpoint);
+        assertArrayEquals(expected, materializedData(restored.forward(ids)));
+    }
+
+    private static float[] materializedData(Tensor tensor) {
+        tensor.materialize();
+        return tensor.data.clone();
     }
 }

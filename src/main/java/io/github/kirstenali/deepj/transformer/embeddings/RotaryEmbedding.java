@@ -39,6 +39,7 @@ import io.github.kirstenali.deepj.tensor.Tensor;
  */
 public final class RotaryEmbedding {
 
+    private final int headDim;
     private final int halfDim;
     private final float[][] cosTable;  // [maxSeqLen × halfDim]
     private final float[][] sinTable;  // [maxSeqLen × halfDim]
@@ -57,6 +58,7 @@ public final class RotaryEmbedding {
             throw new IllegalArgumentException("maxSeqLen must be > 0");
         }
 
+        this.headDim = headDim;
         this.halfDim  = headDim / 2;
         this.cosTable = new float[maxSeqLen][this.halfDim];
         this.sinTable = new float[maxSeqLen][this.halfDim];
@@ -79,7 +81,7 @@ public final class RotaryEmbedding {
      * @return rotated tensor with the same shape
      */
     public Tensor apply(Tensor t, int seqLen, int nHeads) {
-        validateSeqLen(seqLen);
+        validateInput(t, seqLen, nHeads);
         t.materialize();
         Tensor result = Tensor.zeros(t.rows, t.cols);
         for (int h = 0; h < nHeads; h++)
@@ -97,7 +99,7 @@ public final class RotaryEmbedding {
      * @return un-rotated gradient with the same shape
      */
     public Tensor applyBackward(Tensor t, int seqLen, int nHeads) {
-        validateSeqLen(seqLen);
+        validateInput(t, seqLen, nHeads);
         t.materialize();
         Tensor result = Tensor.zeros(t.rows, t.cols);
         for (int h = 0; h < nHeads; h++)
@@ -134,10 +136,19 @@ public final class RotaryEmbedding {
         }
     }
 
-    private void validateSeqLen(int seqLen) {
-        if (seqLen > cosTable.length) {
+    public int headDim() {
+        return headDim;
+    }
+
+    private void validateInput(Tensor tensor, int seqLen, int nHeads) {
+        if (seqLen <= 0 || seqLen > cosTable.length) {
             throw new IllegalArgumentException(
-                    "seqLen " + seqLen + " exceeds maxSeqLen " + cosTable.length);
+                    "seqLen must be in [1, " + cosTable.length + "], got " + seqLen);
+        }
+        if (nHeads <= 0) throw new IllegalArgumentException("nHeads must be > 0");
+        if (tensor.cols != headDim) throw new IllegalArgumentException("Tensor width must equal headDim");
+        if ((long) tensor.rows != (long) seqLen * nHeads) {
+            throw new IllegalArgumentException("Tensor rows must equal seqLen * nHeads");
         }
     }
 }

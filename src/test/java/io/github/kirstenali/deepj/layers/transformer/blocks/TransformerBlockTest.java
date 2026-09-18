@@ -56,6 +56,14 @@ public class TransformerBlockTest {
     }
 
     @Test
+    void llamaBlockRejectsInvalidHeadDimensionsCleanly() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new LlamaTransformerBlock(4, 0, 8, 16, new Random(1L)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LlamaTransformerBlock(5, 2, 8, 16, new Random(1L)));
+    }
+
+    @Test
     void learning_can_reduce_mse_loss_within_a_few_steps() {
         GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(3));
         AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);

@@ -4,33 +4,40 @@ import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.GpuBuffer;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 public final class ModelSerializer {
+
+    private static final int MAGIC = 0x444A4D44; // DJMD
+    public static final int CURRENT_FORMAT_VERSION = 1;
 
     private ModelSerializer() {}
 
     public static void save(List<Parameter> params, Path path) throws IOException {
         validateParams(params);
         ensureParentDirectory(path);
-
-        try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(path))) {
-            writeParameterCount(out, params.size());
-
-            for (Parameter p : params) {
-                writeParameter(out, p);
-            }
+        Path temporary = temporaryPath(path);
+        try {
+            writeModel(params, temporary);
+            replaceAtomically(temporary, path);
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 
     private static void validateParams(List<Parameter> params) {
-        if (params == null) {
-            throw new IllegalArgumentException("params is null");
+        if (params == null) throw new IllegalArgumentException("params is null");
+        if (params.stream().anyMatch(p -> p == null || p.value == null)) {
+            throw new IllegalArgumentException("params contains a null parameter or value");
         }
     }
 
@@ -42,6 +49,8 @@ public final class ModelSerializer {
     }
 
     private static void writeParameterCount(DataOutputStream out, int count) throws IOException {
+        out.writeInt(MAGIC);
+        out.writeInt(CURRENT_FORMAT_VERSION);
         out.writeInt(count);
     }
 
@@ -59,24 +68,26 @@ public final class ModelSerializer {
 
     private static void writeTensorData(DataOutputStream out, Tensor t) throws IOException {
         for (float v : t.data) {
-            out.writeDouble(v);
+            out.writeFloat(v);
         }
     }
 
     public static void load(List<Parameter> params, Path path) throws IOException {
-        try (DataInputStream in = new DataInputStream(Files.newInputStream(path))) {
-            int count = readAndValidateParameterCount(in, params.size());
+        validateParams(params);
+        try (DataInputStream in = openInput(path)) {
+            Format format = readFormat(in);
+            int count = readAndValidateParameterCount(format.count(), params.size());
             for (int i = 0; i < count; i++) {
                 Tensor t = params.get(i).value;
                 readAndValidateShape(in, t, i);
-                readTensorData(in, t);
+                readTensorData(in, t, format.legacy());
                 markGpuBufferNeedsUpload(t);
             }
+            if (in.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
         }
     }
 
-    private static int readAndValidateParameterCount(DataInputStream in, int expectedCount) throws IOException {
-        int count = in.readInt();
+    private static int readAndValidateParameterCount(int count, int expectedCount) throws IOException {
         if (count != expectedCount) {
             throw new IOException("Parameter count mismatch");
         }
@@ -91,9 +102,9 @@ public final class ModelSerializer {
         }
     }
 
-    private static void readTensorData(DataInputStream in, Tensor t) throws IOException {
+    private static void readTensorData(DataInputStream in, Tensor t, boolean legacy) throws IOException {
         for (int j = 0; j < t.data.length; j++) {
-            t.data[j] = (float) in.readDouble();
+            t.data[j] = legacy ? (float) in.readDouble() : in.readFloat();
         }
     }
 
@@ -104,4 +115,38 @@ public final class ModelSerializer {
             gb.cpuStale = false;
         }
     }
+
+    private static void writeModel(List<Parameter> params, Path path) throws IOException {
+        try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path)))) {
+            writeParameterCount(out, params.size());
+            for (Parameter parameter : params) writeParameter(out, parameter);
+        }
+    }
+
+    private static DataInputStream openInput(Path path) throws IOException {
+        return new DataInputStream(new BufferedInputStream(Files.newInputStream(path)));
+    }
+
+    private static Format readFormat(DataInputStream in) throws IOException {
+        int marker = in.readInt();
+        if (marker != MAGIC) return new Format(marker, true);
+        int version = in.readInt();
+        if (version != CURRENT_FORMAT_VERSION) throw new IOException("Unsupported model format version: " + version);
+        return new Format(in.readInt(), false);
+    }
+
+    private static Path temporaryPath(Path path) throws IOException {
+        Path absolute = path.toAbsolutePath();
+        return Files.createTempFile(absolute.getParent(), absolute.getFileName().toString(), ".tmp");
+    }
+
+    private static void replaceAtomically(Path temporary, Path destination) throws IOException {
+        try {
+            Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private record Format(int count, boolean legacy) {}
 }

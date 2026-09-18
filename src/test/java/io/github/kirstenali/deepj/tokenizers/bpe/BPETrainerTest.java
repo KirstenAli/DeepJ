@@ -179,6 +179,16 @@ class BPETrainerTest {
         assertEquals((int) 'b',  second.right());
     }
 
+    @Test
+    void incrementalCounts_keepsDecreasedPairsEligible() {
+        BPEModel model = new BPETrainer().train("aaaababab", 259);
+
+        assertEquals(List.of(
+                new TokenPair('a', 'a'),
+                new TokenPair('a', 'b')
+        ), model.merges());
+    }
+
     // -------------------------------------------------------------------------
     // trainTokenizerWithDefaults
     // -------------------------------------------------------------------------
@@ -215,5 +225,14 @@ class BPETrainerTest {
             Files.deleteIfExists(temp);
         }
     }
-}
 
+    @Test
+    void trainFromFile_supportsBoundedSamples() throws IOException {
+        Path temp = Files.createTempFile("deepj-bpe-sample", ".txt");
+        Files.writeString(temp, "aaaaa zzzzz");
+        BPETrainer trainer = new BPETrainer();
+        assertNotNull(trainer.trainFromFile(temp, 260, List.of(), 5));
+        assertThrows(IllegalArgumentException.class,
+                () -> trainer.trainFromFile(temp, 260, List.of(), 0));
+    }
+}

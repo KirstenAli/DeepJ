@@ -41,7 +41,7 @@ public final class DeepSeekTransformerBuilder {
 
     /**
      * KV latent dimension for MLA. Required. Typical value: {@code dModel / 4}.
-     * Only {@code cKV} (shape {@code seqLen × kvRank}) is cached at inference time.
+     * An incremental decoder may use this latent for a compressed cache.
      */
     public DeepSeekTransformerBuilder kvRank(int kvRank) { this.kvRank = kvRank; return this; }
 
@@ -67,4 +67,3 @@ public final class DeepSeekTransformerBuilder {
         return new TransformerStack(blocks);
     }
 }
-

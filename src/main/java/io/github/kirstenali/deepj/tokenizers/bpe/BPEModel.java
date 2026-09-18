@@ -37,6 +37,8 @@ public record BPEModel(
             int modelFormatVersion,
             Map<String, Integer> specialTokenToId
     ) {
+        BPEModelValidator.validate(idToBytes, tokenKeyToId, merges, mergeToNewId,
+                endOfWordId, modelFormatVersion, specialTokenToId);
         this.idToBytes = deepCopyBytes(idToBytes);
         this.tokenKeyToId = Map.copyOf(tokenKeyToId);
         this.merges = List.copyOf(merges);

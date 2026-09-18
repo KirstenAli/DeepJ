@@ -4,9 +4,20 @@
 
 # DeepJ
 
-A lightweight, pure-Java Transformer library — build, train, and experiment with GPT, Llama, and DeepSeek-style models, zero dependencies.
+A lightweight Java Transformer library for building, training, and experimenting with GPT-style, Llama-style, and DeepSeek-style models. The core tensor/model code is Java; JavaFX powers the optional chat UI and an optional JNI library provides Apple Metal acceleration.
 
 📚 **Javadoc:** https://kirstenali.github.io/DeepJ/
+
+---
+
+## Requirements
+
+- JDK 20
+- Maven 3.9 or newer
+- macOS on Apple Silicon and Xcode command-line tools only when rebuilding the optional Metal backend
+
+The CPU backend works on any JDK 20 platform. DeepJ checks for both the native
+library and an available Metal device before enabling GPU execution.
 
 ---
 
@@ -59,8 +70,9 @@ DeepJ is organised into focused packages:
 | `models.llama` | `LlamaModel`, `LlamaConfig` |
 | `models.deepseek` | `DeepSeekModel`, `DeepSeekConfig` |
 | `tokenizers` | `Tokenizer` interface, `ByteTokenizer`, BPE pipeline (`BPETrainer`, `BPETokenizer`, `BPEModelIO`) |
-| `data` | `TextDataset` (streaming, memory-mapped), `Batch` |
+| `data` | `TextDataset` (memory-mapped), `RandomAccessTextDataset` (bounded-memory direct sampling), `Batch` |
 | `persistence` | `Persistable` interface, `ModelSerializer` (binary save/load) |
+| `publishing` | Versioned DeepJ model bundles and Hugging Face model-card export |
 | `chatui` | `BaseChatApp`, `ChatService` — optional JavaFX chat interface |
 
 
@@ -74,7 +86,9 @@ Every tensor operation routes through a pluggable `TensorBackend`.
 The default is `CpuBackend`; swap to `MetalBackend` for GPU acceleration:
 
 ```java
-Tensor.setBackend(new MetalBackend());  // route tensor ops through lazy Metal compute graph
+if (MetalBackend.isAvailable()) {
+    Tensor.setBackend(new MetalBackend()); // route tensor ops through lazy Metal compute graph
+}
 Tensor.setBackend(new CpuBackend());    // back to CPU
 ```
 
@@ -387,7 +401,7 @@ TransformerStack llamaStack = new LlamaTransformerBuilder()
         .seed(42)
         .build();
 
-// DeepSeek-style — RMSNorm + MLA + SwiGLU (8× smaller KV cache)
+// DeepSeek-style — RMSNorm + compact MLA-style factorisation + SwiGLU
 TransformerStack deepSeekStack = new DeepSeekTransformerBuilder()
         .dModel(512).nHeads(8).dFF(1408).nLayers(6)
         .maxSeqLen(2048)     // required: RoPE table size
@@ -422,7 +436,7 @@ Tensor dX  = block.backward(grad);
 Train a small GPT-style language model.
 
 ```java
-Tensor.setBackend(new MetalBackend());
+if (MetalBackend.isAvailable()) Tensor.setBackend(new MetalBackend());
 
 Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(Path.of("sample_data/llm_training_dataset_1227_examples.txt"), tok, 256, 123);
@@ -468,7 +482,7 @@ System.out.println(out);
 ### Llama training + generation
 
 ```java
-Tensor.setBackend(new MetalBackend());
+if (MetalBackend.isAvailable()) Tensor.setBackend(new MetalBackend());
 
 Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(Path.of("sample_data/corpus.txt"), tok, 256, 123);
@@ -515,7 +529,7 @@ System.out.println(out);
 ### DeepSeek training + generation
 
 ```java
-Tensor.setBackend(new MetalBackend());
+if (MetalBackend.isAvailable()) Tensor.setBackend(new MetalBackend());
 
 Tokenizer tok = new ByteTokenizer();
 TextDataset ds = TextDataset.fromFile(Path.of("sample_data/corpus.txt"), tok, 256, 123);
@@ -528,7 +542,7 @@ DeepSeekConfig cfg = new DeepSeekConfig(
         5,           // nLayers
         1024,        // dFF
         512 / 2,     // qRank  — Q latent dimension
-        512 / 4      // kvRank — KV latent dimension (8× smaller KV cache)
+        512 / 4      // kvRank — shared KV latent dimension
 );
 
 DeepSeekModel model = new DeepSeekModel(cfg, 42);
@@ -610,7 +624,7 @@ List<Parameter> params = mlp.parameters(); // all W and b from every Linear
 | `RMSNorm1D` | RMS norm — no mean subtraction, no β; used by Llama / Mistral / Qwen / DeepSeek |
 | `MultiHeadSelfAttention` | Multi-head causal self-attention (`[seqLen × dModel]`). Extensible via template-method hooks |
 | `RoPEMultiHeadSelfAttention` | Extends `MultiHeadSelfAttention` with Rotary Positional Embedding (RoPE) |
-| `MultiHeadLatentAttention` | MLA — compresses Q/K/V through low-rank bottlenecks; used by DeepSeek-V2/V3/R1 |
+| `MultiHeadLatentAttention` | Compact DeepSeek-inspired MLA factorisation with low-rank Q/K/V paths |
 | `GPTTransformerBlock` | Pre-LN GPT-style block: `x + Attn(LN(x))`, then `x + FFN(LN(x))` |
 | `LlamaTransformerBlock` | Pre-LN Llama-style block: RMSNorm + RoPE attention + SwiGLU |
 | `DeepSeekTransformerBlock` | Pre-LN DeepSeek-style block: RMSNorm + MLA + SwiGLU |
@@ -637,12 +651,12 @@ LlamaTransformerBlock llamaBlock = new LlamaTransformerBlock(
         rnd
 );
 
-// DeepSeek-style block — RMSNorm + MLA + SwiGLU (8× smaller KV cache)
+// DeepSeek-style block — RMSNorm + compact MLA-style attention + SwiGLU
 DeepSeekTransformerBlock dsBlock = new DeepSeekTransformerBlock(
         512,   // dModel
         8,     // nHeads
         256,   // qRank  — Q latent dimension (e.g. dModel/2)
-        128,   // kvRank — KV latent dimension (e.g. dModel/4); only cKV is cached
+        128,   // kvRank — shared KV latent dimension (e.g. dModel/4)
         1408,  // dFF
         2048,  // maxSeqLen — RoPE table size
         rnd
@@ -717,7 +731,7 @@ implementing `Layer`.
 | `.nLayers(int)` | required | Number of decoder blocks |
 | `.maxSeqLen(int)` | required | RoPE table size |
 | `.qRank(int)` | required | Q latent dim for MLA (e.g. `dModel/2`) |
-| `.kvRank(int)` | required | KV latent dim for MLA (e.g. `dModel/4`) — only `cKV` cached at inference |
+| `.kvRank(int)` | required | Shared KV latent dimension (e.g. `dModel/4`) |
 | `.seed(long)` | `42` | Weight initialisation seed |
 | `.random(Random)` | — | Provide your own `Random` (overrides seed) |
 
@@ -761,7 +775,7 @@ All three model families share a common type hierarchy:
 ```
 DecoderOnlyModel (implements CausalLM, Persistable)
 ├── GPTModel    — adds PositionalEmbedding + LayerNorm1D + initScale
-├── LlamaModel  — RMSNorm1D, no positional embedding
+├── LlamaModel  — RMSNorm1D, RoPE, SwiGLU, and initScale
 └── DeepSeekModel — RMSNorm1D, MLA attention, no positional embedding
 ```
 
@@ -769,7 +783,8 @@ DecoderOnlyModel (implements CausalLM, Persistable)
 
 Decoder-only GPT-style transformer. Composes token embeddings,
 positional embeddings, a `TransformerStack`, final layer norm, and a
-linear head.
+linear head. It is intentionally compact rather than an exact GPT-2/3
+implementation: dropout, tied embeddings, and incremental KV caching are omitted.
 
 ```java
 GPTConfig cfg = new GPTConfig(
@@ -839,6 +854,9 @@ String out = TextGenerator.generate(model::forward, cfg, tok, "Hello", 200, 0.8,
 
 Internally it runs an autoregressive loop: encode prompt → forward →
 sample from top-k logits with temperature → append token → repeat.
+Generation stops before a tokenizer-declared EOS or `<|endoftext|>` token.
+The current generator recomputes the retained context for every new token;
+GPT, Llama, and DeepSeek-style models do not yet expose incremental KV caches.
 
 ---
 
@@ -847,7 +865,9 @@ sample from top-k logits with temperature → append token → repeat.
 Llama-style decoder-only transformer. Differences from GPT: no positional
 embedding (RoPE handles position inside each attention block), `RMSNorm1D`
 for the final norm, and `LlamaTransformerBlock` (RMSNorm + RoPE-Attn + SwiGLU)
-instead of the classic GPT block.
+instead of the classic GPT block. It uses full multi-head attention rather than
+grouped-query attention and has no incremental KV cache, so it is not an exact
+release of Meta's Llama models.
 
 ```java
 LlamaConfig cfg = new LlamaConfig(
@@ -872,9 +892,10 @@ LlamaModel model = new LlamaModel(cfg, 42L);
 | `nHeads` | required | Attention heads (`dModel % nHeads == 0`) |
 | `nLayers` | required | Number of transformer blocks |
 | `dFF` | required | SwiGLU intermediate dimension |
+| `initScale` | `0.2` | Multiply random initial weights by this factor |
 | `gradClipNorm` | `1.0` | Global gradient clipping threshold |
 
-`LlamaConfig.defaultDFF(dModel)` computes the standard Llama ratio
+`LlamaConfig.defaultDFF(dModel)` computes a common Llama-style ratio
 (`round(8/3 × dModel)` rounded to the nearest multiple of 64).
 
 #### Architecture
@@ -895,8 +916,9 @@ inputIds
 
 DeepSeek-style decoder-only transformer. The key difference from Llama is
 **Multi-Head Latent Attention (MLA)**: Q and K/V are first compressed through
-low-rank bottlenecks before attention is computed, dramatically reducing the
-KV-cache footprint during inference.
+low-rank bottlenecks before attention is computed. This is a compact
+DeepSeek-inspired architecture, not an exact implementation of DeepSeek-V2,
+DeepSeek-V3, or DeepSeek-R1.
 
 ```java
 DeepSeekConfig cfg = new DeepSeekConfig(
@@ -907,7 +929,7 @@ DeepSeekConfig cfg = new DeepSeekConfig(
         nLayers,
         dFF,
         dModel / 2,   // qRank  — Q latent dimension
-        dModel / 4    // kvRank — KV latent dimension (controls KV-cache size)
+        dModel / 4    // kvRank — shared KV latent dimension
 );
 
 DeepSeekModel model = new DeepSeekModel(cfg, 42L);
@@ -924,7 +946,8 @@ DeepSeekModel model = new DeepSeekModel(cfg, 42L);
 | `nLayers` | required | Number of transformer blocks |
 | `dFF` | required | SwiGLU intermediate dimension |
 | `qRank` | required | Q latent dimension (e.g. `dModel/2`) |
-| `kvRank` | required | KV latent dimension (e.g. `dModel/4`) — only `cKV` is cached during inference |
+| `kvRank` | required | Shared KV latent dimension (e.g. `dModel/4`) |
+| `initScale` | `0.2` | Multiply random initial weights by this factor |
 | `gradClipNorm` | `1.0` | Global gradient clipping threshold |
 
 #### MLA — how it works
@@ -941,9 +964,9 @@ K   = cKV · Wuk   [seqLen × dModel]   K  expansion  → RoPE → split heads
 V   = cKV · Wuv   [seqLen × dModel]   V  expansion  → split heads
 ```
 
-During inference only `cKV` (`seqLen × kvRank`) needs to be cached per layer —
-not the full K and V tensors. With `kvRank = dModel/4` that is a 8× KV-cache
-reduction vs standard MHA.
+The factorisation can support an incremental decoder that caches the compact
+`cKV` representation. DeepJ's current model and `TextGenerator` do not maintain
+an incremental KV cache: generation recomputes the supplied context each step.
 
 #### Architecture
 
@@ -983,7 +1006,7 @@ encode/decode with subword tokens.
 // Train a BPE model from a corpus
 BPEModel bpe = new BPETrainer().train(corpusText, 1000);  // target vocab size
 
-// Or from a file (streams a 50 MB sample — safe for multi-gigabyte corpora)
+// Or from a file (reads at most a 50 MiB sample, so huge corpora are safe)
 BPEModel bpe = new BPETrainer().trainFromFile(Path.of("corpus.txt"), 1000, List.of());
 
 // Wrap as a Tokenizer
@@ -1011,10 +1034,11 @@ String text = loadedTok.decode(ids);
 Streaming, memory-mapped dataset that tokenises a text file and samples
 random contiguous chunks for causal language model training.
 
-The source text is streamed line-by-line (never loaded fully into heap),
-tokenised in bounded chunks, and written to a temporary binary file.
+The source text is streamed by complete-line chunks (never loaded fully into heap),
+tokenised, and written to a temporary binary file.
 That file is then memory-mapped so the OS pages token data in and out
-on demand — datasets larger than available RAM work without changes.
+on demand — datasets larger than available RAM work without changes. One
+individual line must still fit in heap so token boundaries remain correct.
 
 ```java
 // From a file (streamed + memory-mapped — works for any file size)
@@ -1034,6 +1058,60 @@ Batch batch = ds.nextBatch(4);  // batchSize = 4
 
 Each batch contains `x` (input tokens) and `y` (next-token targets),
 both shaped `[batchSize][seqLen]`.
+
+### RandomAccessTextDataset
+
+For multi-gigabyte corpora when a second tokenized copy would consume too much
+disk, `RandomAccessTextDataset` reads random newline-aligned UTF-8 windows from
+the original file and tokenizes only the current batch. It implements the same
+`BatchSource` contract as `TextDataset`.
+
+```java
+try (RandomAccessTextDataset ds = new RandomAccessTextDataset(
+        Path.of("sample_data/TinyStories-train.txt"), tok, 128, 42L)) {
+    Batch batch = ds.nextBatch(2);
+}
+```
+
+### TinyStories DeepSeek-style training
+
+`TrainDeepSeekTinyStories` trains a compact BPE model and a DeepSeek-style
+decoder directly from `sample_data/TinyStories-train.txt`. Defaults are a
+2,048-token vocabulary, 128-token context, width 128, four heads, four layers,
+and 10,000 steps. The tokenizer is reused on later launches, checkpoints roll
+over `model-latest.dj`, and final weights are written to `model-final.dj`.
+
+```bash
+DEEPJ_JDK=$(/usr/libexec/java_home -v 20)
+JAVA_HOME="$DEEPJ_JDK" mvn -DskipTests compile
+"$DEEPJ_JDK/bin/java" \
+  -Ddeepj.steps=10000 \
+  -cp target/classes \
+  io.github.kirstenali.deepj.examples.TrainDeepSeekTinyStories
+```
+
+Common overrides include `deepj.batchSize`, `deepj.seqLen`, `deepj.dModel`,
+`deepj.layers`, `deepj.vocabSize`, `deepj.learningRate`, `deepj.output`, and
+`deepj.checkpointEvery`. Resume model weights with
+`-Ddeepj.resume=checkpoints/tinystories-deepseek/model-latest.dj`; optimizer
+moments restart for the new run.
+
+Evaluate a saved checkpoint on the separate TinyStories validation split:
+
+```bash
+"$DEEPJ_JDK/bin/java" \
+  -Ddeepj.evalCorpus=sample_data/TinyStories-valid.txt \
+  -cp target/classes \
+  io.github.kirstenali.deepj.examples.EvaluateDeepSeekTinyStories
+```
+
+Create a Hugging Face-ready bundle after evaluation:
+
+```bash
+"$DEEPJ_JDK/bin/java" \
+  -cp target/classes \
+  io.github.kirstenali.deepj.examples.ExportDeepSeekTinyStories
+```
 
 ---
 
@@ -1116,7 +1194,7 @@ Factory for autoregressive language models. Accepts any `CausalLM` — `GPTModel
 `LlamaModel`, `DeepSeekModel`, or your own implementation. Each step:
 
 1.  `zeroGrad()`
-2.  Sample a `Batch` from `TextDataset`
+2.  Sample a `Batch` from a `BatchSource` (`TextDataset` or `RandomAccessTextDataset`)
 3.  For each sequence in the batch: `forward()` → `crossEntropyLoss()` → `backward()`
 4.  Average gradients across the batch
 5.  Global gradient clipping (using `gradClipNorm()`)
@@ -1232,8 +1310,42 @@ model.save(Path.of("model.bin"));
 model.load(Path.of("model.bin"));
 ```
 
-The serializer writes raw `double` values in order — compact and fast,
-no external format dependencies.
+The current versioned checkpoint format writes IEEE-754 `float32` values in
+parameter order. Loading also supports the original unversioned `double`
+checkpoint format for backward compatibility. The model architecture and
+configuration must match the checkpoint being loaded.
+
+### Hugging Face model bundle
+
+DeepJ exports a trained GPT or DeepSeek-style model, BPE tokenizer,
+machine-readable config, and model card as one directory:
+
+```java
+ModelCard card = new ModelCard(
+        "My DeepJ GPT",
+        "A small experimental text-generation model.",
+        "mit",
+        "en",
+        "Describe the corpus and its provenance here.",
+        "Experimental model; outputs may be inaccurate or biased."
+);
+
+Path bundle = DeepJModelBundle.export(
+        Path.of("dist/my-deepj-gpt"), model, tok.model(), card);
+```
+
+The resulting `model.dj` and `tokenizer.bpe` files use DeepJ's binary formats;
+they are not Transformers/PyTorch checkpoints. After reviewing the generated
+`README.md`, create a model repository on Hugging Face and upload the folder:
+
+```bash
+python -m pip install -U huggingface_hub
+hf auth login
+hf upload OWNER/REPOSITORY ./dist/my-deepj-gpt
+```
+
+Do not publish a model until the corpus licence, model licence, intended use,
+and limitations in the generated card have been verified.
 
 ---
 
@@ -1250,13 +1362,41 @@ automatic and only happens when CPU-side access requires synchronization.
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 
-MetalBackend metal = new MetalBackend();
-Tensor.setBackend(metal);
+if (MetalBackend.isAvailable()) {
+    MetalBackend metal = new MetalBackend();
+    Tensor.setBackend(metal);
+}
 ```
 
-That's it — all `Tensor` operations route through the same backend entrypoint.
+All `Tensor` operations then route through the same backend entrypoint.
 Use one backend instance consistently for a given execution path so op
 recording and materialization share the same compute graph ownership.
+
+Rebuild and package the native library after changing Metal/JNI code:
+
+```bash
+./native/build-macos.sh
+```
+
+### Numerical verification
+
+The test suite checks analytic backward passes against central finite
+differences for linear layers, LayerNorm, RMSNorm, SwiGLU, standard and rotary
+self-attention, latent attention, a complete Transformer block, cross-entropy,
+and a tiny end-to-end GPT model.
+
+```bash
+mvn test -Dtest=LayerNumericalGradientTest,GPTModelNumericalGradientTest,CrossEntropyNumericalGradientTest
+```
+
+`MetalBackendDifferentialTest` compares Metal against the CPU reference for
+element-wise math, activations, backward operations, in-place operations, and
+GPT/Llama/DeepSeek forward and backward paths. Its cases are skipped when no
+Metal device is available:
+
+```bash
+mvn test -Dtest=MetalBackendDifferentialTest
+```
 
 ### GPU-resident tensor design
 

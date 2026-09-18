@@ -22,13 +22,12 @@ public final class TensorAdapters {
 
     /** Unpack a flat float32 array into a new Tensor. */
     public static Tensor unpackF32(float[] flat, int rows, int cols) {
-        if (flat.length != rows * cols) {
+        Tensor t = new Tensor(rows, cols);
+        if (flat.length != t.data.length) {
             throw new IllegalArgumentException(
                     "Flat buffer length " + flat.length +
                             " does not match shape " + rows + "x" + cols);
         }
-
-        Tensor t = new Tensor(rows, cols);
         unpackF32Into(flat, t);
         return t;
     }

@@ -17,11 +17,11 @@ import java.util.Random;
  * Dataset that samples random contiguous chunks from token ids.
  *
  * <p>When created via {@link #fromFile}, the source text is streamed line-by-line,
- * tokenized in bounded chunks, and written to a temporary binary file that is then
- * memory-mapped. The full file never needs to fit in Java heap — the OS pages the
- * token data in and out as needed.
+ * tokenized one or more complete lines at a time, and written to a temporary binary
+ * file that is then memory-mapped. The full file never needs to fit in Java heap,
+ * although a single unusually long line must fit while it is tokenized.
  */
-public final class TextDataset {
+public final class TextDataset implements BatchSource {
 
     private static final int READ_BUFFER_CHARS  = 8_192;
     private static final int WRITE_BUFFER_BYTES = 1024 * 1024; // 1 MB → ~270K ints per flush
@@ -41,10 +41,15 @@ public final class TextDataset {
          * exercise the multi-segment path without needing a multi-gigabyte file.
          */
         static ChunkedIntBuffer map(Path file, long chunkBytes) throws IOException {
+            validateChunkBytes(chunkBytes);
             try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
                 long fileSize    = ch.size();
                 long intsPerChunk = chunkBytes / Integer.BYTES;
-                int  numChunks   = (int) Math.ceil((double) fileSize / chunkBytes);
+                long chunkCount = divideRoundingUp(fileSize, chunkBytes);
+                if (chunkCount > Integer.MAX_VALUE) {
+                    throw new IOException("Token file requires too many mapped segments");
+                }
+                int numChunks = (int) chunkCount;
                 IntBuffer[] bufs = new IntBuffer[numChunks];
                 for (int i = 0; i < numChunks; i++) {
                     long pos = i * chunkBytes;
@@ -53,6 +58,16 @@ public final class TextDataset {
                 }
                 return new ChunkedIntBuffer(bufs, intsPerChunk);
             }
+        }
+
+        private static void validateChunkBytes(long chunkBytes) {
+            if (chunkBytes <= 0 || chunkBytes > CHUNK_BYTES || chunkBytes % Integer.BYTES != 0) {
+                throw new IllegalArgumentException("chunkBytes must be a positive multiple of 4 up to " + CHUNK_BYTES);
+            }
+        }
+
+        private static long divideRoundingUp(long value, long divisor) {
+            return value / divisor + (value % divisor == 0 ? 0 : 1);
         }
 
         int get(long index) {
@@ -109,7 +124,11 @@ public final class TextDataset {
 
     /** Package-private test hook. */
     static TextDataset fromBinaryFile(Path binFile, int seqLen, long seed, long chunkBytes) throws IOException {
-        long tokenCount = Files.size(binFile) / Integer.BYTES;
+        long byteCount = Files.size(binFile);
+        if (byteCount % Integer.BYTES != 0) {
+            throw new IOException("Malformed token file: byte length must be divisible by 4");
+        }
+        long tokenCount = byteCount / Integer.BYTES;
         return new TextDataset(ChunkedIntBuffer.map(binFile, chunkBytes), tokenCount, seqLen, seed);
     }
 
@@ -174,6 +193,7 @@ public final class TextDataset {
     // ── batch sampling ──────────────────────────────────────────────
 
     public Batch nextBatch(int batchSize) {
+        if (batchSize < 1) throw new IllegalArgumentException("batchSize must be >= 1");
         int[][] x = new int[batchSize][seqLen];
         int[][] y = new int[batchSize][seqLen];
 

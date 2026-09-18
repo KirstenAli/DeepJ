@@ -27,13 +27,16 @@ final class MetalNative {
             tmp.toFile().deleteOnExit();
             Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
             System.load(tmp.toAbsolutePath().toString());
-            return true;
+            return nativeIsAvailable();
         } catch (Throwable t) {
             System.err.println("[DeepJ/Metal] Failed to load native library from: " + resourcePath);
             t.printStackTrace(System.err);
             return false;
         }
     }
+
+    /** Returns true only when macOS exposes a usable default Metal device. */
+    private static native boolean nativeIsAvailable();
 
     // ── Lazy graph execution: persistent GPU buffers + batch op flush ──
 

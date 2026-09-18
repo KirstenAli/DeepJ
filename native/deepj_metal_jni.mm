@@ -3,6 +3,7 @@
 #include <Metal/Metal.h>
 #include <MetalPerformanceShaders/MetalPerformanceShaders.h>
 #include <cstring>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 
@@ -61,6 +62,7 @@ struct MetalContext {
 };
 
 static MetalContext* gCtx = nullptr;
+static std::mutex gContextMutex;
 
 static NSString* metalShaderSource = @R"(
 #include <metal_stdlib>
@@ -892,6 +894,14 @@ static void throwJavaRuntimeException(JNIEnv* env, const char* msg) {
     }
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeIsAvailable(
+        JNIEnv*, jclass) {
+    @autoreleasepool {
+        return MTLCreateSystemDefaultDevice() == nil ? JNI_FALSE : JNI_TRUE;
+    }
+}
+
 static id<MTLComputePipelineState> makePSO(id<MTLLibrary> lib, NSString* name) {
     id<MTLFunction> fn = [lib newFunctionWithName:name];
     if (fn == nil) {
@@ -906,444 +916,115 @@ static id<MTLComputePipelineState> makePSO(id<MTLLibrary> lib, NSString* name) {
     return pso;
 }
 
-static MetalContext* getContext() {
-    if (gCtx != nullptr) return gCtx;
-
-    @autoreleasepool {
-        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-        if (device == nil) throw std::runtime_error("Metal device not available");
-
-        id<MTLCommandQueue> queue = [device newCommandQueue];
-        if (queue == nil) throw std::runtime_error("Failed to create Metal command queue");
-
-        NSError* error = nil;
-        MTLCompileOptions* opts = [[MTLCompileOptions alloc] init];
-        if (@available(macOS 15.0, *)) {
-            opts.mathMode = MTLMathModeFast;
-        } else {
+static MTLCompileOptions* makeCompileOptions() {
+    MTLCompileOptions* options = [[MTLCompileOptions alloc] init];
+    if (@available(macOS 15.0, *)) {
+        options.mathMode = MTLMathModeFast;
+    } else {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            opts.fastMathEnabled = YES;
+        options.fastMathEnabled = YES;
 #pragma clang diagnostic pop
-        }
-        id<MTLLibrary> library = [device newLibraryWithSource:metalShaderSource options:opts error:&error];
-        if (library == nil) {
-            NSString* desc = error.localizedDescription ?: @"Unknown error";
-            throw std::runtime_error(std::string("Failed to compile Metal shaders: ") + [desc UTF8String]);
-        }
+    }
+    return options;
+}
 
-        gCtx = new MetalContext();
-        gCtx->device  = device;
-        gCtx->queue   = queue;
-        gCtx->library = library;
+static id<MTLLibrary> compileLibrary(id<MTLDevice> device) {
+    NSError* error = nil;
+    id<MTLLibrary> library = [device newLibraryWithSource:metalShaderSource
+                                                  options:makeCompileOptions()
+                                                    error:&error];
+    if (library != nil) return library;
+    NSString* desc = error.localizedDescription ?: @"Unknown error";
+    throw std::runtime_error(std::string("Failed to compile Metal shaders: ") + [desc UTF8String]);
+}
 
-        gCtx->addPSO            = makePSO(library, @"kernel_add");
-        gCtx->subtractPSO       = makePSO(library, @"kernel_subtract");
-        gCtx->multiplyPSO       = makePSO(library, @"kernel_multiply");
-        gCtx->dividePSO         = makePSO(library, @"kernel_divide");
-        gCtx->multiplyScalarPSO = makePSO(library, @"kernel_multiply_scalar");
-        gCtx->addScalarPSO      = makePSO(library, @"kernel_add_scalar");
-        gCtx->divideScalarPSO   = makePSO(library, @"kernel_divide_scalar");
-        gCtx->transposePSO      = makePSO(library, @"kernel_transpose");
-        gCtx->addRowVectorPSO   = makePSO(library, @"kernel_add_row_vector");
-        gCtx->addBroadcastColsPSO = makePSO(library, @"kernel_add_broadcast_cols");
-        gCtx->subtractBroadcastColsPSO = makePSO(library, @"kernel_subtract_broadcast_cols");
-        gCtx->divideBroadcastColsPSO = makePSO(library, @"kernel_divide_broadcast_cols");
-        gCtx->multiplyBroadcastColsPSO = makePSO(library, @"kernel_multiply_broadcast_cols");
-        gCtx->multiplyBroadcastRowsPSO = makePSO(library, @"kernel_multiply_broadcast_rows");
-        gCtx->sumRowsPSO        = makePSO(library, @"kernel_sum_rows");
-        gCtx->sumAlongRowsPSO   = makePSO(library, @"kernel_sum_along_rows");
-        gCtx->meanAlongRowsPSO  = makePSO(library, @"kernel_mean_along_rows");
-        gCtx->varianceAlongRowsPSO = makePSO(library, @"kernel_variance_along_rows");
-        gCtx->maxAlongRowsPSO   = makePSO(library, @"kernel_max_along_rows");
-        gCtx->sumAbsPSO         = makePSO(library, @"kernel_sum_abs");
-        gCtx->crossEntropyLossPSO = makePSO(library, @"kernel_cross_entropy_loss");
-        gCtx->crossEntropyGradPSO = makePSO(library, @"kernel_cross_entropy_gradient");
-        gCtx->clampPSO          = makePSO(library, @"kernel_clamp");
-        gCtx->powPSO            = makePSO(library, @"kernel_pow");
-        gCtx->scatterAddRowsPSO = makePSO(library, @"kernel_scatter_add_rows");
-        gCtx->scatterAddRowsAtomicPSO = makePSO(library, @"kernel_scatter_add_rows_atomic");
-        gCtx->sqrtPSO           = makePSO(library, @"kernel_sqrt");
-        gCtx->negPSO            = makePSO(library, @"kernel_neg");
-        gCtx->expPSO            = makePSO(library, @"kernel_exp");
-        gCtx->logPSO            = makePSO(library, @"kernel_log");
-        gCtx->tanhPSO           = makePSO(library, @"kernel_tanh");
-        gCtx->sigmoidPSO        = makePSO(library, @"kernel_sigmoid");
-        gCtx->reluPSO           = makePSO(library, @"kernel_relu");
-        gCtx->reluBackwardPSO   = makePSO(library, @"kernel_relu_backward");
-        gCtx->geluPSO           = makePSO(library, @"kernel_gelu");
-        gCtx->geluBackwardPSO   = makePSO(library, @"kernel_gelu_backward");
-        gCtx->softmaxMaxPSO     = makePSO(library, @"kernel_softmax_max");
-        gCtx->softmaxExpSumPSO  = makePSO(library, @"kernel_softmax_expsum");
-        gCtx->softmaxNormPSO    = makePSO(library, @"kernel_softmax_norm");
-        gCtx->softmaxBackwardPSO= makePSO(library, @"kernel_softmax_backward");
-        gCtx->layerNormBackwardPSO = makePSO(library, @"kernel_layernorm_backward");
-        gCtx->adamWUpdatePSO    = makePSO(library, @"kernel_adamw_update");
+static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->addPSO = makePSO(library, @"kernel_add");
+    ctx->subtractPSO = makePSO(library, @"kernel_subtract");
+    ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
+    ctx->dividePSO = makePSO(library, @"kernel_divide");
+    ctx->multiplyScalarPSO = makePSO(library, @"kernel_multiply_scalar");
+    ctx->addScalarPSO = makePSO(library, @"kernel_add_scalar");
+    ctx->divideScalarPSO = makePSO(library, @"kernel_divide_scalar");
+    ctx->transposePSO = makePSO(library, @"kernel_transpose");
+}
+
+static void initBroadcastPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->addRowVectorPSO = makePSO(library, @"kernel_add_row_vector");
+    ctx->addBroadcastColsPSO = makePSO(library, @"kernel_add_broadcast_cols");
+    ctx->subtractBroadcastColsPSO = makePSO(library, @"kernel_subtract_broadcast_cols");
+    ctx->divideBroadcastColsPSO = makePSO(library, @"kernel_divide_broadcast_cols");
+    ctx->multiplyBroadcastColsPSO = makePSO(library, @"kernel_multiply_broadcast_cols");
+    ctx->multiplyBroadcastRowsPSO = makePSO(library, @"kernel_multiply_broadcast_rows");
+}
+
+static void initReductionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->sumRowsPSO = makePSO(library, @"kernel_sum_rows");
+    ctx->sumAlongRowsPSO = makePSO(library, @"kernel_sum_along_rows");
+    ctx->meanAlongRowsPSO = makePSO(library, @"kernel_mean_along_rows");
+    ctx->varianceAlongRowsPSO = makePSO(library, @"kernel_variance_along_rows");
+    ctx->maxAlongRowsPSO = makePSO(library, @"kernel_max_along_rows");
+    ctx->sumAbsPSO = makePSO(library, @"kernel_sum_abs");
+}
+
+static void initLossPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->crossEntropyLossPSO = makePSO(library, @"kernel_cross_entropy_loss");
+    ctx->crossEntropyGradPSO = makePSO(library, @"kernel_cross_entropy_gradient");
+    ctx->clampPSO = makePSO(library, @"kernel_clamp");
+    ctx->powPSO = makePSO(library, @"kernel_pow");
+    ctx->scatterAddRowsPSO = makePSO(library, @"kernel_scatter_add_rows");
+    ctx->scatterAddRowsAtomicPSO = makePSO(library, @"kernel_scatter_add_rows_atomic");
+}
+
+static void initUnaryPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->sqrtPSO = makePSO(library, @"kernel_sqrt");
+    ctx->negPSO = makePSO(library, @"kernel_neg");
+    ctx->expPSO = makePSO(library, @"kernel_exp");
+    ctx->logPSO = makePSO(library, @"kernel_log");
+    ctx->tanhPSO = makePSO(library, @"kernel_tanh");
+    ctx->sigmoidPSO = makePSO(library, @"kernel_sigmoid");
+    ctx->reluPSO = makePSO(library, @"kernel_relu");
+    ctx->reluBackwardPSO = makePSO(library, @"kernel_relu_backward");
+    ctx->geluPSO = makePSO(library, @"kernel_gelu");
+    ctx->geluBackwardPSO = makePSO(library, @"kernel_gelu_backward");
+}
+
+static void initTrainingPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->softmaxMaxPSO = makePSO(library, @"kernel_softmax_max");
+    ctx->softmaxExpSumPSO = makePSO(library, @"kernel_softmax_expsum");
+    ctx->softmaxNormPSO = makePSO(library, @"kernel_softmax_norm");
+    ctx->softmaxBackwardPSO = makePSO(library, @"kernel_softmax_backward");
+    ctx->layerNormBackwardPSO = makePSO(library, @"kernel_layernorm_backward");
+    ctx->adamWUpdatePSO = makePSO(library, @"kernel_adamw_update");
+}
+
+static MetalContext* createContext() {
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    if (device == nil) throw std::runtime_error("Metal device not available");
+    id<MTLCommandQueue> queue = [device newCommandQueue];
+    if (queue == nil) throw std::runtime_error("Failed to create Metal command queue");
+    id<MTLLibrary> library = compileLibrary(device);
+    MetalContext* ctx = new MetalContext();
+    ctx->device = device;
+    ctx->queue = queue;
+    ctx->library = library;
+    initBasicPipelines(ctx, library);
+    initBroadcastPipelines(ctx, library);
+    initReductionPipelines(ctx, library);
+    initLossPipelines(ctx, library);
+    initUnaryPipelines(ctx, library);
+    initTrainingPipelines(ctx, library);
+    return ctx;
+}
+
+static MetalContext* getContext() {
+    std::lock_guard<std::mutex> lock(gContextMutex);
+    if (gCtx != nullptr) return gCtx;
+    @autoreleasepool {
+        gCtx = createContext();
     }
     return gCtx;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-//  Helper: run a unary (1 input -> 1 output) compute kernel
-// ═══════════════════════════════════════════════════════════════════════
-
-static void runUnary(id<MTLComputePipelineState> pso,
-                     const float* a, float* out, int n) {
-    @autoreleasepool {
-        MetalContext* ctx = getContext();
-        NSUInteger bytes = (NSUInteger)n * sizeof(float);
-
-        id<MTLBuffer> bufA   = [ctx->device newBufferWithBytes:a   length:bytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufOut = [ctx->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
-
-        id<MTLCommandBuffer> cmdBuf = [ctx->queue commandBuffer];
-        id<MTLComputeCommandEncoder> enc = [cmdBuf computeCommandEncoder];
-        [enc setComputePipelineState:pso];
-        [enc setBuffer:bufA   offset:0 atIndex:0];
-        [enc setBuffer:bufOut offset:0 atIndex:1];
-
-        NSUInteger tpg = MIN((NSUInteger)n, pso.maxTotalThreadsPerThreadgroup);
-        [enc dispatchThreads:MTLSizeMake(n, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-        [enc endEncoding];
-        [cmdBuf commit];
-        [cmdBuf waitUntilCompleted];
-
-        std::memcpy(out, [bufOut contents], bytes);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-//  Helper: run a binary (2 inputs -> 1 output) compute kernel
-// ═══════════════════════════════════════════════════════════════════════
-
-static void runBinary(id<MTLComputePipelineState> pso,
-                      const float* a, const float* b, float* out, int n) {
-    @autoreleasepool {
-        MetalContext* ctx = getContext();
-        NSUInteger bytes = (NSUInteger)n * sizeof(float);
-
-        id<MTLBuffer> bufA   = [ctx->device newBufferWithBytes:a   length:bytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufB   = [ctx->device newBufferWithBytes:b   length:bytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufOut = [ctx->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
-
-        id<MTLCommandBuffer> cmdBuf = [ctx->queue commandBuffer];
-        id<MTLComputeCommandEncoder> enc = [cmdBuf computeCommandEncoder];
-        [enc setComputePipelineState:pso];
-        [enc setBuffer:bufA   offset:0 atIndex:0];
-        [enc setBuffer:bufB   offset:0 atIndex:1];
-        [enc setBuffer:bufOut offset:0 atIndex:2];
-
-        NSUInteger tpg = MIN((NSUInteger)n, pso.maxTotalThreadsPerThreadgroup);
-        [enc dispatchThreads:MTLSizeMake(n, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-        [enc endEncoding];
-        [cmdBuf commit];
-        [cmdBuf waitUntilCompleted];
-
-        std::memcpy(out, [bufOut contents], bytes);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-//  Matmul (unchanged algorithm, but uses persistent context)
-// ═══════════════════════════════════════════════════════════════════════
-
-static void runMatmulF32(const float* a, const float* b, float* out,
-                         int m, int n, int k) {
-    @autoreleasepool {
-        MetalContext* ctx = getContext();
-
-        const NSUInteger bytesA = (NSUInteger)m * (NSUInteger)k * sizeof(float);
-        const NSUInteger bytesB = (NSUInteger)k * (NSUInteger)n * sizeof(float);
-        const NSUInteger bytesC = (NSUInteger)m * (NSUInteger)n * sizeof(float);
-
-        id<MTLBuffer> bufA = [ctx->device newBufferWithBytes:a length:bytesA options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufB = [ctx->device newBufferWithBytes:b length:bytesB options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufC = [ctx->device newBufferWithLength:bytesC options:MTLResourceStorageModeShared];
-
-        if (bufA == nil || bufB == nil || bufC == nil) {
-            throw std::runtime_error("Failed to allocate Metal buffers");
-        }
-
-        MPSMatrixDescriptor* descA =
-            [MPSMatrixDescriptor matrixDescriptorWithRows:m columns:k
-                                                rowBytes:(NSUInteger)k * sizeof(float)
-                                                dataType:MPSDataTypeFloat32];
-        MPSMatrixDescriptor* descB =
-            [MPSMatrixDescriptor matrixDescriptorWithRows:k columns:n
-                                                rowBytes:(NSUInteger)n * sizeof(float)
-                                                dataType:MPSDataTypeFloat32];
-        MPSMatrixDescriptor* descC =
-            [MPSMatrixDescriptor matrixDescriptorWithRows:m columns:n
-                                                rowBytes:(NSUInteger)n * sizeof(float)
-                                                dataType:MPSDataTypeFloat32];
-
-        MPSMatrix* matA = [[MPSMatrix alloc] initWithBuffer:bufA descriptor:descA];
-        MPSMatrix* matB = [[MPSMatrix alloc] initWithBuffer:bufB descriptor:descB];
-        MPSMatrix* matC = [[MPSMatrix alloc] initWithBuffer:bufC descriptor:descC];
-
-        MPSMatrixMultiplication* mm =
-            [[MPSMatrixMultiplication alloc] initWithDevice:ctx->device
-                                             transposeLeft:NO transposeRight:NO
-                                                resultRows:m resultColumns:n
-                                           interiorColumns:k alpha:1.0 beta:0.0];
-
-        id<MTLCommandBuffer> cmdBuf = [ctx->queue commandBuffer];
-        [mm encodeToCommandBuffer:cmdBuf leftMatrix:matA rightMatrix:matB resultMatrix:matC];
-        [cmdBuf commit];
-        [cmdBuf waitUntilCompleted];
-
-        if (cmdBuf.status == MTLCommandBufferStatusError) {
-            NSString* desc = cmdBuf.error.localizedDescription ?: @"Unknown Metal command buffer error";
-            throw std::runtime_error([desc UTF8String]);
-        }
-
-        std::memcpy(out, [bufC contents], bytesC);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-//  Softmax (3-pass GPU)
-// ═══════════════════════════════════════════════════════════════════════
-
-// Largest power-of-two threadgroup width (<= 256) for the row-reduction
-// kernels. The tree reduction (stride = tptg.x >> 1) is only correct when the
-// threadgroup width is a power of two, and each row is cooperatively reduced by
-// one threadgroup laid out along the grid's X axis (row index = gid.y).
-static NSUInteger softmaxReductionWidth(id<MTLComputePipelineState> pso) {
-    NSUInteger limit = MIN((NSUInteger)256, pso.maxTotalThreadsPerThreadgroup);
-    NSUInteger width = 1;
-    while ((width << 1) <= limit) {
-        width <<= 1;
-    }
-    return width;
-}
-
-static void runSoftmaxRowsF32(const float* a, float* out, int rows, int cols) {
-    @autoreleasepool {
-        MetalContext* ctx = getContext();
-        NSUInteger totalBytes = (NSUInteger)rows * (NSUInteger)cols * sizeof(float);
-        NSUInteger rowBytes   = (NSUInteger)rows * sizeof(float);
-
-        id<MTLBuffer> bufA      = [ctx->device newBufferWithBytes:a length:totalBytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufOut    = [ctx->device newBufferWithLength:totalBytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufMax    = [ctx->device newBufferWithLength:rowBytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufSum    = [ctx->device newBufferWithLength:rowBytes options:MTLResourceStorageModeShared];
-        uint32_t colsVal = (uint32_t)cols;
-        id<MTLBuffer> bufDims   = [ctx->device newBufferWithBytes:&colsVal length:sizeof(uint32_t) options:MTLResourceStorageModeShared];
-
-        id<MTLCommandBuffer> cmdBuf = [ctx->queue commandBuffer];
-
-        // Pass 1: max per row
-        {
-            id<MTLComputeCommandEncoder> enc = [cmdBuf computeCommandEncoder];
-            [enc setComputePipelineState:ctx->softmaxMaxPSO];
-            [enc setBuffer:bufA    offset:0 atIndex:0];
-            [enc setBuffer:bufMax  offset:0 atIndex:1];
-            [enc setBuffer:bufDims offset:0 atIndex:2];
-            NSUInteger tpg = softmaxReductionWidth(ctx->softmaxMaxPSO);
-            [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-            [enc endEncoding];
-        }
-
-        // Pass 2: exp + sum per row
-        {
-            id<MTLComputeCommandEncoder> enc = [cmdBuf computeCommandEncoder];
-            [enc setComputePipelineState:ctx->softmaxExpSumPSO];
-            [enc setBuffer:bufA    offset:0 atIndex:0];
-            [enc setBuffer:bufOut  offset:0 atIndex:1];
-            [enc setBuffer:bufMax  offset:0 atIndex:2];
-            [enc setBuffer:bufSum  offset:0 atIndex:3];
-            [enc setBuffer:bufDims offset:0 atIndex:4];
-            NSUInteger tpg = softmaxReductionWidth(ctx->softmaxExpSumPSO);
-            [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-            [enc endEncoding];
-        }
-
-        // Pass 3: normalize
-        {
-            NSUInteger total = (NSUInteger)rows * (NSUInteger)cols;
-            id<MTLComputeCommandEncoder> enc = [cmdBuf computeCommandEncoder];
-            [enc setComputePipelineState:ctx->softmaxNormPSO];
-            [enc setBuffer:bufOut  offset:0 atIndex:0];
-            [enc setBuffer:bufSum  offset:0 atIndex:1];
-            [enc setBuffer:bufDims offset:0 atIndex:2];
-            NSUInteger tpg = MIN(total, ctx->softmaxNormPSO.maxTotalThreadsPerThreadgroup);
-            [enc dispatchThreads:MTLSizeMake(total, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-            [enc endEncoding];
-        }
-
-        [cmdBuf commit];
-        [cmdBuf waitUntilCompleted];
-
-        std::memcpy(out, [bufOut contents], totalBytes);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-//  Scalar multiply
-// ═══════════════════════════════════════════════════════════════════════
-
-static void runMultiplyScalarF32(const float* a, float* out, float scalar, int n) {
-    @autoreleasepool {
-        MetalContext* ctx = getContext();
-        NSUInteger bytes = (NSUInteger)n * sizeof(float);
-
-        id<MTLBuffer> bufA      = [ctx->device newBufferWithBytes:a length:bytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufOut    = [ctx->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> bufScalar = [ctx->device newBufferWithBytes:&scalar length:sizeof(float) options:MTLResourceStorageModeShared];
-
-        id<MTLCommandBuffer> cmdBuf = [ctx->queue commandBuffer];
-        id<MTLComputeCommandEncoder> enc = [cmdBuf computeCommandEncoder];
-        [enc setComputePipelineState:ctx->multiplyScalarPSO];
-        [enc setBuffer:bufA      offset:0 atIndex:0];
-        [enc setBuffer:bufOut    offset:0 atIndex:1];
-        [enc setBuffer:bufScalar offset:0 atIndex:2];
-
-        NSUInteger tpg = MIN((NSUInteger)n, ctx->multiplyScalarPSO.maxTotalThreadsPerThreadgroup);
-        [enc dispatchThreads:MTLSizeMake(n, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-        [enc endEncoding];
-        [cmdBuf commit];
-        [cmdBuf waitUntilCompleted];
-
-        std::memcpy(out, [bufOut contents], bytes);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-//  JNI helpers
-// ═══════════════════════════════════════════════════════════════════════
-
-// Two-level macro to force expansion of JNI_PREFIX before token pasting
-#define JNI_PASTE_(prefix, name) prefix##name
-#define JNI_PASTE(prefix, name)  JNI_PASTE_(prefix, name)
-#define JNI_PREFIX Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_
-#define JNI_FN(name) JNI_PASTE(JNI_PREFIX, name)
-
-#define DEFINE_UNARY_JNI(name, pso_field) \
-extern "C" JNIEXPORT void JNICALL \
-JNI_FN(name)(JNIEnv* env, jclass, jfloatArray aArr, jfloatArray outArr, jint n) { \
-    jfloat* a   = env->GetFloatArrayElements(aArr,   nullptr); \
-    jfloat* out = env->GetFloatArrayElements(outArr,  nullptr); \
-    try { \
-        MetalContext* ctx = getContext(); \
-        runUnary(ctx->pso_field, a, out, (int)n); \
-    } catch (const std::exception& ex) { \
-        env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT); \
-        env->ReleaseFloatArrayElements(outArr, out, 0); \
-        throwJavaRuntimeException(env, ex.what()); \
-        return; \
-    } \
-    env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT); \
-    env->ReleaseFloatArrayElements(outArr, out, 0); \
-}
-
-#define DEFINE_BINARY_JNI(name, pso_field) \
-extern "C" JNIEXPORT void JNICALL \
-JNI_FN(name)(JNIEnv* env, jclass, jfloatArray aArr, jfloatArray bArr, jfloatArray outArr, jint n) { \
-    jfloat* a   = env->GetFloatArrayElements(aArr,   nullptr); \
-    jfloat* b   = env->GetFloatArrayElements(bArr,   nullptr); \
-    jfloat* out = env->GetFloatArrayElements(outArr,  nullptr); \
-    try { \
-        MetalContext* ctx = getContext(); \
-        runBinary(ctx->pso_field, a, b, out, (int)n); \
-    } catch (const std::exception& ex) { \
-        env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT); \
-        env->ReleaseFloatArrayElements(bArr,   b,   JNI_ABORT); \
-        env->ReleaseFloatArrayElements(outArr, out, 0); \
-        throwJavaRuntimeException(env, ex.what()); \
-        return; \
-    } \
-    env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT); \
-    env->ReleaseFloatArrayElements(bArr,   b,   JNI_ABORT); \
-    env->ReleaseFloatArrayElements(outArr, out, 0); \
-}
-
-// ── Matmul JNI ─────────────────────────────────────────────────────────
-
-extern "C" JNIEXPORT void JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_matmulF32(
-        JNIEnv* env, jclass,
-        jfloatArray aArr, jfloatArray bArr, jfloatArray outArr,
-        jint m, jint n, jint k) {
-    jfloat* a   = env->GetFloatArrayElements(aArr,   nullptr);
-    jfloat* b   = env->GetFloatArrayElements(bArr,   nullptr);
-    jfloat* out = env->GetFloatArrayElements(outArr,  nullptr);
-    try {
-        runMatmulF32(a, b, out, m, n, k);
-    } catch (const std::exception& ex) {
-        env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT);
-        env->ReleaseFloatArrayElements(bArr,   b,   JNI_ABORT);
-        env->ReleaseFloatArrayElements(outArr, out, 0);
-        throwJavaRuntimeException(env, ex.what());
-        return;
-    }
-    env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT);
-    env->ReleaseFloatArrayElements(bArr,   b,   JNI_ABORT);
-    env->ReleaseFloatArrayElements(outArr, out, 0);
-}
-
-// ── Element-wise binary JNI ────────────────────────────────────────────
-
-DEFINE_BINARY_JNI(addF32,      addPSO)
-DEFINE_BINARY_JNI(subtractF32, subtractPSO)
-DEFINE_BINARY_JNI(multiplyF32, multiplyPSO)
-DEFINE_BINARY_JNI(divideF32,   dividePSO)
-
-// ── Scalar JNI ─────────────────────────────────────────────────────────
-
-extern "C" JNIEXPORT void JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_multiplyScalarF32(
-        JNIEnv* env, jclass,
-        jfloatArray aArr, jfloatArray outArr, jfloat scalar, jint n) {
-    jfloat* a   = env->GetFloatArrayElements(aArr,   nullptr);
-    jfloat* out = env->GetFloatArrayElements(outArr,  nullptr);
-    try {
-        runMultiplyScalarF32(a, out, scalar, (int)n);
-    } catch (const std::exception& ex) {
-        env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT);
-        env->ReleaseFloatArrayElements(outArr, out, 0);
-        throwJavaRuntimeException(env, ex.what());
-        return;
-    }
-    env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT);
-    env->ReleaseFloatArrayElements(outArr, out, 0);
-}
-
-// ── Unary math JNI ─────────────────────────────────────────────────────
-
-DEFINE_UNARY_JNI(sqrtF32, sqrtPSO)
-DEFINE_UNARY_JNI(negF32,  negPSO)
-DEFINE_UNARY_JNI(expF32,  expPSO)
-DEFINE_UNARY_JNI(logF32,  logPSO)
-
-// ── Activation JNI ─────────────────────────────────────────────────────
-
-DEFINE_UNARY_JNI(tanhF32,    tanhPSO)
-DEFINE_UNARY_JNI(sigmoidF32, sigmoidPSO)
-DEFINE_UNARY_JNI(reluF32,    reluPSO)
-
-DEFINE_BINARY_JNI(reluBackwardF32, reluBackwardPSO)
-DEFINE_UNARY_JNI(geluF32,         geluPSO)
-DEFINE_BINARY_JNI(geluBackwardF32, geluBackwardPSO)
-
-// ── Softmax JNI ────────────────────────────────────────────────────────
-
-extern "C" JNIEXPORT void JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_softmaxRowsF32(
-        JNIEnv* env, jclass,
-        jfloatArray aArr, jfloatArray outArr, jint rows, jint cols) {
-    jfloat* a   = env->GetFloatArrayElements(aArr,   nullptr);
-    jfloat* out = env->GetFloatArrayElements(outArr,  nullptr);
-    try {
-        runSoftmaxRowsF32(a, out, (int)rows, (int)cols);
-    } catch (const std::exception& ex) {
-        env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT);
-        env->ReleaseFloatArrayElements(outArr, out, 0);
-        throwJavaRuntimeException(env, ex.what());
-        return;
-    }
-    env->ReleaseFloatArrayElements(aArr,   a,   JNI_ABORT);
-    env->ReleaseFloatArrayElements(outArr, out, 0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1356,6 +1037,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_softmaxRowsF32(
 #include <unordered_map>
 
 static std::unordered_map<int, id<MTLBuffer>> gBufferPool;
+static std::mutex gBufferMutex;
 
 // Cache of MPSMatrixMultiplication kernels keyed by (m,n,k). Building an MPS
 // kernel is expensive, and matmul is the most frequent op in a transformer, so
@@ -1450,73 +1132,125 @@ static NSUInteger colReductionHeight(id<MTLComputePipelineState> pso) {
     return height;
 }
 
-// Helper: encode a softmax 3-pass into an existing compute encoder
-static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &enc,
-                               id<MTLCommandBuffer> cmdBuf,
-                               MetalContext* ctx,
-                               id<MTLBuffer> bufIn, id<MTLBuffer> bufOut,
+struct SoftmaxBuffers {
+    id<MTLBuffer> maximum;
+    id<MTLBuffer> sum;
+    id<MTLBuffer> dimensions;
+};
+
+static SoftmaxBuffers makeSoftmaxBuffers(MetalContext* ctx, int rows, int cols) {
+    NSUInteger bytes = (NSUInteger)rows * sizeof(float);
+    id<MTLBuffer> maximum = [ctx->device newBufferWithLength:bytes
+                                                     options:MTLResourceStorageModeShared];
+    id<MTLBuffer> sum = [ctx->device newBufferWithLength:bytes
+                                                 options:MTLResourceStorageModeShared];
+    uint32_t width = (uint32_t)cols;
+    id<MTLBuffer> dims = [ctx->device newBufferWithBytes:&width length:sizeof(width)
+                                                  options:MTLResourceStorageModeShared];
+    if (maximum == nil || sum == nil || dims == nil) {
+        throw std::runtime_error("Failed to allocate softmax buffers");
+    }
+    return SoftmaxBuffers{maximum, sum, dims};
+}
+
+static void encodeSoftmaxMax(id<MTLComputeCommandEncoder> encoder, MetalContext* ctx,
+                             id<MTLBuffer> input, const SoftmaxBuffers& buffers, int rows) {
+    [encoder setComputePipelineState:ctx->softmaxMaxPSO];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:buffers.maximum offset:0 atIndex:1];
+    [encoder setBuffer:buffers.dimensions offset:0 atIndex:2];
+    NSUInteger threads = rowReductionWidth(ctx->softmaxMaxPSO);
+    [encoder dispatchThreads:MTLSizeMake(threads, (NSUInteger)rows, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void encodeSoftmaxExp(id<MTLComputeCommandEncoder> encoder, MetalContext* ctx,
+                             id<MTLBuffer> input, id<MTLBuffer> output,
+                             const SoftmaxBuffers& buffers, int rows) {
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:ctx->softmaxExpSumPSO];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:output offset:0 atIndex:1];
+    [encoder setBuffer:buffers.maximum offset:0 atIndex:2];
+    [encoder setBuffer:buffers.sum offset:0 atIndex:3];
+    [encoder setBuffer:buffers.dimensions offset:0 atIndex:4];
+    NSUInteger threads = rowReductionWidth(ctx->softmaxExpSumPSO);
+    [encoder dispatchThreads:MTLSizeMake(threads, (NSUInteger)rows, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void encodeSoftmaxNorm(id<MTLComputeCommandEncoder> encoder, MetalContext* ctx,
+                              id<MTLBuffer> output, const SoftmaxBuffers& buffers,
+                              NSUInteger total) {
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:ctx->softmaxNormPSO];
+    [encoder setBuffer:output offset:0 atIndex:0];
+    [encoder setBuffer:buffers.sum offset:0 atIndex:1];
+    [encoder setBuffer:buffers.dimensions offset:0 atIndex:2];
+    NSUInteger threads = MIN(total, ctx->softmaxNormPSO.maxTotalThreadsPerThreadgroup);
+    [encoder dispatchThreads:MTLSizeMake(total, 1, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &encoder,
+                               id<MTLCommandBuffer> commandBuffer, MetalContext* ctx,
+                               id<MTLBuffer> input, id<MTLBuffer> output,
                                int rows, int cols) {
-    NSUInteger rowBytes = (NSUInteger)rows * sizeof(float);
-    id<MTLBuffer> bufMax  = [ctx->device newBufferWithLength:rowBytes options:MTLResourceStorageModeShared];
-    id<MTLBuffer> bufSum  = [ctx->device newBufferWithLength:rowBytes options:MTLResourceStorageModeShared];
-    uint32_t colsVal = (uint32_t)cols;
-    id<MTLBuffer> bufDims = [ctx->device newBufferWithBytes:&colsVal length:sizeof(uint32_t) options:MTLResourceStorageModeShared];
-
-    if (!enc) enc = [cmdBuf computeCommandEncoder];
-
-    // Pass 1: max per row
-    [enc setComputePipelineState:ctx->softmaxMaxPSO];
-    [enc setBuffer:bufIn   offset:0 atIndex:0];
-    [enc setBuffer:bufMax  offset:0 atIndex:1];
-    [enc setBuffer:bufDims offset:0 atIndex:2];
-    NSUInteger tpg1 = rowReductionWidth(ctx->softmaxMaxPSO);
-    [enc dispatchThreads:MTLSizeMake(tpg1, (NSUInteger)rows, 1)
-        threadsPerThreadgroup:MTLSizeMake(tpg1, 1, 1)];
-
-    [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
-
-    // Pass 2: exp + sum per row
-    [enc setComputePipelineState:ctx->softmaxExpSumPSO];
-    [enc setBuffer:bufIn   offset:0 atIndex:0];
-    [enc setBuffer:bufOut  offset:0 atIndex:1];
-    [enc setBuffer:bufMax  offset:0 atIndex:2];
-    [enc setBuffer:bufSum  offset:0 atIndex:3];
-    [enc setBuffer:bufDims offset:0 atIndex:4];
-    NSUInteger tpg2 = rowReductionWidth(ctx->softmaxExpSumPSO);
-    [enc dispatchThreads:MTLSizeMake(tpg2, (NSUInteger)rows, 1)
-        threadsPerThreadgroup:MTLSizeMake(tpg2, 1, 1)];
-
-    [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
-
-    // Pass 3: normalize
-    NSUInteger total = (NSUInteger)rows * (NSUInteger)cols;
-    [enc setComputePipelineState:ctx->softmaxNormPSO];
-    [enc setBuffer:bufOut  offset:0 atIndex:0];
-    [enc setBuffer:bufSum  offset:0 atIndex:1];
-    [enc setBuffer:bufDims offset:0 atIndex:2];
-    NSUInteger tpg3 = MIN(total, ctx->softmaxNormPSO.maxTotalThreadsPerThreadgroup);
-    [enc dispatchThreads:MTLSizeMake(total, 1, 1) threadsPerThreadgroup:MTLSizeMake(tpg3, 1, 1)];
+    SoftmaxBuffers buffers = makeSoftmaxBuffers(ctx, rows, cols);
+    if (encoder == nil) encoder = [commandBuffer computeCommandEncoder];
+    encodeSoftmaxMax(encoder, ctx, input, buffers, rows);
+    encodeSoftmaxExp(encoder, ctx, input, output, buffers, rows);
+    encodeSoftmaxNorm(encoder, ctx, output, buffers,
+                      (NSUInteger)rows * (NSUInteger)cols);
 }
 
 // ── nativeAllocBuffers ─────────────────────────────────────────────────
 
+static bool validateAllocationArrays(JNIEnv* env, jintArray ids, jintArray sizes, jint count) {
+    if (ids == nullptr || sizes == nullptr) {
+        throwJavaRuntimeException(env, "GPU allocation arrays cannot be null");
+        return false;
+    }
+    if (count >= 0 && count <= env->GetArrayLength(ids) &&
+        count <= env->GetArrayLength(sizes)) return true;
+    throwJavaRuntimeException(env, "Invalid GPU allocation count");
+    return false;
+}
+
+static void allocateBuffer(MetalContext* ctx, int bufferId, int floatCount) {
+    if (bufferId < 0 || floatCount <= 0) throw std::runtime_error("Invalid GPU buffer allocation");
+    NSUInteger bytes = (NSUInteger)floatCount * sizeof(float);
+    auto existing = gBufferPool.find(bufferId);
+    if (existing != gBufferPool.end()) {
+        if ([existing->second length] != bytes) {
+            throw std::runtime_error("GPU buffer id already has a different size");
+        }
+        return;
+    }
+    id<MTLBuffer> buffer = [ctx->device newBufferWithLength:bytes
+                                                    options:MTLResourceStorageModeShared];
+    if (buffer == nil) throw std::runtime_error("Failed to allocate Metal buffer");
+    gBufferPool[bufferId] = buffer;
+}
+
+static void allocateBuffers(const jint* ids, const jint* sizes, int count) {
+    MetalContext* ctx = getContext();
+    for (int i = 0; i < count; i++) allocateBuffer(ctx, ids[i], sizes[i]);
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
         JNIEnv* env, jclass, jintArray idsArr, jintArray sizesArr, jint count) {
+    if (!validateAllocationArrays(env, idsArr, sizesArr, count)) return;
     jint* ids   = env->GetIntArrayElements(idsArr, nullptr);
     jint* sizes = env->GetIntArrayElements(sizesArr, nullptr);
+    if (ids == nullptr || sizes == nullptr) {
+        if (ids != nullptr) env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
+        return;
+    }
     try {
-        MetalContext* ctx = getContext();
-        for (int i = 0; i < count; i++) {
-            int bufId = ids[i];
-            if (gBufferPool.find(bufId) == gBufferPool.end()) {
-                NSUInteger bytes = (NSUInteger)sizes[i] * sizeof(float);
-                id<MTLBuffer> buf = [ctx->device newBufferWithLength:bytes
-                                     options:MTLResourceStorageModeShared];
-                if (buf == nil) throw std::runtime_error("Failed to allocate Metal buffer");
-                gBufferPool[bufId] = buf;
-            }
-        }
+        std::lock_guard<std::mutex> lock(gBufferMutex);
+        allocateBuffers(ids, sizes, count);
     } catch (const std::exception& ex) {
         env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
         env->ReleaseIntArrayElements(sizesArr, sizes, JNI_ABORT);
@@ -1532,13 +1266,23 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
         JNIEnv* env, jclass, jint bufId, jfloatArray dataArr) {
+    if (dataArr == nullptr) {
+        throwJavaRuntimeException(env, "Upload data cannot be null");
+        return;
+    }
+    std::lock_guard<std::mutex> lock(gBufferMutex);
     auto it = gBufferPool.find(bufId);
     if (it == gBufferPool.end()) {
         throwJavaRuntimeException(env, "Buffer not found for upload");
         return;
     }
     jint len = env->GetArrayLength(dataArr);
+    if ((NSUInteger)len * sizeof(float) != [it->second length]) {
+        throwJavaRuntimeException(env, "Upload length does not match Metal buffer size");
+        return;
+    }
     jfloat* data = env->GetFloatArrayElements(dataArr, nullptr);
+    if (data == nullptr) return;
     std::memcpy([it->second contents], data, (size_t)len * sizeof(float));
     env->ReleaseFloatArrayElements(dataArr, data, JNI_ABORT);
 }
@@ -1548,13 +1292,23 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer(
         JNIEnv* env, jclass, jint bufId, jfloatArray outArr) {
+    if (outArr == nullptr) {
+        throwJavaRuntimeException(env, "Download target cannot be null");
+        return;
+    }
+    std::lock_guard<std::mutex> lock(gBufferMutex);
     auto it = gBufferPool.find(bufId);
     if (it == gBufferPool.end()) {
         throwJavaRuntimeException(env, "Buffer not found for download");
         return;
     }
     jint len = env->GetArrayLength(outArr);
+    if ((NSUInteger)len * sizeof(float) != [it->second length]) {
+        throwJavaRuntimeException(env, "Download length does not match Metal buffer size");
+        return;
+    }
     jfloat* out = env->GetFloatArrayElements(outArr, nullptr);
+    if (out == nullptr) return;
     std::memcpy(out, [it->second contents], (size_t)len * sizeof(float));
     env->ReleaseFloatArrayElements(outArr, out, 0);
 }
@@ -1564,11 +1318,519 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer(
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
         JNIEnv* env, jclass, jintArray idsArr, jint count) {
+    if (idsArr == nullptr || count < 0 || count > env->GetArrayLength(idsArr)) {
+        throwJavaRuntimeException(env, "Invalid GPU release request");
+        return;
+    }
+    std::lock_guard<std::mutex> lock(gBufferMutex);
     jint* ids = env->GetIntArrayElements(idsArr, nullptr);
+    if (ids == nullptr) return;
     for (int i = 0; i < count; i++) {
         gBufferPool.erase(ids[i]);
     }
     env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
+}
+
+struct GraphState {
+    MetalContext* ctx;
+    id<MTLCommandBuffer> commandBuffer;
+    id<MTLComputeCommandEncoder> encoder;
+};
+
+struct AdamWParamsHost {
+    float lr;
+    float beta1;
+    float beta2;
+    float eps;
+    float weightDecay;
+    float bc1;
+    float bc2;
+};
+
+static id<MTLComputeCommandEncoder> graphEncoder(GraphState& state) {
+    if (state.encoder == nil) {
+        state.encoder = [state.commandBuffer computeCommandEncoder];
+    }
+    return state.encoder;
+}
+
+static id<MTLBuffer> valueBuffer(MetalContext* ctx, const void* value, NSUInteger bytes) {
+    id<MTLBuffer> buffer = [ctx->device newBufferWithBytes:value
+                                                   length:bytes
+                                                  options:MTLResourceStorageModeShared];
+    if (buffer == nil) throw std::runtime_error("Failed to allocate Metal value buffer");
+    return buffer;
+}
+
+static float floatFromBits(int bits) {
+    float value;
+    std::memcpy(&value, &bits, sizeof(float));
+    return value;
+}
+
+static NSUInteger positiveCount(int value, const char* name) {
+    if (value <= 0) throw std::runtime_error(std::string(name) + " must be positive");
+    return (NSUInteger)value;
+}
+
+static NSUInteger elementCount(int rows, int cols) {
+    return positiveCount(rows, "rows") * positiveCount(cols, "cols");
+}
+
+static void dispatch1D(id<MTLComputeCommandEncoder> encoder,
+                       id<MTLComputePipelineState> pipeline, NSUInteger count) {
+    NSUInteger threads = MIN(count, pipeline.maxTotalThreadsPerThreadgroup);
+    [encoder dispatchThreads:MTLSizeMake(count, 1, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
+    switch (op) {
+        case OP_ADD: return ctx->addPSO;
+        case OP_SUBTRACT: return ctx->subtractPSO;
+        case OP_MULTIPLY: return ctx->multiplyPSO;
+        case OP_DIVIDE: return ctx->dividePSO;
+        case OP_RELU_BACKWARD: return ctx->reluBackwardPSO;
+        case OP_GELU_BACKWARD: return ctx->geluBackwardPSO;
+        default: throw std::runtime_error("Invalid binary op");
+    }
+}
+
+static id<MTLComputePipelineState> unaryPipeline(MetalContext* ctx, int op) {
+    switch (op) {
+        case OP_SQRT: return ctx->sqrtPSO;
+        case OP_NEG: return ctx->negPSO;
+        case OP_EXP: return ctx->expPSO;
+        case OP_LOG: return ctx->logPSO;
+        case OP_TANH: return ctx->tanhPSO;
+        case OP_SIGMOID: return ctx->sigmoidPSO;
+        case OP_RELU: return ctx->reluPSO;
+        case OP_GELU: return ctx->geluPSO;
+        default: throw std::runtime_error("Invalid unary op");
+    }
+}
+
+static id<MTLComputePipelineState> scalarPipeline(MetalContext* ctx, int op) {
+    switch (op) {
+        case OP_MULTIPLY_SCALAR: return ctx->multiplyScalarPSO;
+        case OP_ADD_SCALAR: return ctx->addScalarPSO;
+        case OP_DIVIDE_SCALAR: return ctx->divideScalarPSO;
+        case OP_POW: return ctx->powPSO;
+        default: throw std::runtime_error("Invalid scalar op");
+    }
+}
+
+static void encodeBinary(GraphState& state, const jint* cmd, int pos) {
+    id<MTLComputePipelineState> pipeline = binaryPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "binary op") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "binary op") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "binary op") offset:0 atIndex:2];
+    dispatch1D(encoder, pipeline, positiveCount(cmd[pos + 4], "element count"));
+}
+
+static void encodeUnary(GraphState& state, const jint* cmd, int pos) {
+    id<MTLComputePipelineState> pipeline = unaryPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "unary op") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "unary op") offset:0 atIndex:1];
+    dispatch1D(encoder, pipeline, positiveCount(cmd[pos + 3], "element count"));
+}
+
+static void encodeScalar(GraphState& state, const jint* cmd, int pos) {
+    float scalar = floatFromBits(cmd[pos + 3]);
+    id<MTLBuffer> value = valueBuffer(state.ctx, &scalar, sizeof(float));
+    id<MTLComputePipelineState> pipeline = scalarPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "scalar op") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "scalar op") offset:0 atIndex:1];
+    [encoder setBuffer:value offset:0 atIndex:2];
+    dispatch1D(encoder, pipeline, positiveCount(cmd[pos + 4], "element count"));
+}
+
+static void encodeClamp(GraphState& state, const jint* cmd, int pos) {
+    float range[] = {floatFromBits(cmd[pos + 3]), floatFromBits(cmd[pos + 4])};
+    id<MTLBuffer> rangeBuffer = valueBuffer(state.ctx, range, sizeof(range));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->clampPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "clamp op") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "clamp op") offset:0 atIndex:1];
+    [encoder setBuffer:rangeBuffer offset:0 atIndex:2];
+    dispatch1D(encoder, state.ctx->clampPSO,
+               positiveCount(cmd[pos + 5], "element count"));
+}
+
+static void encodeTranspose(GraphState& state, const jint* cmd, int pos) {
+    uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4]};
+    NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 4]);
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->transposePSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "transpose") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "transpose") offset:0 atIndex:1];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    dispatch1D(encoder, state.ctx->transposePSO, total);
+}
+
+static id<MTLComputePipelineState> scatterPipeline(MetalContext* ctx, int op) {
+    if (op == OP_SCATTER_ADD_ROWS) return ctx->scatterAddRowsPSO;
+    if (op == OP_SCATTER_ADD_ROWS_ATOMIC) return ctx->scatterAddRowsAtomicPSO;
+    throw std::runtime_error("Invalid scatter op");
+}
+
+static void encodeScatter(GraphState& state, const jint* cmd, int pos) {
+    uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
+                       (uint32_t)cmd[pos + 6]};
+    NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 6]);
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputePipelineState> pipeline = scatterPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "scatter") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "scatter") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "scatter") offset:0 atIndex:2];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    dispatch1D(encoder, pipeline, total);
+}
+
+static id<MTLComputePipelineState> broadcastPipeline(MetalContext* ctx, int op) {
+    switch (op) {
+        case OP_ADD_ROW_VECTOR: return ctx->addRowVectorPSO;
+        case OP_ADD_BROADCAST_COLS: return ctx->addBroadcastColsPSO;
+        case OP_SUBTRACT_BROADCAST_COLS: return ctx->subtractBroadcastColsPSO;
+        case OP_DIVIDE_BROADCAST_COLS: return ctx->divideBroadcastColsPSO;
+        case OP_MULTIPLY_BROADCAST_ROWS: return ctx->multiplyBroadcastRowsPSO;
+        case OP_MULTIPLY_BROADCAST_COLS: return ctx->multiplyBroadcastColsPSO;
+        default: throw std::runtime_error("Invalid broadcast op");
+    }
+}
+
+static void encodeBroadcast(GraphState& state, const jint* cmd, int pos) {
+    uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5]};
+    NSUInteger total = elementCount(cmd[pos + 4], cmd[pos + 5]);
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputePipelineState> pipeline = broadcastPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "broadcast") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "broadcast") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "broadcast") offset:0 atIndex:2];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    dispatch1D(encoder, pipeline, total);
+}
+
+static id<MTLComputePipelineState> reductionPipeline(MetalContext* ctx, int op) {
+    switch (op) {
+        case OP_SUM_ROWS: return ctx->sumRowsPSO;
+        case OP_SUM_ALONG_ROWS: return ctx->sumAlongRowsPSO;
+        case OP_MEAN_ALONG_ROWS: return ctx->meanAlongRowsPSO;
+        case OP_VARIANCE_ALONG_ROWS: return ctx->varianceAlongRowsPSO;
+        case OP_MAX_ALONG_ROWS: return ctx->maxAlongRowsPSO;
+        default: throw std::runtime_error("Invalid reduction op");
+    }
+}
+
+static void dispatchReduction(id<MTLComputeCommandEncoder> encoder,
+                              id<MTLComputePipelineState> pipeline,
+                              int op, NSUInteger rows, NSUInteger cols) {
+    if (op != OP_SUM_ROWS) {
+        NSUInteger threads = rowReductionWidth(pipeline);
+        [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
+           threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+        return;
+    }
+    NSUInteger threads = colReductionHeight(pipeline);
+    [encoder dispatchThreads:MTLSizeMake(cols, threads, 1)
+       threadsPerThreadgroup:MTLSizeMake(1, threads, 1)];
+}
+
+static void encodeReduction(GraphState& state, const jint* cmd, int pos) {
+    NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
+    NSUInteger cols = positiveCount(cmd[pos + 4], "cols");
+    uint32_t dims[] = {(uint32_t)rows, (uint32_t)cols};
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputePipelineState> pipeline = reductionPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "reduction") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "reduction") offset:0 atIndex:1];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    dispatchReduction(encoder, pipeline, cmd[pos], rows, cols);
+}
+
+static void encodeSumAbs(GraphState& state, const jint* cmd, int pos) {
+    NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
+    uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 4], "cols")};
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->sumAbsPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "sum abs") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "sum abs") offset:0 atIndex:1];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    NSUInteger threads = MIN((NSUInteger)256,
+                             state.ctx->sumAbsPSO.maxTotalThreadsPerThreadgroup);
+    [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void encodeColumnSum(GraphState& state, id<MTLBuffer> input,
+                            id<MTLBuffer> output, id<MTLBuffer> dims, NSUInteger cols) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->sumRowsPSO];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:output offset:0 atIndex:1];
+    [encoder setBuffer:dims offset:0 atIndex:2];
+    NSUInteger threads = colReductionHeight(state.ctx->sumRowsPSO);
+    [encoder dispatchThreads:MTLSizeMake(cols, threads, 1)
+       threadsPerThreadgroup:MTLSizeMake(1, threads, 1)];
+}
+
+static void encodeFinalSum(GraphState& state, id<MTLBuffer> input,
+                           id<MTLBuffer> output, id<MTLBuffer> dims) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->sumAlongRowsPSO];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:output offset:0 atIndex:1];
+    [encoder setBuffer:dims offset:0 atIndex:2];
+    [encoder dispatchThreads:MTLSizeMake(1, 1, 1)
+       threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
+}
+
+static void encodeScalarSum(GraphState& state, const jint* cmd, int pos) {
+    NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
+    NSUInteger cols = positiveCount(cmd[pos + 4], "cols");
+    uint32_t inputDims[] = {(uint32_t)rows, (uint32_t)cols};
+    uint32_t outputDims[] = {1u, (uint32_t)cols};
+    id<MTLBuffer> temporary = [state.ctx->device
+        newBufferWithLength:cols * sizeof(float) options:MTLResourceStorageModeShared];
+    if (temporary == nil) throw std::runtime_error("Failed to allocate sum buffer");
+    id<MTLBuffer> inputDimsBuffer = valueBuffer(state.ctx, inputDims, sizeof(inputDims));
+    id<MTLBuffer> outputDimsBuffer = valueBuffer(state.ctx, outputDims, sizeof(outputDims));
+    encodeColumnSum(state, requireBuffer(cmd[pos + 1], "sum"), temporary,
+                    inputDimsBuffer, cols);
+    encodeFinalSum(state, temporary, requireBuffer(cmd[pos + 2], "sum"),
+                   outputDimsBuffer);
+}
+
+static id<MTLComputePipelineState> crossEntropyPipeline(MetalContext* ctx, int op) {
+    if (op == OP_CROSS_ENTROPY_LOSS) return ctx->crossEntropyLossPSO;
+    if (op == OP_CROSS_ENTROPY_GRADIENT) return ctx->crossEntropyGradPSO;
+    throw std::runtime_error("Invalid cross entropy op");
+}
+
+static void encodeCrossEntropy(GraphState& state, const jint* cmd, int pos) {
+    NSUInteger rows = positiveCount(cmd[pos + 4], "rows");
+    uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 5], "cols")};
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputePipelineState> pipeline = crossEntropyPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "cross entropy") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "cross entropy") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "cross entropy") offset:0 atIndex:2];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    NSUInteger threads = rowReductionWidth(pipeline);
+    [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static MPSMatrixDescriptor* matrixDescriptor(int rows, int cols) {
+    positiveCount(rows, "matrix rows");
+    positiveCount(cols, "matrix cols");
+    return [MPSMatrixDescriptor matrixDescriptorWithRows:rows columns:cols
+        rowBytes:(NSUInteger)cols * sizeof(float) dataType:MPSDataTypeFloat32];
+}
+
+static void encodeMatmul(GraphState& state, const jint* cmd, int pos) {
+    if (state.encoder != nil) {
+        [state.encoder endEncoding];
+        state.encoder = nil;
+    }
+    int m = cmd[pos + 4], n = cmd[pos + 5], k = cmd[pos + 6];
+    MPSMatrix* a = [[MPSMatrix alloc]
+        initWithBuffer:requireBuffer(cmd[pos + 1], "matmul")
+             descriptor:matrixDescriptor(m, k)];
+    MPSMatrix* b = [[MPSMatrix alloc]
+        initWithBuffer:requireBuffer(cmd[pos + 2], "matmul")
+             descriptor:matrixDescriptor(k, n)];
+    MPSMatrix* out = [[MPSMatrix alloc]
+        initWithBuffer:requireBuffer(cmd[pos + 3], "matmul")
+             descriptor:matrixDescriptor(m, n)];
+    [cachedMatmulKernel(state.ctx, m, n, k)
+        encodeToCommandBuffer:state.commandBuffer leftMatrix:a rightMatrix:b resultMatrix:out];
+}
+
+static void encodeSoftmax(GraphState& state, const jint* cmd, int pos) {
+    positiveCount(cmd[pos + 3], "rows");
+    positiveCount(cmd[pos + 4], "cols");
+    encodeSoftmaxGraph(state.encoder, state.commandBuffer, state.ctx,
+                       requireBuffer(cmd[pos + 1], "softmax"),
+                       requireBuffer(cmd[pos + 2], "softmax"),
+                       cmd[pos + 3], cmd[pos + 4]);
+}
+
+static void encodeSoftmaxBackward(GraphState& state, const jint* cmd, int pos) {
+    NSUInteger rows = positiveCount(cmd[pos + 4], "rows");
+    uint32_t cols = (uint32_t)positiveCount(cmd[pos + 5], "cols");
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, &cols, sizeof(cols));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->softmaxBackwardPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "softmax backward") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "softmax backward") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "softmax backward") offset:0 atIndex:2];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    NSUInteger threads = rowReductionWidth(state.ctx->softmaxBackwardPSO);
+    [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void encodeLayerNormBackward(GraphState& state, const jint* cmd, int pos) {
+    NSUInteger rows = positiveCount(cmd[pos + 5], "rows");
+    uint32_t cols = (uint32_t)positiveCount(cmd[pos + 6], "cols");
+    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, &cols, sizeof(cols));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->layerNormBackwardPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "layer norm backward") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "layer norm backward") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "layer norm backward") offset:0 atIndex:2];
+    [encoder setBuffer:requireBuffer(cmd[pos + 4], "layer norm backward") offset:0 atIndex:3];
+    [encoder setBuffer:dimsBuffer offset:0 atIndex:4];
+    NSUInteger threads = rowReductionWidth(state.ctx->layerNormBackwardPSO);
+    [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static AdamWParamsHost adamWParams(const jint* cmd, int pos) {
+    return AdamWParamsHost{
+        floatFromBits(cmd[pos + 5]),
+        floatFromBits(cmd[pos + 6]),
+        floatFromBits(cmd[pos + 7]),
+        floatFromBits(cmd[pos + 8]),
+        floatFromBits(cmd[pos + 9]),
+        floatFromBits(cmd[pos + 10]),
+        floatFromBits(cmd[pos + 11])
+    };
+}
+
+static void encodeAdamW(GraphState& state, const jint* cmd, int pos) {
+    AdamWParamsHost params = adamWParams(cmd, pos);
+    id<MTLBuffer> paramsBuffer = valueBuffer(state.ctx, &params, sizeof(params));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->adamWUpdatePSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "AdamW weights") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "AdamW gradient") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "AdamW first moment") offset:0 atIndex:2];
+    [encoder setBuffer:requireBuffer(cmd[pos + 4], "AdamW second moment") offset:0 atIndex:3];
+    [encoder setBuffer:paramsBuffer offset:0 atIndex:4];
+    dispatch1D(encoder, state.ctx->adamWUpdatePSO,
+               positiveCount(cmd[pos + 12], "element count"));
+}
+
+static bool isBinaryOp(int op) {
+    return op == OP_ADD || op == OP_SUBTRACT || op == OP_MULTIPLY ||
+           op == OP_DIVIDE || op == OP_RELU_BACKWARD || op == OP_GELU_BACKWARD;
+}
+
+static bool isUnaryOp(int op) {
+    return op == OP_SQRT || op == OP_NEG || op == OP_EXP || op == OP_LOG ||
+           op == OP_TANH || op == OP_SIGMOID || op == OP_RELU || op == OP_GELU;
+}
+
+static bool isScalarOp(int op) {
+    return op == OP_MULTIPLY_SCALAR || op == OP_ADD_SCALAR ||
+           op == OP_DIVIDE_SCALAR || op == OP_POW;
+}
+
+static bool isBroadcastOp(int op) {
+    return op == OP_ADD_ROW_VECTOR || op == OP_ADD_BROADCAST_COLS ||
+           op == OP_SUBTRACT_BROADCAST_COLS || op == OP_DIVIDE_BROADCAST_COLS ||
+           op == OP_MULTIPLY_BROADCAST_ROWS || op == OP_MULTIPLY_BROADCAST_COLS;
+}
+
+static bool isReductionOp(int op) {
+    return op == OP_SUM_ROWS || op == OP_SUM_ALONG_ROWS ||
+           op == OP_MEAN_ALONG_ROWS || op == OP_VARIANCE_ALONG_ROWS ||
+           op == OP_MAX_ALONG_ROWS;
+}
+
+static int commandWidth(int op) {
+    if (isUnaryOp(op)) return 4;
+    if (isBinaryOp(op) || isScalarOp(op) || isReductionOp(op)) return 5;
+    if (op == OP_TRANSPOSE || op == OP_SOFTMAX_ROWS ||
+        op == OP_SUM_ABS || op == OP_SUM_SCALAR) return 5;
+    if (isBroadcastOp(op) || op == OP_CLAMP ||
+        op == OP_SOFTMAX_BACKWARD || op == OP_CROSS_ENTROPY_LOSS ||
+        op == OP_CROSS_ENTROPY_GRADIENT) return 6;
+    if (op == OP_MATMUL || op == OP_SCATTER_ADD_ROWS ||
+        op == OP_SCATTER_ADD_ROWS_ATOMIC || op == OP_LAYERNORM_BACKWARD) return 7;
+    if (op == OP_ADAMW_UPDATE) return 13;
+    throw std::runtime_error("Unknown op code in graph: " + std::to_string(op));
+}
+
+static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
+    int op = cmd[pos];
+    if (isBinaryOp(op)) encodeBinary(state, cmd, pos);
+    else if (isUnaryOp(op)) encodeUnary(state, cmd, pos);
+    else if (isScalarOp(op)) encodeScalar(state, cmd, pos);
+    else if (isBroadcastOp(op)) encodeBroadcast(state, cmd, pos);
+    else if (isReductionOp(op)) encodeReduction(state, cmd, pos);
+    else if (op == OP_CLAMP) encodeClamp(state, cmd, pos);
+    else if (op == OP_TRANSPOSE) encodeTranspose(state, cmd, pos);
+    else if (op == OP_SCATTER_ADD_ROWS || op == OP_SCATTER_ADD_ROWS_ATOMIC) encodeScatter(state, cmd, pos);
+    else if (op == OP_SUM_ABS) encodeSumAbs(state, cmd, pos);
+    else if (op == OP_SUM_SCALAR) encodeScalarSum(state, cmd, pos);
+    else if (op == OP_CROSS_ENTROPY_LOSS || op == OP_CROSS_ENTROPY_GRADIENT) encodeCrossEntropy(state, cmd, pos);
+    else if (op == OP_MATMUL) encodeMatmul(state, cmd, pos);
+    else if (op == OP_SOFTMAX_ROWS) encodeSoftmax(state, cmd, pos);
+    else if (op == OP_SOFTMAX_BACKWARD) encodeSoftmaxBackward(state, cmd, pos);
+    else if (op == OP_LAYERNORM_BACKWARD) encodeLayerNormBackward(state, cmd, pos);
+    else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
+    else throw std::runtime_error("Unknown op code in graph: " + std::to_string(op));
+}
+
+static void encodeCommandStream(GraphState& state, const jint* cmd, int length) {
+    int pos = 0;
+    while (pos < length) {
+        int width = commandWidth(cmd[pos]);
+        if (width > length - pos) throw std::runtime_error("Truncated Metal command stream");
+        encodeCommand(state, cmd, pos);
+        pos += width;
+    }
+}
+
+static void finishCommandBuffer(GraphState& state) {
+    if (state.encoder != nil) [state.encoder endEncoding];
+    [state.commandBuffer commit];
+    [state.commandBuffer waitUntilCompleted];
+    if (state.commandBuffer.status != MTLCommandBufferStatusError) return;
+    NSString* desc = state.commandBuffer.error.localizedDescription ?: @"Unknown error";
+    throw std::runtime_error(std::string("Metal command buffer error: ") + [desc UTF8String]);
+}
+
+static void executeGraph(const jint* commandStream, int length) {
+    @autoreleasepool {
+        MetalContext* ctx = getContext();
+        id<MTLCommandBuffer> commandBuffer = [ctx->queue commandBuffer];
+        if (commandBuffer == nil) throw std::runtime_error("Failed to create Metal command buffer");
+        GraphState state{ctx, commandBuffer, nil};
+        encodeCommandStream(state, commandStream, length);
+        finishCommandBuffer(state);
+    }
+}
+
+static bool validateCommandArray(JNIEnv* env, jintArray commands, jint length) {
+    if (commands == nullptr) {
+        throwJavaRuntimeException(env, "Metal command stream cannot be null");
+        return false;
+    }
+    jsize arrayLength = env->GetArrayLength(commands);
+    if (length >= 0 && length <= arrayLength) return true;
+    throwJavaRuntimeException(env, "Invalid Metal command stream length");
+    return false;
 }
 
 
@@ -1577,579 +1839,12 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
         JNIEnv* env, jclass, jintArray cmdStreamArr, jint cmdStreamLength) {
+    if (!validateCommandArray(env, cmdStreamArr, cmdStreamLength)) return;
     jint* cmd = env->GetIntArrayElements(cmdStreamArr, nullptr);
+    if (cmd == nullptr) return;
     try {
-        @autoreleasepool {
-            MetalContext* ctx = getContext();
-            id<MTLCommandBuffer> cmdBuf = [ctx->queue commandBuffer];
-            id<MTLComputeCommandEncoder> enc = nil;
-
-            int pos = 0;
-            while (pos < cmdStreamLength) {
-                int opCode = cmd[pos];
-
-                switch (opCode) {
-
-                // ── Binary element-wise: [op, a, b, out, n] ──────────
-                case OP_ADD: case OP_SUBTRACT: case OP_MULTIPLY: case OP_DIVIDE:
-                case OP_RELU_BACKWARD: case OP_GELU_BACKWARD: {
-                    int aId = cmd[pos+1], bId = cmd[pos+2], outId = cmd[pos+3];
-                    int n = cmd[pos+4];
-
-                    id<MTLComputePipelineState> pso;
-                    switch (opCode) {
-                        case OP_ADD:            pso = ctx->addPSO; break;
-                        case OP_SUBTRACT:       pso = ctx->subtractPSO; break;
-                        case OP_MULTIPLY:       pso = ctx->multiplyPSO; break;
-                        case OP_DIVIDE:         pso = ctx->dividePSO; break;
-                        case OP_RELU_BACKWARD:  pso = ctx->reluBackwardPSO; break;
-                        case OP_GELU_BACKWARD:  pso = ctx->geluBackwardPSO; break;
-                        default: pso = ctx->addPSO; break;
-                    }
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:pso];
-                    [enc setBuffer:gBufferPool[aId]   offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[bId]   offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:2];
-                    NSUInteger tpg = MIN((NSUInteger)n, pso.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 5;
-                    break;
-                }
-
-                // ── Unary: [op, in, out, n] ──────────────────────────
-                case OP_SQRT: case OP_NEG: case OP_EXP: case OP_LOG:
-                case OP_TANH: case OP_SIGMOID: case OP_RELU: case OP_GELU: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    int n = cmd[pos+3];
-
-                    id<MTLComputePipelineState> pso;
-                    switch (opCode) {
-                        case OP_SQRT:    pso = ctx->sqrtPSO; break;
-                        case OP_NEG:     pso = ctx->negPSO; break;
-                        case OP_EXP:     pso = ctx->expPSO; break;
-                        case OP_LOG:     pso = ctx->logPSO; break;
-                        case OP_TANH:    pso = ctx->tanhPSO; break;
-                        case OP_SIGMOID: pso = ctx->sigmoidPSO; break;
-                        case OP_RELU:    pso = ctx->reluPSO; break;
-                        case OP_GELU:    pso = ctx->geluPSO; break;
-                        default: pso = ctx->sqrtPSO; break;
-                    }
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:pso];
-                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
-                    NSUInteger tpg = MIN((NSUInteger)n, pso.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 4;
-                    break;
-                }
-
-                // ── Scalar multiply/add/divide: [op, in, out, scalarBits, n] ────
-                case OP_MULTIPLY_SCALAR:
-                case OP_ADD_SCALAR:
-                case OP_DIVIDE_SCALAR:
-                case OP_POW: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    float scalar;
-                    int bits = cmd[pos+3];
-                    std::memcpy(&scalar, &bits, sizeof(float));
-                    int n = cmd[pos+4];
-
-                    id<MTLBuffer> scalarBuf = [ctx->device newBufferWithBytes:&scalar
-                                               length:sizeof(float)
-                                               options:MTLResourceStorageModeShared];
-
-                    id<MTLComputePipelineState> pso;
-                    switch (opCode) {
-                        case OP_MULTIPLY_SCALAR: pso = ctx->multiplyScalarPSO; break;
-                        case OP_ADD_SCALAR:      pso = ctx->addScalarPSO; break;
-                        case OP_DIVIDE_SCALAR:   pso = ctx->divideScalarPSO; break;
-                        case OP_POW:             pso = ctx->powPSO; break;
-                        default: pso = ctx->multiplyScalarPSO; break;
-                    }
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:pso];
-                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
-                    [enc setBuffer:scalarBuf          offset:0 atIndex:2];
-                    NSUInteger tpg = MIN((NSUInteger)n, pso.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 5;
-                    break;
-                }
-
-                // ── Clamp: [op, in, out, minBits, maxBits, n] ───────────
-                case OP_CLAMP: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    float minV, maxV;
-                    int minBits = cmd[pos+3], maxBits = cmd[pos+4];
-                    std::memcpy(&minV, &minBits, sizeof(float));
-                    std::memcpy(&maxV, &maxBits, sizeof(float));
-                    int n = cmd[pos+5];
-
-                    float minMax[2] = { minV, maxV };
-                    id<MTLBuffer> minMaxBuf = [ctx->device newBufferWithBytes:minMax
-                                               length:sizeof(minMax)
-                                               options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->clampPSO];
-                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
-                    [enc setBuffer:minMaxBuf          offset:0 atIndex:2];
-                    NSUInteger tpg = MIN((NSUInteger)n, ctx->clampPSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 6;
-                    break;
-                }
-
-                // ── Transpose: [op, in, out, rows, cols] ─────────────
-                case OP_TRANSPOSE: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    uint32_t rows = (uint32_t)cmd[pos+3];
-                    uint32_t cols = (uint32_t)cmd[pos+4];
-                    uint32_t dims[2] = { rows, cols };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    NSUInteger total = (NSUInteger)rows * (NSUInteger)cols;
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->transposePSO];
-                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
-                    [enc setBuffer:dimsBuf            offset:0 atIndex:2];
-                    NSUInteger tpg = MIN(total, ctx->transposePSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 5;
-                    break;
-                }
-
-                // ── Scatter add rows (in-place): [op, target, indices, grad, targetRows, targetCols, nIdx] ──
-                case OP_SCATTER_ADD_ROWS: {
-                    int targetId = cmd[pos+1], indicesId = cmd[pos+2], gradId = cmd[pos+3];
-                    uint32_t targetRows = (uint32_t)cmd[pos+4];
-                    uint32_t targetCols = (uint32_t)cmd[pos+5];
-                    uint32_t nIdx = (uint32_t)cmd[pos+6];
-                    uint32_t dims[3] = { targetRows, targetCols, nIdx };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    NSUInteger total = (NSUInteger)nIdx * (NSUInteger)targetCols;
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->scatterAddRowsPSO];
-                    [enc setBuffer:gBufferPool[targetId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[indicesId] offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[gradId]    offset:0 atIndex:2];
-                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = MIN(total, ctx->scatterAddRowsPSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 7;
-                    break;
-                }
-
-                // ── Scatter add rows (in-place atomic): [op, target, indices, grad, targetRows, targetCols, nIdx] ──
-                case OP_SCATTER_ADD_ROWS_ATOMIC: {
-                    int targetId = cmd[pos+1], indicesId = cmd[pos+2], gradId = cmd[pos+3];
-                    uint32_t targetRows = (uint32_t)cmd[pos+4];
-                    uint32_t targetCols = (uint32_t)cmd[pos+5];
-                    uint32_t nIdx = (uint32_t)cmd[pos+6];
-                    uint32_t dims[3] = { targetRows, targetCols, nIdx };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    NSUInteger total = (NSUInteger)nIdx * (NSUInteger)targetCols;
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->scatterAddRowsAtomicPSO];
-                    [enc setBuffer:gBufferPool[targetId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[indicesId] offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[gradId]    offset:0 atIndex:2];
-                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = MIN(total, ctx->scatterAddRowsAtomicPSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 7;
-                    break;
-                }
-
-                // ── Row/col broadcasts: [op, a, vec, out, rows, cols] ──
-                case OP_ADD_ROW_VECTOR:
-                case OP_ADD_BROADCAST_COLS:
-                case OP_SUBTRACT_BROADCAST_COLS:
-                case OP_DIVIDE_BROADCAST_COLS:
-                case OP_MULTIPLY_BROADCAST_ROWS:
-                case OP_MULTIPLY_BROADCAST_COLS: {
-                    int aId = cmd[pos+1], vecId = cmd[pos+2], outId = cmd[pos+3];
-                    uint32_t rows = (uint32_t)cmd[pos+4];
-                    uint32_t cols = (uint32_t)cmd[pos+5];
-                    uint32_t dims[2] = { rows, cols };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    id<MTLComputePipelineState> pso;
-                    switch (opCode) {
-                        case OP_ADD_ROW_VECTOR: pso = ctx->addRowVectorPSO; break;
-                        case OP_ADD_BROADCAST_COLS: pso = ctx->addBroadcastColsPSO; break;
-                        case OP_SUBTRACT_BROADCAST_COLS: pso = ctx->subtractBroadcastColsPSO; break;
-                        case OP_DIVIDE_BROADCAST_COLS: pso = ctx->divideBroadcastColsPSO; break;
-                        case OP_MULTIPLY_BROADCAST_ROWS: pso = ctx->multiplyBroadcastRowsPSO; break;
-                        case OP_MULTIPLY_BROADCAST_COLS: pso = ctx->multiplyBroadcastColsPSO; break;
-                        default: pso = ctx->addRowVectorPSO; break;
-                    }
-
-                    NSUInteger total = (NSUInteger)rows * (NSUInteger)cols;
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:pso];
-                    [enc setBuffer:gBufferPool[aId]   offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[vecId] offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:2];
-                    [enc setBuffer:dimsBuf            offset:0 atIndex:3];
-                    NSUInteger tpg = MIN(total, pso.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(total, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 6;
-                    break;
-                }
-
-                // ── Reductions: [op, in, out, rows, cols] ───────────
-                case OP_SUM_ROWS:
-                case OP_SUM_ALONG_ROWS:
-                case OP_MEAN_ALONG_ROWS:
-                case OP_VARIANCE_ALONG_ROWS:
-                case OP_MAX_ALONG_ROWS: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    uint32_t rows = (uint32_t)cmd[pos+3];
-                    uint32_t cols = (uint32_t)cmd[pos+4];
-                    uint32_t dims[2] = { rows, cols };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    id<MTLComputePipelineState> pso;
-                    bool rowWise;
-                    switch (opCode) {
-                        case OP_SUM_ROWS:
-                            pso = ctx->sumRowsPSO;
-                            rowWise = false;
-                            break;
-                        case OP_MEAN_ALONG_ROWS:
-                            pso = ctx->meanAlongRowsPSO;
-                            rowWise = true;
-                            break;
-                        case OP_SUM_ALONG_ROWS:
-                            pso = ctx->sumAlongRowsPSO;
-                            rowWise = true;
-                            break;
-                        case OP_VARIANCE_ALONG_ROWS:
-                            pso = ctx->varianceAlongRowsPSO;
-                            rowWise = true;
-                            break;
-                        case OP_MAX_ALONG_ROWS:
-                            pso = ctx->maxAlongRowsPSO;
-                            rowWise = true;
-                            break;
-                        default:
-                            pso = ctx->sumRowsPSO;
-                            rowWise = false;
-                            break;
-                    }
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:pso];
-                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
-                    [enc setBuffer:dimsBuf            offset:0 atIndex:2];
-                    if (rowWise) {
-                        NSUInteger tpg = rowReductionWidth(pso);
-                        [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
-                            threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    } else {
-                        NSUInteger tpg = colReductionHeight(pso);
-                        [enc dispatchThreads:MTLSizeMake((NSUInteger)cols, tpg, 1)
-                            threadsPerThreadgroup:MTLSizeMake(1, tpg, 1)];
-                    }
-                    pos += 5;
-                    break;
-                }
-
-                // ── Scalar sum-abs reduction: [op, in, out, rows, cols] ──────
-                case OP_SUM_ABS: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    uint32_t rows = (uint32_t)cmd[pos+3];
-                    uint32_t cols = (uint32_t)cmd[pos+4];
-                    uint32_t dims[2] = { rows, cols };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->sumAbsPSO];
-                    [enc setBuffer:gBufferPool[inId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
-                    [enc setBuffer:dimsBuf            offset:0 atIndex:2];
-                    NSUInteger tpg = MIN((NSUInteger)256, ctx->sumAbsPSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 5;
-                    break;
-                }
-
-                // ── Scalar sum reduction: [op, in, out, rows, cols] ──────────
-                case OP_SUM_SCALAR: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    uint32_t rows = (uint32_t)cmd[pos+3];
-                    uint32_t cols = (uint32_t)cmd[pos+4];
-
-                    id<MTLBuffer> tmpColSums = [ctx->device newBufferWithLength:(NSUInteger)cols * sizeof(float)
-                                                                        options:MTLResourceStorageModeShared];
-
-                    uint32_t dimsRows[2] = { rows, cols };
-                    id<MTLBuffer> dimsRowsBuf = [ctx->device newBufferWithBytes:dimsRows
-                                                 length:sizeof(dimsRows)
-                                                 options:MTLResourceStorageModeShared];
-
-                    uint32_t dimsScalar[2] = { 1u, cols };
-                    id<MTLBuffer> dimsScalarBuf = [ctx->device newBufferWithBytes:dimsScalar
-                                                   length:sizeof(dimsScalar)
-                                                   options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-
-                    // Pass 1: [rows x cols] -> [1 x cols]
-                    [enc setComputePipelineState:ctx->sumRowsPSO];
-                    [enc setBuffer:gBufferPool[inId] offset:0 atIndex:0];
-                    [enc setBuffer:tmpColSums        offset:0 atIndex:1];
-                    [enc setBuffer:dimsRowsBuf       offset:0 atIndex:2];
-                    NSUInteger tpg1 = colReductionHeight(ctx->sumRowsPSO);
-                    [enc dispatchThreads:MTLSizeMake((NSUInteger)cols, tpg1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(1, tpg1, 1)];
-
-                    [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
-
-                    // Pass 2: [1 x cols] -> [1 x 1]
-                    [enc setComputePipelineState:ctx->sumAlongRowsPSO];
-                    [enc setBuffer:tmpColSums        offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[outId] offset:0 atIndex:1];
-                    [enc setBuffer:dimsScalarBuf      offset:0 atIndex:2];
-                    NSUInteger tpg2 = MIN((NSUInteger)1, ctx->sumAlongRowsPSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(1, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg2, 1, 1)];
-
-                    pos += 5;
-                    break;
-                }
-
-                // ── Cross-entropy loss: [op, logits, targets, out, rows, cols] ─
-                case OP_CROSS_ENTROPY_LOSS: {
-                    int logitsId = cmd[pos+1], targetsId = cmd[pos+2], outId = cmd[pos+3];
-                    uint32_t rows = (uint32_t)cmd[pos+4];
-                    uint32_t cols = (uint32_t)cmd[pos+5];
-                    uint32_t dims[2] = { rows, cols };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->crossEntropyLossPSO];
-                    [enc setBuffer:gBufferPool[logitsId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[targetsId] offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
-                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = softmaxReductionWidth(ctx->crossEntropyLossPSO);
-                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 6;
-                    break;
-                }
-
-                // ── Cross-entropy gradient: [op, logits, targets, out, rows, cols] ─
-                case OP_CROSS_ENTROPY_GRADIENT: {
-                    int logitsId = cmd[pos+1], targetsId = cmd[pos+2], outId = cmd[pos+3];
-                    uint32_t rows = (uint32_t)cmd[pos+4];
-                    uint32_t cols = (uint32_t)cmd[pos+5];
-                    uint32_t dims[2] = { rows, cols };
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:dims
-                                             length:sizeof(dims)
-                                             options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->crossEntropyGradPSO];
-                    [enc setBuffer:gBufferPool[logitsId]  offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[targetsId] offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
-                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = softmaxReductionWidth(ctx->crossEntropyGradPSO);
-                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 6;
-                    break;
-                }
-
-                // ── Matmul: [op, a, b, out, m, n, k] ────────────────
-                case OP_MATMUL: {
-                    // MPS needs its own encoding — end compute encoder first
-                    if (enc) { [enc endEncoding]; enc = nil; }
-
-                    int aId = cmd[pos+1], bId = cmd[pos+2], outId = cmd[pos+3];
-                    int m = cmd[pos+4], n = cmd[pos+5], k = cmd[pos+6];
-
-                    MPSMatrixDescriptor* descA =
-                        [MPSMatrixDescriptor matrixDescriptorWithRows:m columns:k
-                            rowBytes:(NSUInteger)k * sizeof(float) dataType:MPSDataTypeFloat32];
-                    MPSMatrixDescriptor* descB =
-                        [MPSMatrixDescriptor matrixDescriptorWithRows:k columns:n
-                            rowBytes:(NSUInteger)n * sizeof(float) dataType:MPSDataTypeFloat32];
-                    MPSMatrixDescriptor* descC =
-                        [MPSMatrixDescriptor matrixDescriptorWithRows:m columns:n
-                            rowBytes:(NSUInteger)n * sizeof(float) dataType:MPSDataTypeFloat32];
-
-                    MPSMatrix* matA = [[MPSMatrix alloc] initWithBuffer:gBufferPool[aId] descriptor:descA];
-                    MPSMatrix* matB = [[MPSMatrix alloc] initWithBuffer:gBufferPool[bId] descriptor:descB];
-                    MPSMatrix* matC = [[MPSMatrix alloc] initWithBuffer:gBufferPool[outId] descriptor:descC];
-
-                    MPSMatrixMultiplication* mm = cachedMatmulKernel(ctx, m, n, k);
-
-                    [mm encodeToCommandBuffer:cmdBuf leftMatrix:matA rightMatrix:matB resultMatrix:matC];
-                    pos += 7;
-                    break;
-                }
-
-                // ── Softmax rows: [op, in, out, rows, cols] ──────────
-                case OP_SOFTMAX_ROWS: {
-                    int inId = cmd[pos+1], outId = cmd[pos+2];
-                    int rows = cmd[pos+3], cols = cmd[pos+4];
-
-                    encodeSoftmaxGraph(enc, cmdBuf, ctx,
-                                       gBufferPool[inId], gBufferPool[outId],
-                                       rows, cols);
-                    pos += 5;
-                    break;
-                }
-
-                // ── Softmax backward: [op, grad, softmax, out, rows, cols] ──
-                case OP_SOFTMAX_BACKWARD: {
-                    int gradId = cmd[pos+1], softmaxId = cmd[pos+2], outId = cmd[pos+3];
-                    int rows = cmd[pos+4], cols = cmd[pos+5];
-                    uint32_t colsVal = (uint32_t)cols;
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:&colsVal
-                                             length:sizeof(uint32_t)
-                                             options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->softmaxBackwardPSO];
-                    [enc setBuffer:gBufferPool[gradId]    offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[softmaxId] offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[outId]     offset:0 atIndex:2];
-                    [enc setBuffer:dimsBuf                offset:0 atIndex:3];
-                    NSUInteger tpg = rowReductionWidth(ctx->softmaxBackwardPSO);
-                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 6;
-                    break;
-                }
-
-                // ── LayerNorm backward: [op, dXHat, xHat, std, out, rows, cols] ──
-                case OP_LAYERNORM_BACKWARD: {
-                    int dXHatId = cmd[pos+1], xHatId = cmd[pos+2], stdId = cmd[pos+3], outId = cmd[pos+4];
-                    int rows = cmd[pos+5], cols = cmd[pos+6];
-                    uint32_t colsVal = (uint32_t)cols;
-                    id<MTLBuffer> dimsBuf = [ctx->device newBufferWithBytes:&colsVal
-                                             length:sizeof(uint32_t)
-                                             options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->layerNormBackwardPSO];
-                    [enc setBuffer:gBufferPool[dXHatId] offset:0 atIndex:0];
-                    [enc setBuffer:gBufferPool[xHatId]  offset:0 atIndex:1];
-                    [enc setBuffer:gBufferPool[stdId]   offset:0 atIndex:2];
-                    [enc setBuffer:gBufferPool[outId]   offset:0 atIndex:3];
-                    [enc setBuffer:dimsBuf              offset:0 atIndex:4];
-                    NSUInteger tpg = rowReductionWidth(ctx->layerNormBackwardPSO);
-                    [enc dispatchThreads:MTLSizeMake(tpg, (NSUInteger)rows, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 7;
-                    break;
-                }
-
-                // ── AdamW update (in-place): [op, w, g, mt, vt, lr, b1, b2, eps, wd, bc1, bc2, n] ──
-                case OP_ADAMW_UPDATE: {
-                    int wId = cmd[pos+1], gId = cmd[pos+2], mtId = cmd[pos+3], vtId = cmd[pos+4];
-
-                    id<MTLBuffer> wBuf = requireBuffer(wId, "OP_ADAMW_UPDATE");
-                    id<MTLBuffer> gBuf = requireBuffer(gId, "OP_ADAMW_UPDATE");
-                    id<MTLBuffer> mtBuf = requireBuffer(mtId, "OP_ADAMW_UPDATE");
-                    id<MTLBuffer> vtBuf = requireBuffer(vtId, "OP_ADAMW_UPDATE");
-
-                    auto bitsToFloat = [](int bits) {
-                        float v;
-                        std::memcpy(&v, &bits, sizeof(float));
-                        return v;
-                    };
-
-                    struct AdamWParamsHost {
-                        float lr;
-                        float beta1;
-                        float beta2;
-                        float eps;
-                        float weightDecay;
-                        float bc1;
-                        float bc2;
-                    } params;
-
-                    params.lr = bitsToFloat(cmd[pos+5]);
-                    params.beta1 = bitsToFloat(cmd[pos+6]);
-                    params.beta2 = bitsToFloat(cmd[pos+7]);
-                    params.eps = bitsToFloat(cmd[pos+8]);
-                    params.weightDecay = bitsToFloat(cmd[pos+9]);
-                    params.bc1 = bitsToFloat(cmd[pos+10]);
-                    params.bc2 = bitsToFloat(cmd[pos+11]);
-                    int n = cmd[pos+12];
-
-                    id<MTLBuffer> paramsBuf = [ctx->device newBufferWithBytes:&params
-                                              length:sizeof(AdamWParamsHost)
-                                              options:MTLResourceStorageModeShared];
-
-                    if (!enc) enc = [cmdBuf computeCommandEncoder];
-                    [enc setComputePipelineState:ctx->adamWUpdatePSO];
-                    [enc setBuffer:wBuf              offset:0 atIndex:0];
-                    [enc setBuffer:gBuf              offset:0 atIndex:1];
-                    [enc setBuffer:mtBuf             offset:0 atIndex:2];
-                    [enc setBuffer:vtBuf             offset:0 atIndex:3];
-                    [enc setBuffer:paramsBuf         offset:0 atIndex:4];
-                    NSUInteger tpg = MIN((NSUInteger)n, ctx->adamWUpdatePSO.maxTotalThreadsPerThreadgroup);
-                    [enc dispatchThreads:MTLSizeMake(n, 1, 1)
-                        threadsPerThreadgroup:MTLSizeMake(tpg, 1, 1)];
-                    pos += 13;
-                    break;
-                }
-
-                default:
-                    throw std::runtime_error("Unknown op code in graph: " + std::to_string(opCode));
-                }
-            }
-
-            if (enc) [enc endEncoding];
-            [cmdBuf commit];
-            [cmdBuf waitUntilCompleted];
-
-            if (cmdBuf.status == MTLCommandBufferStatusError) {
-                NSString* desc = cmdBuf.error.localizedDescription ?: @"Unknown error";
-                throw std::runtime_error(std::string("Metal command buffer error: ") + [desc UTF8String]);
-            }
-        }
+        std::lock_guard<std::mutex> lock(gBufferMutex);
+        executeGraph(cmd, cmdStreamLength);
     } catch (const std::exception& ex) {
         env->ReleaseIntArrayElements(cmdStreamArr, cmd, JNI_ABORT);
         throwJavaRuntimeException(env, ex.what());

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Multi-Head Latent Attention (MLA) — the attention mechanism introduced in DeepSeek-V2/V3/R1.
+ * Compact Multi-Head Latent Attention (MLA) inspired by DeepSeek-V2/V3.
  *
  * <p>Unlike standard MHA which projects Q, K, V directly from {@code x}, MLA first compresses
  * through a low-rank bottleneck then expands:
@@ -26,8 +26,8 @@ import java.util.Random;
  * <p>RoPE is applied to Q and K after expansion. Scaled dot-product attention and the
  * output projection {@code Wo} are then identical to standard MHA.
  *
- * <p>The key inference benefit: only {@code cKV} (shape {@code seqLen × kvRank}) needs to be
- * cached per layer — much smaller than the full {@code K} and {@code V} tensors.
+ * <p>The factorisation can support caching only {@code cKV} in an incremental decoder.
+ * This layer currently computes a complete sequence and does not own an inference cache.
  *
  * <p><b>Parameters:</b> Wdq, Wuq, Wdkv, Wuk, Wuv, Wo (6 total, vs 4 in standard MHA).
  */
@@ -65,11 +65,7 @@ public final class MultiHeadLatentAttention implements Layer {
      */
     public MultiHeadLatentAttention(int dModel, int nHeads, int qRank, int kvRank,
                                     RotaryEmbedding rope, Random rnd) {
-        if (dModel % nHeads != 0)
-            throw new IllegalArgumentException("dModel must be divisible by nHeads");
-        if (qRank <= 0)  throw new IllegalArgumentException("qRank must be > 0");
-        if (kvRank <= 0) throw new IllegalArgumentException("kvRank must be > 0");
-        if (rope == null) throw new IllegalArgumentException("rope must not be null");
+        validateDimensions(dModel, nHeads, qRank, kvRank, rope);
 
         this.dModel  = dModel;
         this.nHeads  = nHeads;
@@ -84,6 +80,17 @@ public final class MultiHeadLatentAttention implements Layer {
         this.Wuk  = new Parameter(Tensor.random(kvRank, dModel, rnd));
         this.Wuv  = new Parameter(Tensor.random(kvRank, dModel, rnd));
         this.Wo   = new Parameter(Tensor.random(dModel, dModel, rnd));
+    }
+
+    private static void validateDimensions(int dModel, int nHeads, int qRank, int kvRank,
+                                           RotaryEmbedding rope) {
+        if (dModel <= 0) throw new IllegalArgumentException("dModel must be > 0");
+        if (nHeads <= 0) throw new IllegalArgumentException("nHeads must be > 0");
+        if (dModel % nHeads != 0) throw new IllegalArgumentException("dModel must be divisible by nHeads");
+        if (qRank <= 0) throw new IllegalArgumentException("qRank must be > 0");
+        if (kvRank <= 0) throw new IllegalArgumentException("kvRank must be > 0");
+        if (rope == null) throw new IllegalArgumentException("rope must not be null");
+        if (rope.headDim() != dModel / nHeads) throw new IllegalArgumentException("RoPE head dimension mismatch");
     }
 
     // ── Forward ────────────────────────────────────────────────────
@@ -127,45 +134,45 @@ public final class MultiHeadLatentAttention implements Layer {
     @Override
     public Tensor backward(Tensor dOut) {
         int seqLen = cache.x.rows;
+        Tensor dMerged = backwardOutputProjection(dOut);
+        ProjectionGrads grads = backwardAttention(dMerged, seqLen);
+        Tensor dxQ = backwardQueryPath(grads.dQ());
+        Tensor dxKV = backwardKeyValuePath(grads.dK(), grads.dV());
+        return dxQ.add(dxKV);
+    }
 
-        // Output projection
+    private Tensor backwardOutputProjection(Tensor dOut) {
         Wo.grad.addInPlace(cache.merged.transpose().matmul(dOut));
-        Tensor dMerged = dOut.matmul(Wo.value.transpose());
+        return dOut.matmul(Wo.value.transpose());
+    }
 
-        // Attention backward
+    private ProjectionGrads backwardAttention(Tensor dMerged, int seqLen) {
         Tensor dOutH = splitHeads(dMerged, seqLen);
-
         HeadOps.AttentionGrads attnGrads = HeadOps.backwardAttentionAndValues(
                 dOutH, cache.vh, cache.attnProb, softmax, scale, nHeads, seqLen, headDim);
-
         HeadOps.QKGrads qkGrads = HeadOps.backwardQueriesAndKeys(
                 attnGrads.dScores(), cache.qhRope, cache.khRope, nHeads, seqLen, headDim);
-
-        // RoPE backward
         Tensor dQh = rope.applyBackward(qkGrads.dQh(), seqLen, nHeads);
         Tensor dKh = rope.applyBackward(qkGrads.dKh(), seqLen, nHeads);
+        return new ProjectionGrads(mergeHeads(dQh, seqLen), mergeHeads(dKh, seqLen),
+                mergeHeads(attnGrads.dVh(), seqLen));
+    }
 
-        // Merge heads
-        Tensor dQ = mergeHeads(dQh, seqLen);
-        Tensor dK = mergeHeads(dKh, seqLen);
-        Tensor dV = mergeHeads(attnGrads.dVh(), seqLen);
-
-        // Q low-rank backward
+    private Tensor backwardQueryPath(Tensor dQ) {
         Wuq.grad.addInPlace(cache.cQ.transpose().matmul(dQ));
         Tensor dcQ = dQ.matmul(Wuq.value.transpose());
         Wdq.grad.addInPlace(cache.x.transpose().matmul(dcQ));
-        Tensor dxQ = dcQ.matmul(Wdq.value.transpose());
+        return dcQ.matmul(Wdq.value.transpose());
+    }
 
-        // KV shared compression backward
+    private Tensor backwardKeyValuePath(Tensor dK, Tensor dV) {
         Tensor cKV = cache.cKV;
         Wuk.grad.addInPlace(cKV.transpose().matmul(dK));
         Wuv.grad.addInPlace(cKV.transpose().matmul(dV));
         Tensor dcKV = dK.matmul(Wuk.value.transpose());
         dcKV.addInPlace(dV.matmul(Wuv.value.transpose()));
         Wdkv.grad.addInPlace(cache.x.transpose().matmul(dcKV));
-        Tensor dxKV = dcKV.matmul(Wdkv.value.transpose());
-
-        return dxQ.add(dxKV);
+        return dcKV.matmul(Wdkv.value.transpose());
     }
 
     // ── Parameters ─────────────────────────────────────────────────
@@ -220,5 +227,6 @@ public final class MultiHeadLatentAttention implements Layer {
             Tensor attnProb,
             Tensor outH,
             Tensor merged) {}
-}
 
+    private record ProjectionGrads(Tensor dQ, Tensor dK, Tensor dV) {}
+}

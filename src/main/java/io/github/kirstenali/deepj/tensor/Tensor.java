@@ -43,7 +43,16 @@ public class Tensor {
     public Tensor(int rows, int cols) {
         this.rows = rows;
         this.cols = cols;
-        this.data = new float[rows * cols];
+        this.data = new float[checkedSize(rows, cols)];
+    }
+
+    private static int checkedSize(int rows, int cols) {
+        if (rows < 1 || cols < 1) throw new IllegalArgumentException("Tensor dimensions must be positive");
+        try {
+            return Math.multiplyExact(rows, cols);
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("Tensor shape is too large: " + rows + "x" + cols, ex);
+        }
     }
 
     /** Copy constructor — creates an independent deep copy. */
@@ -62,6 +71,8 @@ public class Tensor {
      * Convenience for tests and debugging; not a view.
      */
     public float[] rowData(int r) {
+        requireRow(r);
+        materialize();
         return Arrays.copyOfRange(data, r * cols, (r + 1) * cols);
     }
 
@@ -177,11 +188,14 @@ public class Tensor {
      * Preferred API for literal matrix construction.
      */
     public static Tensor from2D(float[][] data) {
+        if (data == null || data.length == 0 || data[0] == null || data[0].length == 0) {
+            throw new IllegalArgumentException("Tensor data must contain at least one value");
+        }
         int rows = data.length;
         int cols = data[0].length;
         Tensor t = new Tensor(rows, cols);
         for (int r = 0; r < rows; r++) {
-            if (data[r].length != cols) {
+            if (data[r] == null || data[r].length != cols) {
                 throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
             }
             System.arraycopy(data[r], 0, t.data, r * cols, cols);
@@ -206,22 +220,28 @@ public class Tensor {
 
     // ── data accessors (trigger materialization) ────────────────
     public float get(int r, int c) {
+        requireIndex(r, c);
         materialize();
         return CPU_ACCESS.get(this, r, c);
     }
 
     public void set(int r, int c, float value) {
+        requireIndex(r, c);
         materialize();
         CPU_ACCESS.set(this, r, c, value);
         markGpuNeedsUpload(this);
     }
 
     public Tensor getRow(int row) {
+        requireRow(row);
         materialize();
         return CPU_ACCESS.getRow(this, row);
     }
 
     public void setRow(int row, Tensor source, int srcRow) {
+        requireRow(row);
+        source.requireRow(srcRow);
+        if (source.cols != cols) throw new IllegalArgumentException("Source row width must match tensor width");
         materialize();
         source.materialize();
         CPU_ACCESS.setRow(this, row, source, srcRow);
@@ -229,11 +249,14 @@ public class Tensor {
     }
 
     public static Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
+        if (cols != t.cols) throw new IllegalArgumentException("Requested width must match tensor width");
+        for (int row : rowIndices) t.requireRow(row);
         t.materialize();
         return CPU_ACCESS.sliceRows(t, rowIndices, cols);
     }
     
     public static Tensor sampleRows(Tensor t, int n, Random rnd) {
+        if (n < 1) throw new IllegalArgumentException("Sample count must be positive");
         t.materialize();
         return CPU_ACCESS.sampleRows(t, n, rnd);
     }
@@ -265,5 +288,14 @@ public class Tensor {
             throw new IllegalArgumentException(
                     "targets length " + targets.length + " must match logits rows " + logits.rows);
         }
+    }
+
+    private void requireIndex(int row, int col) {
+        requireRow(row);
+        if (col < 0 || col >= cols) throw new IndexOutOfBoundsException("Column index: " + col);
+    }
+
+    private void requireRow(int row) {
+        if (row < 0 || row >= rows) throw new IndexOutOfBoundsException("Row index: " + row);
     }
 }

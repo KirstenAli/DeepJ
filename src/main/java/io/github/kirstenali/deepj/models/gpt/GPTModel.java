@@ -19,9 +19,11 @@ import java.util.Random;
  * <p>Extends {@link DecoderOnlyModel}; the only GPT-specific additions are:
  * <ul>
  *   <li>A learned {@link PositionalEmbedding} added to the token embedding.</li>
- *   <li>An optional weight {@link GPTConfig#initScale() init-scale} applied after construction.</li>
+ *   <li>An optional {@link GPTConfig#initScale() init-scale} applied to random weights.</li>
  *   <li>{@link LayerNorm1D} (instead of RMSNorm) as the final normalisation.</li>
  * </ul>
+ * It intentionally omits features such as dropout, tied embeddings, and an
+ * incremental KV cache, so it should be described as GPT-style rather than GPT-2/3.
  */
 public final class GPTModel extends DecoderOnlyModel {
 
@@ -36,13 +38,13 @@ public final class GPTModel extends DecoderOnlyModel {
                         .nHeads(cfg.nHeads())
                         .dFF(cfg.dFF())
                         .nLayers(cfg.nLayers())
-                        .seed(seed)
+                        .seed(seed + 1)
                         .build(),
                 new LayerNorm1D(cfg.dModel()),
-                new Linear(cfg.dModel(), cfg.vocabSize(), new Random(seed + 1))
+                new Linear(cfg.dModel(), cfg.vocabSize(), new Random(seed + 2))
         );
         this.cfg    = cfg;
-        this.posEmb = new PositionalEmbedding(cfg.maxSeqLen(), cfg.dModel(), new Random(seed + 2));
+        this.posEmb = new PositionalEmbedding(cfg.maxSeqLen(), cfg.dModel(), new Random(seed + 3));
         applyInitScale(cfg.initScale());
     }
 
@@ -73,12 +75,8 @@ public final class GPTModel extends DecoderOnlyModel {
         return cfg.gradClipNorm();
     }
 
-    // ── Init scale (GPT-2 stabilisation trick) ─────────────────────
-
-    private void applyInitScale(float factor) {
-        if (factor == 1.0f) return;
-        for (Parameter p : parameters()) {
-            p.value.multiplyScalarInPlace(factor);
-        }
+    public GPTConfig config() {
+        return cfg;
     }
+
 }

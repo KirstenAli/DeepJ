@@ -3,3 +3,5 @@
 /target/
 /sample_data/
 /checkpoints/
+/dist/
+.DS_Store

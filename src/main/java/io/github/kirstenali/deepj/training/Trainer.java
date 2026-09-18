@@ -91,30 +91,33 @@ public final class Trainer {
             StepHook stepHook
     ) {
         validateTrainArgs(maxSteps, batchSize, logEvery, emaBeta, releaseEverySteps);
-
-        float ema = Float.NaN;
-        int step;
-        float lastLoss = Float.NaN;
-
         try {
-            for (step = 0; step < maxSteps; step++) {
-                lastLoss = trainStep(batchSize);
-                ema = updateEma(ema, emaBeta, lastLoss);
-
-                maybeLog(step, logEvery, lastLoss, ema);
-                invokeStepHookSafely(stepHook, step, lastLoss, ema);
-                maybeReleaseResources(step, releaseEverySteps);
-
-                if (shouldEarlyStop(targetEmaLoss, ema)) {
-                    break;
-                }
-            }
+            return runTraining(maxSteps, batchSize, logEvery, emaBeta,
+                    targetEmaLoss, releaseEverySteps, stepHook);
         } finally {
             Tensor.backend().releaseResources();
         }
+    }
 
-        int stepsRun = computeStepsRun(step, maxSteps);
-        return new TrainingResult(stepsRun, lastLoss, ema);
+    private TrainingResult runTraining(int maxSteps, int batchSize, int logEvery, float emaBeta,
+                                       Float targetEmaLoss, int releaseEverySteps, StepHook stepHook) {
+        float ema = Float.NaN;
+        float loss = Float.NaN;
+        int step;
+        for (step = 0; step < maxSteps; step++) {
+            loss = trainStep(batchSize);
+            ema = updateEma(ema, emaBeta, loss);
+            afterStep(stepHook, step, logEvery, releaseEverySteps, loss, ema);
+            if (shouldEarlyStop(targetEmaLoss, ema)) break;
+        }
+        return new TrainingResult(computeStepsRun(step, maxSteps), loss, ema);
+    }
+
+    private static void afterStep(StepHook hook, int step, int logEvery,
+                                  int releaseEverySteps, float loss, float ema) {
+        maybeLog(step, logEvery, loss, ema);
+        invokeStepHookSafely(hook, step, loss, ema);
+        maybeReleaseResources(step, releaseEverySteps);
     }
 
     private static void validateTrainArgs(int maxSteps, int batchSize, int logEvery, float emaBeta, int releaseEverySteps) {

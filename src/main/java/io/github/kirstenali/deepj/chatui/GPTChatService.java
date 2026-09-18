@@ -50,35 +50,18 @@ public final class GPTChatService implements ChatService {
 
     @Override
     public String generate(String prompt, int maxTokens, float temperature, int topK, long seed) {
-        if (loadedModel == null) {
-            throw new IllegalStateException("No model loaded.");
-        }
+        validateRequest(prompt, maxTokens, temperature, topK);
+        return TextGenerator.generate(loadedModel, tokenizer, config, prompt,
+                maxTokens, temperature, topK, seed);
+    }
 
-        if (prompt == null || prompt.isBlank()) {
-            throw new IllegalArgumentException("Prompt must not be empty.");
+    private void validateRequest(String prompt, int maxTokens, float temperature, int topK) {
+        if (loadedModel == null) throw new IllegalStateException("No model loaded.");
+        if (prompt == null || prompt.isBlank()) throw new IllegalArgumentException("Prompt must not be empty.");
+        if (maxTokens <= 0) throw new IllegalArgumentException("Max tokens must be greater than 0.");
+        if (!Float.isFinite(temperature) || temperature <= 0.0f) {
+            throw new IllegalArgumentException("Temperature must be finite and greater than 0.");
         }
-
-        if (maxTokens <= 0) {
-            throw new IllegalArgumentException("Max tokens must be greater than 0.");
-        }
-
-        if (temperature < 0.0f) {
-            throw new IllegalArgumentException("Temperature must be >= 0.");
-        }
-
-        if (topK <= 0) {
-            throw new IllegalArgumentException("Top-k must be greater than 0.");
-        }
-
-        return TextGenerator.generate(
-                loadedModel,
-                tokenizer,
-                config,
-                prompt,
-                maxTokens,
-                temperature,
-                topK,
-                seed
-        );
+        if (topK <= 0) throw new IllegalArgumentException("Top-k must be greater than 0.");
     }
 }

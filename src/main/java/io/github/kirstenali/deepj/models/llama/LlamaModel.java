@@ -17,6 +17,8 @@ import java.util.Random;
  *   <li>RMSNorm instead of LayerNorm for the final pre-head normalisation.</li>
  *   <li>SwiGLU feed-forward instead of GELU-FFN.</li>
  * </ul>
+ * This compact implementation uses full multi-head attention and does not maintain
+ * an incremental KV cache; it is not an exact release of Meta's Llama models.
  *
  * <p>Forward/backward/parameters are provided by {@link DecoderOnlyModel}.
  */
@@ -33,16 +35,21 @@ public final class LlamaModel extends DecoderOnlyModel {
                         .dFF(cfg.dFF())
                         .nLayers(cfg.nLayers())
                         .maxSeqLen(cfg.maxSeqLen())
-                        .seed(seed)
+                        .seed(seed + 1)
                         .build(),
                 new RMSNorm1D(cfg.dModel()),
-                new Linear(cfg.dModel(), cfg.vocabSize(), new Random(seed + 1))
+                new Linear(cfg.dModel(), cfg.vocabSize(), new Random(seed + 2))
         );
         this.cfg = cfg;
+        applyInitScale(cfg.initScale());
     }
 
     @Override
     public float gradClipNorm() {
         return cfg.gradClipNorm();
+    }
+
+    public LlamaConfig config() {
+        return cfg;
     }
 }

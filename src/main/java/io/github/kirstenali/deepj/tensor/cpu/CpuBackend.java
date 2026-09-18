@@ -535,7 +535,7 @@ public final class CpuBackend implements TensorBackend {
     public Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
         Tensor out = new Tensor(rowIndices.length, cols);
         for (int i = 0; i < rowIndices.length; i++)
-            System.arraycopy(t.data, rowIndices[i] * cols, out.data, i * cols, cols);
+            System.arraycopy(t.data, rowIndices[i] * t.cols, out.data, i * cols, cols);
         return out;
     }
 
@@ -592,4 +592,3 @@ public final class CpuBackend implements TensorBackend {
         }
     }
 }
-

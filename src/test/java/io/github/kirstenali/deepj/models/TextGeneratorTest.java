@@ -2,10 +2,13 @@ package io.github.kirstenali.deepj.models;
 
 import io.github.kirstenali.deepj.models.gpt.GPTConfig;
 import io.github.kirstenali.deepj.models.gpt.GPTModel;
+import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -79,6 +82,17 @@ public class TextGeneratorTest {
     }
 
     @Test
+    void generationStopsBeforeEndOfSequenceToken() {
+        AtomicInteger calls = new AtomicInteger();
+        Tokenizer tokenizer = new StopTokenizer();
+        String output = TextGenerator.generate(ids -> endTokenLogits(calls),
+                8, tokenizer, "p", 5, 1.0f, 1, 1L);
+
+        assertEquals("p", output);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
     void outputGrowsWithMoreTokens() {
         String short_ = TextGenerator.generate(model, tok, cfg, "x", 2, 1.0f, 0, 5L);
         String long_  = TextGenerator.generate(model, tok, cfg, "x", 20, 1.0f, 0, 5L);
@@ -126,8 +140,52 @@ public class TextGeneratorTest {
     }
 
     @Test
+    void nonFiniteTemperatureThrows() {
+        assertThrows(IllegalArgumentException.class,
+                () -> TextGenerator.generate(model, tok, cfg, "x", 5, Float.NaN, 0, 1L));
+    }
+
+    @Test
+    void emptyPromptThrowsWhenGenerating() {
+        assertThrows(IllegalArgumentException.class,
+                () -> TextGenerator.generate(model, tok, cfg, "", 1, 1.0f, 0, 1L));
+    }
+
+    @Test
     void negativeTopKThrows() {
         assertThrows(IllegalArgumentException.class,
                 () -> TextGenerator.generate(model, tok, cfg, "x", 5, 1.0f, -1, 1L));
+    }
+
+    private static Tensor endTokenLogits(AtomicInteger calls) {
+        calls.incrementAndGet();
+        Tensor logits = new Tensor(1, 3);
+        logits.data[0] = 0.0f;
+        logits.data[1] = 10.0f;
+        logits.data[2] = -1.0f;
+        return logits;
+    }
+
+    private static final class StopTokenizer implements Tokenizer {
+
+        @Override
+        public int[] encode(String text) {
+            return new int[]{0};
+        }
+
+        @Override
+        public String decode(int[] ids) {
+            return "p" + "x".repeat(Math.max(0, ids.length - 1));
+        }
+
+        @Override
+        public int vocabSize() {
+            return 3;
+        }
+
+        @Override
+        public boolean isEndOfSequence(int tokenId) {
+            return tokenId == 1;
+        }
     }
 }
