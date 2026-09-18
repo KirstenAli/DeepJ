@@ -15,9 +15,8 @@ import java.util.List;
  * Shared skeleton for decoder-only transformer models:
  * token embedding → block stack → final norm → LM-head.
  *
- * <p>Subclasses pass their concrete stack (a {@link io.github.kirstenali.deepj.transformer.TransformerStack}
- * or any {@link Layer}) to the protected constructor and only need to provide
- * {@link #gradClipNorm()}.
+ * <p>Subclasses pass their concrete {@link TransformerStack} to the protected
+ * constructor and provide {@link #gradClipNorm()}.
  *
  * <p>Models that add positional embeddings (e.g. GPT) override
  * {@link #embed}, {@link #backwardEmbeddings}, and {@link #embeddingParameters}.

@@ -79,7 +79,7 @@ public final class Trainer {
 
     /**
      * Train until maxSteps or until EMA loss goes below targetEmaLoss (if provided).
-     * releaseEverySteps <= 0 disables periodic release, but final release still runs.
+     * {@code releaseEverySteps <= 0} disables periodic release, but final release still runs.
      */
     public TrainingResult train(
             int maxSteps,
