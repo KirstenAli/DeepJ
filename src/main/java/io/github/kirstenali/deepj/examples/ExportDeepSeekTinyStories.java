@@ -63,7 +63,7 @@ public final class ExportDeepSeekTinyStories {
     private static ModelCard modelCard(DeepSeekTinyStoriesArtifacts.Loaded artifacts,
                                        EvaluationResult result, int batches) {
         long parameters = parameterCount(artifacts);
-        String name = System.getProperty("deepj.modelName", "DeepJ TinyStories DeepSeek-style");
+        String name = System.getProperty("deepj.modelName", "DeepJ TinyStories");
         String summary = summary(parameters, result, batches);
         String license = System.getProperty("deepj.modelLicense", "mit");
         return new ModelCard(name, summary, license, "en",
@@ -71,7 +71,7 @@ public final class ExportDeepSeekTinyStories {
     }
 
     private static String summary(long parameters, EvaluationResult result, int batches) {
-        return "An experimental %,d-parameter causal language model trained with DeepJ. "
+        return "An experimental %,d-parameter language model trained with DeepJ. "
                 .formatted(parameters)
                 + "On %d deterministic TinyStories validation windows (%d tokens), loss was %.6f "
                 .formatted(batches, result.tokens(), result.loss())

@@ -55,17 +55,29 @@ class DeepJModelBundleTest {
                 new DeepSeekModel(config, 42L), tokenizer, card());
         String json = Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE));
         String modelCard = Files.readString(bundle.resolve(DeepJModelBundle.MODEL_CARD_FILE));
+        assertDeepSeekConfig(json);
+        assertDeepSeekModelCard(modelCard);
+        assertDoesNotThrow(() -> new DeepSeekModel(config, 1L)
+                .load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
+    }
+
+    private static void assertDeepSeekConfig(String json) {
         assertTrue(json.contains("\"deepj-deepseek-style\""));
         assertTrue(json.contains("\"q_rank\": 4"));
-        assertTrue(modelCard.contains("not an exact DeepSeek-V2/V3/R1 implementation"));
+    }
+
+    private static void assertDeepSeekModelCard(String modelCard) {
+        assertTrue(modelCard.contains("created with [DeepJ](https://github.com/KirstenAli/DeepJ)"));
+        assertTrue(modelCard.contains("DeepSeek-style Transformer architecture"));
+        assertTrue(modelCard.contains("a hidden size of 8"));
+        assertTrue(modelCard.contains("vocabulary.\n\nIt is not an exact implementation"));
+        assertTrue(modelCard.contains("not an exact implementation of DeepSeek V2, V3 or R1"));
         assertTrue(modelCard.contains("## Usage"));
         assertTrue(modelCard.contains("io.github.kirstenali"));
         assertTrue(modelCard.contains("<version>0.6.0-alpha</version>"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("model.load(directory.resolve(\"model.dj\"))"));
         assertTrue(modelCard.contains("0.2f, 1.0f"));
-        assertDoesNotThrow(() -> new DeepSeekModel(config, 1L)
-                .load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
     }
 
     private static BPEModel tokenizer() {
