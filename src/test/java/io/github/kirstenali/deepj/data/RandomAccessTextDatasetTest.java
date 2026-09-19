@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,6 +57,26 @@ class RandomAccessTextDatasetTest {
         try (RandomAccessTextDataset dataset =
                      new RandomAccessTextDataset(content, new ByteTokenizer(), 2, 1L)) {
             assertThrows(IllegalArgumentException.class, () -> dataset.nextBatch(0));
+        }
+    }
+
+    @Test
+    void restoredRandomStateRepeatsTheNextBatch() throws Exception {
+        Path corpus = write("abcdefghijklmnopqrstuvwxyz\n".repeat(500));
+        try (RandomAccessTextDataset dataset =
+                     new RandomAccessTextDataset(corpus, new ByteTokenizer(), 16, 9L)) {
+            dataset.nextBatch(1);
+            long state = dataset.randomState();
+            Batch expected = dataset.nextBatch(2);
+            dataset.restoreRandomState(state);
+            assertBatchEquals(expected, dataset.nextBatch(2));
+        }
+    }
+
+    private static void assertBatchEquals(Batch expected, Batch actual) {
+        for (int row = 0; row < expected.x().length; row++) {
+            assertArrayEquals(expected.x()[row], actual.x()[row]);
+            assertArrayEquals(expected.y()[row], actual.y()[row]);
         }
     }
 

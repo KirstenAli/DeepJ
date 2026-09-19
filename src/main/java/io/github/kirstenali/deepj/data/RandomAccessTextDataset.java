@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Random;
 
 public final class RandomAccessTextDataset implements BatchSource, AutoCloseable {
 
@@ -22,7 +21,7 @@ public final class RandomAccessTextDataset implements BatchSource, AutoCloseable
 
     private final Tokenizer tokenizer;
     private final int seqLen;
-    private final Random random;
+    private final StatefulRandom random;
     private final FileChannel channel;
     private final long fileSize;
 
@@ -33,7 +32,7 @@ public final class RandomAccessTextDataset implements BatchSource, AutoCloseable
         this.fileSize = Files.size(Objects.requireNonNull(path, "path"));
         if (fileSize == 0) throw new IllegalArgumentException("text file must not be empty");
         this.seqLen = seqLen;
-        this.random = new Random(seed);
+        this.random = new StatefulRandom(seed);
         this.channel = FileChannel.open(path, StandardOpenOption.READ);
     }
 
@@ -79,6 +78,14 @@ public final class RandomAccessTextDataset implements BatchSource, AutoCloseable
     private long randomPosition(int windowLength) {
         long bound = fileSize - windowLength + 1;
         return bound <= 1 ? 0 : random.nextLong(bound);
+    }
+
+    public synchronized long randomState() {
+        return random.state();
+    }
+
+    public synchronized void restoreRandomState(long state) {
+        random.restore(state);
     }
 
     private int initialWindow(int requiredTokens) {

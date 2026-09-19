@@ -377,6 +377,18 @@ class ComputeGraphTest {
     }
 
     @Test
+    void releaseAllDownloadsDirectlyIntoTensorStorage() {
+        Tensor tensor = Tensor.from2D(new float[][]{{1.0f}});
+        GpuBuffer buffer = graph.ensureGpuBuffer(tensor);
+        graph.flush();
+        buffer.cpuStale = true;
+
+        graph.releaseAll();
+
+        assertSame(tensor.data, runtime.downloads.get(0).output());
+    }
+
+    @Test
     void recordAdamWUpdateMakesGraphNonEmpty() {
         GpuBuffer w  = graph.newOutputBuffer(4, 4);
         GpuBuffer g  = graph.newOutputBuffer(4, 4);
@@ -510,7 +522,7 @@ class ComputeGraphTest {
 
         record AllocCall(int[] ids, int[] sizes, int count) {}
         record UploadCall(int bufId, float[] data) {}
-        record DownloadCall(int bufId) {}
+        record DownloadCall(int bufId, float[] output) {}
         record FlushCall(int[] cmdStream, int cmdStreamLength) {}
         record ReleaseCall(int[] ids, int count) {}
 
@@ -534,7 +546,7 @@ class ComputeGraphTest {
 
         @Override
         public void downloadBuffer(int bufId, float[] out) {
-            downloads.add(new DownloadCall(bufId));
+            downloads.add(new DownloadCall(bufId, out));
             if (downloadResult != null) {
                 System.arraycopy(downloadResult, 0, out, 0,
                         Math.min(downloadResult.length, out.length));
