@@ -2,7 +2,6 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
-import io.github.kirstenali.deepj.tensor.GpuMemoryStats;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
@@ -52,12 +51,18 @@ public final class MetalBackendTest {
     }
 
     @Test
-    void releaseResourcesClearsMemoryAccounting() {
-        Tensor result = gpu.neg(randomTensor(8, 8, 140L));
+    void repeatedTransfersRemainCorrectAfterRelease() {
+        for (int iteration = 0; iteration < 32; iteration++) {
+            assertTransferAfterRelease(iteration);
+        }
+    }
+
+    private static void assertTransferAfterRelease(int iteration) {
+        Tensor input = randomTensor(64, 64, 200L + iteration);
+        Tensor result = gpu.neg(input);
         result.materialize();
-        assertTrue(gpu.memoryStats().bufferCount() > 0);
+        assertEquals(-input.data[0], result.data[0], 1e-6f);
         gpu.releaseResources();
-        assertEquals(GpuMemoryStats.empty(), gpu.memoryStats());
     }
 
     @Test

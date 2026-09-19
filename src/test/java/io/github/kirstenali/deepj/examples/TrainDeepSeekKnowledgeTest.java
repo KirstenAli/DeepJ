@@ -21,9 +21,9 @@ class TrainDeepSeekKnowledgeTest {
     }
 
     @Test
-    void releasesMetalMemoryAfterEveryStepByDefault() {
+    void usesStandardResourceReleaseInterval() {
         var training = TrainDeepSeekKnowledge.configuration().training();
         assertEquals(TrainDeepSeekKnowledge.RELEASE_EVERY, training.releaseEvery());
-        assertEquals(1, training.releaseEvery());
+        assertEquals(25, training.releaseEvery());
     }
 }

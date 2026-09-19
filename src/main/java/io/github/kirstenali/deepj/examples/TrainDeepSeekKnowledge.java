@@ -14,7 +14,7 @@ public final class TrainDeepSeekKnowledge {
     static final int D_FF = 1_024;
     static final int Q_RANK = 192;
     static final int KV_RANK = 96;
-    static final int RELEASE_EVERY = 1;
+    static final int RELEASE_EVERY = 25;
 
     private TrainDeepSeekKnowledge() {}
 

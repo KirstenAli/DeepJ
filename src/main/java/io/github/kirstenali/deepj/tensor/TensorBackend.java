@@ -82,8 +82,4 @@ public interface TensorBackend {
     default void materializeTensor(Tensor t) {  }
 
     default void releaseResources() {  }
-
-    default GpuMemoryStats memoryStats() {
-        return GpuMemoryStats.empty();
-    }
 }

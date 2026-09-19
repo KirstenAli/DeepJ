@@ -66,7 +66,7 @@ public final class ComputeGraph {
     private final List<int[]> pendingUploadIds = new ArrayList<>();
     private final List<float[]> pendingUploadData = new ArrayList<>();
     private final Map<Integer, WeakReference<Tensor>> bufIdToTensor = new HashMap<>();
-    private final Map<Integer, Integer> bufferFloatCounts = new HashMap<>();
+    private final Set<Integer> allocatedBufferIds = new HashSet<>();
 
     public ComputeGraph(GpuRuntime runtime) {
         this.runtime = Objects.requireNonNull(runtime, "runtime");
@@ -145,7 +145,7 @@ public final class ComputeGraph {
 
     private void scheduleAlloc(int id, int floatCount) {
         pendingAllocs.add(new int[]{id, floatCount});
-        bufferFloatCounts.put(id, floatCount);
+        allocatedBufferIds.add(id);
     }
 
     private void scheduleUpload(int id, float[] data) {
@@ -512,7 +512,7 @@ public final class ComputeGraph {
         for (int id : orphanIds) {
             removePendingForId(id);
             bufIdToTensor.remove(id);
-            bufferFloatCounts.remove(id);
+            allocatedBufferIds.remove(id);
         }
 
         int[] ids = orphanIds.stream().mapToInt(Integer::intValue).toArray();
@@ -614,11 +614,6 @@ public final class ComputeGraph {
         resetGraphState();
     }
 
-    public GpuMemoryStats memoryStats() {
-        long floats = bufferFloatCounts.values().stream().mapToLong(Integer::longValue).sum();
-        return new GpuMemoryStats(bufferFloatCounts.size(), floats * Float.BYTES);
-    }
-
     private void materializeTrackedTensors() {
         flush();
         for (WeakReference<Tensor> ref : bufIdToTensor.values()) {
@@ -641,10 +636,9 @@ public final class ComputeGraph {
     }
 
     private void releaseNativeBuffers() {
-        if (!bufferFloatCounts.isEmpty()) {
-            int[] ids = bufferFloatCounts.keySet().stream().mapToInt(Integer::intValue).toArray();
-            runtime.releaseBuffers(ids, ids.length);
-        }
+        if (allocatedBufferIds.isEmpty()) return;
+        int[] ids = allocatedBufferIds.stream().mapToInt(Integer::intValue).toArray();
+        runtime.releaseBuffers(ids, ids.length);
     }
 
     private void resetGraphState() {
@@ -652,7 +646,7 @@ public final class ComputeGraph {
         pendingAllocs.clear();
         pendingUploadIds.clear();
         pendingUploadData.clear();
-        bufferFloatCounts.clear();
+        allocatedBufferIds.clear();
         cmdPos = 0;
         opCount = 0;
     }

@@ -27,16 +27,6 @@ class ComputeGraphTest {
     @Test
     void newGraphIsEmpty() {
         assertTrue(graph.isEmpty());
-        assertEquals(GpuMemoryStats.empty(), graph.memoryStats());
-    }
-
-    @Test
-    void memoryStatsTrackScheduledBuffers() {
-        graph.newOutputBuffer(2, 3);
-        graph.newOutputBuffer(4, 5);
-        assertEquals(new GpuMemoryStats(2, 104L), graph.memoryStats());
-        graph.releaseAll();
-        assertEquals(GpuMemoryStats.empty(), graph.memoryStats());
     }
 
     @Test

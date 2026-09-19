@@ -210,35 +210,113 @@ kernel void kernel_multiply_broadcast_rows(device const float* a      [[buffer(0
     out[id] = a[id] * rowVec[c];
 }
 
+inline float row_sum(device const float* values, uint base, uint cols,
+                     uint tid, uint width) {
+    float result = 0.0f;
+    for (uint c = tid; c < cols; c += width) result += values[base + c];
+    return result;
+}
+
+inline float row_abs_sum(device const float* values, uint base, uint cols,
+                         uint tid, uint width) {
+    float result = 0.0f;
+    for (uint c = tid; c < cols; c += width) result += fabs(values[base + c]);
+    return result;
+}
+
+inline float row_max(device const float* values, uint base, uint cols,
+                     uint tid, uint width) {
+    float result = -INFINITY;
+    for (uint c = tid; c < cols; c += width) result = max(result, values[base + c]);
+    return result;
+}
+
+inline float row_exp_sum(device const float* values, uint base, uint cols,
+                         uint tid, uint width, float maximum) {
+    float result = 0.0f;
+    for (uint c = tid; c < cols; c += width) result += exp(values[base + c] - maximum);
+    return result;
+}
+
+inline float row_variance_sum(device const float* values, uint base, uint cols,
+                              uint tid, uint width, float mean) {
+    float result = 0.0f;
+    for (uint c = tid; c < cols; c += width) {
+        float difference = values[base + c] - mean;
+        result += difference * difference;
+    }
+    return result;
+}
+
+inline float column_sum(device const float* values, uint rows, uint cols,
+                        uint column, uint tid, uint width) {
+    float result = 0.0f;
+    for (uint row = tid; row < rows; row += width) result += values[row * cols + column];
+    return result;
+}
+
+inline float reduce_sum(threadgroup float* scratch, float value,
+                        uint tid, uint width) {
+    scratch[tid] = value;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = width >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) scratch[tid] += scratch[tid + stride];
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    return scratch[0];
+}
+
+inline float reduce_max(threadgroup float* scratch, float value,
+                        uint tid, uint width) {
+    scratch[tid] = value;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = width >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) scratch[tid] = max(scratch[tid], scratch[tid + stride]);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    return scratch[0];
+}
+
+inline void write_row_value(device float* output, uint base, uint cols,
+                            uint tid, uint width, float value) {
+    for (uint c = tid; c < cols; c += width) output[base + c] = value;
+}
+
+inline bool valid_cross_entropy_target(device float* output, uint base, uint cols,
+                                       uint tid, uint width, int target) {
+    if (target >= 0 && target < (int)cols) return true;
+    write_row_value(output, base, cols, tid, width, NAN);
+    return false;
+}
+
+inline float cross_entropy_value(device const float* logits, uint base, uint cols,
+                                 int target, float maximum, float sumExp) {
+    if (target < 0 || target >= (int)cols) return NAN;
+    return log(sumExp) + maximum - logits[base + (uint)target];
+}
+
+inline void write_cross_entropy_gradient(device const float* logits, device float* output,
+                                         uint base, uint cols, uint tid, uint width,
+                                         int target, float maximum, float sumExp, float scale) {
+    for (uint c = tid; c < cols; c += width) {
+        float probability = exp(logits[base + c] - maximum) / sumExp;
+        if ((int)c == target) probability -= 1.0f;
+        output[base + c] = probability * scale;
+    }
+}
+
 kernel void kernel_sum_rows(device const float* a      [[buffer(0)]],
                             device float* out          [[buffer(1)]],
                             device const uint2* dims   [[buffer(2)]],
                             uint3 gid [[thread_position_in_grid]],
                             uint3 tid3 [[thread_position_in_threadgroup]],
                             uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint col = gid.x;
-    uint tid = tid3.y;
+    uint rows = dims[0].x, cols = dims[0].y, col = gid.x, tid = tid3.y;
     if (col >= cols) return;
-
     threadgroup float scratch[1024];
-
-    float local = 0.0f;
-    for (uint r = tid; r < rows; r += tptg.y) {
-        local += a[r * cols + col];
-    }
-    scratch[tid] = local;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.y >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) out[col] = scratch[0];
+    float value = column_sum(a, rows, cols, col, tid, tptg.y);
+    float sum = reduce_sum(scratch, value, tid, tptg.y);
+    if (tid == 0) out[col] = sum;
 }
 
 kernel void kernel_mean_along_rows(device const float* a      [[buffer(0)]],
@@ -247,30 +325,12 @@ kernel void kernel_mean_along_rows(device const float* a      [[buffer(0)]],
                                    uint3 gid [[thread_position_in_grid]],
                                    uint3 tid3 [[thread_position_in_threadgroup]],
                                    uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint row = gid.y;
-    uint tid = tid3.x;
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
-
     threadgroup float scratch[1024];
-
-    uint base = row * cols;
-    float local = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        local += a[base + c];
-    }
-    scratch[tid] = local;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) out[row] = scratch[0] / (float)cols;
+    float value = row_sum(a, row * cols, cols, tid, tptg.x);
+    float sum = reduce_sum(scratch, value, tid, tptg.x);
+    if (tid == 0) out[row] = sum / (float)cols;
 }
 
 kernel void kernel_sum_along_rows(device const float* a      [[buffer(0)]],
@@ -279,30 +339,12 @@ kernel void kernel_sum_along_rows(device const float* a      [[buffer(0)]],
                                   uint3 gid [[thread_position_in_grid]],
                                   uint3 tid3 [[thread_position_in_threadgroup]],
                                   uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint row = gid.y;
-    uint tid = tid3.x;
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
-
     threadgroup float scratch[1024];
-
-    uint base = row * cols;
-    float local = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        local += a[base + c];
-    }
-    scratch[tid] = local;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) out[row] = scratch[0];
+    float value = row_sum(a, row * cols, cols, tid, tptg.x);
+    float sum = reduce_sum(scratch, value, tid, tptg.x);
+    if (tid == 0) out[row] = sum;
 }
 
 kernel void kernel_variance_along_rows(device const float* a      [[buffer(0)]],
@@ -311,46 +353,15 @@ kernel void kernel_variance_along_rows(device const float* a      [[buffer(0)]],
                                        uint3 gid [[thread_position_in_grid]],
                                        uint3 tid3 [[thread_position_in_threadgroup]],
                                        uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint row = gid.y;
-    uint tid = tid3.x;
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
-
     threadgroup float scratch[1024];
-
     uint base = row * cols;
-    float localSum = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localSum += a[base + c];
-    }
-    scratch[tid] = localSum;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-    float mean = scratch[0] / (float)cols;
-
-    float localVar = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        float d = a[base + c] - mean;
-        localVar += d * d;
-    }
-    scratch[tid] = localVar;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) out[row] = scratch[0] / (float)cols;
+    float mean = reduce_sum(scratch, row_sum(a, base, cols, tid, tptg.x),
+                            tid, tptg.x) / (float)cols;
+    float value = row_variance_sum(a, base, cols, tid, tptg.x, mean);
+    float variance = reduce_sum(scratch, value, tid, tptg.x) / (float)cols;
+    if (tid == 0) out[row] = variance;
 }
 
 kernel void kernel_max_along_rows(device const float* a      [[buffer(0)]],
@@ -359,30 +370,12 @@ kernel void kernel_max_along_rows(device const float* a      [[buffer(0)]],
                                   uint3 gid [[thread_position_in_grid]],
                                   uint3 tid3 [[thread_position_in_threadgroup]],
                                   uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint row = gid.y;
-    uint tid = tid3.x;
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
-
     threadgroup float scratch[1024];
-
-    uint base = row * cols;
-    float localMax = -INFINITY;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localMax = max(localMax, a[base + c]);
-    }
-    scratch[tid] = localMax;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) out[row] = scratch[0];
+    float value = row_max(a, row * cols, cols, tid, tptg.x);
+    float maximum = reduce_max(scratch, value, tid, tptg.x);
+    if (tid == 0) out[row] = maximum;
 }
 
 kernel void kernel_sum_abs(device const float* a      [[buffer(0)]],
@@ -391,30 +384,12 @@ kernel void kernel_sum_abs(device const float* a      [[buffer(0)]],
                            uint3 gid [[thread_position_in_grid]],
                            uint3 tid3 [[thread_position_in_threadgroup]],
                            uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint row = gid.y;
-    uint tid = tid3.x;
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
-
     threadgroup float scratch[1024];
-
-    uint base = row * cols;
-    float local = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        local += fabs(a[base + c]);
-    }
-    scratch[tid] = local;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) out[row] = scratch[0];
+    float value = row_abs_sum(a, row * cols, cols, tid, tptg.x);
+    float sum = reduce_sum(scratch, value, tid, tptg.x);
+    if (tid == 0) out[row] = sum;
 }
 
 kernel void kernel_cross_entropy_loss(device const float* logits [[buffer(0)]],
@@ -424,53 +399,15 @@ kernel void kernel_cross_entropy_loss(device const float* logits [[buffer(0)]],
                                       uint3 gid [[thread_position_in_grid]],
                                       uint3 tid3 [[thread_position_in_threadgroup]],
                                       uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint row = gid.y;
-    uint tid = tid3.x;
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
-
     threadgroup float scratch[1024];
-
     uint base = row * cols;
-    float localMax = -INFINITY;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localMax = max(localMax, logits[base + c]);
-    }
-    scratch[tid] = localMax;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-    float maxVal = scratch[0];
-
-    float localSumExp = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localSumExp += exp(logits[base + c] - maxVal);
-    }
-    scratch[tid] = localSumExp;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-    float sumExp = scratch[0];
-
-    if (tid == 0) {
-        int target = (int)targets[row];
-        if (target < 0 || target >= (int)cols) {
-            out[row] = NAN;
-            return;
-        }
-        out[row] = log(sumExp) + maxVal - logits[base + (uint)target];
-    }
+    float maximum = reduce_max(scratch, row_max(logits, base, cols, tid, tptg.x), tid, tptg.x);
+    float localSum = row_exp_sum(logits, base, cols, tid, tptg.x, maximum);
+    float sumExp = reduce_sum(scratch, localSum, tid, tptg.x);
+    int target = (int)targets[row];
+    if (tid == 0) out[row] = cross_entropy_value(logits, base, cols, target, maximum, sumExp);
 }
 
 kernel void kernel_cross_entropy_gradient(device const float* logits [[buffer(0)]],
@@ -480,59 +417,17 @@ kernel void kernel_cross_entropy_gradient(device const float* logits [[buffer(0)
                                           uint3 gid [[thread_position_in_grid]],
                                           uint3 tid3 [[thread_position_in_threadgroup]],
                                           uint3 tptg [[threads_per_threadgroup]]) {
-    uint rows = dims[0].x;
-    uint cols = dims[0].y;
-    uint row = gid.y;
-    uint tid = tid3.x;
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
-
-    threadgroup float scratch[1024];
-
     uint base = row * cols;
     int target = (int)targets[row];
-    if (target < 0 || target >= (int)cols) {
-        for (uint c = tid; c < cols; c += tptg.x) {
-            out[base + c] = NAN;
-        }
-        return;
-    }
-
-    float localMax = -INFINITY;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localMax = max(localMax, logits[base + c]);
-    }
-    scratch[tid] = localMax;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-    float maxVal = scratch[0];
-
-    float localSumExp = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localSumExp += exp(logits[base + c] - maxVal);
-    }
-    scratch[tid] = localSumExp;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-    float sumExp = scratch[0];
-
-    float invRows = 1.0f / (float)rows;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        float p = exp(logits[base + c] - maxVal) / sumExp;
-        if ((int)c == target) p -= 1.0f;
-        out[base + c] = p * invRows;
-    }
+    if (!valid_cross_entropy_target(out, base, cols, tid, tptg.x, target)) return;
+    threadgroup float scratch[1024];
+    float maximum = reduce_max(scratch, row_max(logits, base, cols, tid, tptg.x), tid, tptg.x);
+    float localSum = row_exp_sum(logits, base, cols, tid, tptg.x, maximum);
+    float sumExp = reduce_sum(scratch, localSum, tid, tptg.x);
+    write_cross_entropy_gradient(logits, out, base, cols, tid, tptg.x,
+                                 target, maximum, sumExp, 1.0f / (float)rows);
 }
 
 kernel void kernel_clamp(device const float* a        [[buffer(0)]],
@@ -681,34 +576,83 @@ kernel void kernel_gelu_backward(device const float* input [[buffer(0)]],
     out[id] = grad[id] * d_gelu;
 }
 
+inline float write_row_exp(device const float* input, device float* output,
+                           uint base, uint cols, uint tid, uint width, float maximum) {
+    float sum = 0.0f;
+    for (uint c = tid; c < cols; c += width) {
+        float value = exp(input[base + c] - maximum);
+        output[base + c] = value;
+        sum += value;
+    }
+    return sum;
+}
+
+inline float row_dot(device const float* left, device const float* right,
+                     uint base, uint cols, uint tid, uint width) {
+    float result = 0.0f;
+    for (uint c = tid; c < cols; c += width) result += left[base + c] * right[base + c];
+    return result;
+}
+
+inline void write_softmax_backward(device const float* gradient, device const float* softmax,
+                                   device float* output, uint base, uint cols,
+                                   uint tid, uint width, float dot) {
+    for (uint c = tid; c < cols; c += width) {
+        float value = softmax[base + c];
+        output[base + c] = value * (gradient[base + c] - dot);
+    }
+}
+
+inline float2 layernorm_sums(device const float* gradient, device const float* normalized,
+                             uint base, uint cols, uint tid, uint width) {
+    float2 result = float2(0.0f);
+    for (uint c = tid; c < cols; c += width) {
+        float value = gradient[base + c];
+        result.x += value;
+        result.y += value * normalized[base + c];
+    }
+    return result;
+}
+
+inline float2 reduce_pair_sum(threadgroup float* left, threadgroup float* right,
+                              float2 value, uint tid, uint width) {
+    left[tid] = value.x;
+    right[tid] = value.y;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = width >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            left[tid] += left[tid + stride];
+            right[tid] += right[tid + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    return float2(left[0], right[0]);
+}
+
+inline void write_layernorm_backward(device const float* gradient,
+                                     device const float* normalized, device float* output,
+                                     uint base, uint cols, uint tid, uint width,
+                                     float inverseDeviation, float2 sums) {
+    float inverseColumns = 1.0f / (float)cols;
+    for (uint c = tid; c < cols; c += width) {
+        float value = gradient[base + c];
+        float centered = value - sums.x * inverseColumns;
+        output[base + c] = inverseDeviation *
+                (centered - normalized[base + c] * sums.y * inverseColumns);
+    }
+}
+
 kernel void kernel_softmax_max(device const float* a     [[buffer(0)]],
                                device float* rowMax      [[buffer(1)]],
                                device const uint* dims   [[buffer(2)]],
                                uint3 gid [[thread_position_in_grid]],
                                uint3 tid3 [[thread_position_in_threadgroup]],
                                uint3 tptg [[threads_per_threadgroup]]) {
-    uint cols = dims[0];
-    uint row = gid.y;
-    uint tid = tid3.x;
-
+    uint cols = dims[0], row = gid.y, tid = tid3.x;
     threadgroup float scratch[1024];
-
     uint base = row * cols;
-    float localMax = -INFINITY;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localMax = max(localMax, a[base + c]);
-    }
-    scratch[tid] = localMax;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] = max(scratch[tid], scratch[tid + stride]);
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) rowMax[row] = scratch[0];
+    float maximum = reduce_max(scratch, row_max(a, base, cols, tid, tptg.x), tid, tptg.x);
+    if (tid == 0) rowMax[row] = maximum;
 }
 
 kernel void kernel_softmax_expsum(device const float* a     [[buffer(0)]],
@@ -719,31 +663,12 @@ kernel void kernel_softmax_expsum(device const float* a     [[buffer(0)]],
                                   uint3 gid [[thread_position_in_grid]],
                                   uint3 tid3 [[thread_position_in_threadgroup]],
                                   uint3 tptg [[threads_per_threadgroup]]) {
-    uint cols = dims[0];
-    uint row = gid.y;
-    uint tid = tid3.x;
-
+    uint cols = dims[0], row = gid.y, tid = tid3.x;
     threadgroup float scratch[1024];
-
     uint base = row * cols;
-    float mx = rowMax[row];
-    float local = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        float e = exp(a[base + c] - mx);
-        out[base + c] = e;
-        local += e;
-    }
-    scratch[tid] = local;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    if (tid == 0) rowSum[row] = scratch[0];
+    float local = write_row_exp(a, out, base, cols, tid, tptg.x, rowMax[row]);
+    float sum = reduce_sum(scratch, local, tid, tptg.x);
+    if (tid == 0) rowSum[row] = sum;
 }
 
 kernel void kernel_softmax_norm(device float* out          [[buffer(0)]],
@@ -762,33 +687,12 @@ kernel void kernel_softmax_backward(device const float* gradOutput [[buffer(0)]]
                                     uint3 gid [[thread_position_in_grid]],
                                     uint3 tid3 [[thread_position_in_threadgroup]],
                                     uint3 tptg [[threads_per_threadgroup]]) {
-    uint cols = dims[0];
-    uint row = gid.y;
-    uint tid = tid3.x;
-
+    uint cols = dims[0], row = gid.y, tid = tid3.x;
     threadgroup float scratch[1024];
-
     uint base = row * cols;
-
-    float localDot = 0.0f;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        localDot += gradOutput[base + c] * softmaxOut[base + c];
-    }
-    scratch[tid] = localDot;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratch[tid] += scratch[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-    float dot = scratch[0];
-
-    for (uint c = tid; c < cols; c += tptg.x) {
-        float s = softmaxOut[base + c];
-        out[base + c] = s * (gradOutput[base + c] - dot);
-    }
+    float local = row_dot(gradOutput, softmaxOut, base, cols, tid, tptg.x);
+    float dot = reduce_sum(scratch, local, tid, tptg.x);
+    write_softmax_backward(gradOutput, softmaxOut, out, base, cols, tid, tptg.x, dot);
 }
 
 kernel void kernel_layernorm_backward(device const float* dXHat [[buffer(0)]],
@@ -799,45 +703,14 @@ kernel void kernel_layernorm_backward(device const float* dXHat [[buffer(0)]],
                                       uint3 gid [[thread_position_in_grid]],
                                       uint3 tid3 [[thread_position_in_threadgroup]],
                                       uint3 tptg [[threads_per_threadgroup]]) {
-    uint cols = dims[0];
-    uint row = gid.y;
-    uint tid = tid3.x;
-
+    uint cols = dims[0], row = gid.y, tid = tid3.x;
     threadgroup float scratchA[1024];
     threadgroup float scratchB[1024];
-
     uint base = row * cols;
-
-    float invStd = 1.0f / std[row];
-    float localSumD = 0.0f;
-    float localSumDXHatXHat = 0.0f;
-
-    for (uint c = tid; c < cols; c += tptg.x) {
-        float d = dXHat[base + c];
-        localSumD += d;
-        localSumDXHatXHat += d * xHat[base + c];
-    }
-    scratchA[tid] = localSumD;
-    scratchB[tid] = localSumDXHatXHat;
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    for (uint stride = tptg.x >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            scratchA[tid] += scratchA[tid + stride];
-            scratchB[tid] += scratchB[tid + stride];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-
-    float sumD = scratchA[0];
-    float sumDXHatXHat = scratchB[0];
-
-    float invCols = 1.0f / (float)cols;
-    for (uint c = tid; c < cols; c += tptg.x) {
-        float d = dXHat[base + c];
-        float xh = xHat[base + c];
-        out[base + c] = invStd * (d - sumD * invCols - xh * (sumDXHatXHat * invCols));
-    }
+    float2 local = layernorm_sums(dXHat, xHat, base, cols, tid, tptg.x);
+    float2 sums = reduce_pair_sum(scratchA, scratchB, local, tid, tptg.x);
+    write_layernorm_backward(dXHat, xHat, out, base, cols, tid, tptg.x,
+                             1.0f / std[row], sums);
 }
 
 struct AdamWParams {
@@ -1017,7 +890,10 @@ static MetalContext* getContext() {
 
 #include <unordered_map>
 
-static std::unordered_map<int, id<MTLBuffer>> gBufferPool;
+using BufferPool = std::unordered_map<int, id<MTLBuffer>>;
+using BufferEntry = BufferPool::iterator;
+
+static BufferPool gBufferPool;
 static std::mutex gBufferMutex;
 
 static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCache;
@@ -1190,6 +1066,28 @@ static bool validateAllocationArrays(JNIEnv* env, jintArray ids, jintArray sizes
     return false;
 }
 
+struct AllocationArrays {
+    jint* ids;
+    jint* sizes;
+};
+
+static AllocationArrays acquireAllocationArrays(JNIEnv* env, jintArray ids, jintArray sizes) {
+    jint* idValues = env->GetIntArrayElements(ids, nullptr);
+    jint* sizeValues = env->GetIntArrayElements(sizes, nullptr);
+    if (idValues != nullptr && sizeValues != nullptr) {
+        return AllocationArrays{idValues, sizeValues};
+    }
+    if (idValues != nullptr) env->ReleaseIntArrayElements(ids, idValues, JNI_ABORT);
+    if (sizeValues != nullptr) env->ReleaseIntArrayElements(sizes, sizeValues, JNI_ABORT);
+    return AllocationArrays{nullptr, nullptr};
+}
+
+static void releaseAllocationArrays(JNIEnv* env, jintArray ids, jintArray sizes,
+                                    AllocationArrays arrays) {
+    if (arrays.ids != nullptr) env->ReleaseIntArrayElements(ids, arrays.ids, JNI_ABORT);
+    if (arrays.sizes != nullptr) env->ReleaseIntArrayElements(sizes, arrays.sizes, JNI_ABORT);
+}
+
 static void allocateBuffer(MetalContext* ctx, int bufferId, int floatCount) {
     if (bufferId < 0 || floatCount <= 0) throw std::runtime_error("Invalid GPU buffer allocation");
     NSUInteger bytes = (NSUInteger)floatCount * sizeof(float);
@@ -1211,91 +1109,98 @@ static void allocateBuffers(const jint* ids, const jint* sizes, int count) {
     for (int i = 0; i < count; i++) allocateBuffer(ctx, ids[i], sizes[i]);
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
-        JNIEnv* env, jclass, jintArray idsArr, jintArray sizesArr, jint count) {
-    if (!validateAllocationArrays(env, idsArr, sizesArr, count)) return;
-    jint* ids   = env->GetIntArrayElements(idsArr, nullptr);
-    jint* sizes = env->GetIntArrayElements(sizesArr, nullptr);
-    if (ids == nullptr || sizes == nullptr) {
-        if (ids != nullptr) env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
-        return;
+static BufferEntry transferEntry(JNIEnv* env, int bufferId, jfloatArray values,
+                                 const char* operation) {
+    if (values == nullptr) {
+        throwJavaRuntimeException(env, (std::string(operation) + " data cannot be null").c_str());
+        return gBufferPool.end();
     }
+    auto entry = gBufferPool.find(bufferId);
+    if (entry == gBufferPool.end()) {
+        throwJavaRuntimeException(env, (std::string(operation) + " buffer was not found").c_str());
+        return entry;
+    }
+    NSUInteger bytes = (NSUInteger)env->GetArrayLength(values) * sizeof(float);
+    if (bytes == [entry->second length]) return entry;
+    throwJavaRuntimeException(env, (std::string(operation) + " length does not match buffer size").c_str());
+    return gBufferPool.end();
+}
+
+static void allocateRequestedBuffers(JNIEnv* env, jintArray idsArr,
+                                     jintArray sizesArr, jint count) {
+    if (!validateAllocationArrays(env, idsArr, sizesArr, count)) return;
+    AllocationArrays arrays = acquireAllocationArrays(env, idsArr, sizesArr);
+    if (arrays.ids == nullptr || arrays.sizes == nullptr) return;
     try {
         std::lock_guard<std::mutex> lock(gBufferMutex);
-        allocateBuffers(ids, sizes, count);
+        allocateBuffers(arrays.ids, arrays.sizes, count);
     } catch (const std::exception& ex) {
-        env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
-        env->ReleaseIntArrayElements(sizesArr, sizes, JNI_ABORT);
+        releaseAllocationArrays(env, idsArr, sizesArr, arrays);
         throwJavaRuntimeException(env, ex.what());
         return;
     }
-    env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
-    env->ReleaseIntArrayElements(sizesArr, sizes, JNI_ABORT);
+    releaseAllocationArrays(env, idsArr, sizesArr, arrays);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
+        JNIEnv* env, jclass, jintArray idsArr, jintArray sizesArr, jint count) {
+    @autoreleasepool { allocateRequestedBuffers(env, idsArr, sizesArr, count); }
+}
+
+static void uploadBuffer(JNIEnv* env, jint bufId, jfloatArray dataArr) {
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    BufferEntry entry = transferEntry(env, bufId, dataArr, "Upload");
+    if (entry == gBufferPool.end()) return;
+    jint len = env->GetArrayLength(dataArr);
+    jfloat* data = env->GetFloatArrayElements(dataArr, nullptr);
+    if (data == nullptr) return;
+    std::memcpy([entry->second contents], data, (size_t)len * sizeof(float));
+    env->ReleaseFloatArrayElements(dataArr, data, JNI_ABORT);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
         JNIEnv* env, jclass, jint bufId, jfloatArray dataArr) {
-    if (dataArr == nullptr) {
-        throwJavaRuntimeException(env, "Upload data cannot be null");
-        return;
-    }
+    @autoreleasepool { uploadBuffer(env, bufId, dataArr); }
+}
+
+static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    auto it = gBufferPool.find(bufId);
-    if (it == gBufferPool.end()) {
-        throwJavaRuntimeException(env, "Buffer not found for upload");
-        return;
-    }
-    jint len = env->GetArrayLength(dataArr);
-    if ((NSUInteger)len * sizeof(float) != [it->second length]) {
-        throwJavaRuntimeException(env, "Upload length does not match Metal buffer size");
-        return;
-    }
-    jfloat* data = env->GetFloatArrayElements(dataArr, nullptr);
-    if (data == nullptr) return;
-    std::memcpy([it->second contents], data, (size_t)len * sizeof(float));
-    env->ReleaseFloatArrayElements(dataArr, data, JNI_ABORT);
+    BufferEntry entry = transferEntry(env, bufId, outArr, "Download");
+    if (entry == gBufferPool.end()) return;
+    jint len = env->GetArrayLength(outArr);
+    jfloat* out = env->GetFloatArrayElements(outArr, nullptr);
+    if (out == nullptr) return;
+    std::memcpy(out, [entry->second contents], (size_t)len * sizeof(float));
+    env->ReleaseFloatArrayElements(outArr, out, 0);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer(
         JNIEnv* env, jclass, jint bufId, jfloatArray outArr) {
-    if (outArr == nullptr) {
-        throwJavaRuntimeException(env, "Download target cannot be null");
-        return;
-    }
+    @autoreleasepool { downloadBuffer(env, bufId, outArr); }
+}
+
+static bool validateReleaseRequest(JNIEnv* env, jintArray idsArr, jint count) {
+    if (idsArr != nullptr && count >= 0 && count <= env->GetArrayLength(idsArr)) return true;
+    throwJavaRuntimeException(env, "Invalid GPU release request");
+    return false;
+}
+
+static void releaseBuffers(JNIEnv* env, jintArray idsArr, jint count) {
+    if (!validateReleaseRequest(env, idsArr, count)) return;
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    auto it = gBufferPool.find(bufId);
-    if (it == gBufferPool.end()) {
-        throwJavaRuntimeException(env, "Buffer not found for download");
-        return;
-    }
-    jint len = env->GetArrayLength(outArr);
-    if ((NSUInteger)len * sizeof(float) != [it->second length]) {
-        throwJavaRuntimeException(env, "Download length does not match Metal buffer size");
-        return;
-    }
-    jfloat* out = env->GetFloatArrayElements(outArr, nullptr);
-    if (out == nullptr) return;
-    std::memcpy(out, [it->second contents], (size_t)len * sizeof(float));
-    env->ReleaseFloatArrayElements(outArr, out, 0);
+    jint* ids = env->GetIntArrayElements(idsArr, nullptr);
+    if (ids == nullptr) return;
+    for (int i = 0; i < count; i++) gBufferPool.erase(ids[i]);
+    env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
         JNIEnv* env, jclass, jintArray idsArr, jint count) {
-    if (idsArr == nullptr || count < 0 || count > env->GetArrayLength(idsArr)) {
-        throwJavaRuntimeException(env, "Invalid GPU release request");
-        return;
-    }
-    std::lock_guard<std::mutex> lock(gBufferMutex);
-    jint* ids = env->GetIntArrayElements(idsArr, nullptr);
-    if (ids == nullptr) return;
-    for (int i = 0; i < count; i++) {
-        gBufferPool.erase(ids[i]);
-    }
-    env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
+    @autoreleasepool { releaseBuffers(env, idsArr, count); }
 }
 
 struct GraphState {
