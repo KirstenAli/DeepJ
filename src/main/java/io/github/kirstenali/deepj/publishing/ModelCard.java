@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.publishing;
 
-/** Descriptive metadata used to build a Hugging Face model card. */
 public record ModelCard(
         String name,
         String summary,

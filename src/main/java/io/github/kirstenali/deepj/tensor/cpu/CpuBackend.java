@@ -27,10 +27,6 @@ public final class CpuBackend implements TensorBackend {
     private static float fLog(float x) { return (float) Math.log(x); }
     private static float fTanh(float x) { return (float) Math.tanh(x); }
 
-    // ══════════════════════════════════════════════════════════════════
-    //  Validation
-    // ══════════════════════════════════════════════════════════════════
-
     private static void requireMatmulCompatible(Tensor a, Tensor b) {
         if (a.cols != b.rows) {
             throw new IllegalArgumentException(
@@ -49,12 +45,6 @@ public final class CpuBackend implements TensorBackend {
             throw new IllegalArgumentException("colVector must be " + a.rows + "x1");
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    //  Core element-wise helpers (flat row-major)
-    // ══════════════════════════════════════════════════════════════════
-
-    // ── unary: out[r*cols+c] = fn(a[r*cols+c]) ─────────────────────
-
     static void applyUnary(Tensor a, Tensor out, FloatUnaryOp fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
@@ -67,8 +57,6 @@ public final class CpuBackend implements TensorBackend {
         applyUnary(a, out, fn);
         return out;
     }
-
-    // ── binary: out[i] = fn(a[i], b[i]) ───────────────────────────
 
     static void applyBinary(Tensor a, Tensor b, Tensor out, FloatBinaryOp fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
@@ -83,8 +71,6 @@ public final class CpuBackend implements TensorBackend {
         return out;
     }
 
-    // ── scalar: out[i] = fn(a[i], scalar) ────────────────────────
-
     static void applyScalar(Tensor a, float s, Tensor out, FloatBinaryOp fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
@@ -98,12 +84,9 @@ public final class CpuBackend implements TensorBackend {
         return out;
     }
 
-    // ── column broadcast: out[r,c] = fn(a[r,c], col[r,0]) ─────────
-    //    col is rows×1, so col.data[r] is element (r,0)
-
     static void applyColBroadcast(Tensor a, Tensor col, Tensor out, FloatBinaryOp fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
-            float v = col.data[r]; // col is Rx1 → data[r*1+0] = data[r]
+            float v = col.data[r];
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) out.data[base + c] = fn.apply(a.data[base + c], v);
         });
@@ -114,9 +97,6 @@ public final class CpuBackend implements TensorBackend {
         applyColBroadcast(a, col, out, fn);
         return out;
     }
-
-    // ── row broadcast: out[r,c] = fn(a[r,c], row[0,c]) ────────────
-    //    row is 1×cols, so row.data[c] is element (0,c)
 
     static void applyRowBroadcast(Tensor a, Tensor row, Tensor out, FloatBinaryOp fn) {
         DeepJExecutor.forRange(0, a.rows, r -> {
@@ -130,10 +110,6 @@ public final class CpuBackend implements TensorBackend {
         applyRowBroadcast(a, row, out, fn);
         return out;
     }
-
-    // ══════════════════════════════════════════════════════════════════
-    //  Factories
-    // ══════════════════════════════════════════════════════════════════
 
     public Tensor zeros(int rows, int cols) {
         return new Tensor(rows, cols);
@@ -160,18 +136,11 @@ public final class CpuBackend implements TensorBackend {
         return mask;
     }
 
-
-    // ══════════════════════════════════════════════════════════════════
-    //  Core binary ops
-    // ══════════════════════════════════════════════════════════════════
-
     @Override
     public Tensor matmul(Tensor a, Tensor b) {
         requireMatmulCompatible(a, b);
         Tensor result = new Tensor(a.rows, b.cols);
 
-        // ikj loop order: cache-friendly for flat row-major arrays.
-        // Inner loop strides over consecutive b.data elements (row k of B).
         DeepJExecutor.forRange(0, a.rows, r -> {
             int aBase   = r * a.cols;
             int outBase = r * b.cols;
@@ -192,10 +161,6 @@ public final class CpuBackend implements TensorBackend {
     @Override public Tensor multiply(Tensor a, Tensor b)  { requireSameShape(a, b, "multiply"); return newBinary(a, b, (x, y) -> x * y); }
     @Override public Tensor divide(Tensor a, Tensor b)    { requireSameShape(a, b, "divide");   return newBinary(a, b, (x, y) -> x / y); }
 
-    // ══════════════════════════════════════════════════════════════════
-    //  Broadcasts
-    // ══════════════════════════════════════════════════════════════════
-
     @Override public Tensor addRowVector(Tensor a, Tensor rv)          { requireRowVector(rv, a); return newRowBroadcast(a, rv, Float::sum); }
     @Override public Tensor addBroadcastRows(Tensor a, Tensor rv)      { return addRowVector(a, rv); }
     @Override public Tensor multiplyBroadcastRows(Tensor a, Tensor rv) { requireRowVector(rv, a); return newRowBroadcast(a, rv, (x, y) -> x * y); }
@@ -205,17 +170,9 @@ public final class CpuBackend implements TensorBackend {
     @Override public Tensor multiplyBroadcastCols(Tensor a, Tensor cv)  { requireColVector(cv, a); return newColBroadcast(a, cv, (x, y) -> x * y); }
     @Override public Tensor divideBroadcastCols(Tensor a, Tensor cv)    { requireColVector(cv, a); return newColBroadcast(a, cv, (x, y) -> x / y); }
 
-    // ══════════════════════════════════════════════════════════════════
-    //  Scalar ops
-    // ══════════════════════════════════════════════════════════════════
-
     @Override public Tensor multiplyScalar(Tensor a, float s) { return newScalar(a, s, (x, v) -> x * v); }
     @Override public Tensor addScalar(Tensor a, float s)      { return newScalar(a, s, Float::sum); }
     @Override public Tensor divideScalar(Tensor a, float s)   { return newScalar(a, s, (x, v) -> x / v); }
-
-    // ══════════════════════════════════════════════════════════════════
-    //  Reductions / statistics
-    // ══════════════════════════════════════════════════════════════════
 
     @Override
     public Tensor sumRows(Tensor a) {
@@ -293,10 +250,6 @@ public final class CpuBackend implements TensorBackend {
         return s;
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    //  Unary math
-    // ══════════════════════════════════════════════════════════════════
-
     @Override
     public Tensor transpose(Tensor a) {
         Tensor result = new Tensor(a.cols, a.rows);
@@ -313,10 +266,6 @@ public final class CpuBackend implements TensorBackend {
     @Override public Tensor neg(Tensor a)                           { return newUnary(a, x -> -x); }
     @Override public Tensor exp(Tensor a)                           { return newUnary(a, CpuBackend::fExp); }
     @Override public Tensor log(Tensor a)                           { return newUnary(a, CpuBackend::fLog); }
-
-    // ══════════════════════════════════════════════════════════════════
-    //  Activations
-    // ══════════════════════════════════════════════════════════════════
 
     @Override public Tensor tanh(Tensor a)    { return newUnary(a, CpuBackend::fTanh); }
     @Override public Tensor sigmoid(Tensor a) { return newUnary(a, x -> 1.0f / (1.0f + fExp(-x))); }
@@ -352,10 +301,6 @@ public final class CpuBackend implements TensorBackend {
         float dtDx = c * (1.0f + 3.0f * 0.044715f * x2);
         return 0.5f * (1.0f + tanhT) + 0.5f * x * sech2 * dtDx;
     }
-
-    // ══════════════════════════════════════════════════════════════════
-    //  Softmax / cross-entropy internals
-    // ══════════════════════════════════════════════════════════════════
 
     private static float rowMax(float[] data, int base, int cols) {
         float max = Float.NEGATIVE_INFINITY;
@@ -425,10 +370,6 @@ public final class CpuBackend implements TensorBackend {
         return result;
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    //  Fused high-level ops
-    // ══════════════════════════════════════════════════════════════════
-
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
@@ -494,7 +435,7 @@ public final class CpuBackend implements TensorBackend {
 
         DeepJExecutor.forRange(0, dXHat.rows, r -> {
             int base = r * dim;
-            // std is rows×1: element (r,0) lives at std.data[r]
+
             float invStd = 1.0f / std.data[r];
             float sumD = 0.0f;
             float sumDXHatXHat = 0.0f;
@@ -514,10 +455,6 @@ public final class CpuBackend implements TensorBackend {
 
         return dX;
     }
-
-    // ══════════════════════════════════════════════════════════════════
-    //  Data accessors
-    // ══════════════════════════════════════════════════════════════════
 
     public float get(Tensor t, int r, int c)           { return t.data[r * t.cols + c]; }
     public void   set(Tensor t, int r, int c, float v) { t.data[r * t.cols + c] = v; }
@@ -557,10 +494,6 @@ public final class CpuBackend implements TensorBackend {
         return out;
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    //  In-place overrides (zero allocation — writes result into input)
-    // ══════════════════════════════════════════════════════════════════
-
     @Override public void addInPlace(Tensor a, Tensor b)           { applyBinary(a, b, a, Float::sum); }
     @Override public void subtractInPlace(Tensor a, Tensor b)      { applyBinary(a, b, a, (x, y) -> x - y); }
     @Override public void multiplyInPlace(Tensor a, Tensor b)      { applyBinary(a, b, a, (x, y) -> x * y); }
@@ -578,10 +511,6 @@ public final class CpuBackend implements TensorBackend {
     @Override public void geluInPlace(Tensor a)    { applyUnary(a, a, CpuBackend::geluScalar); }
     @Override public void tanhInPlace(Tensor a)    { applyUnary(a, a, CpuBackend::fTanh); }
     @Override public void sigmoidInPlace(Tensor a) { applyUnary(a, a, x -> 1.0f / (1.0f + fExp(-x))); }
-
-    // ══════════════════════════════════════════════════════════════════
-    //  Debug
-    // ══════════════════════════════════════════════════════════════════
 
     public void print(Tensor t, String label) {
         System.out.println(label);

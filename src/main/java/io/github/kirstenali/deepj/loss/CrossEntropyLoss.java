@@ -3,17 +3,6 @@ package io.github.kirstenali.deepj.loss;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorAdapters;
 
-/**
- * Cross-entropy loss with integer class targets.
- *
- * <p>Expected shapes:
- * <ul>
- *   <li>predicted (logits): [nTokens x vocab]</li>
- *   <li>actual (class indices): [nTokens x 1] where each entry is an integer in [0, vocab)</li>
- * </ul>
- *
- * <p>This class also provides helpers for common language-modeling usage where targets are provided as int[].
- */
 public final class CrossEntropyLoss implements LossFunction {
 
     private static final float TARGET_INTEGER_EPS = 1e-6f;
@@ -30,25 +19,16 @@ public final class CrossEntropyLoss implements LossFunction {
         return gradient(predicted, y);
     }
 
-    /**
-     * Convenience helper: compute loss from logits and int targets.
-     */
     public static float loss(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
         return logits.crossEntropyLoss(targets);
     }
 
-    /**
-     * Convenience helper: gradient w.r.t. logits, averaged over rows.
-     */
     public static Tensor gradient(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
         return logits.crossEntropyGradient(targets);
     }
 
-    /**
-     * Converts a [n x 1] Tensor of class indices into an int[].
-     */
     public static int[] toIntTargets(Tensor actual) {
         if (actual.cols != 1) {
             throw new IllegalArgumentException(
@@ -74,9 +54,6 @@ public final class CrossEntropyLoss implements LossFunction {
         return asInt;
     }
 
-    /**
-     * Builds a [n x 1] Tensor from int[] targets.
-     */
     public static Tensor fromIntTargets(int[] targets) {
         return TensorAdapters.fromIntColumn(targets);
     }

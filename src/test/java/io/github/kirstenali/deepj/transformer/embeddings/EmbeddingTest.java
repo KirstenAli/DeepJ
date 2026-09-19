@@ -43,11 +43,9 @@ public class EmbeddingTest {
         });
         emb.backward(gradOut);
 
-        // id=1 appears twice => grads sum
         assertEquals(1.0f + 3.0f, emb.weight().grad.data[1 * 2 + 0], 1e-12f);
         assertEquals(2.0f + 4.0f, emb.weight().grad.data[1 * 2 + 1], 1e-12f);
 
-        // id=3 appears once
         assertEquals(5.0f, emb.weight().grad.data[3 * 2 + 0], 1e-12f);
         assertEquals(6.0f, emb.weight().grad.data[3 * 2 + 1], 1e-12f);
     }
@@ -73,7 +71,6 @@ public class EmbeddingTest {
         double prev = oneSgdStepMSE(emb, id, target, lr);
         boolean improved = false;
 
-        // Require improvement within a few steps (robust against minor numerical wiggles)
         for (int i = 0; i < 20; i++) {
             double cur = oneSgdStepMSE(emb, id, target, lr);
             if (cur < prev) { improved = true; break; }
@@ -86,18 +83,15 @@ public class EmbeddingTest {
     private static double oneSgdStepMSE(Embedding emb, int id, Tensor target, double lr) {
         emb.weight().zeroGrad();
 
-        // forward on a single token id -> output shape (1, d)
         Tensor y = emb.forward(new int[]{id});
         TestSupport.assertTensorShape(y, 1, target.cols);
 
-        // MSE loss + grad wrt output
         MSELoss mse = new MSELoss();
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        emb.backward(gradOut);  // or pe.back
+        emb.backward(gradOut);
 
-        // manual SGD update: only row "id" needs updating, but updating whole matrix is fine too.
         Tensor W = emb.weight().value;
         Tensor dW = emb.weight().grad;
 

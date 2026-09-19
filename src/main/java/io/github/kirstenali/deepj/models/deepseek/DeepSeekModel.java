@@ -8,21 +8,6 @@ import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 
 import java.util.Random;
 
-/**
- * DeepSeek-style decoder-only transformer.
- *
- * <p>Architecture differences from {@link io.github.kirstenali.deepj.models.llama.LlamaModel}:
- * <ul>
- *   <li>Attention uses a compact MLA-style factorisation: Q and K/V pass through
- *       low-rank bottlenecks ({@code qRank} / {@code kvRank}). An incremental decoder
- *       could use the KV latent as a compressed cache; this model currently recomputes
- *       the supplied context and does not maintain an inference cache.</li>
- *   <li>All other components (RMSNorm, RoPE, SwiGLU, token embedding, final norm) are identical
- *       to the Llama architecture.</li>
- * </ul>
- *
- * <p>Forward/backward/parameters are provided by {@link DecoderOnlyModel}.
- */
 public final class DeepSeekModel extends DecoderOnlyModel {
 
     private final DeepSeekConfig cfg;

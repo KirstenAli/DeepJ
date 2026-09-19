@@ -28,12 +28,8 @@ public final class MetalBackend implements TensorBackend {
         }
     }
 
-    // ── Lazy helpers ──────────────────────────────────────────────
-
-    /** Ensure input tensor has a GpuBuffer; upload from CPU if needed. */
     private GpuBuffer gpuIn(Tensor t) { return graph.ensureGpuBuffer(t); }
 
-    /** Wrap a GPU output buffer in a tracked Tensor. */
     private Tensor gpuOut(GpuBuffer buf) {
         return graph.createOutputTensor(buf);
     }
@@ -53,14 +49,10 @@ public final class MetalBackend implements TensorBackend {
         return t;
     }
 
-    // ── materializeTensor (called by Tensor.materialize()) ──────
-
     @Override
     public void materializeTensor(Tensor t) {
         graph.materialize(t);
     }
-
-    // ── LAZY matmul ────────────────────────────────────────────────
 
     @Override
     public Tensor matmul(Tensor a, Tensor b) {
@@ -71,8 +63,6 @@ public final class MetalBackend implements TensorBackend {
         graph.recordMatmul(ga, gb, gOut, a.rows, b.cols, a.cols);
         return gpuOut(gOut);
     }
-
-    // ── LAZY element-wise binary ───────────────────────────────────
 
     @Override
     public Tensor add(Tensor a, Tensor b) {
@@ -109,8 +99,6 @@ public final class MetalBackend implements TensorBackend {
         graph.recordBinary(ComputeGraph.OP_DIVIDE, ga, gb, gOut);
         return gpuOut(gOut);
     }
-
-    // ── LAZY broadcast ──────────────────────────────────────────────
 
     @Override
     public Tensor addRowVector(Tensor a, Tensor v) {
@@ -171,8 +159,6 @@ public final class MetalBackend implements TensorBackend {
         return gpuOut(gOut);
     }
 
-    // ── LAZY scalar ops ────────────────────────────────────────────
-
     @Override
     public Tensor multiplyScalar(Tensor a, float scalar) {
         GpuBuffer ga = gpuIn(a);
@@ -196,8 +182,6 @@ public final class MetalBackend implements TensorBackend {
         graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, scalar);
         return gpuOut(gOut);
     }
-
-    // ── LAZY reductions ─────────────────────────────────────────────
 
     @Override
     public Tensor sumRows(Tensor a) {
@@ -265,8 +249,6 @@ public final class MetalBackend implements TensorBackend {
         return scalar.data[0];
     }
 
-    // ── unary math ─────────────────────────────────────────────────
-
     @Override
     public Tensor transpose(Tensor a) {
         GpuBuffer ga = gpuIn(a);
@@ -290,8 +272,6 @@ public final class MetalBackend implements TensorBackend {
         graph.recordPow(ga, gOut, exponent);
         return gpuOut(gOut);
     }
-
-    // ── LAZY unary math ────────────────────────────────────────────
 
     @Override
     public Tensor sqrt(Tensor a) {
@@ -324,8 +304,6 @@ public final class MetalBackend implements TensorBackend {
         graph.recordUnary(ComputeGraph.OP_LOG, ga, gOut);
         return gpuOut(gOut);
     }
-
-    // ── LAZY activations ───────────────────────────────────────────
 
     @Override
     public Tensor tanh(Tensor a) {
@@ -375,8 +353,6 @@ public final class MetalBackend implements TensorBackend {
         return gpuOut(gOut);
     }
 
-    // ── LAZY softmax ───────────────────────────────────────────────
-
     @Override
     public Tensor softmaxRows(Tensor logits) {
         GpuBuffer ga = gpuIn(logits);
@@ -394,8 +370,6 @@ public final class MetalBackend implements TensorBackend {
         graph.recordSoftmaxBackward(gGrad, gSoftmax, gOut, gradOutput.rows, gradOutput.cols);
         return gpuOut(gOut);
     }
-
-    // ── LAZY in-place ops ─────────────────────────────────────────
 
     private void bindInPlaceResult(Tensor target, GpuBuffer out) {
         graph.bindTensorToBuffer(target, out);
@@ -525,8 +499,6 @@ public final class MetalBackend implements TensorBackend {
         bindInPlaceResult(a, gOut);
     }
 
-    // ── fused ops ──────────────────────────────────────────────────
-
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
@@ -621,7 +593,7 @@ public final class MetalBackend implements TensorBackend {
         if (indices.length == 0) return;
 
         Tensor indexTensor = immutableIntColumn(indices);
-        // Always use the atomic GPU path so duplicate indices stay parallel.
+
         recordGpuScatterAddRowsAtomic(target, grad, indexTensor, indices);
     }
 

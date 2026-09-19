@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Converts the plain-text Alpaca export into compact instruction records. */
 public final class FormatAlpacaText {
 
     private static final String HEADER = "Below is an instruction that describes a task. "

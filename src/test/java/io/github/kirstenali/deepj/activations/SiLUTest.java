@@ -7,19 +7,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Unit tests for {@link SiLU}.
- *
- * <p>Covers:
- * <ul>
- *   <li>Known forward values (SiLU(x) = x · σ(x))</li>
- *   <li>Shape preservation in forward and backward</li>
- *   <li>Backward: known gradient values</li>
- *   <li>Numerical gradient check (finite differences vs analytical)</li>
- *   <li>Guard: backward before forward throws</li>
- *   <li>Guard: shape mismatch in backward throws</li>
- * </ul>
- */
 class SiLUTest {
 
     private SiLU silu;
@@ -28,8 +15,6 @@ class SiLUTest {
     void setUp() {
         silu = new SiLU();
     }
-
-    // ── forward ──────────────────────────────────────────────────────────────
 
     @Test
     void forward_zero_gives_zero() {
@@ -40,7 +25,7 @@ class SiLUTest {
 
     @Test
     void forward_known_positive_value() {
-        // SiLU(1) = 1 · σ(1) = 0.7310585786...
+
         float expected = (float) (1.0f / (1.0f + Math.exp(-1.0f)));
         Tensor x = Tensor.from2D(new float[][]{{1.0f}});
         Tensor y = silu.forward(x);
@@ -49,7 +34,7 @@ class SiLUTest {
 
     @Test
     void forward_known_negative_value() {
-        // SiLU(-1) = -1 · σ(-1) = -0.2689414213...
+
         float sig = (float) (1.0f / (1.0f + Math.exp(1.0f)));
         float expected = -1.0f * sig;
         Tensor x = Tensor.from2D(new float[][]{{-1.0f}});
@@ -73,11 +58,9 @@ class SiLUTest {
         }
     }
 
-    // ── backward ─────────────────────────────────────────────────────────────
-
     @Test
     void backward_at_zero_is_half() {
-        // SiLU'(0) = σ(0) + 0 · σ(0) · (1 − σ(0)) = 0.5f
+
         Tensor x = Tensor.from2D(new float[][]{{0.0f}});
         silu.forward(x);
         Tensor grad = silu.backward(Tensor.ones(1, 1));
@@ -126,8 +109,6 @@ class SiLUTest {
         assertEquals(g1.data[0] * 3.0f, g3.data[0], 1e-6f);
     }
 
-    // ── guards ───────────────────────────────────────────────────────────────
-
     @Test
     void backward_before_forward_throws() {
         assertThrows(IllegalStateException.class,
@@ -141,4 +122,3 @@ class SiLUTest {
                 () -> silu.backward(Tensor.from2D(new float[][]{{1.0f}})));
     }
 }
-

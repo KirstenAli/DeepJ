@@ -9,7 +9,6 @@ import io.github.kirstenali.deepj.training.EvaluationResult;
 import java.nio.file.Path;
 import java.util.Properties;
 
-/** Loads and evaluates a trained TinyStories DeepSeek-style bundle. */
 public final class EvaluateDeepSeekTinyStories {
 
     private EvaluateDeepSeekTinyStories() {}

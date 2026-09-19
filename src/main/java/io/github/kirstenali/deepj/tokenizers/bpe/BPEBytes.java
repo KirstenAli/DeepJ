@@ -9,7 +9,6 @@ final class BPEBytes {
     private BPEBytes() {
     }
 
-
     static String key(byte[] bytes) {
         return new String(bytes, StandardCharsets.ISO_8859_1);
     }

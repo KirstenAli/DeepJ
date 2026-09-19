@@ -14,7 +14,6 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
 
-/** Random, bounded-memory batches sampled directly from a UTF-8 text file. */
 public final class RandomAccessTextDataset implements BatchSource, AutoCloseable {
 
     private static final int MIN_WINDOW_BYTES = 4 * 1024;

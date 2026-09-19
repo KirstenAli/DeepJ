@@ -8,10 +8,6 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.nio.file.Path;
 
-/**
- * Example: tiny GPT training on a small text file using byte-level tokens.
- * Intended as a smoke test / reference, not for serious training.
- */
 public final class TrainSmallGPT {
 
     public static void main(String[] args) throws Exception {

@@ -11,16 +11,6 @@ import io.github.kirstenali.deepj.layers.transformer.norm.NormLayer;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Shared skeleton for decoder-only transformer models:
- * token embedding → block stack → final norm → LM-head.
- *
- * <p>Subclasses pass their concrete {@link TransformerStack} to the protected
- * constructor and provide {@link #gradClipNorm()}.
- *
- * <p>Models that add positional embeddings (e.g. GPT) override
- * {@link #embed}, {@link #backwardEmbeddings}, and {@link #embeddingParameters}.
- */
 public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
     protected final Embedding        tokEmb;
@@ -35,34 +25,25 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
         this.lmHead = lmHead;
     }
 
-    // ── Overridable embedding hooks ────────────────────────────────
-
-    /** Maps input ids to the initial hidden state. Override to add positional embeddings. */
     protected Tensor embed(int[] inputIds) {
         return tokEmb.forward(inputIds);
     }
 
-    /** Back-propagates gradient into embedding layer(s). Override to include positional. */
     protected void backwardEmbeddings(Tensor g) {
         tokEmb.backward(g);
     }
 
-    /** Returns all embedding parameters. Override to include positional embedding. */
     protected List<Parameter> embeddingParameters() {
         return new ArrayList<>(tokEmb.parameters());
     }
-
-    // ── Forward ────────────────────────────────────────────────────
 
     @Override
     public Tensor forward(int[] inputIds) {
         Tensor x = embed(inputIds);
         x = stack.forward(x);
         x = normF.forward(x);
-        return lmHead.forward(x);   // logits [seqLen × vocabSize]
+        return lmHead.forward(x);
     }
-
-    // ── Backward ───────────────────────────────────────────────────
 
     @Override
     public void backward(Tensor dLogits) {
@@ -71,8 +52,6 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
         g = stack.backward(g);
         backwardEmbeddings(g);
     }
-
-    // ── Parameters ─────────────────────────────────────────────────
 
     @Override
     public List<Parameter> parameters() {

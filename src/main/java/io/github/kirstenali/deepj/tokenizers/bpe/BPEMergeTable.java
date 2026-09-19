@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-/** Primitive lookup table for merge ranks used by the encoder hot path. */
 final class BPEMergeTable {
 
     static final int NO_MERGE = -1;

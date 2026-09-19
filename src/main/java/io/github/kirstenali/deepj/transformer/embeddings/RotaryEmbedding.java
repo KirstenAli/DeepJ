@@ -2,54 +2,13 @@ package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-/**
- * Rotary Positional Embedding (RoPE) — used in Llama, Mistral, Qwen, DeepSeek, and GPT-NeoX.
- *
- * <p>Unlike additive positional embeddings, RoPE has <em>no learnable parameters</em>.
- * It encodes position by rotating pairs of Q and K head dimensions by position-dependent angles,
- * which causes relative-position information to appear naturally in dot-product attention scores.
- *
- * <p>Applied <em>inside</em> {@link io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention}
- * after the Q/K projections are split into heads, before the scaled dot-product is computed.
- *
- * <h2>Math (per position {@code t}, pair index {@code i}):</h2>
- * <pre>
- *   θ_{t,i}  = t / 10000^(2i / headDim)
- *
- *   x_rot[2i]   =  x[2i]  · cos θ  −  x[2i+1] · sin θ
- *   x_rot[2i+1] =  x[2i]  · sin θ  +  x[2i+1] · cos θ
- * </pre>
- *
- * <h2>Backward (transpose rotation — negate sin):</h2>
- * <pre>
- *   dx[2i]   =  d[2i]  · cos θ  +  d[2i+1] · sin θ
- *   dx[2i+1] = −d[2i]  · sin θ  +  d[2i+1] · cos θ
- * </pre>
- *
- * <p><b>Pairing convention:</b> this implementation uses the <em>interleaved</em> pairing of
- * adjacent dimensions {@code (2i, 2i+1)} — the original RoPE / GPT-NeoX formulation — rather
- * than the "half-split" pairing {@code (i, i + headDim/2)} used by some Llama/HF checkpoints.
- * Both are mathematically valid and self-consistent as long as {@link #apply} and
- * {@link #applyBackward} agree; however the two conventions are <em>not</em> weight-compatible
- * with each other, so externally-trained RoPE weights must match this pairing.
- *
- * <p><b>Input tensor shape convention (split-head layout):</b>
- * {@code [nHeads × seqLen, headDim]} — head {@code h} occupies rows
- * {@code [h·seqLen .. (h+1)·seqLen)}, position {@code t} is at row {@code h·seqLen + t}.
- */
 public final class RotaryEmbedding {
 
     private final int headDim;
     private final int halfDim;
-    private final float[][] cosTable;  // [maxSeqLen × halfDim]
-    private final float[][] sinTable;  // [maxSeqLen × halfDim]
+    private final float[][] cosTable;
+    private final float[][] sinTable;
 
-    /**
-     * Pre-computes the cos/sin rotation tables.
-     *
-     * @param headDim   dimension of each attention head ({@code dModel / nHeads}); must be even
-     * @param maxSeqLen maximum sequence length to support
-     */
     public RotaryEmbedding(int headDim, int maxSeqLen) {
         if (headDim <= 0 || headDim % 2 != 0) {
             throw new IllegalArgumentException("headDim must be a positive even number, got " + headDim);
@@ -72,14 +31,6 @@ public final class RotaryEmbedding {
         }
     }
 
-    /**
-     * Apply rotary embeddings to a split-head tensor (forward direction).
-     *
-     * @param t       split-head tensor, shape {@code [nHeads·seqLen × headDim]}
-     * @param seqLen  number of positions
-     * @param nHeads  number of attention heads
-     * @return rotated tensor with the same shape
-     */
     public Tensor apply(Tensor t, int seqLen, int nHeads) {
         validateInput(t, seqLen, nHeads);
         t.materialize();
@@ -90,14 +41,6 @@ public final class RotaryEmbedding {
         return result;
     }
 
-    /**
-     * Apply the transpose (inverse) rotation — used in the backward pass.
-     *
-     * @param t       gradient tensor, same shape as the forward input
-     * @param seqLen  number of positions
-     * @param nHeads  number of attention heads
-     * @return un-rotated gradient with the same shape
-     */
     public Tensor applyBackward(Tensor t, int seqLen, int nHeads) {
         validateInput(t, seqLen, nHeads);
         t.materialize();
@@ -108,9 +51,6 @@ public final class RotaryEmbedding {
         return result;
     }
 
-    // ── internal ────────────────────────────────────────────────────────────
-
-    /** Forward rotation for every dimension pair in one position row. */
     private void rotatePositionForward(Tensor result, Tensor t, int row, int pos) {
         int base = row * t.cols;
         for (int i = 0; i < halfDim; i++) {
@@ -123,7 +63,6 @@ public final class RotaryEmbedding {
         }
     }
 
-    /** Inverse (transpose) rotation for every dimension pair in one position row. */
     private void rotatePositionInverse(Tensor result, Tensor t, int row, int pos) {
         int base = row * t.cols;
         for (int i = 0; i < halfDim; i++) {

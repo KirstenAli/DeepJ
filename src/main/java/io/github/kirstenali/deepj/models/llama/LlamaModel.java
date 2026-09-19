@@ -8,20 +8,6 @@ import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 
 import java.util.Random;
 
-/**
- * Llama-style decoder-only transformer.
- *
- * <p>Architecture differences from {@link io.github.kirstenali.deepj.models.gpt.GPTModel}:
- * <ul>
- *   <li>No learned positional embedding — RoPE is applied inside each attention block.</li>
- *   <li>RMSNorm instead of LayerNorm for the final pre-head normalisation.</li>
- *   <li>SwiGLU feed-forward instead of GELU-FFN.</li>
- * </ul>
- * This compact implementation uses full multi-head attention and does not maintain
- * an incremental KV cache; it is not an exact release of Meta's Llama models.
- *
- * <p>Forward/backward/parameters are provided by {@link DecoderOnlyModel}.
- */
 public final class LlamaModel extends DecoderOnlyModel {
 
     private final LlamaConfig cfg;

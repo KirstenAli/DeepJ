@@ -20,7 +20,6 @@ public class TransformerStackTest {
                 .seed(1L)
                 .build();
 
-        // 4 tokens x dModel (uniform RNG is fine for shape/grad tests)
         Tensor x = Tensor.random(4, 8, new Random(2));
         Tensor y = stack.forward(x);
         TestSupport.assertTensorShape(y, 4, 8);

@@ -6,7 +6,6 @@ import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.models.CausalLM;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-/** Evaluation helpers for causal language models. */
 public final class CausalLMEvaluation {
 
     private CausalLMEvaluation() {}

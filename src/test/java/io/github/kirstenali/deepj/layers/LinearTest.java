@@ -16,41 +16,32 @@ public class LinearTest {
 
     @Test
     void forwardBackward_shapes_and_basicGradSignals() {
-        Linear lin = new Linear(2, 3, new Random(1));
-
-        // overwrite weights for deterministic behavior
+        Linear lin = configuredLinear();
         List<Parameter> ps = lin.parameters();
         Parameter W = ps.get(0);
         Parameter b = ps.get(1);
-
-        W.value = Tensor.from2D(new float[][]{
-                {1, 0, -1},
-                {2, 1,  0}
-        });
-        b.value = Tensor.from2D(new float[][]{{0.5f, -0.5f, 1.0f}});
-
-        Tensor x = Tensor.from2D(new float[][]{
-                {1, 2},
-                {-1, 0}
-        });
-
-        Tensor y = lin.forward(x);
-        TestSupport.assertTensorAllClose(y, Tensor.from2D(new float[][]{
-                {5.5f, 1.5f, 0.0f},
-                {-0.5f, -0.5f, 2.0f}
-        }), 1e-12f);
-
-        Tensor gradOut = Tensor.from2D(new float[][]{
-                {1, 1, 1},
-                {2, 0, -1}
-        });
-
+        Tensor y = lin.forward(linearInput());
+        TestSupport.assertTensorAllClose(y, expectedOutput(), 1e-12f);
+        Tensor gradOut = Tensor.from2D(new float[][]{{1, 1, 1}, {2, 0, -1}});
         Tensor gx = lin.backward(gradOut);
         TestSupport.assertTensorShape(gx, 2, 2);
-
-        // grads exist
         TestSupport.assertTensorShape(W.grad, 2, 3);
         TestSupport.assertTensorShape(b.grad, 1, 3);
+    }
+
+    private static Linear configuredLinear() {
+        Linear linear = new Linear(2, 3, new Random(1));
+        linear.weight().value = Tensor.from2D(new float[][]{{1, 0, -1}, {2, 1, 0}});
+        linear.bias().value = Tensor.from2D(new float[][]{{0.5f, -0.5f, 1.0f}});
+        return linear;
+    }
+
+    private static Tensor linearInput() {
+        return Tensor.from2D(new float[][]{{1, 2}, {-1, 0}});
+    }
+
+    private static Tensor expectedOutput() {
+        return Tensor.from2D(new float[][]{{5.5f, 1.5f, 0.0f}, {-0.5f, -0.5f, 2.0f}});
     }
 
     @Test
@@ -94,28 +85,30 @@ public class LinearTest {
         return loss;
     }
 
-    // ── finite-difference gradient checks ────────────────────────────────────
-
     @Test
     void backward_numerical_gradient_check_input_weight_bias() {
         int dIn = 3, dOut = 2;
         float eps = 1e-3f;
         float tol = 5e-3f;
-
         Linear lin = new Linear(dIn, dOut, new Random(7));
-        Tensor x = Tensor.from2D(new float[][]{
-                { 0.5f, -1.0f,  2.0f},
-                { 1.5f,  0.3f, -0.7f}
-        });
-
+        Tensor x = gradientInput();
         lin.forward(x);
         Tensor dX = lin.backward(Tensor.ones(x.rows, dOut));
         Parameter W = lin.weight();
         Parameter b = lin.bias();
         float[] dW = W.grad.data.clone();
         float[] db = b.grad.data.clone();
+        assertInputGradient(lin, x, dX, dIn, eps, tol);
+        assertWeightGradient(lin, x, W, dW, dIn, dOut, eps, tol);
+        assertBiasGradient(lin, x, b, db, dOut, eps, tol);
+    }
 
-        // ∂(Σ out)/∂x
+    private static Tensor gradientInput() {
+        return Tensor.from2D(new float[][]{{0.5f, -1.0f, 2.0f}, {1.5f, 0.3f, -0.7f}});
+    }
+
+    private static void assertInputGradient(Linear lin, Tensor x, Tensor dX, int dIn,
+                                            float eps, float tol) {
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < dIn; c++) {
                 float orig = x.get(r, c);
@@ -128,8 +121,10 @@ public class LinearTest {
                         "dX mismatch at [" + r + "," + c + "]");
             }
         }
+    }
 
-        // ∂(Σ out)/∂W
+    private static void assertWeightGradient(Linear lin, Tensor x, Parameter W, float[] dW,
+                                             int dIn, int dOut, float eps, float tol) {
         for (int i = 0; i < dIn; i++) {
             for (int j = 0; j < dOut; j++) {
                 float orig = W.value.get(i, j);
@@ -142,8 +137,10 @@ public class LinearTest {
                         "dW mismatch at [" + i + "," + j + "]");
             }
         }
+    }
 
-        // ∂(Σ out)/∂b
+    private static void assertBiasGradient(Linear lin, Tensor x, Parameter b, float[] db,
+                                           int dOut, float eps, float tol) {
         for (int j = 0; j < dOut; j++) {
             float orig = b.value.get(0, j);
             b.value.set(0, j, orig + eps);

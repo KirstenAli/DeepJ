@@ -10,15 +10,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;
 
-/**
- * Builder for GPT-style transformer stacks.
- *
- * <p>Assembles a {@link TransformerStack} of {@link GPTTransformerBlock}s
- * (LayerNorm + multi-head self-attention + configurable FFN).
- *
- * @see LlamaTransformerBuilder
- * @see DeepSeekTransformerBuilder
- */
 public final class GPTTransformerBuilder {
 
     private int dModel;
@@ -34,7 +25,6 @@ public final class GPTTransformerBuilder {
     public GPTTransformerBuilder dFF(int dFF)         { this.dFF = dFF;         return this; }
     public GPTTransformerBuilder nLayers(int nLayers) { this.nLayers = nLayers; return this; }
 
-    /** Activation inside the FFN. Default: GELU. */
     public GPTTransformerBuilder ffnActivation(Supplier<ActivationFunction> factory) {
         if (factory == null) throw new IllegalArgumentException("factory must not be null");
         this.ffnActivationFactory = factory;
@@ -60,4 +50,3 @@ public final class GPTTransformerBuilder {
         return new TransformerStack(blocks);
     }
 }
-

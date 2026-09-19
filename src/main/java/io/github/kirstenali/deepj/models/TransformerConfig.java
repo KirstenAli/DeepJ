@@ -1,11 +1,5 @@
 package io.github.kirstenali.deepj.models;
 
-/**
- * Common configuration fields shared by all decoder-only transformer models.
- *
- * <p>Implemented by {@link io.github.kirstenali.deepj.models.gpt.GPTConfig} and
- * {@link io.github.kirstenali.deepj.models.llama.LlamaConfig}.
- */
 public interface TransformerConfig {
     int vocabSize();
     int maxSeqLen();
@@ -15,7 +9,6 @@ public interface TransformerConfig {
     int dFF();
     float gradClipNorm();
 
-    /** Validates the fields common to all transformer configs. Call from each record's compact constructor. */
     static void validateCommon(int vocabSize, int maxSeqLen, int dModel,
                                int nHeads, int nLayers, int dFF, float gradClipNorm) {
         if (vocabSize <= 0) throw new IllegalArgumentException("vocabSize must be > 0");
@@ -30,7 +23,6 @@ public interface TransformerConfig {
             throw new IllegalArgumentException("gradClipNorm must be finite and > 0");
     }
 
-    /** Validates the even per-head width required by rotary embeddings. */
     static void validateRotaryHeadDimension(int dModel, int nHeads) {
         if ((dModel / nHeads) % 2 != 0) {
             throw new IllegalArgumentException("Rotary attention requires an even head dimension");

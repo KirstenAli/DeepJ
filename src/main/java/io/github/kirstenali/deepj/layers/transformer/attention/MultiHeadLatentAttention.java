@@ -9,28 +9,6 @@ import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Compact Multi-Head Latent Attention (MLA) inspired by DeepSeek-V2/V3.
- *
- * <p>Unlike standard MHA which projects Q, K, V directly from {@code x}, MLA first compresses
- * through a low-rank bottleneck then expands:
- * <pre>
- *   cQ  = x   · Wdq      [seqLen × qRank]   — Q  compression
- *   Q   = cQ  · Wuq      [seqLen × dModel]  — Q  expansion
- *
- *   cKV = x   · Wdkv     [seqLen × kvRank]  — shared KV compression
- *   K   = cKV · Wuk      [seqLen × dModel]  — K  expansion
- *   V   = cKV · Wuv      [seqLen × dModel]  — V  expansion
- * </pre>
- *
- * <p>RoPE is applied to Q and K after expansion. Scaled dot-product attention and the
- * output projection {@code Wo} are then identical to standard MHA.
- *
- * <p>The factorisation can support caching only {@code cKV} in an incremental decoder.
- * This layer currently computes a complete sequence and does not own an inference cache.
- *
- * <p><b>Parameters:</b> Wdq, Wuq, Wdkv, Wuk, Wuv, Wo (6 total, vs 4 in standard MHA).
- */
 public final class MultiHeadLatentAttention implements Layer {
 
     private final int dModel;
@@ -38,31 +16,20 @@ public final class MultiHeadLatentAttention implements Layer {
     private final int headDim;
     private final float scale;
 
-    // Q low-rank projections
-    private final Parameter Wdq;    // dModel → qRank
-    private final Parameter Wuq;    // qRank  → dModel
+    private final Parameter Wdq;
+    private final Parameter Wuq;
 
-    // KV shared low-rank projections
-    private final Parameter Wdkv;   // dModel → kvRank
-    private final Parameter Wuk;    // kvRank → dModel
-    private final Parameter Wuv;    // kvRank → dModel
+    private final Parameter Wdkv;
+    private final Parameter Wuk;
+    private final Parameter Wuv;
 
-    // Output projection
-    private final Parameter Wo;     // dModel → dModel
+    private final Parameter Wo;
 
     private final RotaryEmbedding rope;
     private final Softmax softmax;
 
     private ForwardCache cache;
 
-    /**
-     * @param dModel   model dimension
-     * @param nHeads   number of attention heads; must divide {@code dModel}
-     * @param qRank    Q latent dimension (e.g. 1536 in DeepSeek-V2; use dModel/2 for small models)
-     * @param kvRank   KV latent dimension (e.g. 512 in DeepSeek-V2; use dModel/4 for small models)
-     * @param rope     pre-built rotary embedding sized for {@code dModel / nHeads}
-     * @param rnd      random source for weight initialisation
-     */
     public MultiHeadLatentAttention(int dModel, int nHeads, int qRank, int kvRank,
                                     RotaryEmbedding rope, Random rnd) {
         validateDimensions(dModel, nHeads, qRank, kvRank, rope);
@@ -93,31 +60,24 @@ public final class MultiHeadLatentAttention implements Layer {
         if (rope.headDim() != dModel / nHeads) throw new IllegalArgumentException("RoPE head dimension mismatch");
     }
 
-    // ── Forward ────────────────────────────────────────────────────
-
     @Override
     public Tensor forward(Tensor x) {
         int seqLen = x.rows;
 
-        // Q low-rank path
-        Tensor cQ = x.matmul(Wdq.value);       // [seqLen × qRank]
-        Tensor Q  = cQ.matmul(Wuq.value);      // [seqLen × dModel]
+        Tensor cQ = x.matmul(Wdq.value);
+        Tensor Q  = cQ.matmul(Wuq.value);
 
-        // KV shared compression
-        Tensor cKV = x.matmul(Wdkv.value);     // [seqLen × kvRank]
-        Tensor K   = cKV.matmul(Wuk.value);    // [seqLen × dModel]
-        Tensor V   = cKV.matmul(Wuv.value);    // [seqLen × dModel]
+        Tensor cKV = x.matmul(Wdkv.value);
+        Tensor K   = cKV.matmul(Wuk.value);
+        Tensor V   = cKV.matmul(Wuv.value);
 
-        // Split heads
         Tensor qh = splitHeads(Q, seqLen);
         Tensor kh = splitHeads(K, seqLen);
         Tensor vh = splitHeads(V, seqLen);
 
-        // Apply RoPE to Q and K
         Tensor qhRope = rope.apply(qh, seqLen, nHeads);
         Tensor khRope = rope.apply(kh, seqLen, nHeads);
 
-        // Scaled dot-product attention
         Tensor scores   = computeScores(qhRope, khRope, seqLen);
         Tensor masked   = applyMask(scores, seqLen);
         Tensor attnProb = softmax.forward(masked);
@@ -128,8 +88,6 @@ public final class MultiHeadLatentAttention implements Layer {
 
         return merged.matmul(Wo.value);
     }
-
-    // ── Backward ───────────────────────────────────────────────────
 
     @Override
     public Tensor backward(Tensor dOut) {
@@ -175,14 +133,10 @@ public final class MultiHeadLatentAttention implements Layer {
         return dcKV.matmul(Wdkv.value.transpose());
     }
 
-    // ── Parameters ─────────────────────────────────────────────────
-
     @Override
     public List<Parameter> parameters() {
         return List.of(Wdq, Wuq, Wdkv, Wuk, Wuv, Wo);
     }
-
-    // ── Attention helpers ───────────────────────────────────────────
 
     private Tensor computeScores(Tensor qh, Tensor kh, int seqLen) {
         return HeadOps.scaledDotProductScores(qh, kh, nHeads, seqLen, headDim, scale);
@@ -195,8 +149,6 @@ public final class MultiHeadLatentAttention implements Layer {
     private Tensor applyAttentionToValues(Tensor attnProb, Tensor vh, int seqLen) {
         return HeadOps.applyAttentionToValues(attnProb, vh, nHeads, seqLen, headDim);
     }
-
-    // ── Head reshape ───────────────────────────────────────────────
 
     private Tensor splitHeads(Tensor t, int seqLen) {
         return HeadOps.splitHeads(t, seqLen, nHeads, headDim, dModel);
@@ -213,9 +165,6 @@ public final class MultiHeadLatentAttention implements Layer {
     private void insertBlock(Tensor target, Tensor block, int rowStart, int numRows, int numCols) {
         HeadOps.insertBlock(target, block, rowStart, numRows, numCols);
     }
-
-    // ── Cache ──────────────────────────────────────────────────────
-
 
     private record ForwardCache(
             Tensor x,

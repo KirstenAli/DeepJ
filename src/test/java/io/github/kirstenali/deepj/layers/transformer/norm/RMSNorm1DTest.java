@@ -10,21 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Unit tests for {@link RMSNorm1D}.
- *
- * <p>Covers:
- * <ul>
- *   <li>Forward: output has unit RMS (before gamma scaling)</li>
- *   <li>Forward: gamma correctly scales the normalised output</li>
- *   <li>Forward: shape preserved, no NaN</li>
- *   <li>Backward: correct shape returned</li>
- *   <li>Backward: gamma gradient accumulated</li>
- *   <li>Backward: numerical gradient check (finite differences)</li>
- *   <li>No beta parameter — only gamma exposed</li>
- *   <li>Guard: wrong input width throws</li>
- * </ul>
- */
 class RMSNorm1DTest {
 
     private static final float EPS = 1e-6f;
@@ -35,8 +20,6 @@ class RMSNorm1DTest {
     void setUp() {
         norm = new RMSNorm1D(4);
     }
-
-    // ── forward ──────────────────────────────────────────────────────────────
 
     @Test
     void forward_preserves_shape() {
@@ -58,8 +41,8 @@ class RMSNorm1DTest {
 
     @Test
     void forward_with_identity_gamma_normalises_to_unit_rms() {
-        // With gamma = ones, each output row should have RMS ≈ 1.f
-        Tensor x = Tensor.from2D(new float[][]{{3.0f, 0.0f, 4.0f, 0.0f}});  // RMS = sqrt((9+16)/4) = 2.5f
+
+        Tensor x = Tensor.from2D(new float[][]{{3.0f, 0.0f, 4.0f, 0.0f}});
         Tensor y = norm.forward(x);
 
         double sumSq = 0;
@@ -70,13 +53,12 @@ class RMSNorm1DTest {
 
     @Test
     void forward_gamma_scaling_doubles_output() {
-        // Set gamma = 2 × ones; output should be exactly 2× the unit-normalised value.
+
         norm = new RMSNorm1D(4);
         Tensor x = Tensor.from2D(new float[][]{{1.0f, 2.0f, 3.0f, 4.0f}});
 
-        Tensor y1 = norm.forward(x);  // gamma = ones
+        Tensor y1 = norm.forward(x);
 
-        // Scale gamma to 2
         norm = new RMSNorm1D(4);
         for (Parameter p : norm.parameters()) {
             p.value = Tensor.from2D(new float[][]{{2.0f, 2.0f, 2.0f, 2.0f}});
@@ -99,18 +81,14 @@ class RMSNorm1DTest {
 
     @Test
     void forward_multi_row_independent_normalisation() {
-        // Scaling the input by a constant should produce nearly the same normalised output.
-        // Exact equality holds only when eps=0; with eps=1e-6f the difference is ~O(eps/rms²),
-        // so we allow 1e-6f tolerance.
+
         Tensor x  = Tensor.from2D(new float[][]{{1.0f, 2.0f, 3.0f, 4.0f}});
         Tensor x2 = Tensor.from2D(new float[][]{{2.0f, 4.0f, 6.0f, 8.0f}});
         Tensor y1 = norm.forward(x);
-        norm = new RMSNorm1D(4);   // fresh instance so caches are clean
+        norm = new RMSNorm1D(4);
         Tensor y2 = norm.forward(x2);
         TestSupport.assertTensorAllClose(y1, y2, 1e-6f);
     }
-
-    // ── backward ─────────────────────────────────────────────────────────────
 
     @Test
     void backward_returns_correct_shape() {
@@ -172,8 +150,6 @@ class RMSNorm1DTest {
         }
     }
 
-    // ── parameters ───────────────────────────────────────────────────────────
-
     @Test
     void has_exactly_one_parameter_gamma_no_beta() {
         assertEquals(1, norm.parameters().size(), "RMSNorm1D must expose only gamma (no beta)");
@@ -187,8 +163,6 @@ class RMSNorm1DTest {
         }
     }
 
-    // ── guards ───────────────────────────────────────────────────────────────
-
     @Test
     void forward_wrong_cols_throws() {
         assertThrows(IllegalArgumentException.class,
@@ -199,8 +173,6 @@ class RMSNorm1DTest {
     void constructor_zero_dim_throws() {
         assertThrows(IllegalArgumentException.class, () -> new RMSNorm1D(0));
     }
-
-    // ── helper ───────────────────────────────────────────────────────────────
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;

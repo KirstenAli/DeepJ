@@ -17,7 +17,7 @@ public class SupervisedTrainingTest {
 
     @Test
     void supervisedTrainer_runs_andLossDoesNotExplode_onTinyRegression() {
-        // y = 2x on 4 samples
+
         Tensor x = Tensor.from2D(new float[][]{{0},{1},{2},{3}});
         Tensor y = Tensor.from2D(new float[][]{{0},{2},{4},{6}});
 
@@ -42,8 +42,16 @@ public class SupervisedTrainingTest {
     void supervisedTrainer_keepsSampledInputTargetPairsAligned() {
         Tensor x = Tensor.from2D(new float[][]{{0}, {1}, {2}, {3}, {4}});
         Tensor y = Tensor.from2D(new float[][]{{0}, {1}, {2}, {3}, {4}});
+        Trainer trainer = SupervisedTraining.trainer(
+                identityLayer(), new MSELoss(), AdamW.defaultAdamW(0.01f), x, y, 123L);
+        for (int i = 0; i < 20; i++) {
+            Assertions.assertEquals(0.0f, trainer.trainStep(1), 1e-12f,
+                    "aligned x/y sampling should keep identity-model loss at zero");
+        }
+    }
 
-        Layer identity = new Layer() {
+    private static Layer identityLayer() {
+        return new Layer() {
             @Override
             public Tensor forward(Tensor input) { return input; }
 
@@ -53,18 +61,5 @@ public class SupervisedTrainingTest {
             @Override
             public List<Parameter> parameters() { return List.of(); }
         };
-
-        Trainer trainer = SupervisedTraining.trainer(
-                identity,
-                new MSELoss(),
-                AdamW.defaultAdamW(0.01f),
-                x, y,
-                123L
-        );
-
-        for (int i = 0; i < 20; i++) {
-            Assertions.assertEquals(0.0f, trainer.trainStep(1), 1e-12f,
-                    "aligned x/y sampling should keep identity-model loss at zero");
-        }
     }
 }

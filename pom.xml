@@ -86,7 +86,7 @@
                 <version>3.6.0</version>
                 <configuration>
                     <configLocation>config/checkstyle.xml</configLocation>
-                    <includeTestSourceDirectory>false</includeTestSourceDirectory>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
                 </configuration>
                 <executions>
                     <execution>

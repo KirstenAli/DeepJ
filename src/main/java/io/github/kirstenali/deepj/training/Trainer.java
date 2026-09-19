@@ -2,22 +2,13 @@ package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-/**
- * A small, reusable training loop wrapper.
- *
- * <p>This library supports different model/data shapes (e.g. supervised Tensor->Tensor models,
- * and causal language models that operate on token ids). Rather than duplicating full trainers,
- * {@link Trainer} delegates a single training step to a pluggable {@link StepFunction}.
- */
 public final class Trainer {
 
     private static final int DEFAULT_RELEASE_EVERY_STEPS = 25;
 
     @FunctionalInterface
     public interface StepFunction {
-        /**
-         * Runs one optimization step and returns the average loss for that step.
-         */
+
         float trainStep(int batchSize);
     }
 
@@ -37,10 +28,6 @@ public final class Trainer {
         return stepFn.trainStep(batchSize);
     }
 
-    /**
-     * Train until maxSteps or until EMA loss goes below targetEmaLoss (if provided).
-     * Uses the default periodic backend release cadence.
-     */
     public TrainingResult train(
             int maxSteps,
             int batchSize,
@@ -62,10 +49,6 @@ public final class Trainer {
         return train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, releaseEverySteps, null);
     }
 
-    /**
-     * Train until maxSteps or until EMA loss goes below targetEmaLoss (if provided).
-     * Uses the default periodic backend release cadence.
-     */
     public TrainingResult train(
             int maxSteps,
             int batchSize,
@@ -77,10 +60,6 @@ public final class Trainer {
         return train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss, DEFAULT_RELEASE_EVERY_STEPS, stepHook);
     }
 
-    /**
-     * Train until maxSteps or until EMA loss goes below targetEmaLoss (if provided).
-     * {@code releaseEverySteps <= 0} disables periodic release, but final release still runs.
-     */
     public TrainingResult train(
             int maxSteps,
             int batchSize,

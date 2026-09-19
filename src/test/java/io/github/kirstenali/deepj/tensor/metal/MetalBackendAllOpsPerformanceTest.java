@@ -9,22 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * CPU vs Metal GPU chained-pipeline performance benchmarks.
- *
- * <p>Multiple lazy GPU ops are recorded into a single command buffer, then
- * one {@code materialize()} flushes them all at once.  This matches how the
- * GPU actually runs during training and is where the real speedup shows:
- * command-buffer batching amortises per-kernel dispatch overhead.
- *
- * <p>Not a rigorous benchmark (use JMH for that). Disabled by default to keep CI stable.
- * Run manually with:
- * <pre>
- *   mvn test -Dtest=MetalBackendAllOpsPerformanceTest \
- *       -Djunit.jupiter.conditions.deactivate=org.junit.jupiter.engine.extension.DisabledCondition \
- *       -DskipTests=false -Dperf.size=512 -Dperf.iters.cpu=3 -Dperf.iters.gpu=10
- * </pre>
- */
 @Disabled("Manual performance test; timings vary by machine and can be unstable in CI.")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public final class MetalBackendAllOpsPerformanceTest {
@@ -33,14 +17,11 @@ public final class MetalBackendAllOpsPerformanceTest {
     private static TensorBackend gpu;
     private static TensorBackend previousBackend;
 
-    private static int N;       // matrix dimension (N × N)
+    private static int N;
     private static int IT_CPU;
     private static int IT_GPU;
 
-    /** Collects all results for a summary table printed at the end. */
     private static final Map<String, long[]> results = new LinkedHashMap<>();
-
-    // ── setup / teardown ──────────────────────────────────────────
 
     @BeforeAll
     static void setUp() {
@@ -69,8 +50,6 @@ public final class MetalBackendAllOpsPerformanceTest {
         printSummary();
     }
 
-    // ── helpers ────────────────────────────────────────────────────
-
     private static Tensor rand(int rows, int cols, long seed) {
         return cpu.random(rows, cols, new Random(seed));
     }
@@ -93,7 +72,7 @@ public final class MetalBackendAllOpsPerformanceTest {
     }
 
     private void bench(String label, Runnable cpuOp, Runnable gpuOp) {
-        for (int i = 0; i < 3; i++) { cpuOp.run(); gpuOp.run(); }  // warm-up
+        for (int i = 0; i < 3; i++) { cpuOp.run(); gpuOp.run(); }
         long cpuNs = bestOfNanos(cpuOp, IT_CPU);
         long gpuNs = bestOfNanos(gpuOp, IT_GPU);
         results.put(label, new long[]{cpuNs, gpuNs});
@@ -119,14 +98,6 @@ public final class MetalBackendAllOpsPerformanceTest {
         System.out.println("└──────────────────────────────────────────┴────────────┴────────────┴──────────┘\n");
     }
 
-    // ╔═════════════════════════════════════════════════════════════════╗
-    // ║  MIXED CHAINS  (matmul + element-wise, scaling with depth)     ║
-    // ╚═════════════════════════════════════════════════════════════════╝
-
-    /**
-     * 5 ops (1 matmul + 4 elem-wise) → 1 materialize.
-     * matmul → add → gelu → multiplyScalar → exp
-     */
     @Test @Order(1)
     void chain_mixed5() {
         Tensor a = rand(N, N, 70L), b = rand(N, N, 71L);
@@ -147,117 +118,30 @@ public final class MetalBackendAllOpsPerformanceTest {
                 });
     }
 
-    /**
-     * 10 ops (2 matmuls + 8 elem-wise) → 1 materialize.
-     */
     @Test @Order(2)
     void chain_mixed10() {
         Tensor a = rand(N, N, 72L), b = rand(N, N, 73L);
         bench("10 mixed ops (2 matmuls)",
-                () -> {
-                    Tensor t = cpu.matmul(a, b);
-                    t = cpu.gelu(t);
-                    t = cpu.multiplyScalar(t, 0.5f);
-                    t = cpu.subtract(t, b);
-                    t = cpu.relu(t);
-                    t = cpu.matmul(t, a);
-                    t = cpu.sigmoid(t);
-                    t = cpu.multiply(t, b);
-                    t = cpu.tanh(t);
-                    cpu.neg(t);
-                },
-                () -> {
-                    Tensor t = gpu.matmul(a, b);
-                    t = gpu.gelu(t);
-                    t = gpu.multiplyScalar(t, 0.5f);
-                    t = gpu.subtract(t, b);
-                    t = gpu.relu(t);
-                    t = gpu.matmul(t, a);
-                    t = gpu.sigmoid(t);
-                    t = gpu.multiply(t, b);
-                    t = gpu.tanh(t);
-                    gpu.neg(t).materialize();
-                });
+                () -> mixedTen(cpu, a, b),
+                () -> mixedTen(gpu, a, b).materialize());
     }
 
-    /**
-     * 20 ops (4 matmuls + 16 elem-wise) → 1 materialize.
-     * Dispatch overhead fully amortised; matmuls dominate CPU time.
-     */
     @Test @Order(3)
     void chain_mixed20() {
         Tensor a = rand(N, N, 74L), b = rand(N, N, 75L);
         bench("20 mixed ops (4 matmuls)",
-                () -> {
-                    Tensor t = cpu.matmul(a, b);
-                    for (int i = 0; i < 19; i++) {
-                        t = switch (i % 5) {
-                            case 0 -> cpu.gelu(t);
-                            case 1 -> cpu.matmul(t, a);
-                            case 2 -> cpu.add(t, b);
-                            case 3 -> cpu.sigmoid(t);
-                            default -> cpu.subtract(t, a);
-                        };
-                    }
-                },
-                () -> {
-                    Tensor t = gpu.matmul(a, b);
-                    for (int i = 0; i < 19; i++) {
-                        t = switch (i % 5) {
-                            case 0 -> gpu.gelu(t);
-                            case 1 -> gpu.matmul(t, a);
-                            case 2 -> gpu.add(t, b);
-                            case 3 -> gpu.sigmoid(t);
-                            default -> gpu.subtract(t, a);
-                        };
-                    }
-                    t.materialize();
-                });
+                () -> mixedChain(cpu, a, b, 19),
+                () -> mixedChain(gpu, a, b, 19).materialize());
     }
 
-    /**
-     * 50 ops (10 matmuls + 40 elem-wise) → 1 materialize.
-     * Deep pipeline — shows full batching advantage at scale.
-     */
     @Test @Order(4)
     void chain_mixed50() {
         Tensor a = rand(N, N, 76L), b = rand(N, N, 77L);
         bench("50 mixed ops (10 matmuls)",
-                () -> {
-                    Tensor t = cpu.matmul(a, b);
-                    for (int i = 0; i < 49; i++) {
-                        t = switch (i % 5) {
-                            case 0 -> cpu.gelu(t);
-                            case 1 -> cpu.matmul(t, a);
-                            case 2 -> cpu.add(t, b);
-                            case 3 -> cpu.sigmoid(t);
-                            default -> cpu.subtract(t, a);
-                        };
-                    }
-                },
-                () -> {
-                    Tensor t = gpu.matmul(a, b);
-                    for (int i = 0; i < 49; i++) {
-                        t = switch (i % 5) {
-                            case 0 -> gpu.gelu(t);
-                            case 1 -> gpu.matmul(t, a);
-                            case 2 -> gpu.add(t, b);
-                            case 3 -> gpu.sigmoid(t);
-                            default -> gpu.subtract(t, a);
-                        };
-                    }
-                    t.materialize();
-                });
+                () -> mixedChain(cpu, a, b, 49),
+                () -> mixedChain(gpu, a, b, 49).materialize());
     }
 
-    // ╔═════════════════════════════════════════════════════════════════╗
-    // ║  MODEL-LAYER PIPELINES                                         ║
-    // ╚═════════════════════════════════════════════════════════════════╝
-
-    /**
-     * Linear-layer forward: matmul → add → gelu  (3 GPU ops → 1 materialize).
-     * Bias is pre-expanded to N×N so the add stays on GPU.
-     */
     @Test @Order(10)
     void chain_linearForward() {
         Tensor x = rand(N, N, 76L), W = rand(N, N, 77L);
@@ -275,9 +159,6 @@ public final class MetalBackendAllOpsPerformanceTest {
                 });
     }
 
-    /**
-     * Self-attention scores: Q·K → scale → softmax → ·V  (4 GPU ops → 1 materialize).
-     */
     @Test @Order(11)
     void chain_attentionForward() {
         Tensor Q = rand(N, N, 79L), K = rand(N, N, 80L), V = rand(N, N, 81L);
@@ -297,11 +178,6 @@ public final class MetalBackendAllOpsPerformanceTest {
                 });
     }
 
-    /**
-     * Forward + loss gradient: matmul → gelu → matmul → crossEntropyGradient.
-     * crossEntropyGradient internally chains softmaxRows + subtract + multiplyScalar,
-     * so the GPU records ~6 kernels total before the single materialize.
-     */
     @Test @Order(12)
     void chain_forwardAndLossGrad() {
         Tensor x = rand(N, N, 82L), W1 = rand(N, N, 83L), W2 = rand(N, N, 84L);
@@ -321,12 +197,6 @@ public final class MetalBackendAllOpsPerformanceTest {
                 });
     }
 
-    /**
-     * Two-layer backward pass through linear layers:
-     *   softmaxBackward → matmul(dLogits, W2) → geluBackward →
-     *   matmul(dH, W1) → subtract → multiplyScalar
-     * (6 GPU ops including 2 matmuls → 1 materialize).
-     */
     @Test @Order(13)
     void chain_backward() {
         Tensor grad   = rand(N, N, 86L);
@@ -336,132 +206,31 @@ public final class MetalBackendAllOpsPerformanceTest {
         Tensor hPreAct = rand(N, N, 90L);
         Tensor offset = rand(N, N, 91L);
         bench("backward (6 ops, 2 matmuls)",
-                () -> {
-                    Tensor d = cpu.softmaxBackward(grad, smOut);
-                    d = cpu.matmul(d, W2);
-                    d = cpu.geluBackward(hPreAct, d);
-                    d = cpu.matmul(d, W1);
-                    d = cpu.subtract(d, offset);
-                    cpu.multiplyScalar(d, 0.5f);
-                },
-                () -> {
-                    Tensor d = gpu.softmaxBackward(grad, smOut);
-                    d = gpu.matmul(d, W2);
-                    d = gpu.geluBackward(hPreAct, d);
-                    d = gpu.matmul(d, W1);
-                    d = gpu.subtract(d, offset);
-                    gpu.multiplyScalar(d, 0.5f).materialize();
-                });
+                () -> backward(cpu, grad, smOut, W1, W2, hPreAct, offset),
+                () -> backward(gpu, grad, smOut, W1, W2, hPreAct, offset).materialize());
     }
 
-    // ╔═════════════════════════════════════════════════════════════════╗
-    // ║  FULL TRAINING-STEP PIPELINES                                  ║
-    // ╚═════════════════════════════════════════════════════════════════╝
-
-    /**
-     * Mini training step: forward + softmax + scale + 2× adamW.
-     * ~9 GPU ops recorded, 1 materialize at the end.
-     */
     @Test @Order(20)
     void chain_miniTrainStep() {
-        Tensor x  = rand(N, N, 91L);
-        Tensor W1 = rand(N, N, 92L), W2 = rand(N, N, 93L);
-        Tensor g1 = rand(N, N, 94L), g2 = rand(N, N, 95L);
-
-        Tensor m1 = cpu.zeros(N, N), v1 = cpu.zeros(N, N);
-        Tensor m2 = cpu.zeros(N, N), v2 = cpu.zeros(N, N);
-
-        Tensor W1G = clone(W1), W2G = clone(W2);
-        Tensor g1G = clone(g1), g2G = clone(g2);
-        Tensor m1G = cpu.zeros(N, N), v1G = cpu.zeros(N, N);
-        Tensor m2G = cpu.zeros(N, N), v2G = cpu.zeros(N, N);
-
+        Tensor x = rand(N, N, 91L);
+        MiniState cpuState = miniState();
+        MiniState gpuState = copy(cpuState);
         bench("mini train step (9 ops)",
-                () -> {
-                    Tensor h = cpu.matmul(x, W1);
-                    h = cpu.gelu(h);
-                    Tensor logits = cpu.matmul(h, W2);
-                    cpu.softmaxRows(logits);
-                    cpu.multiplyScalar(logits, 0.1f);
-                    cpu.adamWUpdate(W1, g1, m1, v1, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                    cpu.adamWUpdate(W2, g2, m2, v2, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                },
-                () -> {
-                    Tensor h = gpu.matmul(x, W1G);
-                    h = gpu.gelu(h);
-                    Tensor logits = gpu.matmul(h, W2G);
-                    gpu.softmaxRows(logits);
-                    gpu.multiplyScalar(logits, 0.1f);
-                    gpu.adamWUpdate(W1G, g1G, m1G, v1G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                    gpu.adamWUpdate(W2G, g2G, m2G, v2G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                    W1G.materialize();
-                });
+                () -> miniTrainStep(cpu, x, cpuState),
+                () -> miniTrainStep(gpu, x, gpuState).materialize());
     }
 
-    /**
-     * Full forward + backward + optimise (two linear layers).
-     *   Forward:  matmul → gelu → matmul → crossEntropyGradient (3 internal)
-     *   Backward: matmul → geluBackward → matmul
-     *   Optimise: 2× adamWUpdate
-     * Total: ~13 GPU ops recorded, 1 materialize.
-     */
     @Test @Order(21)
     void chain_fullTrainStep() {
-        Tensor x  = rand(N, N, 96L);
-        Tensor W1 = rand(N, N, 97L), W2 = rand(N, N, 98L);
+        Tensor x = rand(N, N, 96L);
         int[] targets = randomTargets(N, N, 99L);
-        Tensor hPreAct = rand(N, N, 100L);
-
-        Tensor m1 = cpu.zeros(N, N), v1 = cpu.zeros(N, N);
-        Tensor m2 = cpu.zeros(N, N), v2 = cpu.zeros(N, N);
-
-        Tensor W1G = clone(W1), W2G = clone(W2);
-        Tensor hPreActG = clone(hPreAct);
-        Tensor m1G = cpu.zeros(N, N), v1G = cpu.zeros(N, N);
-        Tensor m2G = cpu.zeros(N, N), v2G = cpu.zeros(N, N);
-
+        FullState cpuState = fullState();
+        FullState gpuState = copy(cpuState);
         bench("full train step (13 ops)",
-                () -> {
-                    // forward
-                    Tensor h = cpu.matmul(x, W1);
-                    h = cpu.gelu(h);
-                    Tensor logits = cpu.matmul(h, W2);
-                    // loss gradient (softmax + subtract + scale)
-                    Tensor dLogits = cpu.crossEntropyGradient(logits, targets);
-                    // backward
-                    Tensor dH = cpu.matmul(dLogits, W2);
-                    dH = cpu.geluBackward(hPreAct, dH);
-                    Tensor dX = cpu.matmul(dH, W1);
-                    // optimise
-                    cpu.adamWUpdate(W1, dX, m1, v1, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                    cpu.adamWUpdate(W2, dLogits, m2, v2, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                },
-                () -> {
-                    // forward
-                    Tensor h = gpu.matmul(x, W1G);
-                    h = gpu.gelu(h);
-                    Tensor logits = gpu.matmul(h, W2G);
-                    // loss gradient (softmax + subtract + scale — all lazy)
-                    Tensor dLogits = gpu.crossEntropyGradient(logits, targets);
-                    // backward
-                    Tensor dH = gpu.matmul(dLogits, W2G);
-                    dH = gpu.geluBackward(hPreActG, dH);
-                    Tensor dX = gpu.matmul(dH, W1G);
-                    // optimise — still lazy
-                    gpu.adamWUpdate(W1G, dX, m1G, v1G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                    gpu.adamWUpdate(W2G, dLogits, m2G, v2G, 1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
-                    // single flush
-                    W1G.materialize();
-                });
+                () -> fullTrainStep(cpu, x, targets, cpuState),
+                () -> fullTrainStep(gpu, x, targets, gpuState).materialize());
     }
 
-    /**
-     * In-place grad-style loop:
-     *   repeat { addInPlace + multiplyScalarInPlace }
-     *
-     * This specifically guards against regressions where in-place ops on Metal
-     * accidentally force CPU materialization/copies.
-     */
     @Test @Order(22)
     void chain_inPlaceGradAccumulation() {
         Tensor delta = rand(N, N, 101L);
@@ -485,9 +254,104 @@ public final class MetalBackendAllOpsPerformanceTest {
                 });
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  UTILITIES
-    // ═══════════════════════════════════════════════════════════════
+    private static Tensor mixedTen(TensorBackend backend, Tensor a, Tensor b) {
+        Tensor value = backend.matmul(a, b);
+        value = backend.gelu(value);
+        value = backend.multiplyScalar(value, 0.5f);
+        value = backend.subtract(value, b);
+        value = backend.relu(value);
+        value = backend.matmul(value, a);
+        value = backend.sigmoid(value);
+        value = backend.multiply(value, b);
+        value = backend.tanh(value);
+        return backend.neg(value);
+    }
+
+    private static Tensor mixedChain(TensorBackend backend, Tensor a, Tensor b, int operations) {
+        Tensor value = backend.matmul(a, b);
+        for (int index = 0; index < operations; index++) {
+            value = switch (index % 5) {
+                case 0 -> backend.gelu(value);
+                case 1 -> backend.matmul(value, a);
+                case 2 -> backend.add(value, b);
+                case 3 -> backend.sigmoid(value);
+                default -> backend.subtract(value, a);
+            };
+        }
+        return value;
+    }
+
+    private static Tensor backward(TensorBackend backend, Tensor gradient, Tensor softmax,
+                                   Tensor w1, Tensor w2, Tensor preActivation, Tensor offset) {
+        Tensor value = backend.softmaxBackward(gradient, softmax);
+        value = backend.matmul(value, w2);
+        value = backend.geluBackward(preActivation, value);
+        value = backend.matmul(value, w1);
+        value = backend.subtract(value, offset);
+        return backend.multiplyScalar(value, 0.5f);
+    }
+
+    private static MiniState miniState() {
+        return new MiniState(
+                rand(N, N, 92L), rand(N, N, 93L),
+                rand(N, N, 94L), rand(N, N, 95L),
+                cpu.zeros(N, N), cpu.zeros(N, N),
+                cpu.zeros(N, N), cpu.zeros(N, N));
+    }
+
+    private static MiniState copy(MiniState source) {
+        return new MiniState(
+                clone(source.w1()), clone(source.w2()), clone(source.g1()), clone(source.g2()),
+                clone(source.m1()), clone(source.v1()), clone(source.m2()), clone(source.v2()));
+    }
+
+    private static Tensor miniTrainStep(TensorBackend backend, Tensor input, MiniState state) {
+        Tensor hidden = backend.gelu(backend.matmul(input, state.w1()));
+        Tensor logits = backend.matmul(hidden, state.w2());
+        backend.softmaxRows(logits);
+        backend.multiplyScalar(logits, 0.1f);
+        update(backend, state.w1(), state.g1(), state.m1(), state.v1());
+        update(backend, state.w2(), state.g2(), state.m2(), state.v2());
+        return state.w1();
+    }
+
+    private static FullState fullState() {
+        return new FullState(
+                rand(N, N, 97L), rand(N, N, 98L), rand(N, N, 100L),
+                cpu.zeros(N, N), cpu.zeros(N, N),
+                cpu.zeros(N, N), cpu.zeros(N, N));
+    }
+
+    private static FullState copy(FullState source) {
+        return new FullState(
+                clone(source.w1()), clone(source.w2()), clone(source.preActivation()),
+                clone(source.m1()), clone(source.v1()), clone(source.m2()), clone(source.v2()));
+    }
+
+    private static Tensor fullTrainStep(TensorBackend backend, Tensor input, int[] targets,
+                                        FullState state) {
+        Tensor hidden = backend.gelu(backend.matmul(input, state.w1()));
+        Tensor logits = backend.matmul(hidden, state.w2());
+        Tensor dLogits = backend.crossEntropyGradient(logits, targets);
+        Tensor dHidden = backend.matmul(dLogits, state.w2());
+        dHidden = backend.geluBackward(state.preActivation(), dHidden);
+        Tensor dInput = backend.matmul(dHidden, state.w1());
+        update(backend, state.w1(), dInput, state.m1(), state.v1());
+        update(backend, state.w2(), dLogits, state.m2(), state.v2());
+        return state.w1();
+    }
+
+    private static void update(TensorBackend backend, Tensor weight, Tensor gradient,
+                               Tensor moment, Tensor variance) {
+        backend.adamWUpdate(weight, gradient, moment, variance,
+                1e-3f, 0.9f, 0.999f, 1e-8f, 0.01f, 0.9f, 0.999f);
+    }
+
+    private record MiniState(Tensor w1, Tensor w2, Tensor g1, Tensor g2,
+                             Tensor m1, Tensor v1, Tensor m2, Tensor v2) {}
+
+    private record FullState(Tensor w1, Tensor w2, Tensor preActivation,
+                             Tensor m1, Tensor v1, Tensor m2, Tensor v2) {}
 
     private static int[] randomTargets(int count, int range, long seed) {
         Random rng = new Random(seed);

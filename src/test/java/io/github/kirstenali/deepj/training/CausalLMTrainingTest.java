@@ -24,8 +24,6 @@ import java.util.stream.Stream;
 
 public class CausalLMTrainingTest {
 
-    // ── Helpers ───────────────────────────────────────────────────
-
     private static TextDataset tinyDataset(String text, int seqLen) throws IOException {
         Path tmp = Files.createTempFile("deepj_lm", ".txt");
         Files.writeString(tmp, text);
@@ -41,15 +39,11 @@ public class CausalLMTrainingTest {
         );
     }
 
-    // ── CausalLM interface ────────────────────────────────────────
-
     @ParameterizedTest
     @MethodSource("allModels")
     void allModels_implementCausalLM(CausalLM model) {
         Assertions.assertNotNull(model);
     }
-
-    // ── Generic trainer ───────────────────────────────────────────
 
     @ParameterizedTest
     @MethodSource("allModels")
@@ -77,8 +71,6 @@ public class CausalLMTrainingTest {
         Assertions.assertTrue(delta > 0.0f, "parameters must change after a training step");
     }
 
-    // ── GPT-specific tests ────────────────────────────────────────
-
     @Test
     void trainer_runsOneStep_onTinyDataset() throws IOException {
         Tokenizer tok = new ByteTokenizer();
@@ -99,37 +91,24 @@ public class CausalLMTrainingTest {
 
     @Test
     void trainer_usesConfigGradClipNorm_toLimitUpdateMagnitude() throws IOException {
-        Tokenizer tok = new ByteTokenizer();
         Path tmp = Files.createTempFile("deepj_lm_clip", ".txt");
         Files.writeString(tmp, "hello hello hello hello hello hello");
-
-        TextDataset dsUnclipped = TextDataset.fromFile(tmp, tok, 8, 7L);
-        TextDataset dsClipped   = TextDataset.fromFile(tmp, tok, 8, 7L);
-
-        GPTConfig cfgUnclipped = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0f, 1.0f);
-        GPTConfig cfgClipped   = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0f, 1e-6f);
-
-        GPTModel modelUnclipped = new GPTModel(cfgUnclipped, 2L);
-        GPTModel modelClipped   = new GPTModel(cfgClipped, 2L);
-
-        Trainer trainerUnclipped = CausalLMTraining.trainer(modelUnclipped, dsUnclipped, 1e-2f);
-        Trainer trainerClipped   = CausalLMTraining.trainer(modelClipped,   dsClipped,   1e-2f);
-
-        Parameter pUnclipped = modelUnclipped.parameters().get(0);
-        Parameter pClipped   = modelClipped.parameters().get(0);
-        Tensor beforeUnclipped = pUnclipped.value.multiplyScalar(1.0f);
-        Tensor beforeClipped   = pClipped.value.multiplyScalar(1.0f);
-
-        trainerUnclipped.trainStep(2);
-        trainerClipped.trainStep(2);
-
-        double deltaUnclipped = pUnclipped.value.subtract(beforeUnclipped).sumAbs();
-        double deltaClipped   = pClipped.value.subtract(beforeClipped).sumAbs();
-
+        double deltaUnclipped = parameterDelta(tmp, 1.0f);
+        double deltaClipped = parameterDelta(tmp, 1e-6f);
         Assertions.assertTrue(deltaUnclipped > 0.0f);
         Assertions.assertTrue(deltaClipped > 0.0f);
         Assertions.assertTrue(deltaClipped < deltaUnclipped,
                 "Expected clipped run to update less than unclipped run");
     }
-}
 
+    private static double parameterDelta(Path corpus, float clipNorm) throws IOException {
+        TextDataset dataset = TextDataset.fromFile(corpus, new ByteTokenizer(), 8, 7L);
+        GPTConfig config = new GPTConfig(
+                ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0f, clipNorm);
+        GPTModel model = new GPTModel(config, 2L);
+        Parameter parameter = model.parameters().get(0);
+        Tensor before = parameter.value.multiplyScalar(1.0f);
+        CausalLMTraining.trainer(model, dataset, 1e-2f).trainStep(2);
+        return parameter.value.subtract(before).sumAbs();
+    }
+}

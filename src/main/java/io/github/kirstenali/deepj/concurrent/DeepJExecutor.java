@@ -46,7 +46,6 @@ public final class DeepJExecutor {
         old.shutdown();
     }
 
-    /** Current number of threads used by DeepJ. */
     public static int getNumThreads() {
         return exec.getCorePoolSize();
     }
@@ -55,15 +54,10 @@ public final class DeepJExecutor {
         parallelEnabled = enabled;
     }
 
-    /** Whether DeepJ uses parallel execution for eligible loops. */
     public static boolean isParallelEnabled() {
         return parallelEnabled;
     }
 
-    /**
-     * Clean shutdown (good for CLI apps/tests). Daemon threads already let the JVM exit,
-     * but shutdown avoids work continuing after main finishes.
-     */
     public static void shutdown() {
         ThreadPoolExecutor pool = exec;
         pool.shutdown();
@@ -98,7 +92,6 @@ public final class DeepJExecutor {
 
         CountDownLatch latch = new CountDownLatch(chunks);
 
-        // fail-fast: once any chunk throws, other chunks can stop early
         AtomicBoolean cancelled = new AtomicBoolean(false);
 
         AtomicReference<RuntimeException> firstError = new AtomicReference<>();
@@ -111,9 +104,6 @@ public final class DeepJExecutor {
         if (ex != null) throw ex;
     }
 
-    /**
-     * Submits chunk tasks without storing chunk ranges (O(1) extra memory).
-     */
     private static void submitChunkedRange(
             int startInclusive,
             int endExclusive,

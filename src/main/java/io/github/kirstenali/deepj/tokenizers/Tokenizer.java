@@ -5,7 +5,6 @@ public interface Tokenizer {
     String decode(int[] ids);
     int vocabSize();
 
-    /** Returns true when generation should stop before appending this token. */
     default boolean isEndOfSequence(int tokenId) {
         return false;
     }

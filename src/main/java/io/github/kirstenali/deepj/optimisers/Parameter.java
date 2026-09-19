@@ -4,10 +4,6 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.Arrays;
 
-/**
- * Simple mutable parameter holder for optimizers.
- * Gradients are expected to be accumulated into {@link #grad}.
- */
 public final class Parameter {
     public Tensor value;
     public Tensor grad;

@@ -6,8 +6,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TensorAdaptersTest {
 
-    // -- packF32 -------------------------------------------------------------
-
     @Test
     void packF32ProducesRowMajorFloatArray() {
         Tensor t = Tensor.from2D(new float[][]{
@@ -31,13 +29,11 @@ class TensorAdaptersTest {
 
     @Test
     void packF32TruncatesDoublePrecision() {
-        // 1/3 has different representations in double vs float
+
         Tensor t = TensorAdapters.unpackF32(new float[]{1.0f / 3.0f}, 1, 1);
         float[] packed = TensorAdapters.packF32(t);
         assertEquals(1.0f / 3.0f, packed[0]);
     }
-
-    // -- unpackF32 -----------------------------------------------------------
 
     @Test
     void unpackF32CreatesCorrectTensor() {
@@ -62,8 +58,6 @@ class TensorAdaptersTest {
         assertTrue(ex.getMessage().contains("does not match shape"));
     }
 
-    // -- unpackF32Into -------------------------------------------------------
-
     @Test
     void unpackF32IntoOverwritesExistingData() {
         Tensor t = Tensor.from2D(new float[][]{
@@ -78,8 +72,6 @@ class TensorAdaptersTest {
         assertEquals(30.0f, t.data[2], 1e-6f);
         assertEquals(60.0f, t.data[1 * 3 + 2], 1e-6f);
     }
-
-    // -- round-trip ----------------------------------------------------------
 
     @Test
     void packThenUnpackIsIdentity() {
@@ -96,7 +88,7 @@ class TensorAdaptersTest {
         assertEquals(original.cols, restored.cols);
         for (int r = 0; r < original.rows; r++) {
             for (int c = 0; c < original.cols; c++) {
-                // float precision: compare at float tolerance
+
                 assertEquals(original.data[r * original.cols + c], restored.data[r * restored.cols + c]);
             }
         }

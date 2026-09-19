@@ -6,32 +6,17 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Shared flat-array head-reshape and attention-computation primitives used by every
- * multi-head attention variant.
- */
 final class HeadOps {
 
     private HeadOps() {}
 
     private static final Map<Integer, Tensor> CAUSAL_MASK_CACHE = new ConcurrentHashMap<>();
 
-    // ── Result carriers ────────────────────────────────────────────────────
-
     record AttentionGrads(Tensor dScores, Tensor dVh) {}
     record QKGrads(Tensor dQh, Tensor dKh) {}
 
-    // ── Head reshape ───────────────────────────────────────────────────────
-
-    /**
-     * Split {@code [seqLen × dModel]} into {@code [nHeads·seqLen × headDim]}.
-     * <pre>
-     *   src:  t.data[i*dModel + h*headDim]          (token i, head h)
-     *   dst: out.data[(h*seqLen + i)*headDim]
-     * </pre>
-     */
     static Tensor splitHeads(Tensor t, int seqLen, int nHeads, int headDim, int dModel) {
-        // Required for lazy GPU backends: direct data[] access must read fresh CPU values.
+
         t.materialize();
         Tensor out = new Tensor(nHeads * seqLen, headDim);
         for (int i = 0; i < seqLen; i++) {
@@ -45,10 +30,6 @@ final class HeadOps {
         return out;
     }
 
-    /**
-     * Merge {@code [nHeads·seqLen × headDim]} back into {@code [seqLen × dModel]}.
-     * Exact inverse of {@link #splitHeads}.
-     */
     static Tensor mergeHeads(Tensor t, int seqLen, int nHeads, int headDim, int dModel) {
         t.materialize();
         Tensor out = new Tensor(seqLen, dModel);
@@ -63,11 +44,6 @@ final class HeadOps {
         return out;
     }
 
-    /**
-     * Extract rows {@code [rowStart .. rowStart+numRows)} into a new
-     * {@code [numRows × numCols]} tensor.
-     * Contiguous in flat storage → single {@code arraycopy}.
-     */
     static Tensor extractBlock(Tensor t, int rowStart, int numRows, int numCols) {
         t.materialize();
         Tensor block = new Tensor(numRows, numCols);
@@ -75,18 +51,11 @@ final class HeadOps {
         return block;
     }
 
-    /**
-     * Insert a {@code [numRows × numCols]} block into {@code target} starting at {@code rowStart}.
-     * Contiguous in flat storage → single {@code arraycopy}.
-     */
     static void insertBlock(Tensor target, Tensor block, int rowStart, int numRows, int numCols) {
         block.materialize();
         System.arraycopy(block.data, 0, target.data, rowStart * numCols, numRows * numCols);
     }
 
-    // ── Forward attention ops ──────────────────────────────────────────────
-
-    /** Scaled dot-product scores: Q·Kᵀ / √headDim for all heads. */
     static Tensor scaledDotProductScores(Tensor qh, Tensor kh,
                                          int nHeads, int seqLen, int headDim, float scale) {
         Tensor out = new Tensor(nHeads * seqLen, seqLen);
@@ -101,7 +70,6 @@ final class HeadOps {
         return out;
     }
 
-    /** Add a shared causal mask to every head block. */
     static Tensor applyCausalMask(Tensor scores, int nHeads, int seqLen) {
         Tensor mask = CAUSAL_MASK_CACHE.computeIfAbsent(seqLen, HeadOps::buildCausalMask);
         Tensor out  = new Tensor(nHeads * seqLen, seqLen);
@@ -125,7 +93,6 @@ final class HeadOps {
         return mask;
     }
 
-    /** Weighted sum of values: attnProb · V for all heads. */
     static Tensor applyAttentionToValues(Tensor attnProb, Tensor vh,
                                          int nHeads, int seqLen, int headDim) {
         Tensor out = new Tensor(nHeads * seqLen, headDim);
@@ -139,9 +106,6 @@ final class HeadOps {
         return out;
     }
 
-    // ── Backward attention ops ─────────────────────────────────────────────
-
-    /** Backprop through attn·V and the softmax+scale. */
     static AttentionGrads backwardAttentionAndValues(
             Tensor dOutH, Tensor vh, Tensor attnProb,
             ActivationFunction softmax, float scale,
@@ -168,7 +132,6 @@ final class HeadOps {
         return new AttentionGrads(dScores, dVh);
     }
 
-    /** Backprop through scaled dot-product scores: grad w.r.t. Q and K. */
     static QKGrads backwardQueriesAndKeys(
             Tensor dScores, Tensor qh, Tensor kh,
             int nHeads, int seqLen, int headDim) {

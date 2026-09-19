@@ -13,18 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Minimal GPT-style decoder-only transformer for educational/training use.
- *
- * <p>Extends {@link DecoderOnlyModel}; the only GPT-specific additions are:
- * <ul>
- *   <li>A learned {@link PositionalEmbedding} added to the token embedding.</li>
- *   <li>An optional {@link GPTConfig#initScale() init-scale} applied to random weights.</li>
- *   <li>{@link LayerNorm1D} (instead of RMSNorm) as the final normalisation.</li>
- * </ul>
- * It intentionally omits features such as dropout, tied embeddings, and an
- * incremental KV cache, so it should be described as GPT-style rather than GPT-2/3.
- */
 public final class GPTModel extends DecoderOnlyModel {
 
     private final GPTConfig cfg;
@@ -48,8 +36,6 @@ public final class GPTModel extends DecoderOnlyModel {
         applyInitScale(cfg.initScale());
     }
 
-    // ── Positional-embedding hooks ─────────────────────────────────
-
     @Override
     protected Tensor embed(int[] inputIds) {
         return tokEmb.forward(inputIds).add(posEmb.forward(inputIds.length));
@@ -67,8 +53,6 @@ public final class GPTModel extends DecoderOnlyModel {
         ps.addAll(posEmb.parameters());
         return ps;
     }
-
-    // ── Gradient clipping ──────────────────────────────────────────
 
     @Override
     public float gradClipNorm() {

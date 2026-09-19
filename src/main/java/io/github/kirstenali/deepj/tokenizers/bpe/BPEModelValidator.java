@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Centralized structural validation for in-memory and deserialized BPE models. */
 final class BPEModelValidator {
 
     private BPEModelValidator() {}

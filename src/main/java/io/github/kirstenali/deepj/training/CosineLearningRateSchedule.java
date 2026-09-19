@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.training;
 
-/** Linear warmup followed by cosine decay. */
 public record CosineLearningRateSchedule(
         float peakLearningRate,
         float minimumLearningRate,

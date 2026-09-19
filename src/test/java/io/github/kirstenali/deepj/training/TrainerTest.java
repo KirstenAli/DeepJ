@@ -21,11 +21,11 @@ public class TrainerTest {
 
         Trainer t = new Trainer(step);
         TrainingResult r = t.train(
-                10,   // maxSteps
-                4,    // batchSize
-                1000, // logEvery (avoid noisy output in tests)
+                10,
+                4,
+                1000,
                 0.9f,
-                null  // no early stop
+                null
         );
 
         Assertions.assertEquals(10, calls.get());
@@ -64,7 +64,6 @@ public class TrainerTest {
             Tensor.setBackend(previous);
         }
 
-        // steps: 0..5 => periodic releases at steps 2 and 4, plus one final release
         Assertions.assertEquals(3, releaseCalls.get());
     }
 
@@ -152,21 +151,28 @@ public class TrainerTest {
         return (TensorBackend) Proxy.newProxyInstance(
                 TensorBackend.class.getClassLoader(),
                 new Class<?>[]{TensorBackend.class},
-                (proxy, method, args) -> {
-                    if (method.getName().equals("releaseResources")) {
-                        releaseCalls.incrementAndGet();
-                        return null;
-                    }
-                    if (method.getDeclaringClass() == Object.class) {
-                        return switch (method.getName()) {
-                            case "toString" -> "CountingBackendProxy";
-                            case "hashCode" -> System.identityHashCode(proxy);
-                            case "equals" -> proxy == args[0];
-                            default -> null;
-                        };
-                    }
-                    throw new UnsupportedOperationException("Unexpected method call: " + method.getName());
-                }
+                (proxy, method, args) -> invokeBackend(proxy, method, args, releaseCalls)
         );
+    }
+
+    private static Object invokeBackend(Object proxy, java.lang.reflect.Method method,
+                                        Object[] args, AtomicInteger releaseCalls) {
+        if (method.getName().equals("releaseResources")) {
+            releaseCalls.incrementAndGet();
+            return null;
+        }
+        if (method.getDeclaringClass() == Object.class) {
+            return invokeObjectMethod(proxy, method.getName(), args);
+        }
+        throw new UnsupportedOperationException("Unexpected method call: " + method.getName());
+    }
+
+    private static Object invokeObjectMethod(Object proxy, String name, Object[] args) {
+        return switch (name) {
+            case "toString" -> "CountingBackendProxy";
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == args[0];
+            default -> null;
+        };
     }
 }

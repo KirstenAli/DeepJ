@@ -16,7 +16,7 @@ final class MetalNative {
     private MetalNative() {}
 
     private static boolean loadNative() {
-        // A native library must be a real file on disk; it can't be loaded directly from a jar.
+
         final String resourcePath = "/native/macos/libdeepj_metal_jni.dylib";
 
         try (InputStream in = MetalNative.class.getResourceAsStream(resourcePath)) {
@@ -35,28 +35,16 @@ final class MetalNative {
         }
     }
 
-    /** Returns true only when macOS exposes a usable default Metal device. */
     private static native boolean nativeIsAvailable();
 
-    // ── Lazy graph execution: persistent GPU buffers + batch op flush ──
-
-    /** Allocate multiple GPU buffers in one call. ids[i] → buffer of sizes[i] floats. */
     static native void nativeAllocBuffers(int[] ids, int[] sizes, int count);
 
-    /** Upload CPU float data into a GPU buffer. */
     static native void nativeUploadBuffer(int bufId, float[] data);
 
-    /** Download GPU buffer contents to CPU float array. */
     static native void nativeDownloadBuffer(int bufId, float[] out);
 
-    /** Release multiple GPU buffers. */
     static native void nativeReleaseBuffers(int[] ids, int count);
 
-    /**
-     * Execute a batch of ops encoded as a flat int[] command stream, all in one
-     * MTLCommandBuffer. Op format: [opCode, args...] where arg count depends on opCode.
-     * Buffer IDs in the stream reference previously allocated GPU buffers.
-     */
     static native void nativeFlushOps(int[] cmdStream, int cmdStreamLength);
 
 }

@@ -17,20 +17,10 @@ public class FNNTest {
     void fnn_reduces_mse_loss_within_a_few_steps() {
         FNN mlp = new FNN(3, new int[]{4}, 2, ReLU::new, new Random(123));
         AdamW opt = new AdamW(0.05f, 0.9f, 0.999f, 1e-8f, 0.0f);
-
-        Tensor x = Tensor.from2D(new float[][]{
-                { 1.0f,  0.0f, -1.0f},
-                { 0.5f,  2.0f,  1.0f}
-        });
-
-        Tensor target = Tensor.from2D(new float[][]{
-                { 1.0f,  0.0f},
-                { 0.0f,  1.0f}
-        });
-
+        Tensor x = Tensor.from2D(new float[][]{{1, 0, -1}, {0.5f, 2, 1}});
+        Tensor target = Tensor.from2D(new float[][]{{1, 0}, {0, 1}});
         double prev = trainOneStepMSE(mlp, opt, x, target);
         boolean improved = false;
-
         for (int i = 0; i < 20; i++) {
             double cur = trainOneStepMSE(mlp, opt, x, target);
             if (cur < prev) {
@@ -39,7 +29,6 @@ public class FNNTest {
             }
             prev = cur;
         }
-
         assertTrue(improved, "expected MSE loss to decrease within a few optimizer steps");
     }
 

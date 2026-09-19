@@ -13,32 +13,13 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Unit tests for {@link RotaryEmbedding} and its integration with
- * {@link RoPEMultiHeadSelfAttention} and {@link LlamaTransformerBlock}.
- *
- * <p>Covers:
- * <ul>
- *   <li>Cos/sin table values at known positions</li>
- *   <li>Shape preservation in apply() and applyBackward()</li>
- *   <li>Rotation is norm-preserving (orthogonal transformation)</li>
- *   <li>apply + applyBackward is the identity (Rᵀ·R = I)</li>
- *   <li>Position 0 leaves vector unchanged (cos=1, sin=0)</li>
- *   <li>MHSA with RoPE: forward/backward shape contracts</li>
- *   <li>MHSA with RoPE: gradients are non-zero</li>
- *   <li>Llama-style GPTTransformerBlock (RMSNorm + RoPE MHSA + SwiGLU): shape + learning</li>
- *   <li>Guards: odd headDim throws, seqLen overflow throws</li>
- * </ul>
- */
 class RotaryEmbeddingTest {
-
-    // ── table values ─────────────────────────────────────────────────────────
 
     @Test
     void cos_sin_at_position_zero_are_one_and_zero() {
-        // θ_{0,i} = 0 for all i → cos = 1, sin = 0
+
         RotaryEmbedding rope = new RotaryEmbedding(4, 8);
-        // Apply a single-head, single-position tensor [1 x 4] at pos=0; result should equal input.
+
         Tensor x = Tensor.from2D(new float[][]{{1.0f, 2.0f, 3.0f, 4.0f}});
         Tensor y = rope.apply(x, 1, 1);
         TestSupport.assertTensorAllClose(x, y, 1e-6f);
@@ -46,28 +27,24 @@ class RotaryEmbeddingTest {
 
     @Test
     void cos_sin_first_dim_at_position_one_are_cos1_sin1() {
-        // For dim i=0: θ = 1 / 10000^0 = 1  →  cos(1), sin(1)
+
         RotaryEmbedding rope = new RotaryEmbedding(4, 8);
-        // Single head, two positions (pos 0 and pos 1), headDim=4
-        Tensor x = Tensor.from2D(new float[][]{{1.0f, 0.0f, 0.0f, 0.0f},   // pos 0
-                                             {1.0f, 0.0f, 0.0f, 0.0f}});  // pos 1
+
+        Tensor x = Tensor.from2D(new float[][]{{1.0f, 0.0f, 0.0f, 0.0f},
+                                             {1.0f, 0.0f, 0.0f, 0.0f}});
         Tensor y = rope.apply(x, 2, 1);
 
-        // pos 0: no rotation
         assertEquals(1.0f, y.data[0], 1e-6f);
         assertEquals(0.0f, y.data[1], 1e-6f);
 
-        // pos 1: rotated by θ = 1 → x_rot[0] = cos(1), x_rot[1] = sin(1)
         assertEquals(Math.cos(1.0f), y.data[1 * 4 + 0], 1e-6f);
         assertEquals(Math.sin(1.0f), y.data[1 * 4 + 1], 1e-6f);
     }
 
-    // ── shape ────────────────────────────────────────────────────────────────
-
     @Test
     void apply_preserves_shape() {
         RotaryEmbedding rope = new RotaryEmbedding(8, 16);
-        Tensor x = Tensor.random(3 * 8, 8, new Random(1)); // nHeads=3, seqLen=8, headDim=8
+        Tensor x = Tensor.random(3 * 8, 8, new Random(1));
         Tensor y = rope.apply(x, 8, 3);
         TestSupport.assertTensorShape(y, 3 * 8, 8);
     }
@@ -80,14 +57,12 @@ class RotaryEmbeddingTest {
         TestSupport.assertTensorShape(y, 2 * 4, 8);
     }
 
-    // ── mathematical properties ───────────────────────────────────────────────
-
     @Test
     void rotation_is_norm_preserving() {
         RotaryEmbedding rope = new RotaryEmbedding(4, 16);
-        Tensor x = Tensor.from2D(new float[][]{{3.0f, 4.0f, 1.0f, 2.0f},   // pos 0
-                                             {1.0f, 1.0f, 1.0f, 1.0f},   // pos 1
-                                             {2.0f, -3.0f, 0.0f, 5.0f}}); // pos 2  (nHeads=1, seqLen=3)
+        Tensor x = Tensor.from2D(new float[][]{{3.0f, 4.0f, 1.0f, 2.0f},
+                                             {1.0f, 1.0f, 1.0f, 1.0f},
+                                             {2.0f, -3.0f, 0.0f, 5.0f}});
         Tensor y = rope.apply(x, 3, 1);
 
         for (int r = 0; r < x.rows; r++) {
@@ -99,9 +74,9 @@ class RotaryEmbeddingTest {
 
     @Test
     void apply_then_applyBackward_is_identity() {
-        // R⁻¹ · R x = x  (rotation matrix is orthogonal)
+
         RotaryEmbedding rope = new RotaryEmbedding(8, 32);
-        Tensor x = Tensor.random(2 * 5, 8, new Random(3));  // nHeads=2, seqLen=5
+        Tensor x = Tensor.random(2 * 5, 8, new Random(3));
         Tensor rotated   = rope.apply(x, 5, 2);
         Tensor recovered = rope.applyBackward(rotated, 5, 2);
         TestSupport.assertTensorAllClose(x, recovered, 1e-6f);
@@ -109,7 +84,7 @@ class RotaryEmbeddingTest {
 
     @Test
     void applyBackward_then_apply_is_identity() {
-        // R · R⁻¹ x = x
+
         RotaryEmbedding rope = new RotaryEmbedding(4, 16);
         Tensor x  = Tensor.random(3 * 4, 4, new Random(4));
         Tensor inv = rope.applyBackward(x, 4, 3);
@@ -119,20 +94,19 @@ class RotaryEmbeddingTest {
 
     @Test
     void multi_head_rotation_each_head_sees_same_positions() {
-        // Two heads, same input per head → both should be rotated identically.
+
         RotaryEmbedding rope = new RotaryEmbedding(4, 8);
-        // Build a 2-head tensor where both heads have the same content.
+
         float[][] rowData = {{1.0f, 2.0f, 3.0f, 4.0f}, {5.0f, 6.0f, 7.0f, 8.0f}};
-        Tensor xSingle = Tensor.from2D(rowData);              // 1 head, seqLen=2
-        Tensor xDouble = Tensor.from2D(new float[][]{        // 2 heads, seqLen=2
-                rowData[0], rowData[1],  // head 0
-                rowData[0], rowData[1]   // head 1 (same)
+        Tensor xSingle = Tensor.from2D(rowData);
+        Tensor xDouble = Tensor.from2D(new float[][]{
+                rowData[0], rowData[1],
+                rowData[0], rowData[1]
         });
 
         Tensor ySingle = rope.apply(xSingle, 2, 1);
         Tensor yDouble = rope.apply(xDouble, 2, 2);
 
-        // Head 0 and head 1 of yDouble should match ySingle.
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
                 assertEquals(ySingle.data[r * 4 + c], yDouble.data[r * 4 + c],       1e-6f, "head0 row " + r);
@@ -140,8 +114,6 @@ class RotaryEmbeddingTest {
             }
         }
     }
-
-    // ── guards ───────────────────────────────────────────────────────────────
 
     @Test
     void odd_headDim_throws() {
@@ -168,8 +140,6 @@ class RotaryEmbeddingTest {
         assertThrows(IllegalArgumentException.class, () -> rope.apply(Tensor.zeros(2, 2), 2, 1));
         assertThrows(IllegalArgumentException.class, () -> rope.apply(Tensor.zeros(3, 4), 2, 1));
     }
-
-    // ── MHSA integration ─────────────────────────────────────────────────────
 
     @Test
     void mhsa_with_rope_forward_returns_correct_shape() {
@@ -207,8 +177,6 @@ class RotaryEmbeddingTest {
         for (Parameter p : attn.parameters()) totalGrad += p.grad.sumAbs();
         assertTrue(totalGrad > 0, "RoPE-enabled MHSA should produce non-zero weight gradients");
     }
-
-    // ── Llama-style block integration ─────────────────────────────────────────
 
     @Test
     void llama_style_block_forward_returns_correct_shape() {
@@ -252,8 +220,6 @@ class RotaryEmbeddingTest {
         assertTrue(improved, "Llama-style block MSE should decrease within a few steps");
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
-
     private static LlamaTransformerBlock llamaBlock(int dModel, int nHeads, int dFF, long seed) {
         return new LlamaTransformerBlock(dModel, nHeads, dFF, 64, new Random(seed));
     }
@@ -275,18 +241,15 @@ class RotaryEmbeddingTest {
         return Math.sqrt(s);
     }
 
-    // ── finite-difference gradient checks ────────────────────────────────────
-
     @Test
     void applyBackward_equals_gradient_of_apply() {
-        // apply() is a linear map y = R·x. For scalar L = Σ (g ⊙ apply(x)),
-        // dL/dx = Rᵀ·g = applyBackward(g). Verify against central finite differences.
+
         int headDim = 4, seqLen = 3, nHeads = 2;
         float eps = 1e-3f, tol = 3e-3f;
         RotaryEmbedding rope = new RotaryEmbedding(headDim, 16);
 
         Tensor x = Tensor.random(nHeads * seqLen, headDim, new Random(5));
-        Tensor g = Tensor.random(nHeads * seqLen, headDim, new Random(6)); // upstream grad
+        Tensor g = Tensor.random(nHeads * seqLen, headDim, new Random(6));
 
         Tensor analytic = rope.applyBackward(g, seqLen, nHeads);
 
@@ -315,16 +278,21 @@ class RotaryEmbeddingTest {
 
         attn.forward(x);
         Tensor dX = attn.backward(Tensor.ones(seqLen, dModel));
+        assertAttentionInputGradient(attn, x, dX, eps, tol);
+    }
 
-        for (int r = 0; r < seqLen; r++) {
-            for (int c = 0; c < dModel; c++) {
-                float orig = x.get(r, c);
-                x.set(r, c, orig + eps);
-                float fPlus = sumAll(attn.forward(x));
-                x.set(r, c, orig - eps);
-                float fMinus = sumAll(attn.forward(x));
-                x.set(r, c, orig);
-                assertEquals((fPlus - fMinus) / (2 * eps), dX.get(r, c), tol,
+    private static void assertAttentionInputGradient(RoPEMultiHeadSelfAttention attention,
+                                                     Tensor input, Tensor gradient,
+                                                     float eps, float tol) {
+        for (int r = 0; r < input.rows; r++) {
+            for (int c = 0; c < input.cols; c++) {
+                float orig = input.get(r, c);
+                input.set(r, c, orig + eps);
+                float fPlus = sumAll(attention.forward(input));
+                input.set(r, c, orig - eps);
+                float fMinus = sumAll(attention.forward(input));
+                input.set(r, c, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), gradient.get(r, c), tol,
                         "RoPE MHSA input grad mismatch at [" + r + "," + c + "]");
             }
         }

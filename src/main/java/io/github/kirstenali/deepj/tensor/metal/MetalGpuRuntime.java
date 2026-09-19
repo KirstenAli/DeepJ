@@ -4,10 +4,6 @@ import io.github.kirstenali.deepj.tensor.GpuRuntime;
 
 import java.util.Objects;
 
-/**
- * Apple Metal implementation of {@link GpuRuntime}.
- * Delegates every call to the JNI functions in {@link MetalNative}.
- */
 final class MetalGpuRuntime implements GpuRuntime {
 
     @Override

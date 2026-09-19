@@ -11,9 +11,6 @@ import io.github.kirstenali.deepj.optimisers.ParameterOptimizer;
 
 import java.util.List;
 
-/**
- * Wiring helpers for causal language model training.
- */
 public final class CausalLMTraining {
 
     private CausalLMTraining() {}

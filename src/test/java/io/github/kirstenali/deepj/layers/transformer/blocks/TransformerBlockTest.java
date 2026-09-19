@@ -18,7 +18,6 @@ public class TransformerBlockTest {
         int dModel = 4;
         GPTTransformerBlock block = new GPTTransformerBlock(dModel, 2, 8, new Random(1));
 
-        // Zero ALL trainable params. With residual connections, this should yield y == x.
         for (Parameter p : block.parameters()) {
             p.value = Tensor.zeros(p.value.rows, p.value.cols);
             p.zeroGrad();
@@ -49,7 +48,6 @@ public class TransformerBlockTest {
 
         TestSupport.assertTensorShape(gradIn, x.rows, x.cols);
 
-        // Not every param is guaranteed to be non-zero, but at least one should be.
         double totalGrad = 0.0f;
         for (Parameter p : block.parameters()) totalGrad += p.grad.sumAbs();
         assertTrue(totalGrad > 0.0f, "Expected some non-zero gradients in block parameters");
@@ -74,14 +72,11 @@ public class TransformerBlockTest {
                 {-0.3f,  0.2f,  0.1f, -0.4f}
         });
 
-        // Simple deterministic target: all zeros (same shape).
         Tensor target = Tensor.zeros(x.rows, x.cols);
 
         double prev = trainOneStepMSE(block, opt, x, target);
         boolean improved = false;
 
-        // AdamW may not improve every single step due to momentum/bias correction,
-        // so we require improvement within a handful of steps.
         for (int i = 0; i < 10; i++) {
             double cur = trainOneStepMSE(block, opt, x, target);
             if (cur < prev) { improved = true; break; }

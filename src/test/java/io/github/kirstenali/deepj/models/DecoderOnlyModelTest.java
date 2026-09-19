@@ -15,13 +15,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Verifies the shared contract defined by {@link DecoderOnlyModel} across all three
- * concrete subclasses: GPTModel, LlamaModel, and DeepSeekModel.
- */
 class DecoderOnlyModelTest {
-
-    // ── Fixtures ───────────────────────────────────────────────────
 
     static Stream<DecoderOnlyModel> allModels() {
         int vocab = ByteTokenizer.VOCAB_SIZE;
@@ -38,15 +32,11 @@ class DecoderOnlyModelTest {
         return Stream.of(gpt, llama, deepSeek);
     }
 
-    // ── Type hierarchy ─────────────────────────────────────────────
-
     @ParameterizedTest
     @MethodSource("allModels")
     void model_implementsCausalLM(DecoderOnlyModel model) {
         assertInstanceOf(CausalLM.class, model);
     }
-
-    // ── Forward ────────────────────────────────────────────────────
 
     @ParameterizedTest
     @MethodSource("allModels")
@@ -77,8 +67,6 @@ class DecoderOnlyModelTest {
         }
     }
 
-    // ── Backward ───────────────────────────────────────────────────
-
     @ParameterizedTest
     @MethodSource("allModels")
     void backward_populatesAtLeastOneGradient(DecoderOnlyModel model) {
@@ -91,8 +79,6 @@ class DecoderOnlyModelTest {
                 .anyMatch(p -> p.grad != null && p.grad.sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one parameter must receive a non-zero gradient");
     }
-
-    // ── Parameters ─────────────────────────────────────────────────
 
     @ParameterizedTest
     @MethodSource("allModels")
@@ -117,12 +103,9 @@ class DecoderOnlyModelTest {
         });
     }
 
-    // ── gradClipNorm ───────────────────────────────────────────────
-
     @ParameterizedTest
     @MethodSource("allModels")
     void gradClipNorm_isPositive(DecoderOnlyModel model) {
         assertTrue(model.gradClipNorm() > 0.0f, "gradClipNorm must be positive");
     }
 }
-

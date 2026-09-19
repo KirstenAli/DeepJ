@@ -26,16 +26,14 @@ public class LlamaModelTest {
     void setUp() {
         cfg = new LlamaConfig(
                 ByteTokenizer.VOCAB_SIZE,
-                16,   // maxSeqLen
-                32,   // dModel
-                4,    // nHeads
-                2,    // nLayers
+                16,
+                32,
+                4,
+                2,
                 LlamaConfig.defaultDFF(32)
         );
         model = new LlamaModel(cfg, 42L);
     }
-
-    // ── config ─────────────────────────────────────────────────────
 
     @Test
     void config_defaultDFF_isRoundedMultipleOf64() {
@@ -80,18 +78,16 @@ public class LlamaModelTest {
                 () -> new LlamaConfig(256, 16, 32, 4, 0, 64));
         assertThrows(IllegalArgumentException.class,
                 () -> new LlamaConfig(256, 16, 32, 4, 2, 0));
-        // dModel not divisible by nHeads
+
         assertThrows(IllegalArgumentException.class,
                 () -> new LlamaConfig(256, 16, 33, 4, 2, 64));
-        // RoPE requires an even head dimension
+
         assertThrows(IllegalArgumentException.class,
                 () -> new LlamaConfig(256, 16, 6, 2, 2, 64));
-        // invalid gradClipNorm
+
         assertThrows(IllegalArgumentException.class,
                 () -> new LlamaConfig(256, 16, 32, 4, 2, 64, 0.0f));
     }
-
-    // ── forward ────────────────────────────────────────────────────
 
     @Test
     void forward_producesLogitsOfShape_seqLenByVocab() {
@@ -115,8 +111,6 @@ public class LlamaModelTest {
         assertDoesNotThrow(() -> model.forward(ids));
     }
 
-    // ── backward ───────────────────────────────────────────────────
-
     @Test
     void backward_accumulatesGradients() {
         int[] ids = {1, 2, 3};
@@ -131,12 +125,9 @@ public class LlamaModelTest {
         assertTrue(anyNonZero, "at least one parameter gradient must be non-zero after backward");
     }
 
-    // ── parameters ─────────────────────────────────────────────────
-
     @Test
     void parameters_countMatchesExpectedStructure() {
-        // tokEmb(1) + nLayers × LlamaBlock + normF(1) + lmHead(2: W+b)
-        // LlamaBlock: ln1(1) + ln2(1) + attn(4:Wq,Wk,Wv,Wo) + SwiGLU(3 Linear × 2:W+b = 6) = 12
+
         int expectedPerBlock = 12;
         int expectedTotal = 1 + (cfg.nLayers() * expectedPerBlock) + 1 + 2;
         assertEquals(expectedTotal, model.parameters().size());
@@ -158,8 +149,6 @@ public class LlamaModelTest {
         restored.load(checkpoint);
         assertArrayEquals(expected, materializedData(restored.forward(ids)));
     }
-
-    // ── generation ─────────────────────────────────────────────────
 
     @Test
     void generate_runsAndReturnsNonEmptyString() {

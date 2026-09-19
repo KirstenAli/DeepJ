@@ -19,8 +19,6 @@ class ComputeGraphTest {
         graph = new ComputeGraph(runtime);
     }
 
-    // ── constructor ────────────────────────────────────────────────
-
     @Test
     void constructorRejectsNull() {
         assertThrows(NullPointerException.class, () -> new ComputeGraph(null));
@@ -30,8 +28,6 @@ class ComputeGraphTest {
     void newGraphIsEmpty() {
         assertTrue(graph.isEmpty());
     }
-
-    // ── ensureGpuBuffer ────────────────────────────────────────────
 
     @Test
     void ensureGpuBufferAssignsGpuTag() {
@@ -60,20 +56,16 @@ class ComputeGraphTest {
         Tensor t = Tensor.from2D(new float[][]{{1.0f}});
         GpuBuffer buf = graph.ensureGpuBuffer(t);
 
-        // Simulate CPU modification (e.g. after adamWUpdate)
         buf.needsUpload = true;
         t.data[0] = 99.0f;
 
         graph.ensureGpuBuffer(t);
         assertFalse(buf.needsUpload, "needsUpload should be cleared after re-scheduling");
 
-        // Flush and verify the re-upload happened
         graph.flush();
-        // First upload from ensureGpuBuffer + second re-upload = 2 uploads
+
         assertEquals(2, runtime.uploads.size());
     }
-
-    // ── newOutputBuffer ────────────────────────────────────────────
 
     @Test
     void newOutputBufferIsCpuStale() {
@@ -92,8 +84,6 @@ class ComputeGraphTest {
         assertTrue(b.id > a.id, "buffer ids should be monotonically increasing");
     }
 
-    // ── createOutputTensor ─────────────────────────────────────────
-
     @Test
     void createOutputTensorLinksBufferToTensor() {
         GpuBuffer buf = graph.newOutputBuffer(3, 5);
@@ -103,8 +93,6 @@ class ComputeGraphTest {
         assertEquals(5, t.cols);
         assertSame(buf, t.getGpuTag());
     }
-
-    // ── op recording ───────────────────────────────────────────────
 
     @Test
     void recordBinaryMakesGraphNonEmpty() {
@@ -175,8 +163,6 @@ class ComputeGraphTest {
         assertFalse(graph.isEmpty());
     }
 
-    // ── flush pipeline ─────────────────────────────────────────────
-
     @Test
     void flushOnEmptyGraphIsNoOp() {
         graph.flush();
@@ -195,16 +181,13 @@ class ComputeGraphTest {
 
         graph.flush();
 
-        // Allocations: input buffer + output buffer
         assertEquals(1, runtime.allocCalls.size());
         int[] allocIds = runtime.allocCalls.get(0).ids;
         assertEquals(2, allocIds.length);
 
-        // Upload: input tensor data
         assertEquals(1, runtime.uploads.size());
         assertEquals(in.id, runtime.uploads.get(0).bufId);
 
-        // Execution: one flushOps call
         assertEquals(1, runtime.flushCalls.size());
         assertTrue(runtime.flushCalls.get(0).cmdStreamLength > 0);
     }
@@ -241,7 +224,6 @@ class ComputeGraphTest {
         int allocCallsAfterFirst = runtime.allocCalls.size();
         int flushCallsAfterFirst = runtime.flushCalls.size();
 
-        // Second round: new op on existing buffers
         GpuBuffer out2 = graph.newOutputBuffer(1, 1);
         graph.recordUnary(ComputeGraph.OP_NEG, in, out2);
         graph.flush();
@@ -250,12 +232,9 @@ class ComputeGraphTest {
         assertEquals(flushCallsAfterFirst + 1, runtime.flushCalls.size(), "should execute the new op");
     }
 
-    // ── cmd stream growth ──────────────────────────────────────────
-
     @Test
     void cmdStreamGrowsForManyOps() {
-        // Record more ops than the initial 4096 ints can hold
-        // Each binary op uses 5 ints, so 1000 ops = 5000 ints > 4096
+
         GpuBuffer a = graph.newOutputBuffer(2, 2);
         GpuBuffer b = graph.newOutputBuffer(2, 2);
 
@@ -264,12 +243,9 @@ class ComputeGraphTest {
             graph.recordBinary(ComputeGraph.OP_ADD, a, b, out);
         }
 
-        // Should not throw — cmd stream should have grown
         assertDoesNotThrow(() -> graph.flush());
         assertEquals(1, runtime.flushCalls.size());
     }
-
-    // ── materialize ────────────────────────────────────────────────
 
     @Test
     void materializeFlushesAndDownloads() {
@@ -281,27 +257,25 @@ class ComputeGraphTest {
         Tensor result = graph.createOutputTensor(outBuf);
         assertTrue(outBuf.cpuStale);
 
-        // Pre-load the download result the runtime will return
         runtime.downloadResult = new float[]{1.414f, 2.0f};
 
         graph.materialize(result);
 
-        // Should have flushed
         assertEquals(1, runtime.flushCalls.size());
-        // Should have downloaded
+
         assertEquals(1, runtime.downloads.size());
         assertEquals(outBuf.id, runtime.downloads.get(0).bufId);
-        // CPU data should be updated
+
         assertEquals(1.414f, result.data[0], 1e-3f);
         assertEquals(2.0f, result.data[1], 1e-3f);
-        // No longer stale
+
         assertFalse(outBuf.cpuStale);
     }
 
     @Test
     void materializeSkipsNonGpuTensor() {
         Tensor cpuOnly = new Tensor(2, 2);
-        // Should be a no-op, no exceptions
+
         graph.materialize(cpuOnly);
         assertTrue(runtime.downloads.isEmpty());
     }
@@ -332,8 +306,6 @@ class ComputeGraphTest {
         assertEquals(1, runtime.downloads.size(), "second materialize should be a no-op");
     }
 
-    // ── releaseAll ─────────────────────────────────────────────────
-
     @Test
     void releaseAllReleasesBuffersAndResetsState() {
         Tensor t = Tensor.from2D(new float[][]{{1, 2}});
@@ -346,7 +318,6 @@ class ComputeGraphTest {
         assertEquals(1, runtime.releaseCalls.size());
         assertTrue(graph.isEmpty(), "graph should be empty after releaseAll");
 
-        // Should be able to start fresh
         GpuBuffer fresh = graph.ensureGpuBuffer(Tensor.from2D(new float[][]{{9}}));
         assertTrue(fresh.id > out.id, "buffer ids must stay globally unique after releaseAll");
     }
@@ -357,35 +328,17 @@ class ComputeGraphTest {
         assertTrue(runtime.releaseCalls.isEmpty());
     }
 
-    // ── op codes are distinct ──────────────────────────────────────
-
     @Test
-    void allOpCodesAreUnique() {
-        int[] codes = {
-                ComputeGraph.OP_ADD, ComputeGraph.OP_SUBTRACT,
-                ComputeGraph.OP_MULTIPLY, ComputeGraph.OP_DIVIDE,
-                ComputeGraph.OP_MATMUL, ComputeGraph.OP_MULTIPLY_SCALAR,
-                ComputeGraph.OP_SQRT, ComputeGraph.OP_NEG,
-                ComputeGraph.OP_EXP, ComputeGraph.OP_LOG,
-                ComputeGraph.OP_TANH, ComputeGraph.OP_SIGMOID,
-                ComputeGraph.OP_RELU, ComputeGraph.OP_RELU_BACKWARD,
-                ComputeGraph.OP_GELU, ComputeGraph.OP_GELU_BACKWARD,
-                ComputeGraph.OP_SOFTMAX_ROWS, ComputeGraph.OP_SOFTMAX_BACKWARD,
-                ComputeGraph.OP_LAYERNORM_BACKWARD, ComputeGraph.OP_ADAMW_UPDATE,
-                ComputeGraph.OP_ADD_SCALAR, ComputeGraph.OP_DIVIDE_SCALAR,
-                ComputeGraph.OP_TRANSPOSE, ComputeGraph.OP_ADD_ROW_VECTOR,
-                ComputeGraph.OP_ADD_BROADCAST_COLS, ComputeGraph.OP_SUBTRACT_BROADCAST_COLS,
-                ComputeGraph.OP_DIVIDE_BROADCAST_COLS, ComputeGraph.OP_MULTIPLY_BROADCAST_ROWS,
-                ComputeGraph.OP_SUM_ROWS, ComputeGraph.OP_MEAN_ALONG_ROWS,
-                ComputeGraph.OP_VARIANCE_ALONG_ROWS, ComputeGraph.OP_MULTIPLY_BROADCAST_COLS,
-                ComputeGraph.OP_SUM_ALONG_ROWS, ComputeGraph.OP_MAX_ALONG_ROWS,
-                ComputeGraph.OP_CLAMP, ComputeGraph.OP_POW,
-                ComputeGraph.OP_SCATTER_ADD_ROWS, ComputeGraph.OP_SUM_ABS,
-                ComputeGraph.OP_CROSS_ENTROPY_LOSS, ComputeGraph.OP_CROSS_ENTROPY_GRADIENT,
-                ComputeGraph.OP_SUM_SCALAR, ComputeGraph.OP_SCATTER_ADD_ROWS_ATOMIC
-        };
-        assertEquals(42, codes.length);
-        assertEquals(codes.length, java.util.Arrays.stream(codes).distinct().count(),
+    void allOpCodesAreUnique() throws IllegalAccessException {
+        var fields = java.util.Arrays.stream(ComputeGraph.class.getFields())
+                .filter(field -> field.getName().startsWith("OP_"))
+                .toList();
+        int[] codes = new int[fields.size()];
+        for (int index = 0; index < fields.size(); index++) {
+            codes[index] = fields.get(index).getInt(null);
+        }
+        assertEquals(42, fields.size());
+        assertEquals(fields.size(), java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
     }
 
@@ -395,7 +348,6 @@ class ComputeGraphTest {
         GpuBuffer buf = graph.ensureGpuBuffer(t);
         graph.flush();
 
-        // Simulate a GPU-only in-place update before release.
         buf.cpuStale = true;
         runtime.downloadResult = new float[]{42.0f};
 
@@ -405,8 +357,6 @@ class ComputeGraphTest {
         assertNull(t.getGpuTag(), "releaseAll should still clear GPU tags");
         assertFalse(buf.cpuStale, "buffer state should be marked fresh after forced materialization");
     }
-
-    // ── recordAdamWUpdate ──────────────────────────────────────────
 
     @Test
     void recordAdamWUpdateMakesGraphNonEmpty() {
@@ -434,11 +384,20 @@ class ComputeGraphTest {
         int len    = runtime.flushCalls.get(0).cmdStreamLength();
         int[] stream = runtime.flushCalls.get(0).cmdStream();
         assertEquals(13, len, "AdamW op must encode exactly 13 ints");
+        assertAdamBufferIds(stream, w, g, mt, vt);
+        assertAdamValues(stream);
+    }
+
+    private static void assertAdamBufferIds(int[] stream, GpuBuffer w, GpuBuffer g,
+                                            GpuBuffer mt, GpuBuffer vt) {
         assertEquals(ComputeGraph.OP_ADAMW_UPDATE,         stream[0]);
         assertEquals(w.id,                                 stream[1]);
         assertEquals(g.id,                                 stream[2]);
         assertEquals(mt.id,                                stream[3]);
         assertEquals(vt.id,                                stream[4]);
+    }
+
+    private static void assertAdamValues(int[] stream) {
         assertEquals(Float.floatToRawIntBits(1e-3f),       stream[5]);
         assertEquals(Float.floatToRawIntBits(0.9f),        stream[6]);
         assertEquals(Float.floatToRawIntBits(0.999f),      stream[7]);
@@ -449,14 +408,12 @@ class ComputeGraphTest {
         assertEquals(4,                                    stream[12]);
     }
 
-    // ── markAllocatedBuffers ───────────────────────────────────────
-
     @Test
     void flushMarksBuffersAsAllocatedOnGpu() {
         Tensor t      = Tensor.from2D(new float[][]{{1.0f}});
         GpuBuffer in  = graph.ensureGpuBuffer(t);
         GpuBuffer out = graph.newOutputBuffer(1, 1);
-        // createOutputTensor registers 'out' in the tracking map so markAllocatedBuffers can reach it
+
         graph.createOutputTensor(out);
 
         assertFalse(in.allocatedOnGpu,  "should not be allocated before flush");
@@ -469,11 +426,9 @@ class ComputeGraphTest {
         assertTrue(out.allocatedOnGpu, "output buffer should be marked allocated after flush");
     }
 
-    // ── flush edge cases ───────────────────────────────────────────
-
     @Test
     void flushWithPendingAllocsButNoOpsAllocatesWithoutExecuting() {
-        // newOutputBuffer queues an alloc but we record no ops
+
         graph.newOutputBuffer(2, 4);
         assertTrue(graph.isEmpty(), "no ops recorded");
 
@@ -483,15 +438,12 @@ class ComputeGraphTest {
         assertTrue(runtime.flushCalls.isEmpty(),     "no ops → no flushOps call");
     }
 
-    // ── orphan buffer detection ────────────────────────────────────
-
     @Test
     void bufferWhoseTagWasReplacedIsReleasedOnFlush() {
         Tensor t      = Tensor.from2D(new float[][]{{1.0f}});
         GpuBuffer old = graph.ensureGpuBuffer(t);
-        graph.flush(); // allocate and upload
+        graph.flush();
 
-        // Attach tensor to a brand-new buffer — old becomes orphaned
         GpuBuffer replacement = graph.newOutputBuffer(1, 1);
         t.setGpuTag(replacement);
 
@@ -513,7 +465,7 @@ class ComputeGraphTest {
         GpuBuffer buf = graph.ensureGpuBuffer(t);
         graph.flush();
 
-        t.setGpuTag(null); // tensor disowned the buffer
+        t.setGpuTag(null);
         int releasesBefore = runtime.releaseCalls.size();
         graph.flush();
 
@@ -526,8 +478,6 @@ class ComputeGraphTest {
         assertTrue(found, "the released id must match the detached buffer");
     }
 
-    // ── releaseAll clears tensor GPU tags ──────────────────────────
-
     @Test
     void releaseAllClearsTensorGpuTags() {
         Tensor t = Tensor.from2D(new float[][]{{3.0f}});
@@ -538,11 +488,6 @@ class ComputeGraphTest {
         assertNull(t.getGpuTag(), "gpu tag should be null after releaseAll");
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  Recording GpuRuntime stub
-    // ═══════════════════════════════════════════════════════════════
-
-    /** Simple stub that records every call for verification. */
     static class RecordingRuntime implements GpuRuntime {
 
         record AllocCall(int[] ids, int[] sizes, int count) {}
@@ -557,7 +502,6 @@ class ComputeGraphTest {
         final List<FlushCall> flushCalls = new ArrayList<>();
         final List<ReleaseCall> releaseCalls = new ArrayList<>();
 
-        /** Data to copy into the out[] array on the next downloadBuffer call. */
         float[] downloadResult = null;
 
         @Override

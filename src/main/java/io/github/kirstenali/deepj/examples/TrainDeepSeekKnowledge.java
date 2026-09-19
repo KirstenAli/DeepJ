@@ -4,7 +4,6 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.nio.file.Path;
 
-/** Trains a larger DeepSeek-style model on the prepared knowledge corpus. */
 public final class TrainDeepSeekKnowledge {
 
     static final int VOCAB_SIZE = 8_192;

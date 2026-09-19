@@ -25,27 +25,25 @@ public class DeepSeekModelTest {
     void setUp() {
         cfg = new DeepSeekConfig(
                 ByteTokenizer.VOCAB_SIZE,
-                16,   // maxSeqLen
-                32,   // dModel
-                4,    // nHeads
-                2,    // nLayers
-                64,   // dFF
-                16,   // qRank
-                8     // kvRank
+                16,
+                32,
+                4,
+                2,
+                64,
+                16,
+                8
         );
         model = new DeepSeekModel(cfg, 42L);
     }
-
-    // ── config ─────────────────────────────────────────────────────
 
     @Test
     void config_rejectsInvalidCommonParams() {
         assertThrows(IllegalArgumentException.class,
                 () -> new DeepSeekConfig(0, 16, 32, 4, 2, 64, 16, 8));
         assertThrows(IllegalArgumentException.class,
-                () -> new DeepSeekConfig(256, 16, 33, 4, 2, 64, 16, 8)); // dModel % nHeads != 0
+                () -> new DeepSeekConfig(256, 16, 33, 4, 2, 64, 16, 8));
         assertThrows(IllegalArgumentException.class,
-                () -> new DeepSeekConfig(256, 16, 6, 2, 2, 64, 4, 2)); // odd RoPE head dimension
+                () -> new DeepSeekConfig(256, 16, 6, 2, 2, 64, 4, 2));
     }
 
     @Test
@@ -76,8 +74,6 @@ public class DeepSeekModelTest {
         assertTrue(scaledModel.parameters().stream().anyMatch(p -> isAllOnes(p.value)));
     }
 
-    // ── forward ────────────────────────────────────────────────────
-
     @Test
     void forward_producesLogitsOfShape_seqLenByVocab() {
         int[] ids = {1, 2, 3, 4};
@@ -100,8 +96,6 @@ public class DeepSeekModelTest {
         assertDoesNotThrow(() -> model.forward(ids));
     }
 
-    // ── backward ───────────────────────────────────────────────────
-
     @Test
     void backward_accumulatesGradients() {
         int[] ids = {1, 2, 3};
@@ -116,12 +110,9 @@ public class DeepSeekModelTest {
         assertTrue(anyNonZero, "at least one parameter gradient must be non-zero after backward");
     }
 
-    // ── parameters ─────────────────────────────────────────────────
-
     @Test
     void parameters_countMatchesExpectedStructure() {
-        // tokEmb(1) + nLayers × DeepSeekBlock + normF(1) + lmHead(2: W+b)
-        // DeepSeekBlock: ln1(1) + ln2(1) + MLA(6: Wdq,Wuq,Wdkv,Wuk,Wuv,Wo) + SwiGLU(3 Linear × 2 = 6) = 14
+
         int expectedPerBlock = 14;
         int expectedTotal = 1 + (cfg.nLayers() * expectedPerBlock) + 1 + 2;
         assertEquals(expectedTotal, model.parameters().size());
@@ -143,8 +134,6 @@ public class DeepSeekModelTest {
         restored.load(checkpoint);
         assertArrayEquals(expected, materializedData(restored.forward(ids)));
     }
-
-    // ── generation ─────────────────────────────────────────────────
 
     @Test
     void generate_runsAndStartsWithPrompt() {

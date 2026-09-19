@@ -14,17 +14,17 @@ public class LossTest {
         Tensor y = Tensor.from2D(new float[][]{{3, 0}});
 
         float loss = mse.loss(yHat, y);
-        // mean((1-3)^2, (2-0)^2) = mean(4,4) = 4
+
         Assertions.assertEquals(4.0f, loss, 1e-12f);
 
         Tensor g = mse.gradient(yHat, y);
-        // d/dyHat mean((yHat-y)^2) = 2*(yHat-y)/N ; N=2
+
         TestSupport.assertTensorAllClose(g, Tensor.from2D(new float[][]{{-2, 2}}), 1e-12f);
     }
 
     @Test
     void crossEntropyLoss_decreasesWhenCorrectLogitIncreases() {
-        // 1 token, vocab 3
+
         Tensor logits1 = Tensor.from2D(new float[][]{{0, 0, 0}});
         Tensor logits2 = Tensor.from2D(new float[][]{{0, 0, 5}});
         int[] target = new int[]{2};
@@ -60,7 +60,6 @@ public class LossTest {
         Tensor g = CrossEntropyLoss.gradient(logits, target);
         TestSupport.assertTensorShape(g, 1, 3);
 
-        // softmax(logits)
         double a = Math.exp(1);
         double b = Math.exp(2);
         double c = Math.exp(3);
@@ -70,7 +69,6 @@ public class LossTest {
         double p1 = b / s;
         double p2 = c / s;
 
-        // grad = softmax - oneHot(target)
         Assertions.assertEquals(p0, g.data[0], 1e-6f);
         Assertions.assertEquals(p1, g.data[1], 1e-6f);
         Assertions.assertEquals(p2 - 1.0f, g.data[2], 1e-6f);
@@ -97,13 +95,11 @@ public class LossTest {
         Tensor g = CrossEntropyLoss.gradient(logits, target);
         TestSupport.assertTensorShape(g, 2, 3);
 
-        // Row 0: softmax(1,2,3)
         double a = Math.exp(1), b = Math.exp(2), c = Math.exp(3), s = a + b + c;
         Assertions.assertEquals((a / s) / n, g.data[0], 1e-6f);
         Assertions.assertEquals((b / s) / n, g.data[1], 1e-6f);
         Assertions.assertEquals((c / s - 1.0) / n, g.data[2], 1e-6f);
 
-        // Row 1: uniform softmax = 1/3 each, target class 0
         Assertions.assertEquals((1.0 / 3 - 1.0) / n, g.data[3], 1e-6f);
         Assertions.assertEquals((1.0 / 3) / n, g.data[4], 1e-6f);
         Assertions.assertEquals((1.0 / 3) / n, g.data[5], 1e-6f);
@@ -118,10 +114,8 @@ public class LossTest {
         });
         Tensor y = Tensor.zeros(2, 2);
 
-        // mean over rows·cols = 4 elements: (1+4+9+16)/4 = 7.5
         Assertions.assertEquals(7.5f, mse.loss(yHat, y), 1e-6f);
 
-        // gradient = 2·(yHat − y)/(rows·cols), rows·cols = 4
         Tensor g = mse.gradient(yHat, y);
         TestSupport.assertTensorAllClose(g, Tensor.from2D(new float[][]{
                 {0.5f, 1.0f},

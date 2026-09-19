@@ -4,19 +4,9 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Collects GPU operations lazily and flushes them as a single command buffer.
- *
- * <p>Operations are recorded as a flat {@code int[]} command stream. Buffer IDs reference
- * persistent GPU-side buffers managed by a {@link GpuRuntime}. Data stays GPU-resident
- * between ops -- only uploaded at graph entry and downloaded on materialization.
- *
- * <p>This class is <b>backend-agnostic</b>: Metal, CUDA, Vulkan, etc. are all supported
- * by supplying the appropriate {@link GpuRuntime} implementation.
- */
 public final class ComputeGraph {
 
-    // Op codes (must match native side)
+    // Keep these values synchronized with deepj_metal_jni.mm.
     public static final int OP_ADD             = 1;
     public static final int OP_SUBTRACT        = 2;
     public static final int OP_MULTIPLY        = 3;
@@ -62,7 +52,6 @@ public final class ComputeGraph {
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
-    // Single source of truth for op stride and which encoded arg slots are buffer IDs.
     private static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     private final GpuRuntime runtime;
@@ -78,11 +67,6 @@ public final class ComputeGraph {
     private final List<float[]> pendingUploadData = new ArrayList<>();
     private final Map<Integer, WeakReference<Tensor>> bufIdToTensor = new HashMap<>();
 
-    /**
-     * Create a ComputeGraph backed by the given GPU runtime.
-     *
-     * @param runtime the native driver abstraction (Metal, CUDA, etc.)
-     */
     public ComputeGraph(GpuRuntime runtime) {
         this.runtime = Objects.requireNonNull(runtime, "runtime");
     }
@@ -158,25 +142,15 @@ public final class ComputeGraph {
         meta[op] = new OpMeta(stride, bufferArgOffsets);
     }
 
-    // -- Scheduling helpers --------------------------------------------------
-
-    /** Queue a GPU buffer allocation for the next flush. */
     private void scheduleAlloc(int id, int floatCount) {
         pendingAllocs.add(new int[]{id, floatCount});
     }
 
-    /** Queue a CPU-to-GPU data upload for the next flush. */
     private void scheduleUpload(int id, float[] data) {
         pendingUploadIds.add(new int[]{id});
         pendingUploadData.add(data);
     }
 
-    // -- Buffer management ---------------------------------------------------
-
-    /**
-     * Ensure a tensor has a GpuBuffer. If it already has one (from a previous op),
-     * reuse it. Otherwise allocate a new buffer and schedule upload of its CPU data.
-     */
     public GpuBuffer ensureGpuBuffer(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer existing) {
             return reuseExistingInputBuffer(t, existing);
@@ -212,9 +186,6 @@ public final class ComputeGraph {
         bufIdToTensor.put(id, new WeakReference<>(t));
     }
 
-    /**
-     * Allocate a new output buffer (result of a GPU op). Not yet allocated on native side.
-     */
     public GpuBuffer newOutputBuffer(int rows, int cols) {
         int id = nextBufferId();
         GpuBuffer buf = new GpuBuffer(id, rows, cols, false);
@@ -224,24 +195,16 @@ public final class ComputeGraph {
         return buf;
     }
 
-    /**
-     * Create a Tensor backed by a GpuBuffer. The data[] buffer is allocated but stale.
-     */
     public Tensor createOutputTensor(GpuBuffer buf) {
         Tensor t = new Tensor(buf.rows, buf.cols);
         bindTensorToBuffer(t, buf);
         return t;
     }
 
-    /**
-     * Rebind an existing tensor to a GPU buffer and track ownership for lifecycle management.
-     */
     public void bindTensorToBuffer(Tensor t, GpuBuffer buf) {
         t.setGpuTag(buf);
         trackTensorBinding(buf.id, t);
     }
-
-    // -- Op recording --------------------------------------------------------
 
     private void ensureCapacity(int needed) {
         if (cmdPos + needed > cmdStream.length) {
@@ -265,7 +228,6 @@ public final class ComputeGraph {
         opCount++;
     }
 
-    /** Record a binary element-wise op: [opCode, aId, bId, outId, n] */
     public void recordBinary(int opCode, GpuBuffer a, GpuBuffer b, GpuBuffer out) {
         beginOp(5);
         emitInt(opCode);
@@ -276,7 +238,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record matmul: [OP_MATMUL, aId, bId, outId, m, n, k] */
     public void recordMatmul(GpuBuffer a, GpuBuffer b, GpuBuffer out, int m, int n, int k) {
         beginOp(7);
         emitInt(OP_MATMUL);
@@ -289,7 +250,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record a unary op: [opCode, inId, outId, n] */
     public void recordUnary(int opCode, GpuBuffer in, GpuBuffer out) {
         beginOp(4);
         emitInt(opCode);
@@ -299,7 +259,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record scalar multiply: [OP_MULTIPLY_SCALAR, inId, outId, scalarBits, n] */
     public void recordMultiplyScalar(GpuBuffer in, GpuBuffer out, float scalar) {
         beginOp(5);
         emitInt(OP_MULTIPLY_SCALAR);
@@ -310,7 +269,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record scalar add/divide: [opCode, inId, outId, scalarBits, n] */
     public void recordScalarUnary(int opCode, GpuBuffer in, GpuBuffer out, float scalar) {
         beginOp(5);
         emitInt(opCode);
@@ -321,7 +279,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record pow: [OP_POW, inId, outId, exponentBits, n] */
     public void recordPow(GpuBuffer in, GpuBuffer out, float exponent) {
         beginOp(5);
         emitInt(OP_POW);
@@ -332,7 +289,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record clamp: [OP_CLAMP, inId, outId, minBits, maxBits, n] */
     public void recordClamp(GpuBuffer in, GpuBuffer out, float min, float max) {
         beginOp(6);
         emitInt(OP_CLAMP);
@@ -344,7 +300,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record scatter-add-rows: [OP_SCATTER_ADD_ROWS, targetId, indicesId, gradId, targetRows, targetCols, nIdx] */
     public void recordScatterAddRows(GpuBuffer target, GpuBuffer indices, GpuBuffer grad,
                                      int targetRows, int targetCols, int nIndices) {
         beginOp(7);
@@ -358,7 +313,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record scatter-add-rows (atomic): [OP_SCATTER_ADD_ROWS_ATOMIC, targetId, indicesId, gradId, targetRows, targetCols, nIdx] */
     public void recordScatterAddRowsAtomic(GpuBuffer target, GpuBuffer indices, GpuBuffer grad,
                                            int targetRows, int targetCols, int nIndices) {
         beginOp(7);
@@ -372,7 +326,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record sum-abs row reduction: [OP_SUM_ABS, inId, outId, rows, cols] */
     public void recordSumAbs(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SUM_ABS);
@@ -383,7 +336,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record cross-entropy row losses: [OP_CROSS_ENTROPY_LOSS, logitsId, targetsId, outId, rows, cols] */
     public void recordCrossEntropyLoss(GpuBuffer logits, GpuBuffer targets, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_CROSS_ENTROPY_LOSS);
@@ -395,7 +347,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record cross-entropy gradient: [OP_CROSS_ENTROPY_GRADIENT, logitsId, targetsId, outId, rows, cols] */
     public void recordCrossEntropyGradient(GpuBuffer logits, GpuBuffer targets, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_CROSS_ENTROPY_GRADIENT);
@@ -407,7 +358,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record scalar sum reduction: [OP_SUM_SCALAR, inId, outId, rows, cols] */
     public void recordSumScalar(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SUM_SCALAR);
@@ -418,7 +368,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record transpose: [OP_TRANSPOSE, inId, outId, rows, cols] */
     public void recordTranspose(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_TRANSPOSE);
@@ -429,7 +378,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record row broadcast: [opCode, aId, rowVecId, outId, rows, cols] */
     public void recordRowBroadcast(int opCode, GpuBuffer a, GpuBuffer rowVec, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(opCode);
@@ -441,7 +389,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record col broadcast: [opCode, aId, colVecId, outId, rows, cols] */
     public void recordColBroadcast(int opCode, GpuBuffer a, GpuBuffer colVec, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(opCode);
@@ -453,7 +400,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record row/col reduction: [opCode, inId, outId, rows, cols] */
     public void recordReduction(int opCode, GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(opCode);
@@ -464,7 +410,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record softmax rows: [OP_SOFTMAX_ROWS, inId, outId, rows, cols] */
     public void recordSoftmaxRows(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SOFTMAX_ROWS);
@@ -475,7 +420,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record softmax backward: [OP_SOFTMAX_BACKWARD, gradId, softmaxId, outId, rows, cols] */
     public void recordSoftmaxBackward(GpuBuffer gradOutput, GpuBuffer softmaxOut, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_SOFTMAX_BACKWARD);
@@ -487,7 +431,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /** Record layer norm backward: [OP_LAYERNORM_BACKWARD, dXHatId, xHatId, stdId, outId, rows, cols] */
     public void recordLayerNormBackward(GpuBuffer dXHat, GpuBuffer xHat, GpuBuffer std, GpuBuffer out, int rows, int cols) {
         beginOp(7);
         emitInt(OP_LAYERNORM_BACKWARD);
@@ -500,11 +443,6 @@ public final class ComputeGraph {
         endOp();
     }
 
-    /**
-     * Record in-place AdamW update:
-     * [OP_ADAMW_UPDATE, wId, gId, mtId, vtId,
-     *  lrBits, beta1Bits, beta2Bits, epsBits, weightDecayBits, bc1Bits, bc2Bits, n]
-     */
     public void recordAdamWUpdate(GpuBuffer w, GpuBuffer g, GpuBuffer mt, GpuBuffer vt,
                                   float lr, float beta1, float beta2, float eps,
                                   float weightDecay, float bc1, float bc2, int n) {
@@ -527,12 +465,6 @@ public final class ComputeGraph {
 
     public boolean isEmpty() { return opCount == 0; }
 
-    // -- Flush: execute everything in one command buffer ---------------------
-
-    /**
-     * Flush all recorded ops to the GPU as a single command buffer.
-     * After flush, GPU buffers hold computed results; CPU data is stale.
-     */
     public void flush() {
         if (opCount == 0 && pendingAllocs.isEmpty()) {
             releaseOrphanedBuffers();
@@ -545,7 +477,6 @@ public final class ComputeGraph {
         releaseOrphanedBuffers();
     }
 
-    /** Batch-allocate all GPU buffers that were requested since the last flush. */
     private void allocatePendingBuffers() {
         if (pendingAllocs.isEmpty()) return;
 
@@ -561,7 +492,6 @@ public final class ComputeGraph {
         pendingAllocs.clear();
     }
 
-    /** Mark every tracked GpuBuffer as allocated on the GPU side. */
     private void markAllocatedBuffers() {
         for (var ref : bufIdToTensor.values()) {
             Tensor t = ref.get();
@@ -586,7 +516,6 @@ public final class ComputeGraph {
         runtime.releaseBuffers(ids, ids.length);
     }
 
-    /** Collect IDs of buffers whose owning Tensor no longer references them. */
     private List<Integer> collectOrphanIds() {
         List<Integer> orphanIds = new ArrayList<>();
         for (var entry : bufIdToTensor.entrySet()) {
@@ -599,28 +528,17 @@ public final class ComputeGraph {
         return orphanIds;
     }
 
-    /** Returns true when {@code t} is gone or no longer points at buffer {@code id}. */
     private boolean isOrphanedBuffer(int id, Tensor t) {
         if (t == null) return true;
         return !(t.getGpuTag() instanceof GpuBuffer gb) || gb.id != id;
     }
 
-    // -- Op stream traversal helpers -----------------------------------------
-
-    /**
-     * Returns the total number of ints consumed by {@code op} in the command stream,
-     * or {@code -1} for an unknown op.
-     */
     private static int getOpStride(int op) {
         if (op < 0 || op >= OP_METADATA.length) return -1;
         OpMeta meta = OP_METADATA[op];
         return meta == null ? -1 : meta.stride();
     }
 
-    /**
-     * Returns {@code true} if any buffer-ID slot at {@code pos} in the command stream
-     * contains {@code bufferId}.
-     */
     private boolean opReferencesBuffer(int pos, int op, int bufferId) {
         if (op < 0 || op >= OP_METADATA.length) return false;
         OpMeta meta = OP_METADATA[op];
@@ -637,7 +555,7 @@ public final class ComputeGraph {
         while (pos < cmdPos) {
             int op = cmdStream[pos];
             int stride = getOpStride(op);
-            if (stride < 0) return true; // unknown op: be conservative
+            if (stride < 0) return true;
             if (opReferencesBuffer(pos, op, bufferId)) return true;
             pos += stride;
         }
@@ -658,7 +576,6 @@ public final class ComputeGraph {
         }
     }
 
-    /** Upload all CPU tensor data that is queued for transfer to the GPU. */
     private void uploadPendingData() {
         if (pendingUploadIds.isEmpty()) return;
 
@@ -669,7 +586,6 @@ public final class ComputeGraph {
         pendingUploadData.clear();
     }
 
-    /** Execute all recorded ops as one command buffer, then reset the op stream. */
     private void executePendingOps() {
         if (opCount > 0) {
             runtime.flushOps(cmdStream, cmdPos);
@@ -678,9 +594,6 @@ public final class ComputeGraph {
         opCount = 0;
     }
 
-    /**
-     * Materialize a tensor: flush pending ops if needed, then download GPU data to CPU.
-     */
     public void materialize(Tensor t) {
         if (!(t.getGpuTag() instanceof GpuBuffer buf)) return;
         if (!buf.cpuStale) return;
@@ -693,9 +606,6 @@ public final class ComputeGraph {
         buf.cpuStale = false;
     }
 
-    /**
-     * Release all GPU buffers and reset the graph completely.
-     */
     public void releaseAll() {
         materializeTrackedTensors();
         clearTensorGpuTags();
@@ -703,10 +613,6 @@ public final class ComputeGraph {
         resetGraphState();
     }
 
-    /**
-     * Before dropping GPU buffers, pull any stale tracked tensors back to CPU so
-     * periodic release does not discard GPU-only updates (e.g., optimizer steps).
-     */
     private void materializeTrackedTensors() {
         flush();
         for (WeakReference<Tensor> ref : bufIdToTensor.values()) {

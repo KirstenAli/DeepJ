@@ -7,15 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Builder for Llama-style transformer stacks.
- *
- * <p>Assembles a {@link TransformerStack} of {@link LlamaTransformerBlock}s
- * (RMSNorm + RoPE attention + SwiGLU).
- *
- * @see GPTTransformerBuilder
- * @see DeepSeekTransformerBuilder
- */
 public final class LlamaTransformerBuilder {
 
     private int dModel;
@@ -31,7 +22,6 @@ public final class LlamaTransformerBuilder {
     public LlamaTransformerBuilder dFF(int dFF)           { this.dFF = dFF;             return this; }
     public LlamaTransformerBuilder nLayers(int nLayers)   { this.nLayers = nLayers;     return this; }
 
-    /** Maximum sequence length for the RoPE table. Required. */
     public LlamaTransformerBuilder maxSeqLen(int maxSeqLen) { this.maxSeqLen = maxSeqLen; return this; }
 
     public LlamaTransformerBuilder seed(long seed) { this.seed = seed; this.rnd = null; return this; }
@@ -54,4 +44,3 @@ public final class LlamaTransformerBuilder {
         return new TransformerStack(blocks);
     }
 }
-

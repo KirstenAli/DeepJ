@@ -5,7 +5,6 @@ import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 
 import java.nio.file.Path;
 
-/** Configuration for the bounded-memory TinyStories DeepSeek training example. */
 public record DeepSeekTinyStoriesConfig(
         FilesConfig files,
         Architecture architecture,

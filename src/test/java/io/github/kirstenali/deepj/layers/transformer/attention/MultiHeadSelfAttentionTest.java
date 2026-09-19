@@ -26,44 +26,40 @@ public class MultiHeadSelfAttentionTest {
     @Test
     void forward_respectsCausalMask_futureTokensDoNotAffectPastOutputs() {
         int dModel = 4;
-        int nHeads = 2;
         int seqLen = 4;
-
-        MultiHeadSelfAttention attn = new MultiHeadSelfAttention(dModel, nHeads, true, new Random(42));
-
-        // Make projections identity so any "leak" is easy to detect.
-        // parameters() returns [Wq, Wk, Wv, Wo]
-        var ps = attn.parameters();
-        assertEquals(4, ps.size());
-
-        Tensor I = Tensor.zeros(dModel, dModel);
-        for (int i = 0; i < dModel; i++) I.data[i * dModel + i] = 1.0f;
-
-        for (Parameter p : ps) {
-            p.value = I;
-            p.zeroGrad();
-        }
-
-        Tensor x1 = Tensor.from2D(new float[][]{
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-        });
-
+        MultiHeadSelfAttention attn = identityAttention(dModel);
+        Tensor x1 = identityInput(dModel);
         Tensor y1 = attn.forward(x1);
-
-        // Modify ONLY the future token (last row)
-        x1.data[(seqLen - 1) * dModel + 0] = 999;
-        x1.data[(seqLen - 1) * dModel + 1] = 999;
-        x1.data[(seqLen - 1) * dModel + 2] = 999;
-        x1.data[(seqLen - 1) * dModel + 3] = 999;
-
+        overwriteLastRow(x1, 999);
         Tensor y2 = attn.forward(x1);
+        assertPastRowsEqual(y1, y2, seqLen - 1, dModel);
+    }
 
-        for (int r = 0; r < seqLen - 1; r++) {
-            for (int c = 0; c < dModel; c++) {
-                assertEquals(y1.data[r * dModel + c], y2.data[r * dModel + c], 1e-7f,
+    private static MultiHeadSelfAttention identityAttention(int dModel) {
+        MultiHeadSelfAttention attention = new MultiHeadSelfAttention(
+                dModel, 2, true, new Random(42));
+        assertEquals(4, attention.parameters().size());
+        Tensor identity = Tensor.zeros(dModel, dModel);
+        for (int index = 0; index < dModel; index++) identity.data[index * dModel + index] = 1;
+        for (Parameter parameter : attention.parameters()) parameter.value = identity;
+        return attention;
+    }
+
+    private static Tensor identityInput(int size) {
+        Tensor input = Tensor.zeros(size, size);
+        for (int index = 0; index < size; index++) input.data[index * size + index] = 1;
+        return input;
+    }
+
+    private static void overwriteLastRow(Tensor tensor, float value) {
+        int offset = (tensor.rows - 1) * tensor.cols;
+        for (int column = 0; column < tensor.cols; column++) tensor.data[offset + column] = value;
+    }
+
+    private static void assertPastRowsEqual(Tensor first, Tensor second, int rows, int columns) {
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < columns; c++) {
+                assertEquals(first.data[r * columns + c], second.data[r * columns + c], 1e-7f,
                         "past output changed at [" + r + "," + c + "]");
             }
         }
@@ -100,24 +96,10 @@ public class MultiHeadSelfAttentionTest {
     void learning_reduces_mse_loss_within_a_few_steps() {
         MultiHeadSelfAttention attn = new MultiHeadSelfAttention(4, 2, true, new Random(1));
         AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
-
-        Tensor x = Tensor.from2D(new float[][]{
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0}
-        });
-
-        Tensor target = Tensor.from2D(new float[][]{
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-        });
-
+        Tensor x = Tensor.from2D(new float[][]{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}});
+        Tensor target = Tensor.from2D(new float[][]{{0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}});
         double prev = trainOneStepMSE(attn, opt, x, target);
         boolean improved = false;
-
-        // AdamW may not strictly improve every single step due to momentum;
-        // require improvement within a few steps.
         for (int i = 0; i < 10; i++) {
             double cur = trainOneStepMSE(attn, opt, x, target);
             if (cur < prev) {
@@ -126,7 +108,6 @@ public class MultiHeadSelfAttentionTest {
             }
             prev = cur;
         }
-
         assertTrue(improved, "expected loss to decrease within a few optimizer steps");
     }
 
@@ -143,8 +124,6 @@ public class MultiHeadSelfAttentionTest {
 
         return loss;
     }
-
-    // ── finite-difference gradient checks ────────────────────────────────────
 
     @Test
     void backward_matchesNumericalInputGradient() {
@@ -175,26 +154,27 @@ public class MultiHeadSelfAttentionTest {
     void backward_matchesNumericalOutputWeightGradient() {
         int dModel = 4, nHeads = 2, seqLen = 3;
         float eps = 2e-3f, tol = 1e-2f;
-
         MultiHeadSelfAttention attn = new MultiHeadSelfAttention(dModel, nHeads, true, new Random(11));
         Tensor x = Tensor.random(seqLen, dModel, new Random(31));
-
         attn.forward(x);
         attn.backward(Tensor.ones(seqLen, dModel));
-
-        // parameters() = [Wq, Wk, Wv, Wo]
         Parameter Wo = attn.parameters().get(3);
         float[] dWo = Wo.grad.data.clone();
+        assertOutputWeightGradient(attn, x, Wo, dWo, dModel, eps, tol);
+    }
 
+    private static void assertOutputWeightGradient(MultiHeadSelfAttention attn, Tensor x,
+                                                   Parameter weight, float[] gradient,
+                                                   int dModel, float eps, float tol) {
         for (int i = 0; i < dModel; i++) {
             for (int j = 0; j < dModel; j++) {
-                float orig = Wo.value.get(i, j);
-                Wo.value.set(i, j, orig + eps);
+                float orig = weight.value.get(i, j);
+                weight.value.set(i, j, orig + eps);
                 float fPlus = sumAll(attn.forward(x));
-                Wo.value.set(i, j, orig - eps);
+                weight.value.set(i, j, orig - eps);
                 float fMinus = sumAll(attn.forward(x));
-                Wo.value.set(i, j, orig);
-                assertEquals((fPlus - fMinus) / (2 * eps), dWo[i * dModel + j], tol,
+                weight.value.set(i, j, orig);
+                assertEquals((fPlus - fMinus) / (2 * eps), gradient[i * dModel + j], tol,
                         "dWo mismatch at [" + i + "," + j + "]");
             }
         }

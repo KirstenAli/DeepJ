@@ -7,15 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Builder for DeepSeek-style transformer stacks.
- *
- * <p>Assembles a {@link TransformerStack} of {@link DeepSeekTransformerBlock}s
- * (RMSNorm + Multi-Head Latent Attention + SwiGLU).
- *
- * @see GPTTransformerBuilder
- * @see LlamaTransformerBuilder
- */
 public final class DeepSeekTransformerBuilder {
 
     private int dModel;
@@ -33,16 +24,10 @@ public final class DeepSeekTransformerBuilder {
     public DeepSeekTransformerBuilder dFF(int dFF)           { this.dFF = dFF;             return this; }
     public DeepSeekTransformerBuilder nLayers(int nLayers)   { this.nLayers = nLayers;     return this; }
 
-    /** Maximum sequence length for the RoPE table. Required. */
     public DeepSeekTransformerBuilder maxSeqLen(int maxSeqLen) { this.maxSeqLen = maxSeqLen; return this; }
 
-    /** Q latent dimension for MLA. Required. Typical value: {@code dModel / 2}. */
     public DeepSeekTransformerBuilder qRank(int qRank)  { this.qRank = qRank;   return this; }
 
-    /**
-     * KV latent dimension for MLA. Required. Typical value: {@code dModel / 4}.
-     * An incremental decoder may use this latent for a compressed cache.
-     */
     public DeepSeekTransformerBuilder kvRank(int kvRank) { this.kvRank = kvRank; return this; }
 
     public DeepSeekTransformerBuilder seed(long seed) { this.seed = seed; this.rnd = null; return this; }

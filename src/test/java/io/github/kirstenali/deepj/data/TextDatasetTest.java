@@ -14,13 +14,10 @@ import java.nio.file.StandardOpenOption;
 
 public class TextDatasetTest {
 
-    // ── existing behaviour ──────────────────────────────────────────
-
     @Test
     void nextBatch_targetsAreShiftedByOne() throws IOException {
         Tokenizer tok = new ByteTokenizer();
 
-        // For ASCII consecutive letters, byte ids increase by +1 each character.
         String text = "abcdefg";
         Path tmp = Files.createTempFile("deepj", ".txt");
         Files.writeString(tmp, text);
@@ -42,7 +39,7 @@ public class TextDatasetTest {
 
     @Test
     void nextBatch_handlesMinimumValidTokenLength() throws IOException {
-        int[] tokens = new int[]{10, 11, 12, 13, 14}; // seqLen=4 => seqLen+1
+        int[] tokens = new int[]{10, 11, 12, 13, 14};
         TextDataset ds = fromTokens(tokens, 4, 7L);
 
         Batch b = ds.nextBatch(1);
@@ -50,8 +47,6 @@ public class TextDatasetTest {
         Assertions.assertArrayEquals(new int[]{10, 11, 12, 13}, b.x()[0]);
         Assertions.assertArrayEquals(new int[]{11, 12, 13, 14}, b.y()[0]);
     }
-
-    // ── streaming / memory-mapped behaviour ─────────────────────────
 
     @Test
     void fromFile_producesCorrectTokenCount() throws IOException {
@@ -72,7 +67,6 @@ public class TextDatasetTest {
 
         TextDataset ds = TextDataset.fromFile(tmp, tok, 4, 1L);
 
-        // ByteTokenizer encodes every byte including \n
         Assertions.assertEquals(text.getBytes().length, ds.size());
     }
 
@@ -83,14 +77,11 @@ public class TextDatasetTest {
         int seqLen = 4;
         long seed = 99L;
 
-        // Memory-mapped path
         Path tmp = writeTempFile(text);
         TextDataset mapped = TextDataset.fromFile(tmp, tok, seqLen, seed);
 
-        // Direct int[] path
         TextDataset direct = fromTokens(tok.encode(text), seqLen, seed);
 
-        // Same seed → same random positions → identical batches
         Batch bMapped = mapped.nextBatch(3);
         Batch bDirect = direct.nextBatch(3);
 
@@ -104,7 +95,7 @@ public class TextDatasetTest {
 
     @Test
     void fromFile_largeFile_tokenisedCorrectly() throws IOException {
-        // Build a file with many lines to exercise the chunked streaming path
+
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 2000; i++) {
             sb.append("line ").append(i).append(" of test data\n");
@@ -117,7 +108,6 @@ public class TextDatasetTest {
 
         Assertions.assertEquals(text.getBytes().length, ds.size());
 
-        // Verify a batch is well-formed and targets are shifted
         Batch b = ds.nextBatch(5);
         for (int i = 0; i < 5; i++) {
             Assertions.assertEquals(32, b.x()[i].length);
@@ -188,23 +178,19 @@ public class TextDatasetTest {
 
     @Test
     void fromFile_multiSegment_readsAcrossChunkBoundary() throws IOException {
-        // 12 ASCII bytes → 12 tokens → 48 bytes on disk.
-        // chunkBytes=20 forces 3 segments (20 / 20 / 8), so every read crossing a
-        // boundary exercises the ChunkedIntBuffer dispatch logic.
-        String text = "abcdefghijkl"; // 12 chars, each a distinct byte id
+
+        String text = "abcdefghijkl";
         Path tmp = writeTempFile(text);
         Tokenizer tok = new ByteTokenizer();
         int seqLen = 4;
         long seed = 42L;
 
-        // Reference: single-segment mapping
         TextDataset single = TextDataset.fromFile(tmp, tok, seqLen, seed);
-        // Force multi-segment: 20 bytes per chunk (= 5 ints), giving 3 chunks
+
         TextDataset multi  = TextDataset.fromFile(tmp, tok, seqLen, seed, 20L);
 
         Assertions.assertEquals(single.size(), multi.size());
 
-        // Same seed → identical batches
         Batch bs = single.nextBatch(4);
         Batch bm = multi.nextBatch(4);
         for (int i = 0; i < 4; i++) {
@@ -213,9 +199,6 @@ public class TextDatasetTest {
         }
     }
 
-    // ── helpers ─────────────────────────────────────────────────────
-
-    /** Creates a {@link TextDataset} directly from a raw token array — for use in tests only. */
     private static TextDataset fromTokens(int[] tokens, int seqLen, long seed) throws IOException {
         return TextDataset.fromBinaryFile(writeTokenFile(tokens), seqLen, seed);
     }

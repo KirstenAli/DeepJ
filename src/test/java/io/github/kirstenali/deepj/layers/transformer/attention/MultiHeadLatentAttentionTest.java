@@ -26,8 +26,6 @@ public class MultiHeadLatentAttentionTest {
         attn = new MultiHeadLatentAttention(D_MODEL, N_HEADS, Q_RANK, KV_RANK, rope, new Random(1L));
     }
 
-    // ── constructor ────────────────────────────────────────────────
-
     @Test
     void constructor_rejectsDModelNotDivisibleByNHeads() {
         RotaryEmbedding rope = new RotaryEmbedding(8, MAX_SEQ);
@@ -49,8 +47,6 @@ public class MultiHeadLatentAttentionTest {
                 () -> new MultiHeadLatentAttention(D_MODEL, N_HEADS, Q_RANK, 0, rope, new Random()));
     }
 
-    // ── forward ────────────────────────────────────────────────────
-
     @Test
     void forward_outputShapeMatchesInput() {
         Tensor x = Tensor.random(SEQ_LEN, D_MODEL, new Random(2L));
@@ -66,15 +62,11 @@ public class MultiHeadLatentAttentionTest {
         assertDoesNotThrow(() -> attn.forward(x));
     }
 
-    // ── parameters ─────────────────────────────────────────────────
-
     @Test
     void parameters_sixTotal() {
-        // Wdq, Wuq, Wdkv, Wuk, Wuv, Wo
+
         assertEquals(6, attn.parameters().size());
     }
-
-    // ── backward ───────────────────────────────────────────────────
 
     @Test
     void backward_accumulatesGradients() {
@@ -85,11 +77,9 @@ public class MultiHeadLatentAttentionTest {
         attn.parameters().forEach(p -> p.zeroGrad());
         Tensor dX = attn.backward(dOut);
 
-        // input gradient shape
         assertEquals(SEQ_LEN, dX.rows);
         assertEquals(D_MODEL, dX.cols);
 
-        // at least one parameter gradient must be non-zero
         boolean anyNonZero = attn.parameters().stream()
                 .anyMatch(p -> p.grad.sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one grad must be non-zero after backward");

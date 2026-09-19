@@ -23,16 +23,14 @@ public class TextGeneratorTest {
         tok = new ByteTokenizer();
         cfg = new GPTConfig(
                 ByteTokenizer.VOCAB_SIZE,
-                16,   // maxSeqLen
-                32,   // dModel
-                4,    // nHeads
-                2,    // nLayers
-                64    // dFF
+                16,
+                32,
+                4,
+                2,
+                64
         );
         model = new GPTModel(cfg, 1L);
     }
-
-    // ── basic smoke test ───────────────────────────────────────────
 
     @Test
     void generate_runsAndReturnsNonEmptyString() {
@@ -41,8 +39,6 @@ public class TextGeneratorTest {
         assertNotNull(out);
         assertTrue(out.length() >= 2, "output must include at least the prompt");
     }
-
-    // ── determinism ────────────────────────────────────────────────
 
     @Test
     void sameSeedProducesSameOutput() {
@@ -57,11 +53,8 @@ public class TextGeneratorTest {
         String a = TextGenerator.generate(model, tok, cfg, "hello", 20, 1.0f, 0, 1L);
         String b = TextGenerator.generate(model, tok, cfg, "hello", 20, 1.0f, 0, 999L);
 
-        // Not guaranteed but overwhelmingly likely with 20 tokens
         assertNotEquals(a, b, "different seeds should usually diverge");
     }
-
-    // ── prompt preservation ────────────────────────────────────────
 
     @Test
     void outputStartsWithPrompt() {
@@ -70,8 +63,6 @@ public class TextGeneratorTest {
 
         assertTrue(out.startsWith(prompt), "output must begin with the prompt");
     }
-
-    // ── maxNewTokens edge cases ────────────────────────────────────
 
     @Test
     void zeroNewTokensReturnsPromptOnly() {
@@ -100,11 +91,9 @@ public class TextGeneratorTest {
         assertTrue(long_.length() > short_.length(), "more tokens should produce longer output");
     }
 
-    // ── topK behaviour ─────────────────────────────────────────────
-
     @Test
     void topKOneIsGreedy() {
-        // topK=1 always picks the highest-probability token → deterministic regardless of seed
+
         String a = TextGenerator.generate(model, tok, cfg, "hi", 10, 1.0f, 1, 1L);
         String b = TextGenerator.generate(model, tok, cfg, "hi", 10, 1.0f, 1, 999L);
 
@@ -113,13 +102,10 @@ public class TextGeneratorTest {
 
     @Test
     void topKZeroUsesFullVocab() {
-        // Should not throw — topK=0 means "use all logits"
+
         String out = TextGenerator.generate(model, tok, cfg, "hi", 5, 1.0f, 0, 1L);
         assertNotNull(out);
     }
-
-
-    // ── validation ─────────────────────────────────────────────────
 
     @Test
     void negativeMaxNewTokensThrows() {

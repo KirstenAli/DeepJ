@@ -6,11 +6,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * AdamW optimizer with per-parameter state.
- *
- * <p>State is keyed by Parameter identity, and updates are applied in-place.
- */
 public final class AdamW implements ParameterOptimizer {
 
     private float lr;
@@ -38,15 +33,10 @@ public final class AdamW implements ParameterOptimizer {
         return new AdamW(lr, 0.9f, 0.999f, 1e-8f, 0.01f);
     }
 
-    /** Current learning rate. */
     public float lr() {
         return lr;
     }
 
-    /**
-     * Update the learning rate (e.g. from a warmup/cosine schedule).
-     * Per-parameter moment state ({@code m}, {@code v}) is preserved.
-     */
     public void setLr(float lr) {
         if (lr <= 0) {
             throw new IllegalArgumentException("lr must be > 0");

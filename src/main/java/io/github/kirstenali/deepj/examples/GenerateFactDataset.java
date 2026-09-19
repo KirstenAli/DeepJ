@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/** Generates deterministic question-and-answer records whose answers can be checked exactly. */
 public final class GenerateFactDataset {
 
     private static final int MAXIMUM_LIMIT = 1_000;
