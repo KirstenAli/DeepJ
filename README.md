@@ -125,7 +125,7 @@ Export a Hugging Face-ready DeepJ bundle:
   io.github.kirstenali.deepj.examples.ExportDeepSeekTinyStories
 ```
 
-The published demonstration model is [netsrik/deepj-tinystories-deepseek](https://huggingface.co/netsrik/deepj-tinystories-deepseek). Its `model.dj` and `tokenizer.bpe` files use DeepJ formats; they are not PyTorch or Transformers checkpoints.
+The published demonstration model is [netsrik/deepj-tinystories](https://huggingface.co/netsrik/deepj-tinystories). Its `model.dj` and `tokenizer.bpe` files use DeepJ formats; they are not PyTorch or Transformers checkpoints.
 
 ## Metal acceleration
 
