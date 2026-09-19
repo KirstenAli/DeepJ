@@ -603,9 +603,7 @@ public final class ComputeGraph {
 
         flush();
 
-        float[] flat = new float[buf.floatCount()];
-        runtime.downloadBuffer(buf.id, flat);
-        TensorAdapters.unpackF32Into(flat, t);
+        runtime.downloadBuffer(buf.id, t.data);
         buf.cpuStale = false;
     }
 
@@ -629,9 +627,7 @@ public final class ComputeGraph {
             if (!(t.getGpuTag() instanceof GpuBuffer gb)) continue;
             if (!gb.cpuStale) continue;
 
-            float[] flat = new float[gb.floatCount()];
-            runtime.downloadBuffer(gb.id, flat);
-            TensorAdapters.unpackF32Into(flat, t);
+            runtime.downloadBuffer(gb.id, t.data);
             gb.cpuStale = false;
             gb.needsUpload = false;
         }
