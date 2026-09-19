@@ -130,7 +130,7 @@ public final class TrainDeepSeekTinyStories {
 
     private static void validateCorpus(Path corpus) {
         if (!Files.isRegularFile(corpus)) {
-            throw new IllegalArgumentException("TinyStories corpus not found: " + corpus);
+            throw new IllegalArgumentException("Training corpus not found: " + corpus);
         }
     }
 
@@ -149,7 +149,7 @@ public final class TrainDeepSeekTinyStories {
         addModelProperties(properties, config, tokenizer);
         addTrainingProperties(properties, config);
         try (OutputStream stream = Files.newOutputStream(output.resolve("training.properties"))) {
-            properties.store(stream, "DeepJ TinyStories training configuration");
+            properties.store(stream, "DeepJ training configuration");
         }
     }
 
