@@ -772,6 +772,25 @@ public final class MetalBackend implements TensorBackend {
         }
     }
 
+    @Override
+    public Tensor swiGlu(Tensor gate, Tensor up) {
+        Tensor.requireSameShape(gate, up, "swiGlu");
+        GpuBuffer fused = graph.newOutputBuffer(gate.rows, gate.cols);
+        graph.recordSwiGlu(gpuIn(gate), gpuIn(up), fused);
+        return gpuOut(fused);
+    }
+
+    @Override
+    public SwiGluBackwardResult swiGluBackward(Tensor gradient, Tensor gate, Tensor up) {
+        Tensor.requireSameShape(gradient, gate, "swiGluBackward");
+        Tensor.requireSameShape(gate, up, "swiGluBackward");
+        GpuBuffer gateGradient = graph.newOutputBuffer(gate.rows, gate.cols);
+        GpuBuffer upGradient = graph.newOutputBuffer(up.rows, up.cols);
+        graph.recordSwiGluBackward(gpuIn(gradient), gpuIn(gate), gpuIn(up),
+                gateGradient, upGradient);
+        return new SwiGluBackwardResult(gpuOut(gateGradient), gpuOut(upGradient));
+    }
+
     private static void validateScatterAddRowsInputs(Tensor target, int[] indices, Tensor grad) {
         if (indices.length != grad.rows) {
             throw new IllegalArgumentException(

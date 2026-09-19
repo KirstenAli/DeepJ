@@ -126,6 +126,21 @@ public interface TensorBackend {
                 multiplyBroadcastCols(normalized, inner)), rms);
     }
 
+    default Tensor swiGlu(Tensor gate, Tensor up) {
+        Tensor activated = multiply(gate, sigmoid(gate));
+        return multiply(activated, up);
+    }
+
+    default SwiGluBackwardResult swiGluBackward(Tensor gradient, Tensor gate,
+                                                Tensor up) {
+        Tensor sigmoid = sigmoid(gate);
+        Tensor activated = multiply(gate, sigmoid);
+        Tensor complement = addScalar(multiplyScalar(sigmoid, -1.0f), 1.0f);
+        Tensor derivative = add(sigmoid, multiply(activated, complement));
+        Tensor gateGradient = multiply(multiply(gradient, up), derivative);
+        return new SwiGluBackwardResult(gateGradient, multiply(gradient, activated));
+    }
+
     void scatterAddRows(Tensor target, int[] indices, Tensor grad);
 
     void addInPlace(Tensor a, Tensor b);

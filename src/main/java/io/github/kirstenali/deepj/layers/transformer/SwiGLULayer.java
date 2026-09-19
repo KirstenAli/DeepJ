@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.layers.transformer;
 
-import io.github.kirstenali.deepj.activations.SiLU;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.Linear;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.tensor.SwiGluBackwardResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.ArrayList;
@@ -15,9 +15,8 @@ public final class SwiGLULayer implements Layer {
     private final Linear gateProj;
     private final Linear upProj;
     private final Linear downProj;
-    private final SiLU   silu;
 
-    private Tensor siluGate;
+    private Tensor gateOut;
     private Tensor upOut;
 
     public SwiGLULayer(int dModel, int dFF, Random rnd) {
@@ -27,17 +26,13 @@ public final class SwiGLULayer implements Layer {
         this.gateProj = new Linear(dModel, dFF, rnd);
         this.upProj   = new Linear(dModel, dFF, rnd);
         this.downProj = new Linear(dFF, dModel, rnd);
-        this.silu     = new SiLU();
     }
 
     @Override
     public Tensor forward(Tensor x) {
-        Tensor gate = gateProj.forward(x);
-        this.upOut    = upProj.forward(x);
-        this.siluGate = silu.forward(gate);
-
-        Tensor fused = siluGate.multiply(upOut);
-        return downProj.forward(fused);
+        gateOut = gateProj.forward(x);
+        upOut = upProj.forward(x);
+        return downProj.forward(Tensor.backend().swiGlu(gateOut, upOut));
     }
 
     @Override
@@ -45,13 +40,10 @@ public final class SwiGLULayer implements Layer {
 
         Tensor dFused = downProj.backward(dOut);
 
-        Tensor dSiluGate = dFused.multiply(upOut);
-        Tensor dGate = silu.backward(dSiluGate);
-
-        Tensor dUp = dFused.multiply(siluGate);
-
-        Tensor dXFromGate = gateProj.backward(dGate);
-        Tensor dXFromUp   = upProj.backward(dUp);
+        SwiGluBackwardResult gradients = Tensor.backend()
+                .swiGluBackward(dFused, gateOut, upOut);
+        Tensor dXFromGate = gateProj.backward(gradients.gateGradient());
+        Tensor dXFromUp = upProj.backward(gradients.upGradient());
         return dXFromGate.add(dXFromUp);
     }
 

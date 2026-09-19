@@ -64,6 +64,8 @@ struct MetalContext {
     id<MTLComputePipelineState> layerNormBackwardPSO;
     id<MTLComputePipelineState> rmsNormPSO;
     id<MTLComputePipelineState> rmsNormBackwardPSO;
+    id<MTLComputePipelineState> swiGluPSO;
+    id<MTLComputePipelineState> swiGluBackwardPSO;
     id<MTLComputePipelineState> adamWUpdatePSO;
 };
 
@@ -756,6 +758,27 @@ kernel void kernel_sigmoid(device const float* a [[buffer(0)]],
     out[id] = 1.0f / (1.0f + exp(-a[id]));
 }
 
+kernel void kernel_swiglu(device const float* gate [[buffer(0)]],
+                          device const float* up [[buffer(1)]],
+                          device float* output [[buffer(2)]],
+                          uint id [[thread_position_in_grid]]) {
+    float sigmoid = 1.0f / (1.0f + exp(-gate[id]));
+    output[id] = gate[id] * sigmoid * up[id];
+}
+
+kernel void kernel_swiglu_backward(device const float* gradient [[buffer(0)]],
+                                   device const float* gate [[buffer(1)]],
+                                   device const float* up [[buffer(2)]],
+                                   device float* gateGradient [[buffer(3)]],
+                                   device float* upGradient [[buffer(4)]],
+                                   uint id [[thread_position_in_grid]]) {
+    float sigmoid = 1.0f / (1.0f + exp(-gate[id]));
+    float activated = gate[id] * sigmoid;
+    float derivative = sigmoid + activated * (1.0f - sigmoid);
+    gateGradient[id] = gradient[id] * up[id] * derivative;
+    upGradient[id] = gradient[id] * activated;
+}
+
 kernel void kernel_relu(device const float* a [[buffer(0)]],
                         device float* out     [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
@@ -1141,6 +1164,8 @@ static void initTrainingPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layerNormBackwardPSO = makePSO(library, @"kernel_layernorm_backward");
     ctx->rmsNormPSO = makePSO(library, @"kernel_rms_norm");
     ctx->rmsNormBackwardPSO = makePSO(library, @"kernel_rms_norm_backward");
+    ctx->swiGluPSO = makePSO(library, @"kernel_swiglu");
+    ctx->swiGluBackwardPSO = makePSO(library, @"kernel_swiglu_backward");
     ctx->adamWUpdatePSO = makePSO(library, @"kernel_adamw_update");
 }
 
@@ -1254,6 +1279,8 @@ static constexpr int OP_CROSS_ENTROPY_FUSED = 51;
 static constexpr int OP_SUM_SQUARES_SCALAR = 52;
 static constexpr int OP_RMS_NORM = 53;
 static constexpr int OP_RMS_NORM_BACKWARD = 54;
+static constexpr int OP_SWIGLU = 55;
+static constexpr int OP_SWIGLU_BACKWARD = 56;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -2101,6 +2128,28 @@ static void encodeRmsNormBackward(GraphState& state, const jint* cmd, int pos) {
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
 
+static void encodeSwiGlu(GraphState& state, const jint* cmd, int pos) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->swiGluPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "SwiGLU") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "SwiGLU") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "SwiGLU") offset:0 atIndex:2];
+    dispatch1D(encoder, state.ctx->swiGluPSO,
+               positiveCount(cmd[pos + 4], "SwiGLU element count"));
+}
+
+static void encodeSwiGluBackward(GraphState& state, const jint* cmd, int pos) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->swiGluBackwardPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "SwiGLU backward") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "SwiGLU backward") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "SwiGLU backward") offset:0 atIndex:2];
+    [encoder setBuffer:requireBuffer(cmd[pos + 4], "SwiGLU backward") offset:0 atIndex:3];
+    [encoder setBuffer:requireBuffer(cmd[pos + 5], "SwiGLU backward") offset:0 atIndex:4];
+    dispatch1D(encoder, state.ctx->swiGluBackwardPSO,
+               positiveCount(cmd[pos + 6], "SwiGLU element count"));
+}
+
 static AdamWParamsHost adamWParams(const jint* cmd, int pos) {
     return AdamWParamsHost{
         floatFromBits(cmd[pos + 5]),
@@ -2154,19 +2203,24 @@ static bool isReductionOp(int op) {
            op == OP_MAX_ALONG_ROWS;
 }
 
+static bool isFiveWidthOp(int op) {
+    return isBinaryOp(op) || isScalarOp(op) || isReductionOp(op) ||
+           op == OP_SWIGLU || op == OP_TRANSPOSE || op == OP_SOFTMAX_ROWS ||
+           op == OP_SUM_ABS || op == OP_SUM_SQUARES || op == OP_SUM_SCALAR ||
+           op == OP_CAUSAL_MASK;
+}
+
 static int commandWidth(int op) {
     if (isUnaryOp(op) || op == OP_SUM_SQUARES_SCALAR) return 4;
-    if (isBinaryOp(op) || isScalarOp(op) || isReductionOp(op)) return 5;
-    if (op == OP_TRANSPOSE || op == OP_SOFTMAX_ROWS ||
-        op == OP_SUM_ABS || op == OP_SUM_SQUARES || op == OP_SUM_SCALAR ||
-        op == OP_CAUSAL_MASK) return 5;
+    if (isFiveWidthOp(op)) return 5;
     if (isBroadcastOp(op) || op == OP_CLAMP ||
         op == OP_SOFTMAX_BACKWARD || op == OP_CROSS_ENTROPY_LOSS ||
         op == OP_CROSS_ENTROPY_GRADIENT) return 6;
     if (op == OP_MATMUL || op == OP_SCATTER_ADD_ROWS ||
         op == OP_SCATTER_ADD_ROWS_ATOMIC || op == OP_LAYERNORM_BACKWARD ||
         op == OP_SPLIT_HEADS || op == OP_MERGE_HEADS || op == OP_GATHER_ROWS ||
-        op == OP_CAUSAL_SOFTMAX || op == OP_CROSS_ENTROPY_FUSED) return 7;
+        op == OP_CAUSAL_SOFTMAX || op == OP_CROSS_ENTROPY_FUSED ||
+        op == OP_SWIGLU_BACKWARD) return 7;
     if (op == OP_ROTARY || op == OP_RMS_NORM) return 9;
     if (op == OP_RMS_NORM_BACKWARD) return 8;
     if (op == OP_BATCHED_MATMUL) return 11;
@@ -2191,6 +2245,18 @@ static bool encodeBasicCommand(GraphState& state, const jint* cmd, int pos) {
     return true;
 }
 
+static bool encodeTrainingCommand(GraphState& state, const jint* cmd, int pos) {
+    int op = cmd[pos];
+    if (op == OP_LAYERNORM_BACKWARD) encodeLayerNormBackward(state, cmd, pos);
+    else if (op == OP_RMS_NORM) encodeRmsNorm(state, cmd, pos);
+    else if (op == OP_RMS_NORM_BACKWARD) encodeRmsNormBackward(state, cmd, pos);
+    else if (op == OP_SWIGLU) encodeSwiGlu(state, cmd, pos);
+    else if (op == OP_SWIGLU_BACKWARD) encodeSwiGluBackward(state, cmd, pos);
+    else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
+    else return false;
+    return true;
+}
+
 static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
     int op = cmd[pos];
     if (op == OP_SCATTER_ADD_ROWS || op == OP_SCATTER_ADD_ROWS_ATOMIC) encodeScatter(state, cmd, pos);
@@ -2204,11 +2270,7 @@ static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_BATCHED_MATMUL) encodeBatchedMatmul(state, cmd, pos);
     else if (op == OP_SOFTMAX_ROWS) encodeSoftmax(state, cmd, pos);
     else if (op == OP_SOFTMAX_BACKWARD) encodeSoftmaxBackward(state, cmd, pos);
-    else if (op == OP_LAYERNORM_BACKWARD) encodeLayerNormBackward(state, cmd, pos);
-    else if (op == OP_RMS_NORM) encodeRmsNorm(state, cmd, pos);
-    else if (op == OP_RMS_NORM_BACKWARD) encodeRmsNormBackward(state, cmd, pos);
-    else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
-    else return false;
+    else return encodeTrainingCommand(state, cmd, pos);
     return true;
 }
 

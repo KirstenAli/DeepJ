@@ -61,6 +61,8 @@ public final class ComputeGraph {
     public static final int OP_SUM_SQUARES_SCALAR = 52;
     public static final int OP_RMS_NORM = 53;
     public static final int OP_RMS_NORM_BACKWARD = 54;
+    public static final int OP_SWIGLU = 55;
+    public static final int OP_SWIGLU_BACKWARD = 56;
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
@@ -85,7 +87,7 @@ public final class ComputeGraph {
     }
 
     private static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_RMS_NORM_BACKWARD + 1];
+        OpMeta[] meta = new OpMeta[OP_SWIGLU_BACKWARD + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -169,6 +171,8 @@ public final class ComputeGraph {
         registerMeta(meta, OP_ADAMW_UPDATE, 13, 1, 2, 3, 4);
         registerMeta(meta, OP_RMS_NORM, 9, 1, 2, 3, 4, 5);
         registerMeta(meta, OP_RMS_NORM_BACKWARD, 8, 1, 2, 3, 4, 5);
+        registerMeta(meta, OP_SWIGLU, 5, 1, 2, 3);
+        registerMeta(meta, OP_SWIGLU_BACKWARD, 7, 1, 2, 3, 4, 5);
     }
 
     private static void registerMeta(OpMeta[] meta, int op, int stride, int... bufferArgOffsets) {
@@ -494,6 +498,22 @@ public final class ComputeGraph {
         emitInt(OP_RMS_NORM_BACKWARD); emitInt(gradient.id); emitInt(normalized.id);
         emitInt(rms.id); emitInt(gamma.id); emitInt(output.id);
         emitInt(rows); emitInt(cols);
+        endOp();
+    }
+
+    public void recordSwiGlu(GpuBuffer gate, GpuBuffer up, GpuBuffer fused) {
+        beginOp(5);
+        emitInt(OP_SWIGLU); emitInt(gate.id); emitInt(up.id);
+        emitInt(fused.id); emitInt(gate.floatCount());
+        endOp();
+    }
+
+    public void recordSwiGluBackward(GpuBuffer gradient, GpuBuffer gate, GpuBuffer up,
+                                     GpuBuffer gateGradient, GpuBuffer upGradient) {
+        beginOp(7);
+        emitInt(OP_SWIGLU_BACKWARD); emitInt(gradient.id); emitInt(gate.id);
+        emitInt(up.id); emitInt(gateGradient.id); emitInt(upGradient.id);
+        emitInt(gradient.floatCount());
         endOp();
     }
 

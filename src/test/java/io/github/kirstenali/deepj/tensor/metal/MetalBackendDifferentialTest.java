@@ -12,6 +12,7 @@ import io.github.kirstenali.deepj.models.llama.LlamaModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
 import io.github.kirstenali.deepj.tensor.RmsNormResult;
+import io.github.kirstenali.deepj.tensor.SwiGluBackwardResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -152,6 +153,18 @@ class MetalBackendDifferentialTest {
         assertTensorClose(expected.output(), actual.output(), 2e-4f, 2e-4f);
         assertTensorClose(expected.normalized(), actual.normalized(), 2e-4f, 2e-4f);
         assertTensorClose(expected.rms(), actual.rms(), 2e-4f, 2e-4f);
+    }
+
+    @Test
+    void fusedSwiGluMatchesCpu() {
+        Tensor gate = random(19, 31, 33L);
+        Tensor up = random(19, 31, 34L);
+        Tensor gradient = random(19, 31, 35L);
+        assertTensorClose(cpu.swiGlu(gate, up), metal.swiGlu(gate, up), 1e-5f, 1e-5f);
+        SwiGluBackwardResult expected = cpu.swiGluBackward(gradient, gate, up);
+        SwiGluBackwardResult actual = metal.swiGluBackward(gradient, gate, up);
+        assertTensorClose(expected.gateGradient(), actual.gateGradient(), 2e-5f, 2e-5f);
+        assertTensorClose(expected.upGradient(), actual.upGradient(), 2e-5f, 2e-5f);
     }
 
     @Test
