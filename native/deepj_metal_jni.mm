@@ -890,7 +890,10 @@ static MetalContext* getContext() {
 
 #include <unordered_map>
 
-static std::unordered_map<int, id<MTLBuffer>> gBufferPool;
+using BufferPool = std::unordered_map<int, id<MTLBuffer>>;
+using BufferEntry = BufferPool::iterator;
+
+static BufferPool gBufferPool;
 static std::mutex gBufferMutex;
 
 static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCache;
@@ -1106,26 +1109,25 @@ static void allocateBuffers(const jint* ids, const jint* sizes, int count) {
     for (int i = 0; i < count; i++) allocateBuffer(ctx, ids[i], sizes[i]);
 }
 
-static id<MTLBuffer> transferBuffer(JNIEnv* env, int bufferId, jfloatArray values,
-                                    const char* operation) {
+static BufferEntry transferEntry(JNIEnv* env, int bufferId, jfloatArray values,
+                                 const char* operation) {
     if (values == nullptr) {
         throwJavaRuntimeException(env, (std::string(operation) + " data cannot be null").c_str());
-        return nil;
+        return gBufferPool.end();
     }
     auto entry = gBufferPool.find(bufferId);
     if (entry == gBufferPool.end()) {
         throwJavaRuntimeException(env, (std::string(operation) + " buffer was not found").c_str());
-        return nil;
+        return entry;
     }
     NSUInteger bytes = (NSUInteger)env->GetArrayLength(values) * sizeof(float);
-    if (bytes == [entry->second length]) return entry->second;
+    if (bytes == [entry->second length]) return entry;
     throwJavaRuntimeException(env, (std::string(operation) + " length does not match buffer size").c_str());
-    return nil;
+    return gBufferPool.end();
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
-        JNIEnv* env, jclass, jintArray idsArr, jintArray sizesArr, jint count) {
+static void allocateRequestedBuffers(JNIEnv* env, jintArray idsArr,
+                                     jintArray sizesArr, jint count) {
     if (!validateAllocationArrays(env, idsArr, sizesArr, count)) return;
     AllocationArrays arrays = acquireAllocationArrays(env, idsArr, sizesArr);
     if (arrays.ids == nullptr || arrays.sizes == nullptr) return;
@@ -1141,45 +1143,64 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
-        JNIEnv* env, jclass, jint bufId, jfloatArray dataArr) {
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
+        JNIEnv* env, jclass, jintArray idsArr, jintArray sizesArr, jint count) {
+    @autoreleasepool { allocateRequestedBuffers(env, idsArr, sizesArr, count); }
+}
+
+static void uploadBuffer(JNIEnv* env, jint bufId, jfloatArray dataArr) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    id<MTLBuffer> buffer = transferBuffer(env, bufId, dataArr, "Upload");
-    if (buffer == nil) return;
+    BufferEntry entry = transferEntry(env, bufId, dataArr, "Upload");
+    if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(dataArr);
     jfloat* data = env->GetFloatArrayElements(dataArr, nullptr);
     if (data == nullptr) return;
-    std::memcpy([buffer contents], data, (size_t)len * sizeof(float));
+    std::memcpy([entry->second contents], data, (size_t)len * sizeof(float));
     env->ReleaseFloatArrayElements(dataArr, data, JNI_ABORT);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
+        JNIEnv* env, jclass, jint bufId, jfloatArray dataArr) {
+    @autoreleasepool { uploadBuffer(env, bufId, dataArr); }
+}
+
+static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    BufferEntry entry = transferEntry(env, bufId, outArr, "Download");
+    if (entry == gBufferPool.end()) return;
+    jint len = env->GetArrayLength(outArr);
+    jfloat* out = env->GetFloatArrayElements(outArr, nullptr);
+    if (out == nullptr) return;
+    std::memcpy(out, [entry->second contents], (size_t)len * sizeof(float));
+    env->ReleaseFloatArrayElements(outArr, out, 0);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer(
         JNIEnv* env, jclass, jint bufId, jfloatArray outArr) {
+    @autoreleasepool { downloadBuffer(env, bufId, outArr); }
+}
+
+static bool validateReleaseRequest(JNIEnv* env, jintArray idsArr, jint count) {
+    if (idsArr != nullptr && count >= 0 && count <= env->GetArrayLength(idsArr)) return true;
+    throwJavaRuntimeException(env, "Invalid GPU release request");
+    return false;
+}
+
+static void releaseBuffers(JNIEnv* env, jintArray idsArr, jint count) {
+    if (!validateReleaseRequest(env, idsArr, count)) return;
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    id<MTLBuffer> buffer = transferBuffer(env, bufId, outArr, "Download");
-    if (buffer == nil) return;
-    jint len = env->GetArrayLength(outArr);
-    jfloat* out = env->GetFloatArrayElements(outArr, nullptr);
-    if (out == nullptr) return;
-    std::memcpy(out, [buffer contents], (size_t)len * sizeof(float));
-    env->ReleaseFloatArrayElements(outArr, out, 0);
+    jint* ids = env->GetIntArrayElements(idsArr, nullptr);
+    if (ids == nullptr) return;
+    for (int i = 0; i < count; i++) gBufferPool.erase(ids[i]);
+    env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
         JNIEnv* env, jclass, jintArray idsArr, jint count) {
-    if (idsArr == nullptr || count < 0 || count > env->GetArrayLength(idsArr)) {
-        throwJavaRuntimeException(env, "Invalid GPU release request");
-        return;
-    }
-    std::lock_guard<std::mutex> lock(gBufferMutex);
-    jint* ids = env->GetIntArrayElements(idsArr, nullptr);
-    if (ids == nullptr) return;
-    for (int i = 0; i < count; i++) {
-        gBufferPool.erase(ids[i]);
-    }
-    env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
+    @autoreleasepool { releaseBuffers(env, idsArr, count); }
 }
 
 struct GraphState {

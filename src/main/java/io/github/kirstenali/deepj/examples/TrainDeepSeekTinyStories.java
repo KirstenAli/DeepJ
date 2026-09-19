@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
 import io.github.kirstenali.deepj.optimisers.AdamW;
+import io.github.kirstenali.deepj.persistence.TrainingCheckpoint;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
@@ -12,6 +13,7 @@ import io.github.kirstenali.deepj.tokenizers.bpe.BPETrainer;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
 import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 import io.github.kirstenali.deepj.training.Trainer;
+import io.github.kirstenali.deepj.training.TrainingProgress;
 import io.github.kirstenali.deepj.training.TrainingResult;
 
 import java.io.IOException;
@@ -27,6 +29,7 @@ public final class TrainDeepSeekTinyStories {
             List.of("<BOS>", "<EOS>", "<PAD>", "<|endoftext|>");
     private static final String TOKENIZER_FILE = "tokenizer.bpe";
     private static final String LATEST_MODEL_FILE = "model-latest.dj";
+    private static final String LATEST_TRAINING_FILE = "training-latest.dj";
     private static final String FINAL_MODEL_FILE = "model-final.dj";
 
     private TrainDeepSeekTinyStories() {}
@@ -44,7 +47,6 @@ public final class TrainDeepSeekTinyStories {
         BPETokenizer tokenizer = loadOrTrainTokenizer(runConfig);
         DeepSeekConfig modelConfig = runConfig.modelConfig(tokenizer.vocabSize());
         DeepSeekModel model = new DeepSeekModel(modelConfig, runConfig.seed());
-        loadCheckpointIfRequested(model, runConfig.files().resumeCheckpoint());
         ensureCheckpointSpace(output, model);
         writeConfiguration(output, runConfig, tokenizer.model());
         try (RandomAccessTextDataset dataset = dataset(runConfig, tokenizer)) {
@@ -92,10 +94,12 @@ public final class TrainDeepSeekTinyStories {
         DeepSeekTinyStoriesConfig.Training options = config.training();
         CosineLearningRateSchedule schedule = schedule(options);
         AdamW optimizer = AdamW.defaultAdamW(schedule.learningRate(0));
+        TrainingProgress progress = loadCheckpointIfRequested(
+                model, optimizer, dataset, schedule, config.files().resumeCheckpoint());
         Trainer trainer = CausalLMTraining.trainer(model, dataset, optimizer);
-        Trainer.StepHook hook = checkpointHook(model, optimizer, schedule, config);
+        Trainer.StepHook hook = checkpointHook(model, optimizer, dataset, schedule, config);
         TrainingResult result = trainer.train(options.steps(), options.batchSize(), options.logEvery(),
-                0.98f, null, options.releaseEvery(), hook);
+                0.98f, null, options.releaseEvery(), hook, progress);
         model.save(config.files().outputDirectory().resolve(FINAL_MODEL_FILE));
         printResult(result);
         return result;
@@ -107,6 +111,7 @@ public final class TrainDeepSeekTinyStories {
     }
 
     private static Trainer.StepHook checkpointHook(DeepSeekModel model, AdamW optimizer,
+                                                    RandomAccessTextDataset dataset,
                                                     CosineLearningRateSchedule schedule,
                                                     DeepSeekTinyStoriesConfig config) {
         return (step, loss, ema) -> {
@@ -114,17 +119,45 @@ public final class TrainDeepSeekTinyStories {
             optimizer.setLr(schedule.learningRate(completed));
             int interval = config.training().checkpointEvery();
             if (interval > 0 && completed % interval == 0) {
-                model.save(config.files().outputDirectory().resolve(LATEST_MODEL_FILE));
+                saveCheckpoint(model, optimizer, dataset, schedule, config,
+                        new TrainingProgress(completed, loss, ema));
             }
         };
     }
 
-    private static void loadCheckpointIfRequested(DeepSeekModel model, Path checkpoint)
-            throws IOException {
-        if (checkpoint == null) return;
+    private static void saveCheckpoint(DeepSeekModel model, AdamW optimizer,
+                                       RandomAccessTextDataset dataset,
+                                       CosineLearningRateSchedule schedule,
+                                       DeepSeekTinyStoriesConfig config,
+                                       TrainingProgress progress) throws IOException {
+        Path output = config.files().outputDirectory();
+        TrainingCheckpoint.save(model.parameters(), optimizer, dataset, progress,
+                schedule, output.resolve(LATEST_TRAINING_FILE));
+        model.save(output.resolve(LATEST_MODEL_FILE));
+    }
+
+    private static TrainingProgress loadCheckpointIfRequested(
+            DeepSeekModel model, AdamW optimizer, RandomAccessTextDataset dataset,
+            CosineLearningRateSchedule schedule, Path checkpoint) throws IOException {
+        if (checkpoint == null) return TrainingProgress.initial();
+        if (TrainingCheckpoint.matches(checkpoint)) {
+            TrainingProgress progress = TrainingCheckpoint.load(
+                    model.parameters(), optimizer, dataset, schedule, checkpoint);
+            System.out.println("Resumed complete training state from " + checkpoint);
+            return progress;
+        }
+        return loadLegacyCheckpoint(model, optimizer, schedule, checkpoint);
+    }
+
+    private static TrainingProgress loadLegacyCheckpoint(DeepSeekModel model, AdamW optimizer,
+                                                         CosineLearningRateSchedule schedule,
+                                                         Path checkpoint) throws IOException {
         model.load(checkpoint);
+        int completed = Integer.getInteger("deepj.resumeStep", 0);
+        optimizer.setLr(schedule.learningRate(completed));
         System.out.println("Loaded weights from " + checkpoint
                 + " (optimizer state starts fresh for this run)");
+        return new TrainingProgress(completed, Float.NaN, Float.NaN);
     }
 
     private static void validateCorpus(Path corpus) {
@@ -136,7 +169,7 @@ public final class TrainDeepSeekTinyStories {
     private static void ensureCheckpointSpace(Path output, DeepSeekModel model) throws IOException {
         long checkpointBytes = model.parameters().stream()
                 .mapToLong(parameter -> (long) parameter.value.data.length * Float.BYTES + 8L).sum();
-        long required = checkpointBytes * 3L + 16L * 1024L * 1024L;
+        long required = checkpointBytes * 7L + 16L * 1024L * 1024L;
         long available = Files.getFileStore(output).getUsableSpace();
         if (available < required) throw new IOException("Not enough disk space for rolling checkpoints");
     }
@@ -180,6 +213,8 @@ public final class TrainDeepSeekTinyStories {
         target.setProperty("peakLearningRate", Float.toString(training.peakLearningRate()));
         target.setProperty("minimumLearningRate", Float.toString(training.minimumLearningRate()));
         target.setProperty("warmupSteps", Integer.toString(training.warmupSteps()));
+        target.setProperty("checkpointEvery", Integer.toString(training.checkpointEvery()));
+        target.setProperty("releaseEvery", Integer.toString(training.releaseEvery()));
         target.setProperty("tokenizerSampleMiB", Integer.toString(config.tokenizer().sampleMiB()));
     }
 

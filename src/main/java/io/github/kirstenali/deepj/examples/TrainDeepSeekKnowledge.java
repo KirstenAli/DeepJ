@@ -14,6 +14,7 @@ public final class TrainDeepSeekKnowledge {
     static final int D_FF = 1_024;
     static final int Q_RANK = 192;
     static final int KV_RANK = 96;
+    static final int RELEASE_EVERY = 25;
 
     private TrainDeepSeekKnowledge() {}
 
@@ -53,7 +54,7 @@ public final class TrainDeepSeekKnowledge {
                 decimal("deepj.minLearningRate", 2e-5f),
                 integer("deepj.warmupSteps", 2_000), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000),
-                integer("deepj.releaseEvery", 25));
+                integer("deepj.releaseEvery", RELEASE_EVERY));
     }
 
     private static DeepSeekTinyStoriesConfig.TokenizerConfig tokenizer() {

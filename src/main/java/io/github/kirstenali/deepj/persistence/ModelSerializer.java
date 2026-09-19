@@ -55,7 +55,10 @@ public final class ModelSerializer {
     }
 
     private static void writeParameter(DataOutputStream out, Parameter p) throws IOException {
-        Tensor t = p.value;
+        writeTensor(out, p.value);
+    }
+
+    static void writeTensor(DataOutputStream out, Tensor t) throws IOException {
         t.materialize();
         writeTensorHeader(out, t);
         writeTensorData(out, t);
@@ -74,6 +77,7 @@ public final class ModelSerializer {
 
     public static void load(List<Parameter> params, Path path) throws IOException {
         validateParams(params);
+        prepareForLoad();
         try (DataInputStream in = openInput(path)) {
             Format format = readFormat(in);
             int count = readAndValidateParameterCount(format.count(), params.size());
@@ -85,6 +89,10 @@ public final class ModelSerializer {
             }
             if (in.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
         }
+    }
+
+    static void prepareForLoad() {
+        Tensor.backend().releaseResources();
     }
 
     private static int readAndValidateParameterCount(int count, int expectedCount) throws IOException {
@@ -102,13 +110,18 @@ public final class ModelSerializer {
         }
     }
 
+    static void readTensor(DataInputStream in, Tensor tensor, int index) throws IOException {
+        readAndValidateShape(in, tensor, index);
+        readTensorData(in, tensor, false);
+    }
+
     private static void readTensorData(DataInputStream in, Tensor t, boolean legacy) throws IOException {
         for (int j = 0; j < t.data.length; j++) {
             t.data[j] = legacy ? (float) in.readDouble() : in.readFloat();
         }
     }
 
-    private static void markGpuBufferNeedsUpload(Tensor t) {
+    static void markGpuBufferNeedsUpload(Tensor t) {
 
         if (t.getGpuTag() instanceof GpuBuffer gb) {
             gb.needsUpload = true;

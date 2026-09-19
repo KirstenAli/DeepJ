@@ -69,27 +69,44 @@ public final class Trainer {
             int releaseEverySteps,
             StepHook stepHook
     ) {
+        return train(maxSteps, batchSize, logEvery, emaBeta, targetEmaLoss,
+                releaseEverySteps, stepHook, TrainingProgress.initial());
+    }
+
+    public TrainingResult train(
+            int maxSteps,
+            int batchSize,
+            int logEvery,
+            float emaBeta,
+            Float targetEmaLoss,
+            int releaseEverySteps,
+            StepHook stepHook,
+            TrainingProgress progress
+    ) {
         validateTrainArgs(maxSteps, batchSize, logEvery, emaBeta, releaseEverySteps);
+        validateProgress(progress, maxSteps);
         try {
             return runTraining(maxSteps, batchSize, logEvery, emaBeta,
-                    targetEmaLoss, releaseEverySteps, stepHook);
+                    targetEmaLoss, releaseEverySteps, stepHook, progress);
         } finally {
             Tensor.backend().releaseResources();
         }
     }
 
     private TrainingResult runTraining(int maxSteps, int batchSize, int logEvery, float emaBeta,
-                                       Float targetEmaLoss, int releaseEverySteps, StepHook stepHook) {
-        float ema = Float.NaN;
-        float loss = Float.NaN;
-        int step;
-        for (step = 0; step < maxSteps; step++) {
+                                       Float targetEmaLoss, int releaseEverySteps, StepHook stepHook,
+                                       TrainingProgress progress) {
+        float ema = progress.emaLoss();
+        float loss = progress.lastLoss();
+        int completed = progress.completedSteps();
+        for (int step = completed; step < maxSteps; step++) {
             loss = trainStep(batchSize);
             ema = updateEma(ema, emaBeta, loss);
+            completed = step + 1;
             afterStep(stepHook, step, logEvery, releaseEverySteps, loss, ema);
             if (shouldEarlyStop(targetEmaLoss, ema)) break;
         }
-        return new TrainingResult(computeStepsRun(step, maxSteps), loss, ema);
+        return new TrainingResult(completed, loss, ema);
     }
 
     private static void afterStep(StepHook hook, int step, int logEvery,
@@ -105,6 +122,13 @@ public final class Trainer {
         if (logEvery <= 0) throw new IllegalArgumentException("logEvery must be > 0");
         if (emaBeta <= 0.0 || emaBeta >= 1.0) throw new IllegalArgumentException("emaBeta must be in (0,1)");
         if (releaseEverySteps < 0) throw new IllegalArgumentException("releaseEverySteps must be >= 0");
+    }
+
+    private static void validateProgress(TrainingProgress progress, int maxSteps) {
+        if (progress == null) throw new IllegalArgumentException("progress must not be null");
+        if (progress.completedSteps() > maxSteps) {
+            throw new IllegalArgumentException("completedSteps must not exceed maxSteps");
+        }
     }
 
     private static float updateEma(float ema, float emaBeta, float lastLoss) {
@@ -127,7 +151,8 @@ public final class Trainer {
     }
 
     private static void maybeReleaseResources(int step, int releaseEverySteps) {
-        if (releaseEverySteps > 0 && step > 0 && step % releaseEverySteps == 0) {
+        int completedSteps = step + 1;
+        if (releaseEverySteps > 0 && completedSteps % releaseEverySteps == 0) {
             Tensor.backend().releaseResources();
         }
     }
@@ -136,7 +161,4 @@ public final class Trainer {
         return targetEmaLoss != null && ema <= targetEmaLoss;
     }
 
-    private static int computeStepsRun(int step, int maxSteps) {
-        return (step == maxSteps) ? maxSteps : (step + 1);
-    }
 }

@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TrainerTest {
@@ -64,7 +66,20 @@ public class TrainerTest {
             Tensor.setBackend(previous);
         }
 
-        Assertions.assertEquals(3, releaseCalls.get());
+        Assertions.assertEquals(4, releaseCalls.get());
+    }
+
+    @Test
+    void releaseEveryStepIncludesFirstStep() {
+        AtomicInteger releases = new AtomicInteger();
+        TensorBackend previous = Tensor.backend();
+        Tensor.setBackend(countingBackend(releases));
+        try {
+            new Trainer(bs -> 1.0f).train(1, 1, 1000, 0.9f, null, 1);
+        } finally {
+            Tensor.setBackend(previous);
+        }
+        Assertions.assertEquals(2, releases.get());
     }
 
     @Test
@@ -145,6 +160,20 @@ public class TrainerTest {
         }
 
         Assertions.assertEquals(1, releaseCalls.get());
+    }
+
+    @Test
+    void resumedTrainingContinuesWithGlobalStepNumbers() {
+        AtomicInteger calls = new AtomicInteger();
+        List<Integer> steps = new ArrayList<>();
+        TrainingProgress progress = new TrainingProgress(3, 2.0f, 1.5f);
+        TrainingResult result = new Trainer(bs -> calls.incrementAndGet()).train(
+                5, 1, 1000, 0.5f, null, 0,
+                (step, loss, ema) -> steps.add(step), progress);
+        Assertions.assertEquals(2, calls.get());
+        Assertions.assertEquals(List.of(3, 4), steps);
+        Assertions.assertEquals(5, result.steps());
+        Assertions.assertEquals(1.625f, result.emaLoss(), 1e-6f);
     }
 
     private static TensorBackend countingBackend(AtomicInteger releaseCalls) {

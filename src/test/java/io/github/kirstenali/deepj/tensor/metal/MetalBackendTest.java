@@ -35,6 +35,7 @@ public final class MetalBackendTest {
 
     @AfterAll
     static void tearDown() {
+        if (gpu != null) gpu.releaseResources();
         if (previousBackend != null) {
             Tensor.setBackend(previousBackend);
         }
@@ -47,6 +48,21 @@ public final class MetalBackendTest {
     @Test
     void metalNativeIsAvailable() {
         assertTrue(MetalBackend.isAvailable());
+    }
+
+    @Test
+    void repeatedTransfersRemainCorrectAfterRelease() {
+        for (int iteration = 0; iteration < 32; iteration++) {
+            assertTransferAfterRelease(iteration);
+        }
+    }
+
+    private static void assertTransferAfterRelease(int iteration) {
+        Tensor input = randomTensor(64, 64, 200L + iteration);
+        Tensor result = gpu.neg(input);
+        result.materialize();
+        assertEquals(-input.data[0], result.data[0], 1e-6f);
+        gpu.releaseResources();
     }
 
     @Test

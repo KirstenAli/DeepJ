@@ -39,7 +39,6 @@ class NativeFunctionLengthTest {
         private static final Pattern NAME = Pattern.compile("([A-Za-z_][\\w:]*)\\s*\\([^;]*\\)\\s*\\{");
         private final List<String> violations = new ArrayList<>();
         private final StringBuilder signature = new StringBuilder();
-        private boolean shader;
         private int start;
         private int lines;
         private int depth;
@@ -47,7 +46,7 @@ class NativeFunctionLengthTest {
         private String name;
 
         void accept(String line, int number) {
-            if (updateShaderState(line)) return;
+            if (isSourceDelimiter(line)) return;
             if (name != null) acceptBody(line);
             else if (!signature.isEmpty()) acceptSignature(line);
             else if (isFunctionStart(line)) beginSignature(line, number);
@@ -57,22 +56,14 @@ class NativeFunctionLengthTest {
             return new ScanResult(functions, List.copyOf(violations));
         }
 
-        private boolean updateShaderState(String line) {
-            if (line.contains("@R\"(")) {
-                shader = true;
-                return true;
-            }
-            if (shader && line.strip().equals(")\";")) {
-                shader = false;
-                return true;
-            }
-            return false;
+        private boolean isSourceDelimiter(String line) {
+            return line.contains("@R\"(") || line.strip().equals(")\";");
         }
 
         private boolean isFunctionStart(String line) {
             String value = line.strip();
-            return shader ? value.startsWith("kernel ") || value.startsWith("inline ")
-                    : value.startsWith("static ") || value.startsWith("extern \"C\" JNIEXPORT");
+            return value.startsWith("kernel ") || value.startsWith("inline ")
+                    || value.startsWith("static ") || value.startsWith("extern \"C\" JNIEXPORT");
         }
 
         private void beginSignature(String line, int number) {

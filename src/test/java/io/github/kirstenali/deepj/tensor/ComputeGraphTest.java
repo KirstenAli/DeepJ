@@ -329,6 +329,14 @@ class ComputeGraphTest {
     }
 
     @Test
+    void releaseAllIncludesUnboundOutputBuffers() {
+        graph.newOutputBuffer(2, 2);
+        graph.releaseAll();
+        assertEquals(1, runtime.releaseCalls.size());
+        assertEquals(1, runtime.releaseCalls.get(0).count());
+    }
+
+    @Test
     void allOpCodesAreUnique() throws IllegalAccessException {
         var fields = java.util.Arrays.stream(ComputeGraph.class.getFields())
                 .filter(field -> field.getName().startsWith("OP_"))
@@ -356,6 +364,18 @@ class ComputeGraphTest {
         assertEquals(42.0f, t.data[0], 1e-6f, "releaseAll should preserve latest GPU value");
         assertNull(t.getGpuTag(), "releaseAll should still clear GPU tags");
         assertFalse(buf.cpuStale, "buffer state should be marked fresh after forced materialization");
+    }
+
+    @Test
+    void releaseAllDownloadsDirectlyIntoTensorStorage() {
+        Tensor tensor = Tensor.from2D(new float[][]{{1.0f}});
+        GpuBuffer buffer = graph.ensureGpuBuffer(tensor);
+        graph.flush();
+        buffer.cpuStale = true;
+
+        graph.releaseAll();
+
+        assertSame(tensor.data, runtime.downloads.get(0).output());
     }
 
     @Test
@@ -492,7 +512,7 @@ class ComputeGraphTest {
 
         record AllocCall(int[] ids, int[] sizes, int count) {}
         record UploadCall(int bufId, float[] data) {}
-        record DownloadCall(int bufId) {}
+        record DownloadCall(int bufId, float[] output) {}
         record FlushCall(int[] cmdStream, int cmdStreamLength) {}
         record ReleaseCall(int[] ids, int count) {}
 
@@ -516,7 +536,7 @@ class ComputeGraphTest {
 
         @Override
         public void downloadBuffer(int bufId, float[] out) {
-            downloads.add(new DownloadCall(bufId));
+            downloads.add(new DownloadCall(bufId, out));
             if (downloadResult != null) {
                 System.arraycopy(downloadResult, 0, out, 0,
                         Math.min(downloadResult.length, out.length));

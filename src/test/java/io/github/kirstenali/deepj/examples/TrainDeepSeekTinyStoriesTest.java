@@ -10,8 +10,9 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,9 +39,27 @@ class TrainDeepSeekTinyStoriesTest {
         assertTrue(Float.isFinite(result.lastLoss()));
         assertTrue(Files.isRegularFile(output.resolve("tokenizer.bpe")));
         assertTrue(Files.isRegularFile(output.resolve("model-latest.dj")));
+        assertTrue(Files.isRegularFile(output.resolve("training-latest.dj")));
         assertTrue(Files.isRegularFile(output.resolve("model-final.dj")));
         assertTrue(Files.isRegularFile(output.resolve("training.properties")));
+        assertResumeIsExact(corpus, output);
         assertExportIsReloadable(corpus, output);
+    }
+
+    private void assertResumeIsExact(Path corpus, Path output) throws Exception {
+        Path finalModel = output.resolve("model-final.dj");
+        byte[] expected = Files.readAllBytes(finalModel);
+        TrainingResult result = TrainDeepSeekTinyStories.run(resumeConfig(corpus, output));
+        assertEquals(3, result.steps());
+        assertArrayEquals(expected, Files.readAllBytes(finalModel));
+    }
+
+    private DeepSeekTinyStoriesConfig resumeConfig(Path corpus, Path output) {
+        DeepSeekTinyStoriesConfig base = config(corpus, output);
+        var files = new DeepSeekTinyStoriesConfig.FilesConfig(
+                corpus, output, output.resolve("training-latest.dj"));
+        return new DeepSeekTinyStoriesConfig(files, base.architecture(), base.training(),
+                base.tokenizer(), base.seed());
     }
 
     private void assertExportIsReloadable(Path corpus, Path output) throws Exception {
