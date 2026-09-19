@@ -45,15 +45,22 @@ public final class CausalLMTraining {
         for (int b = 0; b < batchSize; b++) {
             int[] x = batch.x()[b];
             int[] y = batch.y()[b];
-
             Tensor logits = model.forward(x);
-            lossSum += CrossEntropyLoss.loss(logits, y);
-
-            Tensor dLogits = CrossEntropyLoss.gradient(logits, y);
-            model.backward(dLogits);
+            boolean[] mask = batch.mask(b);
+            lossSum += loss(logits, y, mask);
+            model.backward(gradient(logits, y, mask));
         }
-
         return lossSum;
+    }
+
+    private static float loss(Tensor logits, int[] targets, boolean[] mask) {
+        return mask == null ? CrossEntropyLoss.loss(logits, targets)
+                : CrossEntropyLoss.loss(logits, targets, mask);
+    }
+
+    private static Tensor gradient(Tensor logits, int[] targets, boolean[] mask) {
+        return mask == null ? CrossEntropyLoss.gradient(logits, targets)
+                : CrossEntropyLoss.gradient(logits, targets, mask);
     }
 
     private static float computeAverageLoss(float lossSum, int batchSize) {

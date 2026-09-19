@@ -29,6 +29,18 @@ public final class CrossEntropyLoss implements LossFunction {
         return logits.crossEntropyGradient(targets);
     }
 
+    public static float loss(Tensor logits, int[] targets, boolean[] mask) {
+        checkTargets(logits, targets);
+        checkMask(logits, mask);
+        return Tensor.backend().crossEntropyLoss(logits, targets, mask);
+    }
+
+    public static Tensor gradient(Tensor logits, int[] targets, boolean[] mask) {
+        checkTargets(logits, targets);
+        checkMask(logits, mask);
+        return Tensor.backend().crossEntropyGradient(logits, targets, mask);
+    }
+
     public static int[] toIntTargets(Tensor actual) {
         if (actual.cols != 1) {
             throw new IllegalArgumentException(
@@ -73,5 +85,13 @@ public final class CrossEntropyLoss implements LossFunction {
                 );
             }
         }
+    }
+
+    private static void checkMask(Tensor logits, boolean[] mask) {
+        if (mask == null || mask.length != logits.rows) {
+            throw new IllegalArgumentException("loss mask must match logits rows");
+        }
+        for (boolean included : mask) if (included) return;
+        throw new IllegalArgumentException("loss mask must include at least one row");
     }
 }

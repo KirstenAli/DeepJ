@@ -13,7 +13,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Objects;
 
-public final class RandomAccessTextDataset implements BatchSource, AutoCloseable {
+public final class RandomAccessTextDataset implements StatefulBatchSource, AutoCloseable {
 
     private static final int MIN_WINDOW_BYTES = 4 * 1024;
     private static final int MAX_WINDOW_BYTES = 8 * 1024 * 1024;

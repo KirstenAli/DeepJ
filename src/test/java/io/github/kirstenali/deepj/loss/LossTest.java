@@ -84,6 +84,34 @@ public class LossTest {
     }
 
     @Test
+    void maskedCrossEntropyUsesOnlyIncludedRows() {
+        Tensor logits = Tensor.from2D(new float[][]{{1, 2, 3}, {3, 2, 1}});
+        Tensor expectedLogits = Tensor.from2D(new float[][]{{3, 2, 1}});
+        int[] targets = {2, 0};
+        boolean[] mask = {false, true};
+        float expected = CrossEntropyLoss.loss(expectedLogits, new int[]{0});
+        Assertions.assertEquals(expected, CrossEntropyLoss.loss(logits, targets, mask), 1e-6f);
+        assertMaskedGradient(logits, targets, mask, expectedLogits);
+    }
+
+    private static void assertMaskedGradient(Tensor logits, int[] targets, boolean[] mask,
+                                             Tensor expectedLogits) {
+        Tensor actual = CrossEntropyLoss.gradient(logits, targets, mask);
+        Tensor expectedRow = CrossEntropyLoss.gradient(expectedLogits, new int[]{0});
+        Assertions.assertArrayEquals(new float[]{0, 0, 0},
+                java.util.Arrays.copyOfRange(actual.data, 0, 3), 1e-7f);
+        Assertions.assertArrayEquals(expectedRow.data,
+                java.util.Arrays.copyOfRange(actual.data, 3, 6), 1e-6f);
+    }
+
+    @Test
+    void maskedCrossEntropyRejectsEmptyMask() {
+        Tensor logits = Tensor.from2D(new float[][]{{1, 2, 3}});
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CrossEntropyLoss.loss(logits, new int[]{0}, new boolean[]{false}));
+    }
+
+    @Test
     void crossEntropyGradient_multiRow_isSoftmaxMinusOneHot_dividedByRowCount() {
         Tensor logits = Tensor.from2D(new float[][]{
                 {1, 2, 3},
