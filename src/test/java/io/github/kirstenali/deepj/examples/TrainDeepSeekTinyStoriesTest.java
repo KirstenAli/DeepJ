@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,6 +72,9 @@ class TrainDeepSeekTinyStoriesTest {
         assertTrue(Files.isRegularFile(bundle.resolve("tokenizer.bpe")));
         assertTrue(Files.isRegularFile(bundle.resolve("config.json")));
         assertTrue(Files.isRegularFile(bundle.resolve("README.md")));
+        String modelCard = Files.readString(bundle.resolve("README.md"));
+        assertTrue(modelCard.contains("# DeepJ TinyStories"));
+        assertFalse(modelCard.contains("causal language model"));
     }
 
     @Test
