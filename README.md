@@ -8,7 +8,7 @@
 [![Java 20](https://img.shields.io/badge/Java-20%2B-blue)](https://adoptium.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation, GPT-, Llama-, and DeepSeek-style models, BPE tokenization, training utilities, model persistence, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes built-in gradient calculations for model training, GPT-, Llama-, and DeepSeek-style models, BPE tokenization, training utilities, model persistence, and optional Apple Metal acceleration.
 
 DeepJ is an alpha project. Its model implementations are compact educational architectures, not drop-in reproductions of the official GPT, Llama, or DeepSeek releases.
 
@@ -28,7 +28,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ## What is included
 
-- A two-dimensional `Tensor` API with automatic differentiation.
+- A two-dimensional `Tensor` API and built-in gradient calculations for model training.
 - CPU execution and an optional Metal backend for Apple Silicon macOS.
 - GPT-style attention with learned positions, LayerNorm, and GELU.
 - Llama-style attention with RoPE, RMSNorm, and SwiGLU.
@@ -152,7 +152,7 @@ Run the complete test and style suite with JDK 20:
 JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean test
 ```
 
-The numerical tests compare analytic gradients with finite differences. On supported Apple hardware, `MetalBackendDifferentialTest` also compares CPU and Metal forward passes, backward passes, and parameter gradients:
+The numerical tests compare gradients calculated by the model layers with estimates from small input changes. On supported Apple hardware, `MetalBackendDifferentialTest` also compares CPU and Metal forward passes, backward passes, and parameter gradients:
 
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 20) \
@@ -163,6 +163,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 20) \
 
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
+- Each model layer has its own gradient code. DeepJ does not calculate gradients automatically for every tensor operation.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
 - Generation does not yet use a KV cache.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
