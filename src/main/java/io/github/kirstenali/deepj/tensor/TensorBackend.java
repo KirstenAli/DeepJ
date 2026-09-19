@@ -95,6 +95,13 @@ public interface TensorBackend {
 
     float crossEntropyLoss(Tensor logits, int[] targets);
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
+
+    default CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
+        Tensor loss = new Tensor(1, 1);
+        loss.data[0] = crossEntropyLoss(logits, targets);
+        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets));
+    }
+
     float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask);
     Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask);
 
@@ -103,6 +110,21 @@ public interface TensorBackend {
                      float weightDecay, float bc1, float bc2);
 
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
+
+    default RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
+        Tensor meanSquare = meanAlongRows(multiply(input, input));
+        Tensor rms = sqrt(addScalar(meanSquare, epsilon));
+        Tensor normalized = divideBroadcastCols(input, rms);
+        return new RmsNormResult(multiplyBroadcastRows(normalized, gamma), normalized, rms);
+    }
+
+    default Tensor rmsNormBackward(Tensor gradient, Tensor normalized,
+                                   Tensor rms, Tensor gamma) {
+        Tensor scaled = multiplyBroadcastRows(gradient, gamma);
+        Tensor inner = meanAlongRows(multiply(scaled, normalized));
+        return divideBroadcastCols(subtract(scaled,
+                multiplyBroadcastCols(normalized, inner)), rms);
+    }
 
     void scatterAddRows(Tensor target, int[] indices, Tensor grad);
 

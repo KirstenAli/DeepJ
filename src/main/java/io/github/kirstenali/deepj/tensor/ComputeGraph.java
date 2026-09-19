@@ -57,6 +57,10 @@ public final class ComputeGraph {
     public static final int OP_ROTARY = 48;
     public static final int OP_GATHER_ROWS = 49;
     public static final int OP_CAUSAL_SOFTMAX = 50;
+    public static final int OP_CROSS_ENTROPY_FUSED = 51;
+    public static final int OP_SUM_SQUARES_SCALAR = 52;
+    public static final int OP_RMS_NORM = 53;
+    public static final int OP_RMS_NORM_BACKWARD = 54;
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
@@ -81,7 +85,7 @@ public final class ComputeGraph {
     }
 
     private static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_CAUSAL_SOFTMAX + 1];
+        OpMeta[] meta = new OpMeta[OP_RMS_NORM_BACKWARD + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -129,11 +133,13 @@ public final class ComputeGraph {
         registerMeta(meta, OP_SUM_ABS, 5, 1, 2);
         registerMeta(meta, OP_SUM_SQUARES, 5, 1, 2);
         registerMeta(meta, OP_SUM_SCALAR, 5, 1, 2);
+        registerMeta(meta, OP_SUM_SQUARES_SCALAR, 4, 1, 2);
     }
 
     private static void registerLossMeta(OpMeta[] meta) {
         registerMeta(meta, OP_CROSS_ENTROPY_LOSS, 6, 1, 2, 3);
         registerMeta(meta, OP_CROSS_ENTROPY_GRADIENT, 6, 1, 2, 3);
+        registerMeta(meta, OP_CROSS_ENTROPY_FUSED, 7, 1, 2, 3, 4);
         registerMeta(meta, OP_SCATTER_ADD_ROWS_ATOMIC, 7, 1, 2, 3);
     }
 
@@ -161,6 +167,8 @@ public final class ComputeGraph {
         registerMeta(meta, OP_MATMUL, 7, 1, 2, 3);
         registerMeta(meta, OP_LAYERNORM_BACKWARD, 7, 1, 2, 3, 4);
         registerMeta(meta, OP_ADAMW_UPDATE, 13, 1, 2, 3, 4);
+        registerMeta(meta, OP_RMS_NORM, 9, 1, 2, 3, 4, 5);
+        registerMeta(meta, OP_RMS_NORM_BACKWARD, 8, 1, 2, 3, 4, 5);
     }
 
     private static void registerMeta(OpMeta[] meta, int op, int stride, int... bufferArgOffsets) {
@@ -429,6 +437,13 @@ public final class ComputeGraph {
         endOp();
     }
 
+    public void recordSumSquaresScalar(GpuBuffer input, GpuBuffer total) {
+        beginOp(4);
+        emitInt(OP_SUM_SQUARES_SCALAR);
+        emitInt(input.id); emitInt(total.id); emitInt(input.floatCount());
+        endOp();
+    }
+
     public void recordCrossEntropyLoss(GpuBuffer logits, GpuBuffer targets, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_CROSS_ENTROPY_LOSS);
@@ -448,6 +463,37 @@ public final class ComputeGraph {
         emitInt(out.id);
         emitInt(rows);
         emitInt(cols);
+        endOp();
+    }
+
+    public void recordCrossEntropy(GpuBuffer logits, GpuBuffer targets,
+                                   GpuBuffer losses, GpuBuffer gradient,
+                                   int rows, int cols) {
+        beginOp(7);
+        emitInt(OP_CROSS_ENTROPY_FUSED);
+        emitInt(logits.id); emitInt(targets.id);
+        emitInt(losses.id); emitInt(gradient.id);
+        emitInt(rows); emitInt(cols);
+        endOp();
+    }
+
+    public void recordRmsNorm(GpuBuffer input, GpuBuffer gamma, GpuBuffer output,
+                              GpuBuffer normalized, GpuBuffer rms,
+                              int rows, int cols, float epsilon) {
+        beginOp(9);
+        emitInt(OP_RMS_NORM); emitInt(input.id); emitInt(gamma.id);
+        emitInt(output.id); emitInt(normalized.id); emitInt(rms.id);
+        emitInt(rows); emitInt(cols); emitFloatBits(epsilon);
+        endOp();
+    }
+
+    public void recordRmsNormBackward(GpuBuffer gradient, GpuBuffer normalized,
+                                      GpuBuffer rms, GpuBuffer gamma,
+                                      GpuBuffer output, int rows, int cols) {
+        beginOp(8);
+        emitInt(OP_RMS_NORM_BACKWARD); emitInt(gradient.id); emitInt(normalized.id);
+        emitInt(rms.id); emitInt(gamma.id); emitInt(output.id);
+        emitInt(rows); emitInt(cols);
         endOp();
     }
 

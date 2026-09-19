@@ -367,19 +367,12 @@ public final class MetalBackend implements TensorBackend {
     @Override
     public float l2Norm(List<Tensor> tensors) {
         if (tensors.isEmpty()) return 0.0f;
-        Tensor total = null;
-        for (Tensor tensor : tensors) {
-            Tensor squared = sumSquaresTensor(tensor);
-            total = total == null ? squared : add(total, squared);
-        }
+        Tensor total = new Tensor(1, 1);
+        GpuBuffer output = gpuIn(total);
+        for (Tensor tensor : tensors) graph.recordSumSquaresScalar(gpuIn(tensor), output);
+        output.cpuStale = true;
         total.materialize();
         return (float) Math.sqrt(total.data[0]);
-    }
-
-    private Tensor sumSquaresTensor(Tensor tensor) {
-        GpuBuffer rows = graph.newOutputBuffer(tensor.rows, 1);
-        graph.recordSumSquares(gpuIn(tensor), rows, tensor.rows, tensor.cols);
-        return sumRows(gpuOut(rows));
     }
 
     @Override
@@ -644,6 +637,18 @@ public final class MetalBackend implements TensorBackend {
     }
 
     @Override
+    public CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
+        Tensor.requireTargetsMatchRows(logits, targets);
+        Tensor targetTensor = immutableIntColumn(targets);
+        GpuBuffer losses = graph.newOutputBuffer(logits.rows, 1);
+        GpuBuffer gradient = graph.newOutputBuffer(logits.rows, logits.cols);
+        graph.recordCrossEntropy(gpuIn(logits), gpuIn(targetTensor), losses,
+                gradient, logits.rows, logits.cols);
+        Tensor meanLoss = divideScalar(sumRows(gpuOut(losses)), logits.rows);
+        return new CrossEntropyResult(meanLoss, gpuOut(gradient));
+    }
+
+    @Override
     public float crossEntropyLoss(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
 
@@ -733,6 +738,38 @@ public final class MetalBackend implements TensorBackend {
         GpuBuffer gOut   = graph.newOutputBuffer(dXHat.rows, dXHat.cols);
         graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.rows, dXHat.cols);
         return gpuOut(gOut);
+    }
+
+    @Override
+    public RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
+        requireRmsNormShapes(input, gamma, input.rows, 1);
+        GpuBuffer output = graph.newOutputBuffer(input.rows, input.cols);
+        GpuBuffer normalized = graph.newOutputBuffer(input.rows, input.cols);
+        GpuBuffer rms = graph.newOutputBuffer(input.rows, 1);
+        graph.recordRmsNorm(gpuIn(input), gpuIn(gamma), output, normalized,
+                rms, input.rows, input.cols, epsilon);
+        return new RmsNormResult(gpuOut(output), gpuOut(normalized), gpuOut(rms));
+    }
+
+    @Override
+    public Tensor rmsNormBackward(Tensor gradient, Tensor normalized,
+                                  Tensor rms, Tensor gamma) {
+        Tensor.requireSameShape(gradient, normalized, "rmsNormBackward");
+        requireRmsNormShapes(gradient, gamma, rms.rows, rms.cols);
+        GpuBuffer output = graph.newOutputBuffer(gradient.rows, gradient.cols);
+        graph.recordRmsNormBackward(gpuIn(gradient), gpuIn(normalized), gpuIn(rms),
+                gpuIn(gamma), output, gradient.rows, gradient.cols);
+        return gpuOut(output);
+    }
+
+    private static void requireRmsNormShapes(Tensor input, Tensor gamma,
+                                             int rmsRows, int rmsCols) {
+        if (gamma.rows != 1 || gamma.cols != input.cols) {
+            throw new IllegalArgumentException("RMSNorm gamma must match input columns");
+        }
+        if (rmsRows != input.rows || rmsCols != 1) {
+            throw new IllegalArgumentException("RMSNorm scale must match input rows");
+        }
     }
 
     private static void validateScatterAddRowsInputs(Tensor target, int[] indices, Tensor grad) {

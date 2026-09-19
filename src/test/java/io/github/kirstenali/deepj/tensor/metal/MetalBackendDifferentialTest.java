@@ -10,6 +10,8 @@ import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.models.llama.LlamaConfig;
 import io.github.kirstenali.deepj.models.llama.LlamaModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
+import io.github.kirstenali.deepj.tensor.RmsNormResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -118,6 +120,38 @@ class MetalBackendDifferentialTest {
         Tensor actualGradient = metal.crossEntropyGradient(new Tensor(logits), targets, mask);
         assertEquals(expectedLoss, actualLoss, 1e-3f);
         assertTensorClose(expectedGradient, actualGradient, 1e-3f, 1e-2f);
+    }
+
+    @Test
+    void fusedCrossEntropyMatchesCpu() {
+        Tensor logits = random(17, 769, 15L);
+        int[] targets = randomTargets(logits.rows, logits.cols, 16L);
+        float expectedLoss = cpu.crossEntropyLoss(new Tensor(logits), targets);
+        Tensor expectedGradient = cpu.crossEntropyGradient(new Tensor(logits), targets);
+        CrossEntropyResult actual = metal.crossEntropy(new Tensor(logits), targets);
+        assertEquals(expectedLoss, actual.meanLoss(), 1e-3f);
+        assertTensorClose(expectedGradient, actual.gradient(), 1e-3f, 1e-2f);
+    }
+
+    @Test
+    void fusedRmsNormMatchesCpu() {
+        Tensor input = random(11, 37, 17L);
+        Tensor gamma = positive(1, input.cols, 18L);
+        Tensor gradient = random(input.rows, input.cols, 19L);
+        RmsNormResult expected = cpu.rmsNorm(input, gamma, 1e-6f);
+        RmsNormResult actual = metal.rmsNorm(new Tensor(input), new Tensor(gamma), 1e-6f);
+        assertRmsNormClose(expected, actual);
+        Tensor expectedBackward = cpu.rmsNormBackward(gradient,
+                expected.normalized(), expected.rms(), gamma);
+        Tensor actualBackward = metal.rmsNormBackward(new Tensor(gradient),
+                actual.normalized(), actual.rms(), new Tensor(gamma));
+        assertTensorClose(expectedBackward, actualBackward, 2e-4f, 2e-4f);
+    }
+
+    private static void assertRmsNormClose(RmsNormResult expected, RmsNormResult actual) {
+        assertTensorClose(expected.output(), actual.output(), 2e-4f, 2e-4f);
+        assertTensorClose(expected.normalized(), actual.normalized(), 2e-4f, 2e-4f);
+        assertTensorClose(expected.rms(), actual.rms(), 2e-4f, 2e-4f);
     }
 
     @Test
@@ -324,6 +358,13 @@ class MetalBackendDifferentialTest {
 
     private Tensor positive(int rows, int cols, long seed) {
         return cpu.addScalar(random(rows, cols, seed), 1.0f);
+    }
+
+    private static int[] randomTargets(int rows, int columns, long seed) {
+        Random random = new Random(seed);
+        int[] targets = new int[rows];
+        for (int row = 0; row < rows; row++) targets[row] = random.nextInt(columns);
+        return targets;
     }
 
     private static List<Tensor> copyGradients(List<Parameter> parameters) {
