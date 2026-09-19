@@ -3,155 +3,48 @@ package io.github.kirstenali.deepj.layers.transformer.attention;
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 final class HeadOps {
 
     private HeadOps() {}
 
-    private static final Map<Integer, Tensor> CAUSAL_MASK_CACHE = new ConcurrentHashMap<>();
-
     record AttentionGrads(Tensor dScores, Tensor dVh) {}
     record QKGrads(Tensor dQh, Tensor dKh) {}
 
-    static Tensor splitHeads(Tensor t, int seqLen, int nHeads, int headDim, int dModel) {
-
-        t.materialize();
-        Tensor out = new Tensor(nHeads * seqLen, headDim);
-        for (int i = 0; i < seqLen; i++) {
-            int srcBase = i * dModel;
-            for (int h = 0; h < nHeads; h++) {
-                System.arraycopy(t.data, srcBase + h * headDim,
-                                 out.data, (h * seqLen + i) * headDim,
-                                 headDim);
-            }
-        }
-        return out;
+    static Tensor splitHeads(Tensor tensor, int heads) {
+        return Tensor.backend().splitHeads(tensor, heads);
     }
 
-    static Tensor mergeHeads(Tensor t, int seqLen, int nHeads, int headDim, int dModel) {
-        t.materialize();
-        Tensor out = new Tensor(seqLen, dModel);
-        for (int i = 0; i < seqLen; i++) {
-            int dstBase = i * dModel;
-            for (int h = 0; h < nHeads; h++) {
-                System.arraycopy(t.data, (h * seqLen + i) * headDim,
-                                 out.data, dstBase + h * headDim,
-                                 headDim);
-            }
-        }
-        return out;
+    static Tensor mergeHeads(Tensor tensor, int heads) {
+        return Tensor.backend().mergeHeads(tensor, heads);
     }
 
-    static Tensor extractBlock(Tensor t, int rowStart, int numRows, int numCols) {
-        t.materialize();
-        Tensor block = new Tensor(numRows, numCols);
-        System.arraycopy(t.data, rowStart * numCols, block.data, 0, numRows * numCols);
-        return block;
+    static Tensor dotProductScores(Tensor queries, Tensor keys, int heads) {
+        return batched(queries, keys, heads, false, true);
     }
 
-    static void insertBlock(Tensor target, Tensor block, int rowStart, int numRows, int numCols) {
-        block.materialize();
-        System.arraycopy(block.data, 0, target.data, rowStart * numCols, numRows * numCols);
-    }
-
-    static Tensor scaledDotProductScores(Tensor qh, Tensor kh,
-                                         int nHeads, int seqLen, int headDim, float scale) {
-        Tensor out = new Tensor(nHeads * seqLen, seqLen);
-        for (int h = 0; h < nHeads; h++) {
-            Tensor q = extractBlock(qh, h * seqLen, seqLen, headDim);
-            Tensor k = extractBlock(kh, h * seqLen, seqLen, headDim);
-            Tensor s = q.matmul(k.transpose());
-            s.multiplyScalarInPlace(scale);
-            s.materialize();
-            insertBlock(out, s, h * seqLen, seqLen, seqLen);
-        }
-        return out;
-    }
-
-    static Tensor applyCausalMask(Tensor scores, int nHeads, int seqLen) {
-        Tensor mask = CAUSAL_MASK_CACHE.computeIfAbsent(seqLen, HeadOps::buildCausalMask);
-        Tensor out  = new Tensor(nHeads * seqLen, seqLen);
-        for (int h = 0; h < nHeads; h++) {
-            Tensor block = extractBlock(scores, h * seqLen, seqLen, seqLen);
-            Tensor masked = block.add(mask);
-            masked.materialize();
-            insertBlock(out, masked, h * seqLen, seqLen, seqLen);
-        }
-        return out;
-    }
-
-    private static Tensor buildCausalMask(int seqLen) {
-        Tensor mask = new Tensor(seqLen, seqLen);
-        for (int r = 0; r < seqLen; r++) {
-            int base = r * seqLen;
-            for (int c = 0; c < seqLen; c++) {
-                mask.data[base + c] = (c > r) ? -1e9f : 0.0f;
-            }
-        }
-        return mask;
-    }
-
-    static Tensor applyAttentionToValues(Tensor attnProb, Tensor vh,
-                                         int nHeads, int seqLen, int headDim) {
-        Tensor out = new Tensor(nHeads * seqLen, headDim);
-        for (int h = 0; h < nHeads; h++) {
-            Tensor a = extractBlock(attnProb, h * seqLen, seqLen, seqLen);
-            Tensor v = extractBlock(vh,       h * seqLen, seqLen, headDim);
-            Tensor y = a.matmul(v);
-            y.materialize();
-            insertBlock(out, y, h * seqLen, seqLen, headDim);
-        }
-        return out;
+    static Tensor applyAttentionToValues(Tensor attention, Tensor values, int heads) {
+        return batched(attention, values, heads, false, false);
     }
 
     static AttentionGrads backwardAttentionAndValues(
-            Tensor dOutH, Tensor vh, Tensor attnProb,
-            ActivationFunction softmax, float scale,
-            int nHeads, int seqLen, int headDim) {
-
-        Tensor dAttn = new Tensor(nHeads * seqLen, seqLen);
-        Tensor dVh   = new Tensor(nHeads * seqLen, headDim);
-
-        for (int h = 0; h < nHeads; h++) {
-            Tensor doBlock = extractBlock(dOutH,    h * seqLen, seqLen, headDim);
-            Tensor vBlock  = extractBlock(vh,       h * seqLen, seqLen, headDim);
-            Tensor aBlock  = extractBlock(attnProb, h * seqLen, seqLen, seqLen);
-
-            Tensor dAttnBlock = doBlock.matmul(vBlock.transpose());
-            Tensor dVhBlock   = aBlock.transpose().matmul(doBlock);
-            dAttnBlock.materialize();
-            dVhBlock.materialize();
-            insertBlock(dAttn, dAttnBlock, h * seqLen, seqLen, seqLen);
-            insertBlock(dVh,   dVhBlock,   h * seqLen, seqLen, headDim);
-        }
-
-        Tensor dScores = softmax.backward(dAttn);
-        dScores.multiplyScalarInPlace(scale);
-        return new AttentionGrads(dScores, dVh);
+            Tensor outputGradient, Tensor values, Tensor attention,
+            ActivationFunction softmax, float scale, int heads) {
+        Tensor attentionGradient = batched(outputGradient, values, heads, false, true);
+        Tensor valueGradient = batched(attention, outputGradient, heads, true, false);
+        Tensor scoreGradient = softmax.backward(attentionGradient).multiplyScalar(scale);
+        return new AttentionGrads(scoreGradient, valueGradient);
     }
 
     static QKGrads backwardQueriesAndKeys(
-            Tensor dScores, Tensor qh, Tensor kh,
-            int nHeads, int seqLen, int headDim) {
+            Tensor scoreGradient, Tensor queries, Tensor keys, int heads) {
+        Tensor queryGradient = batched(scoreGradient, keys, heads, false, false);
+        Tensor keyGradient = batched(scoreGradient, queries, heads, true, false);
+        return new QKGrads(queryGradient, keyGradient);
+    }
 
-        Tensor dQh = new Tensor(nHeads * seqLen, headDim);
-        Tensor dKh = new Tensor(nHeads * seqLen, headDim);
-
-        for (int h = 0; h < nHeads; h++) {
-            Tensor ds = extractBlock(dScores, h * seqLen, seqLen, seqLen);
-            Tensor q  = extractBlock(qh,      h * seqLen, seqLen, headDim);
-            Tensor k  = extractBlock(kh,      h * seqLen, seqLen, headDim);
-
-            Tensor dQhBlock = ds.matmul(k);
-            Tensor dKhBlock = ds.transpose().matmul(q);
-            dQhBlock.materialize();
-            dKhBlock.materialize();
-            insertBlock(dQh, dQhBlock, h * seqLen, seqLen, headDim);
-            insertBlock(dKh, dKhBlock, h * seqLen, seqLen, headDim);
-        }
-
-        return new QKGrads(dQh, dKh);
+    private static Tensor batched(Tensor left, Tensor right, int heads,
+                                  boolean transposeLeft, boolean transposeRight) {
+        return Tensor.backend().batchedMatmul(
+                left, right, heads, transposeLeft, transposeRight);
     }
 }

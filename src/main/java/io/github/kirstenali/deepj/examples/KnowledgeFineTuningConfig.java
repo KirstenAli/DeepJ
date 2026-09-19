@@ -1,8 +1,10 @@
 package io.github.kirstenali.deepj.examples;
 
+import io.github.kirstenali.deepj.data.ResponseOnlyTextDataset;
 import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 
 import java.nio.file.Path;
+import java.util.List;
 
 record KnowledgeFineTuningConfig(FilesConfig files, Training training,
                                  int alpacaWeight, int factWeight, long seed) {
@@ -17,6 +19,14 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
         return new KnowledgeFineTuningConfig(FilesConfig.fromSystemProperties(base),
                 Training.fromSystemProperties(), integer("deepj.alpacaWeight", 1),
                 integer("deepj.factWeight", 1), Long.getLong("deepj.seed", 43L));
+    }
+
+    ResponseFineTuningConfig responseConfig() {
+        var genericFiles = new ResponseFineTuningConfig.FilesConfig(
+                files.base(), files.output(), files.initialModel(), files.resume());
+        var sources = List.of(new ResponseOnlyTextDataset.Source(files.alpaca(), alpacaWeight),
+                new ResponseOnlyTextDataset.Source(files.facts(), factWeight));
+        return new ResponseFineTuningConfig(genericFiles, training.responseConfig(), sources, seed);
     }
 
     record FilesConfig(Path base, Path output, Path alpaca, Path facts,
@@ -46,6 +56,11 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
                     decimal("deepj.learningRate", 5e-5f), decimal("deepj.minLearningRate", 5e-6f),
                     integer("deepj.warmupSteps", 500), integer("deepj.logEvery", 100),
                     integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 25));
+        }
+
+        ResponseFineTuningConfig.Training responseConfig() {
+            return new ResponseFineTuningConfig.Training(steps, batchSize, peakLearningRate,
+                    minimumLearningRate, warmupSteps, logEvery, checkpointEvery, releaseEvery);
         }
     }
 

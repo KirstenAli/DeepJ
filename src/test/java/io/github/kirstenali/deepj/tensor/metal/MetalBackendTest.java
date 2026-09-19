@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -150,6 +151,16 @@ public final class MetalBackendTest {
     }
 
     @Test
+    void globalL2NormMatchesCpu() {
+        withGpuBackend(MetalBackendTest::assertGlobalL2Norm);
+    }
+
+    @Test
+    void temporaryReleaseKeepsRetainedBuffer() {
+        withGpuBackend(MetalBackendTest::assertTemporaryRelease);
+    }
+
+    @Test
     void softmaxBackwardMatchesCpu() {
         withGpuBackend(MetalBackendTest::assertSoftmaxBackward);
     }
@@ -245,6 +256,23 @@ public final class MetalBackendTest {
         assertTensorClose(cpu.maxAlongRows(a), backend.maxAlongRows(a), 1e-4f, 1e-4f);
         assertTensorClose(cpu.clamp(a, -0.25f, 0.35f), backend.clamp(a, -0.25f, 0.35f), 1e-4f, 1e-4f);
         assertTensorClose(cpu.pow(a, 2.0f), backend.pow(a, 2.0f), 1e-4f, 1e-4f);
+    }
+
+    private static void assertGlobalL2Norm(MetalBackend backend) {
+        List<Tensor> tensors = List.of(randomTensor(7, 11, 126L),
+                randomTensor(3, 5, 127L));
+        assertEquals(cpu.l2Norm(tensors), backend.l2Norm(tensors), 1e-4f);
+    }
+
+    private static void assertTemporaryRelease(MetalBackend backend) {
+        Tensor retained = randomTensor(4, 4, 128L).retainDeviceBuffer();
+        Tensor temporary = backend.neg(retained);
+        temporary.materialize();
+        Object retainedTag = retained.getGpuTag();
+        backend.releaseTemporaryResources();
+        assertSame(retainedTag, retained.getGpuTag());
+        assertNull(temporary.getGpuTag());
+        assertTensorClose(cpu.neg(retained), backend.neg(retained), 1e-6f, 1e-6f);
     }
 
     private static void assertScatterRows(long targetSeed, long gradientSeed,

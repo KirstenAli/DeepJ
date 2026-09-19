@@ -1,8 +1,42 @@
 package io.github.kirstenali.deepj.tensor;
 
+import java.util.List;
+
 public interface TensorBackend {
 
     Tensor matmul(Tensor a, Tensor b);
+
+    default Tensor sliceRows(Tensor input, int[] rows) {
+        return TensorBackendDefaults.sliceRows(input, rows);
+    }
+
+    default Tensor splitHeads(Tensor input, int heads) {
+        return TensorBackendDefaults.splitHeads(input, heads);
+    }
+
+    default Tensor mergeHeads(Tensor input, int heads) {
+        return TensorBackendDefaults.mergeHeads(input, heads);
+    }
+
+    default Tensor batchedMatmul(Tensor left, Tensor right, int batches,
+                                 boolean transposeLeft, boolean transposeRight) {
+        return TensorBackendDefaults.batchedMatmul(
+                left, right, batches, transposeLeft, transposeRight);
+    }
+
+    default Tensor causalMask(Tensor input, int sequenceLength) {
+        return TensorBackendDefaults.causalMask(input, sequenceLength);
+    }
+
+    default Tensor causalSoftmax(Tensor input, int sequenceLength, float scale) {
+        Tensor scaled = multiplyScalar(input, scale);
+        return softmaxRows(causalMask(scaled, sequenceLength));
+    }
+
+    default Tensor rotary(Tensor input, Tensor cosine, Tensor sine,
+                          int sequenceLength, boolean inverse) {
+        return TensorBackendDefaults.rotary(input, cosine, sine, sequenceLength, inverse);
+    }
 
     Tensor add(Tensor a, Tensor b);
     Tensor subtract(Tensor a, Tensor b);
@@ -32,6 +66,15 @@ public interface TensorBackend {
     float sum(Tensor a);
     float sumAbs(Tensor a);
 
+    default float l2Norm(List<Tensor> tensors) {
+        float squares = 0.0f;
+        for (Tensor tensor : tensors) {
+            tensor.materialize();
+            for (float value : tensor.data) squares += value * value;
+        }
+        return (float) Math.sqrt(squares);
+    }
+
     Tensor transpose(Tensor a);
     Tensor clamp(Tensor a, float min, float max);
     Tensor sqrt(Tensor a);
@@ -52,6 +95,13 @@ public interface TensorBackend {
 
     float crossEntropyLoss(Tensor logits, int[] targets);
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
+
+    default CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
+        Tensor loss = new Tensor(1, 1);
+        loss.data[0] = crossEntropyLoss(logits, targets);
+        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets));
+    }
+
     float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask);
     Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask);
 
@@ -60,6 +110,36 @@ public interface TensorBackend {
                      float weightDecay, float bc1, float bc2);
 
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
+
+    default RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
+        Tensor meanSquare = meanAlongRows(multiply(input, input));
+        Tensor rms = sqrt(addScalar(meanSquare, epsilon));
+        Tensor normalized = divideBroadcastCols(input, rms);
+        return new RmsNormResult(multiplyBroadcastRows(normalized, gamma), normalized, rms);
+    }
+
+    default Tensor rmsNormBackward(Tensor gradient, Tensor normalized,
+                                   Tensor rms, Tensor gamma) {
+        Tensor scaled = multiplyBroadcastRows(gradient, gamma);
+        Tensor inner = meanAlongRows(multiply(scaled, normalized));
+        return divideBroadcastCols(subtract(scaled,
+                multiplyBroadcastCols(normalized, inner)), rms);
+    }
+
+    default Tensor swiGlu(Tensor gate, Tensor up) {
+        Tensor activated = multiply(gate, sigmoid(gate));
+        return multiply(activated, up);
+    }
+
+    default SwiGluBackwardResult swiGluBackward(Tensor gradient, Tensor gate,
+                                                Tensor up) {
+        Tensor sigmoid = sigmoid(gate);
+        Tensor activated = multiply(gate, sigmoid);
+        Tensor complement = addScalar(multiplyScalar(sigmoid, -1.0f), 1.0f);
+        Tensor derivative = add(sigmoid, multiply(activated, complement));
+        Tensor gateGradient = multiply(multiply(gradient, up), derivative);
+        return new SwiGluBackwardResult(gateGradient, multiply(gradient, activated));
+    }
 
     void scatterAddRows(Tensor target, int[] indices, Tensor grad);
 
@@ -82,6 +162,8 @@ public interface TensorBackend {
     void sigmoidInPlace(Tensor a);
 
     default void materializeTensor(Tensor t) {  }
+
+    default void releaseTemporaryResources() { releaseResources(); }
 
     default void releaseResources() {  }
 }

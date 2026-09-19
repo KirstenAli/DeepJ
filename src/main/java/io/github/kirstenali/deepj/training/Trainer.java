@@ -153,7 +153,7 @@ public final class Trainer {
     private static void maybeReleaseResources(int step, int releaseEverySteps) {
         int completedSteps = step + 1;
         if (releaseEverySteps > 0 && completedSteps % releaseEverySteps == 0) {
-            Tensor.backend().releaseResources();
+            Tensor.backend().releaseTemporaryResources();
         }
     }
 

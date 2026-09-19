@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
+import io.github.kirstenali.deepj.data.Batch;
+import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
@@ -8,16 +10,22 @@ import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.models.llama.LlamaConfig;
 import io.github.kirstenali.deepj.models.llama.LlamaModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
+import io.github.kirstenali.deepj.tensor.RmsNormResult;
+import io.github.kirstenali.deepj.tensor.SwiGluBackwardResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import io.github.kirstenali.deepj.training.CausalLMTraining;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -116,6 +124,50 @@ class MetalBackendDifferentialTest {
     }
 
     @Test
+    void fusedCrossEntropyMatchesCpu() {
+        Tensor logits = random(17, 769, 15L);
+        int[] targets = randomTargets(logits.rows, logits.cols, 16L);
+        float expectedLoss = cpu.crossEntropyLoss(new Tensor(logits), targets);
+        Tensor expectedGradient = cpu.crossEntropyGradient(new Tensor(logits), targets);
+        CrossEntropyResult actual = metal.crossEntropy(new Tensor(logits), targets);
+        assertEquals(expectedLoss, actual.meanLoss(), 1e-3f);
+        assertTensorClose(expectedGradient, actual.gradient(), 1e-3f, 1e-2f);
+    }
+
+    @Test
+    void fusedRmsNormMatchesCpu() {
+        Tensor input = random(11, 37, 17L);
+        Tensor gamma = positive(1, input.cols, 18L);
+        Tensor gradient = random(input.rows, input.cols, 19L);
+        RmsNormResult expected = cpu.rmsNorm(input, gamma, 1e-6f);
+        RmsNormResult actual = metal.rmsNorm(new Tensor(input), new Tensor(gamma), 1e-6f);
+        assertRmsNormClose(expected, actual);
+        Tensor expectedBackward = cpu.rmsNormBackward(gradient,
+                expected.normalized(), expected.rms(), gamma);
+        Tensor actualBackward = metal.rmsNormBackward(new Tensor(gradient),
+                actual.normalized(), actual.rms(), new Tensor(gamma));
+        assertTensorClose(expectedBackward, actualBackward, 2e-4f, 2e-4f);
+    }
+
+    private static void assertRmsNormClose(RmsNormResult expected, RmsNormResult actual) {
+        assertTensorClose(expected.output(), actual.output(), 2e-4f, 2e-4f);
+        assertTensorClose(expected.normalized(), actual.normalized(), 2e-4f, 2e-4f);
+        assertTensorClose(expected.rms(), actual.rms(), 2e-4f, 2e-4f);
+    }
+
+    @Test
+    void fusedSwiGluMatchesCpu() {
+        Tensor gate = random(19, 31, 33L);
+        Tensor up = random(19, 31, 34L);
+        Tensor gradient = random(19, 31, 35L);
+        assertTensorClose(cpu.swiGlu(gate, up), metal.swiGlu(gate, up), 1e-5f, 1e-5f);
+        SwiGluBackwardResult expected = cpu.swiGluBackward(gradient, gate, up);
+        SwiGluBackwardResult actual = metal.swiGluBackward(gradient, gate, up);
+        assertTensorClose(expected.gateGradient(), actual.gateGradient(), 2e-5f, 2e-5f);
+        assertTensorClose(expected.upGradient(), actual.upGradient(), 2e-5f, 2e-5f);
+    }
+
+    @Test
     void queuedScatterIndicesRemainIndependent() {
         Tensor expectedA = Tensor.zeros(6, 2);
         Tensor expectedB = Tensor.zeros(6, 2);
@@ -131,6 +183,71 @@ class MetalBackendDifferentialTest {
     }
 
     @Test
+    void headLayoutOperationsMatchCpu() {
+        Tensor input = random(5, 12, 11L);
+        Tensor expectedSplit = cpu.splitHeads(new Tensor(input), 3);
+        Tensor actualSplit = metal.splitHeads(new Tensor(input), 3);
+        assertTensorClose(expectedSplit, actualSplit, 1e-5f, 1e-5f);
+        assertTensorClose(cpu.mergeHeads(expectedSplit, 3),
+                metal.mergeHeads(actualSplit, 3), 1e-5f, 1e-5f);
+    }
+
+    @Test
+    void batchedMatmulVariantsMatchCpu() {
+        compareBatched(random(12, 5, 12L), random(15, 6, 13L), false, false);
+        compareBatched(random(12, 5, 14L), random(18, 5, 15L), false, true);
+        compareBatched(random(15, 4, 16L), random(15, 6, 17L), true, false);
+        compareBatched(random(15, 4, 18L), random(18, 5, 19L), true, true);
+    }
+
+    @Test
+    void causalAttentionRotaryAndGatherMatchCpu() {
+        compareCausalMask();
+        compareCausalSoftmax();
+        compareRotary(false);
+        compareRotary(true);
+        compareGather();
+    }
+
+    private void compareBatched(Tensor left, Tensor right,
+                                boolean transposeLeft, boolean transposeRight) {
+        Tensor expected = cpu.batchedMatmul(new Tensor(left), new Tensor(right),
+                3, transposeLeft, transposeRight);
+        Tensor actual = metal.batchedMatmul(new Tensor(left), new Tensor(right),
+                3, transposeLeft, transposeRight);
+        assertTensorClose(expected, actual, 1e-4f, 1e-4f);
+    }
+
+    private void compareCausalMask() {
+        Tensor input = random(12, 4, 20L);
+        assertTensorClose(cpu.causalMask(new Tensor(input), 4),
+                metal.causalMask(new Tensor(input), 4), 1e-5f, 1e-5f);
+    }
+
+    private void compareCausalSoftmax() {
+        Tensor input = random(12, 4, 28L);
+        assertTensorClose(cpu.causalSoftmax(new Tensor(input), 4, 0.25f),
+                metal.causalSoftmax(new Tensor(input), 4, 0.25f), 1e-5f, 1e-5f);
+    }
+
+    private void compareRotary(boolean inverse) {
+        Tensor input = random(12, 6, inverse ? 25L : 21L);
+        Tensor cosine = random(4, 3, inverse ? 26L : 22L);
+        Tensor sine = random(4, 3, inverse ? 27L : 23L);
+        Tensor expected = cpu.rotary(input, cosine, sine, 4, inverse);
+        Tensor actual = metal.rotary(new Tensor(input), new Tensor(cosine),
+                new Tensor(sine), 4, inverse);
+        assertTensorClose(expected, actual, 1e-5f, 1e-5f);
+    }
+
+    private void compareGather() {
+        Tensor input = random(8, 5, 24L);
+        int[] rows = {7, 1, 4, 1};
+        assertTensorClose(cpu.sliceRows(input, rows),
+                metal.sliceRows(new Tensor(input), rows), 1e-5f, 1e-5f);
+    }
+
+    @Test
     void gptForwardBackwardAndParameterGradientsMatchCpu() {
         compareModel(() -> new GPTModel(new GPTConfig(11, 4, 4, 2, 1, 6), 21L));
     }
@@ -143,6 +260,60 @@ class MetalBackendDifferentialTest {
     @Test
     void deepSeekForwardBackwardAndParameterGradientsMatchCpu() {
         compareModel(() -> new DeepSeekModel(new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2), 23L));
+    }
+
+    @Test
+    void deepSeekForwardBackwardDoesNotDownloadIntermediateTensors() {
+        AtomicInteger downloads = new AtomicInteger();
+        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
+        DecoderOnlyModel model = new DeepSeekModel(config, 25L);
+        Tensor.setBackend(countingBackend(downloads));
+        model.backward(model.forward(new int[]{1, 3, 5}).multiplyScalar(0.25f));
+        assertEquals(0, downloads.get());
+    }
+
+    private TensorBackend countingBackend(AtomicInteger downloads) {
+        return (TensorBackend) Proxy.newProxyInstance(
+                TensorBackend.class.getClassLoader(), new Class<?>[]{TensorBackend.class},
+                (proxy, method, args) -> invokeMetal(method.getName(), method, args, downloads));
+    }
+
+    private Object invokeMetal(String name, java.lang.reflect.Method method,
+                               Object[] args, AtomicInteger downloads) throws Exception {
+        if (name.equals("materializeTensor")) downloads.incrementAndGet();
+        return method.invoke(metal, args);
+    }
+
+    @Test
+    void temporaryReleaseDoesNotChangeRepeatedDeepSeekTraining() {
+        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
+        MetalBackend baseline = new MetalBackend();
+        Tensor.setBackend(baseline);
+        DecoderOnlyModel expected = new DeepSeekModel(config, 24L);
+        Tensor.setBackend(metal);
+        DecoderOnlyModel actual = new DeepSeekModel(config, 24L);
+        float expectedLoss = trainRepeated(baseline, expected, 0);
+        float actualLoss = trainRepeated(metal, actual, 1);
+        assertEquals(expectedLoss, actualLoss, 1e-5f);
+        assertParameterValuesClose(expected.parameters(), actual.parameters(), 1e-5f);
+    }
+
+    private static float trainRepeated(TensorBackend backend, DecoderOnlyModel model,
+                                       int releaseEvery) {
+        Tensor.setBackend(backend);
+        BatchSource source = ignored -> new Batch(new int[][]{{1, 3, 5, 7}},
+                new int[][]{{3, 5, 7, 2}});
+        return CausalLMTraining.trainer(model, source, 1e-3f)
+                .train(3, 1, 1000, 0.98f, null, releaseEvery).lastLoss();
+    }
+
+    private static void assertParameterValuesClose(List<Parameter> expected,
+                                                   List<Parameter> actual, float tolerance) {
+        assertEquals(expected.size(), actual.size());
+        for (int index = 0; index < expected.size(); index++) {
+            assertTensorClose(expected.get(index).value, actual.get(index).value,
+                    tolerance, tolerance, "parameter " + index);
+        }
     }
 
     private void compareModel(Supplier<DecoderOnlyModel> factory) {
@@ -200,6 +371,13 @@ class MetalBackendDifferentialTest {
 
     private Tensor positive(int rows, int cols, long seed) {
         return cpu.addScalar(random(rows, cols, seed), 1.0f);
+    }
+
+    private static int[] randomTargets(int rows, int columns, long seed) {
+        Random random = new Random(seed);
+        int[] targets = new int[rows];
+        for (int row = 0; row < rows; row++) targets[row] = random.nextInt(columns);
+        return targets;
     }
 
     private static List<Tensor> copyGradients(List<Parameter> parameters) {

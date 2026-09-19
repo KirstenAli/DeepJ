@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
-import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
@@ -26,7 +25,7 @@ public class MultiHeadSelfAttention implements Layer {
 
     private ForwardCache cache;
 
-    private final ActivationFunction softmax;
+    private final Softmax softmax;
 
     public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd) {
         validateDimensions(dModel, nHeads);
@@ -64,12 +63,8 @@ public class MultiHeadSelfAttention implements Layer {
         Tensor cachedQh = transformQueryKey(qh, x.rows);
         Tensor cachedKh = transformQueryKey(kh, x.rows);
 
-        Tensor scores = computeScaledDotProductScores(cachedQh, cachedKh, x.rows);
-        if (causalMask) {
-            scores = applyCausalMask(scores, x.rows);
-        }
-
-        Tensor attnProb      = softmax.forward(scores);
+        Tensor scores = computeDotProductScores(cachedQh, cachedKh);
+        Tensor attnProb = attentionProbabilities(scores, x.rows);
         Tensor outH          = applyAttentionToValues(attnProb, vh, x.rows);
         Tensor mergedBeforeWo = mergeHeads(outH, x.rows);
 
@@ -126,16 +121,17 @@ public class MultiHeadSelfAttention implements Layer {
                 x.matmul(Wv.value));
     }
 
-    private Tensor computeScaledDotProductScores(Tensor qh, Tensor kh, int seqLen) {
-        return HeadOps.scaledDotProductScores(qh, kh, nHeads, seqLen, headDim, scale);
+    private Tensor computeDotProductScores(Tensor qh, Tensor kh) {
+        return HeadOps.dotProductScores(qh, kh, nHeads);
     }
 
-    private Tensor applyCausalMask(Tensor scores, int seqLen) {
-        return HeadOps.applyCausalMask(scores, nHeads, seqLen);
+    private Tensor attentionProbabilities(Tensor scores, int seqLen) {
+        if (causalMask) return softmax.forwardCausal(scores, seqLen, scale);
+        return softmax.forward(scores.multiplyScalar(scale));
     }
 
     private Tensor applyAttentionToValues(Tensor attnProb, Tensor vh, int seqLen) {
-        return HeadOps.applyAttentionToValues(attnProb, vh, nHeads, seqLen, headDim);
+        return HeadOps.applyAttentionToValues(attnProb, vh, nHeads);
     }
 
     private Tensor backwardOutputProjection(Tensor dOut) {
@@ -145,11 +141,11 @@ public class MultiHeadSelfAttention implements Layer {
 
     private HeadOps.AttentionGrads backwardAttentionAndValues(Tensor dOutH, Tensor vh, int seqLen) {
         return HeadOps.backwardAttentionAndValues(
-                dOutH, vh, cache.attnProb, softmax, scale, nHeads, seqLen, headDim);
+                dOutH, vh, cache.attnProb, softmax, scale, nHeads);
     }
 
     private HeadOps.QKGrads backwardQueriesAndKeys(Tensor dScores, Tensor qh, Tensor kh, int seqLen) {
-        return HeadOps.backwardQueriesAndKeys(dScores, qh, kh, nHeads, seqLen, headDim);
+        return HeadOps.backwardQueriesAndKeys(dScores, qh, kh, nHeads);
     }
 
     private void accumulateProjectionGrads(Tensor dQ, Tensor dK, Tensor dV) {
@@ -159,34 +155,12 @@ public class MultiHeadSelfAttention implements Layer {
         Wv.grad.addInPlace(xT.matmul(dV));
     }
 
-    private Tensor mapHeadBlocks(int nHeads, int seqLen, int outCols,
-                                 HeadBlockFn blockFn) {
-        Tensor out = Tensor.zeros(nHeads * seqLen, outCols);
-        for (int h = 0; h < nHeads; h++) {
-            insertBlock(out, blockFn.apply(h), h * seqLen, seqLen, outCols);
-        }
-        return out;
-    }
-
-    @FunctionalInterface
-    private interface HeadBlockFn {
-        Tensor apply(int headIndex);
-    }
-
     private Tensor splitHeads(Tensor t) {
-        return HeadOps.splitHeads(t, t.rows, nHeads, headDim, dModel);
+        return HeadOps.splitHeads(t, nHeads);
     }
 
     private Tensor mergeHeads(Tensor t, int seqLen) {
-        return HeadOps.mergeHeads(t, seqLen, nHeads, headDim, dModel);
-    }
-
-    private Tensor extractBlock(Tensor t, int rowStart, int numRows, int numCols) {
-        return HeadOps.extractBlock(t, rowStart, numRows, numCols);
-    }
-
-    private void insertBlock(Tensor target, Tensor block, int rowStart, int numRows, int numCols) {
-        HeadOps.insertBlock(target, block, rowStart, numRows, numCols);
+        return HeadOps.mergeHeads(t, nHeads);
     }
 
     @Override

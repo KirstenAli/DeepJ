@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.norm;
 
-import io.github.kirstenali.deepj.layers.transformer.norm.NormLayer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.tensor.RmsNormResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.List;
@@ -28,11 +28,10 @@ public final class RMSNorm1D implements NormLayer {
             throw new IllegalArgumentException("Expected cols=" + dim + " got " + x.cols);
         }
 
-        Tensor meanSq = x.multiply(x).meanAlongRows();
-        this.rms  = meanSq.addScalar(EPS).sqrt();
-        this.xHat = x.divideBroadcastCols(rms);
-
-        return xHat.multiplyBroadcastRows(gamma.value);
+        RmsNormResult result = Tensor.backend().rmsNorm(x, gamma.value, EPS);
+        rms = result.rms();
+        xHat = result.normalized();
+        return result.output();
     }
 
     @Override
@@ -40,12 +39,7 @@ public final class RMSNorm1D implements NormLayer {
 
         gamma.grad.addInPlace(gradOut.multiply(xHat).sumRows());
 
-        Tensor g = gradOut.multiplyBroadcastRows(gamma.value);
-
-        Tensor innerProd = g.multiply(xHat).meanAlongRows();
-
-        return g.subtract(xHat.multiplyBroadcastCols(innerProd))
-                .divideBroadcastCols(rms);
+        return Tensor.backend().rmsNormBackward(gradOut, xHat, rms, gamma.value);
     }
 
     @Override

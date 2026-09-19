@@ -49,6 +49,8 @@ class ComputeGraphTest {
         GpuBuffer second = graph.ensureGpuBuffer(t);
 
         assertSame(first, second, "should reuse existing GpuBuffer");
+        graph.flush();
+        assertEquals(1, runtime.uploads.size());
     }
 
     @Test
@@ -115,12 +117,29 @@ class ComputeGraphTest {
     }
 
     @Test
+    void recordSumSquaresMakesGraphNonEmpty() {
+        GpuBuffer input = graph.newOutputBuffer(2, 3);
+        GpuBuffer output = graph.newOutputBuffer(2, 1);
+        graph.recordSumSquares(input, output, 2, 3);
+        assertFalse(graph.isEmpty());
+    }
+
+    @Test
     void recordMatmulMakesGraphNonEmpty() {
         GpuBuffer a = graph.newOutputBuffer(2, 3);
         GpuBuffer b = graph.newOutputBuffer(3, 4);
         GpuBuffer out = graph.newOutputBuffer(2, 4);
 
         graph.recordMatmul(a, b, out, 2, 4, 3);
+        assertFalse(graph.isEmpty());
+    }
+
+    @Test
+    void recordAttentionOperationsMakeGraphNonEmpty() {
+        GpuBuffer input = graph.newOutputBuffer(6, 4);
+        GpuBuffer output = graph.newOutputBuffer(6, 4);
+        graph.recordHeadPermutation(ComputeGraph.OP_SPLIT_HEADS,
+                input, output, 3, 2, 2, 4);
         assertFalse(graph.isEmpty());
     }
 
@@ -345,7 +364,7 @@ class ComputeGraphTest {
         for (int index = 0; index < fields.size(); index++) {
             codes[index] = fields.get(index).getInt(null);
         }
-        assertEquals(42, fields.size());
+        assertEquals(56, fields.size());
         assertEquals(fields.size(), java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
     }
@@ -506,6 +525,41 @@ class ComputeGraphTest {
         assertNotNull(t.getGpuTag(), "gpu tag should be set before releaseAll");
         graph.releaseAll();
         assertNull(t.getGpuTag(), "gpu tag should be null after releaseAll");
+    }
+
+    @Test
+    void temporaryReleaseKeepsRetainedBuffer() {
+        Tensor retained = Tensor.from2D(new float[][]{{1.0f}}).retainDeviceBuffer();
+        Tensor temporary = outputFrom(retained);
+        Object retainedTag = retained.getGpuTag();
+        Object temporaryTag = temporary.getGpuTag();
+        graph.releaseTemporary();
+        assertSame(retainedTag, retained.getGpuTag());
+        assertNull(temporary.getGpuTag());
+        assertReleased(temporaryTag);
+        assertNotReleased(retainedTag);
+        assertTrue(runtime.downloads.isEmpty());
+    }
+
+    private Tensor outputFrom(Tensor input) {
+        GpuBuffer source = graph.ensureGpuBuffer(input);
+        GpuBuffer output = graph.newOutputBuffer(input.rows, input.cols);
+        graph.recordUnary(ComputeGraph.OP_NEG, source, output);
+        return graph.createOutputTensor(output);
+    }
+
+    private void assertReleased(Object tag) {
+        int id = ((GpuBuffer) tag).id;
+        assertTrue(java.util.Arrays.stream(lastRelease().ids()).anyMatch(value -> value == id));
+    }
+
+    private void assertNotReleased(Object tag) {
+        int id = ((GpuBuffer) tag).id;
+        assertFalse(java.util.Arrays.stream(lastRelease().ids()).anyMatch(value -> value == id));
+    }
+
+    private RecordingRuntime.ReleaseCall lastRelease() {
+        return runtime.releaseCalls.get(runtime.releaseCalls.size() - 1);
     }
 
     static class RecordingRuntime implements GpuRuntime {

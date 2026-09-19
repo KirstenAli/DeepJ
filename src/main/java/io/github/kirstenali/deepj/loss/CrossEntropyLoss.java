@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.loss;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorAdapters;
+import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
 
 public final class CrossEntropyLoss implements LossFunction {
 
@@ -27,6 +28,11 @@ public final class CrossEntropyLoss implements LossFunction {
     public static Tensor gradient(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
         return logits.crossEntropyGradient(targets);
+    }
+
+    public static CrossEntropyResult result(Tensor logits, int[] targets) {
+        checkTargets(logits, targets);
+        return Tensor.backend().crossEntropy(logits, targets);
     }
 
     public static float loss(Tensor logits, int[] targets, boolean[] mask) {

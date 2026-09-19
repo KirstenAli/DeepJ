@@ -186,7 +186,8 @@ public class TrainerTest {
 
     private static Object invokeBackend(Object proxy, java.lang.reflect.Method method,
                                         Object[] args, AtomicInteger releaseCalls) {
-        if (method.getName().equals("releaseResources")) {
+        if (method.getName().equals("releaseResources")
+                || method.getName().equals("releaseTemporaryResources")) {
             releaseCalls.incrementAndGet();
             return null;
         }

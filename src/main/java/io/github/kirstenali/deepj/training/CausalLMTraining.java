@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.CausalLM;
@@ -47,10 +48,21 @@ public final class CausalLMTraining {
             int[] y = batch.y()[b];
             Tensor logits = model.forward(x);
             boolean[] mask = batch.mask(b);
-            lossSum += loss(logits, y, mask);
-            model.backward(gradient(logits, y, mask));
+            lossSum += backwardAndLoss(model, logits, y, mask);
         }
         return lossSum;
+    }
+
+    private static float backwardAndLoss(CausalLM model, Tensor logits,
+                                         int[] targets, boolean[] mask) {
+        if (mask != null) {
+            float loss = loss(logits, targets, mask);
+            model.backward(gradient(logits, targets, mask));
+            return loss;
+        }
+        CrossEntropyResult result = CrossEntropyLoss.result(logits, targets);
+        model.backward(result.gradient());
+        return result.meanLoss();
     }
 
     private static float loss(Tensor logits, int[] targets, boolean[] mask) {
@@ -86,24 +98,14 @@ public final class CausalLMTraining {
     }
 
     private static float computeGlobalGradNorm(List<Parameter> params) {
-        float gradNormSq = 0.0f;
-        for (Parameter p : params) {
-            if (p.grad != null) {
-                p.grad.materialize();
-                float l2sq = 0.0f;
-                for (float v : p.grad.data) {
-                    l2sq += v * v;
-                }
-                if (!Float.isFinite(l2sq)) {
-                    throw new IllegalStateException("Non-finite gradient encountered during training");
-                }
-                gradNormSq += l2sq;
-            }
+        List<Tensor> gradients = params.stream().map(parameter -> parameter.grad)
+                .filter(gradient -> gradient != null).toList();
+        float norm = Tensor.backend().l2Norm(gradients);
+        if (!Float.isFinite(norm)) {
+            throw new IllegalStateException("Non-finite gradient encountered during training");
         }
-        return fSqrt(gradNormSq);
+        return norm;
     }
-
-    private static float fSqrt(float x) { return (float) Math.sqrt(x); }
 
     private static void scaleGradients(List<Parameter> params, float scale) {
         for (Parameter p : params) {

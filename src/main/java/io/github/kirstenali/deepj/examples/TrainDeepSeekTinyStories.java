@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
+import io.github.kirstenali.deepj.data.SequentialTextDataset;
+import io.github.kirstenali.deepj.data.StatefulTrainingDataset;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -41,28 +43,43 @@ public final class TrainDeepSeekTinyStories {
     }
 
     public static TrainingResult run(DeepSeekTinyStoriesConfig runConfig) throws Exception {
+        return run(runConfig, false);
+    }
+
+    public static TrainingResult runSequential(DeepSeekTinyStoriesConfig runConfig)
+            throws Exception {
+        return run(runConfig, true);
+    }
+
+    private static TrainingResult run(DeepSeekTinyStoriesConfig runConfig,
+                                      boolean sequential) throws Exception {
         Path output = runConfig.files().outputDirectory();
         validateCorpus(runConfig.files().corpus());
         Files.createDirectories(output);
-        BPETokenizer tokenizer = loadOrTrainTokenizer(runConfig);
+        BPETokenizer tokenizer = prepareTokenizer(runConfig);
         DeepSeekConfig modelConfig = runConfig.modelConfig(tokenizer.vocabSize());
         DeepSeekModel model = new DeepSeekModel(modelConfig, runConfig.seed());
         ensureCheckpointSpace(output, model);
-        writeConfiguration(output, runConfig, tokenizer.model());
-        try (RandomAccessTextDataset dataset = dataset(runConfig, tokenizer)) {
+        writeConfiguration(output, runConfig, tokenizer.model(), sequential);
+        try (StatefulTrainingDataset dataset = dataset(runConfig, tokenizer, sequential)) {
             return train(model, dataset, runConfig);
         }
     }
 
-    private static RandomAccessTextDataset dataset(DeepSeekTinyStoriesConfig config,
-                                                   BPETokenizer tokenizer) throws IOException {
-        return new RandomAccessTextDataset(config.files().corpus(), tokenizer,
-                config.architecture().sequenceLength(), config.seed());
+    private static StatefulTrainingDataset dataset(DeepSeekTinyStoriesConfig config,
+                                                    BPETokenizer tokenizer,
+                                                    boolean sequential) throws IOException {
+        int length = config.architecture().sequenceLength();
+        if (sequential) {
+            return new SequentialTextDataset(config.files().corpus(), tokenizer, length);
+        }
+        return new RandomAccessTextDataset(config.files().corpus(), tokenizer, length, config.seed());
     }
 
-    private static BPETokenizer loadOrTrainTokenizer(DeepSeekTinyStoriesConfig config)
+    static BPETokenizer prepareTokenizer(DeepSeekTinyStoriesConfig config)
             throws IOException {
         Path path = config.files().outputDirectory().resolve(TOKENIZER_FILE);
+        Files.createDirectories(path.getParent());
         BPEModel model = Files.isRegularFile(path) ? BPEModelIO.load(path) : trainTokenizer(config, path);
         validateTokenizer(model, config.tokenizer().vocabSize());
         return new BPETokenizer(model);
@@ -89,7 +106,7 @@ public final class TrainDeepSeekTinyStories {
         }
     }
 
-    private static TrainingResult train(DeepSeekModel model, RandomAccessTextDataset dataset,
+    private static TrainingResult train(DeepSeekModel model, StatefulTrainingDataset dataset,
                                         DeepSeekTinyStoriesConfig config) throws IOException {
         DeepSeekTinyStoriesConfig.Training options = config.training();
         CosineLearningRateSchedule schedule = schedule(options);
@@ -111,7 +128,7 @@ public final class TrainDeepSeekTinyStories {
     }
 
     private static Trainer.StepHook checkpointHook(DeepSeekModel model, AdamW optimizer,
-                                                    RandomAccessTextDataset dataset,
+                                                    StatefulTrainingDataset dataset,
                                                     CosineLearningRateSchedule schedule,
                                                     DeepSeekTinyStoriesConfig config) {
         return (step, loss, ema) -> {
@@ -126,7 +143,7 @@ public final class TrainDeepSeekTinyStories {
     }
 
     private static void saveCheckpoint(DeepSeekModel model, AdamW optimizer,
-                                       RandomAccessTextDataset dataset,
+                                       StatefulTrainingDataset dataset,
                                        CosineLearningRateSchedule schedule,
                                        DeepSeekTinyStoriesConfig config,
                                        TrainingProgress progress) throws IOException {
@@ -137,7 +154,7 @@ public final class TrainDeepSeekTinyStories {
     }
 
     private static TrainingProgress loadCheckpointIfRequested(
-            DeepSeekModel model, AdamW optimizer, RandomAccessTextDataset dataset,
+            DeepSeekModel model, AdamW optimizer, StatefulTrainingDataset dataset,
             CosineLearningRateSchedule schedule, Path checkpoint) throws IOException {
         if (checkpoint == null) return TrainingProgress.initial();
         if (TrainingCheckpoint.matches(checkpoint)) {
@@ -175,11 +192,13 @@ public final class TrainDeepSeekTinyStories {
     }
 
     private static void writeConfiguration(Path output, DeepSeekTinyStoriesConfig config,
-                                           BPEModel tokenizer) throws IOException {
+                                           BPEModel tokenizer, boolean sequential)
+            throws IOException {
         Properties properties = new Properties();
         addFileProperties(properties, config);
         addModelProperties(properties, config, tokenizer);
         addTrainingProperties(properties, config);
+        properties.setProperty("datasetOrder", sequential ? "sequential" : "random");
         try (OutputStream stream = Files.newOutputStream(output.resolve("training.properties"))) {
             properties.store(stream, "DeepJ training configuration");
         }

@@ -42,6 +42,16 @@ public class AdamWTest {
         Assertions.assertThrows(IllegalArgumentException.class, () -> new AdamW(0.1f, 0.9f, 0.999f, 0.0f, 0.0f));
     }
 
+    @Test
+    void momentsRetainDeviceBuffers() {
+        AdamW optimizer = AdamW.defaultAdamW(1e-3f);
+        Parameter parameter = new Parameter(rowTensor(1.0f));
+        optimizer.step(List.of(parameter));
+        AdamW.State state = optimizer.state(List.of(parameter));
+        Assertions.assertTrue(state.firstMoments().get(0).retainsDeviceBuffer());
+        Assertions.assertTrue(state.secondMoments().get(0).retainsDeviceBuffer());
+    }
+
     private static Tensor rowTensor(float... values) {
         return TensorAdapters.unpackF32(values, 1, values.length);
     }

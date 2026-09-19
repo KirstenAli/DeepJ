@@ -9,7 +9,7 @@ public final class Parameter {
     public Tensor grad;
 
     public Parameter(Tensor value) {
-        this.value = value;
+        this.value = value.retainDeviceBuffer();
         this.grad = Tensor.zeros(value.rows, value.cols);
     }
 
