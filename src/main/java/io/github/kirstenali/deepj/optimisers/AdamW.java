@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public final class AdamW implements ParameterOptimizer {
 
@@ -42,6 +43,70 @@ public final class AdamW implements ParameterOptimizer {
             throw new IllegalArgumentException("lr must be > 0");
         }
         this.lr = lr;
+    }
+
+    public long stepCount() {
+        return step;
+    }
+
+    public State state(List<Parameter> params) {
+        Objects.requireNonNull(params, "params");
+        return new State(step, lr, beta1, beta2, eps, weightDecay,
+                moments(params, m), moments(params, v));
+    }
+
+    public void restoreState(List<Parameter> params, State state) {
+        Objects.requireNonNull(params, "params");
+        Objects.requireNonNull(state, "state");
+        validateState(params, state);
+        m.clear();
+        v.clear();
+        for (int index = 0; index < params.size(); index++) {
+            m.put(params.get(index), state.firstMoments().get(index));
+            v.put(params.get(index), state.secondMoments().get(index));
+        }
+        step = state.step();
+        lr = state.learningRate();
+    }
+
+    private static List<Tensor> moments(List<Parameter> params, Map<Parameter, Tensor> source) {
+        return params.stream().map(parameter -> moment(parameter, source)).toList();
+    }
+
+    private static Tensor moment(Parameter parameter, Map<Parameter, Tensor> source) {
+        Tensor saved = source.get(parameter);
+        return saved == null ? Tensor.zeros(parameter.value.rows, parameter.value.cols) : saved;
+    }
+
+    private void validateState(List<Parameter> params, State state) {
+        if (state.step() < 0 || state.learningRate() <= 0) {
+            throw new IllegalArgumentException("invalid AdamW state counters");
+        }
+        validateStateHyperparameters(state);
+        validateMomentList(params, state.firstMoments());
+        validateMomentList(params, state.secondMoments());
+    }
+
+    private void validateStateHyperparameters(State state) {
+        if (Float.compare(beta1, state.beta1()) != 0
+                || Float.compare(beta2, state.beta2()) != 0
+                || Float.compare(eps, state.epsilon()) != 0
+                || Float.compare(weightDecay, state.weightDecay()) != 0) {
+            throw new IllegalArgumentException("AdamW hyperparameters do not match checkpoint");
+        }
+    }
+
+    private static void validateMomentList(List<Parameter> params, List<Tensor> moments) {
+        if (moments == null || moments.size() != params.size()) {
+            throw new IllegalArgumentException("AdamW moment count does not match parameters");
+        }
+        for (int index = 0; index < params.size(); index++) {
+            Tensor value = params.get(index).value;
+            Tensor moment = Objects.requireNonNull(moments.get(index), "moment");
+            if (value.rows != moment.rows || value.cols != moment.cols) {
+                throw new IllegalArgumentException("AdamW moment shape does not match parameter");
+            }
+        }
     }
 
     @Override
@@ -96,6 +161,16 @@ public final class AdamW implements ParameterOptimizer {
     private void validateParamShapes(Tensor w, Tensor g) {
         if (w.rows != g.rows || w.cols != g.cols) {
             throw new IllegalArgumentException("grad shape must match param shape");
+        }
+    }
+
+    public record State(long step, float learningRate, float beta1, float beta2,
+                        float epsilon, float weightDecay, List<Tensor> firstMoments,
+                        List<Tensor> secondMoments) {
+
+        public State {
+            firstMoments = List.copyOf(firstMoments);
+            secondMoments = List.copyOf(secondMoments);
         }
     }
 }
