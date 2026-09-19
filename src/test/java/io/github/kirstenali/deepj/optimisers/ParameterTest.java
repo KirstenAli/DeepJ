@@ -34,4 +34,11 @@ public class ParameterTest {
         Assertions.assertEquals(0.0f, p.grad.data[0], 1e-12f);
         Assertions.assertEquals(0.0f, p.grad.data[1 * 2 + 1], 1e-12f);
     }
+
+    @Test
+    void valueRetainsDeviceBuffer() {
+        Parameter parameter = new Parameter(new Tensor(2, 3));
+        Assertions.assertTrue(parameter.value.retainsDeviceBuffer());
+        Assertions.assertFalse(parameter.grad.retainsDeviceBuffer());
+    }
 }

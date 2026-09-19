@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
+import java.util.List;
+
 public interface TensorBackend {
 
     Tensor matmul(Tensor a, Tensor b);
@@ -31,6 +33,15 @@ public interface TensorBackend {
     Tensor maxAlongRows(Tensor a);
     float sum(Tensor a);
     float sumAbs(Tensor a);
+
+    default float l2Norm(List<Tensor> tensors) {
+        float squares = 0.0f;
+        for (Tensor tensor : tensors) {
+            tensor.materialize();
+            for (float value : tensor.data) squares += value * value;
+        }
+        return (float) Math.sqrt(squares);
+    }
 
     Tensor transpose(Tensor a);
     Tensor clamp(Tensor a, float min, float max);
@@ -82,6 +93,8 @@ public interface TensorBackend {
     void sigmoidInPlace(Tensor a);
 
     default void materializeTensor(Tensor t) {  }
+
+    default void releaseTemporaryResources() { releaseResources(); }
 
     default void releaseResources() {  }
 }

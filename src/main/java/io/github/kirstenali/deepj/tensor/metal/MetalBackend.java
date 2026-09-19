@@ -2,6 +2,8 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.*;
 
+import java.util.List;
+
 public final class MetalBackend implements TensorBackend {
     private final ComputeGraph graph;
 
@@ -247,6 +249,24 @@ public final class MetalBackend implements TensorBackend {
         Tensor scalar = sumRows(rowAbsSums);
         scalar.materialize();
         return scalar.data[0];
+    }
+
+    @Override
+    public float l2Norm(List<Tensor> tensors) {
+        if (tensors.isEmpty()) return 0.0f;
+        Tensor total = null;
+        for (Tensor tensor : tensors) {
+            Tensor squared = sumSquaresTensor(tensor);
+            total = total == null ? squared : add(total, squared);
+        }
+        total.materialize();
+        return (float) Math.sqrt(total.data[0]);
+    }
+
+    private Tensor sumSquaresTensor(Tensor tensor) {
+        GpuBuffer rows = graph.newOutputBuffer(tensor.rows, 1);
+        graph.recordSumSquares(gpuIn(tensor), rows, tensor.rows, tensor.cols);
+        return sumRows(gpuOut(rows));
     }
 
     @Override
@@ -631,6 +651,11 @@ public final class MetalBackend implements TensorBackend {
         Tensor indexTensor = immutableIntColumn(indices);
 
         recordGpuScatterAddRowsAtomic(target, grad, indexTensor, indices);
+    }
+
+    @Override
+    public void releaseTemporaryResources() {
+        graph.releaseTemporary();
     }
 
     @Override

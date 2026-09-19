@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
+import io.github.kirstenali.deepj.data.Batch;
+import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
@@ -11,6 +13,7 @@ import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import io.github.kirstenali.deepj.training.CausalLMTraining;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -143,6 +146,38 @@ class MetalBackendDifferentialTest {
     @Test
     void deepSeekForwardBackwardAndParameterGradientsMatchCpu() {
         compareModel(() -> new DeepSeekModel(new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2), 23L));
+    }
+
+    @Test
+    void temporaryReleaseDoesNotChangeRepeatedDeepSeekTraining() {
+        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
+        MetalBackend baseline = new MetalBackend();
+        Tensor.setBackend(baseline);
+        DecoderOnlyModel expected = new DeepSeekModel(config, 24L);
+        Tensor.setBackend(metal);
+        DecoderOnlyModel actual = new DeepSeekModel(config, 24L);
+        float expectedLoss = trainRepeated(baseline, expected, 0);
+        float actualLoss = trainRepeated(metal, actual, 1);
+        assertEquals(expectedLoss, actualLoss, 1e-5f);
+        assertParameterValuesClose(expected.parameters(), actual.parameters(), 1e-5f);
+    }
+
+    private static float trainRepeated(TensorBackend backend, DecoderOnlyModel model,
+                                       int releaseEvery) {
+        Tensor.setBackend(backend);
+        BatchSource source = ignored -> new Batch(new int[][]{{1, 3, 5, 7}},
+                new int[][]{{3, 5, 7, 2}});
+        return CausalLMTraining.trainer(model, source, 1e-3f)
+                .train(3, 1, 1000, 0.98f, null, releaseEvery).lastLoss();
+    }
+
+    private static void assertParameterValuesClose(List<Parameter> expected,
+                                                   List<Parameter> actual, float tolerance) {
+        assertEquals(expected.size(), actual.size());
+        for (int index = 0; index < expected.size(); index++) {
+            assertTensorClose(expected.get(index).value, actual.get(index).value,
+                    tolerance, tolerance, "parameter " + index);
+        }
     }
 
     private void compareModel(Supplier<DecoderOnlyModel> factory) {

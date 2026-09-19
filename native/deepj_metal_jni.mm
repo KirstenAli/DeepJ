@@ -32,6 +32,7 @@ struct MetalContext {
     id<MTLComputePipelineState> varianceAlongRowsPSO;
     id<MTLComputePipelineState> maxAlongRowsPSO;
     id<MTLComputePipelineState> sumAbsPSO;
+    id<MTLComputePipelineState> sumSquaresPSO;
     id<MTLComputePipelineState> crossEntropyLossPSO;
     id<MTLComputePipelineState> crossEntropyGradPSO;
     id<MTLComputePipelineState> clampPSO;
@@ -224,6 +225,16 @@ inline float row_abs_sum(device const float* values, uint base, uint cols,
     return result;
 }
 
+inline float row_square_sum(device const float* values, uint base, uint cols,
+                            uint tid, uint width) {
+    float result = 0.0f;
+    for (uint c = tid; c < cols; c += width) {
+        float value = values[base + c];
+        result += value * value;
+    }
+    return result;
+}
+
 inline float row_max(device const float* values, uint base, uint cols,
                      uint tid, uint width) {
     float result = -INFINITY;
@@ -388,6 +399,20 @@ kernel void kernel_sum_abs(device const float* a      [[buffer(0)]],
     if (row >= rows) return;
     threadgroup float scratch[1024];
     float value = row_abs_sum(a, row * cols, cols, tid, tptg.x);
+    float sum = reduce_sum(scratch, value, tid, tptg.x);
+    if (tid == 0) out[row] = sum;
+}
+
+kernel void kernel_sum_squares(device const float* a    [[buffer(0)]],
+                               device float* out        [[buffer(1)]],
+                               device const uint2* dims [[buffer(2)]],
+                               uint3 gid [[thread_position_in_grid]],
+                               uint3 tid3 [[thread_position_in_threadgroup]],
+                               uint3 tptg [[threads_per_threadgroup]]) {
+    uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
+    if (row >= rows) return;
+    threadgroup float scratch[1024];
+    float value = row_square_sum(a, row * cols, cols, tid, tptg.x);
     float sum = reduce_sum(scratch, value, tid, tptg.x);
     if (tid == 0) out[row] = sum;
 }
@@ -827,6 +852,7 @@ static void initReductionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->varianceAlongRowsPSO = makePSO(library, @"kernel_variance_along_rows");
     ctx->maxAlongRowsPSO = makePSO(library, @"kernel_max_along_rows");
     ctx->sumAbsPSO = makePSO(library, @"kernel_sum_abs");
+    ctx->sumSquaresPSO = makePSO(library, @"kernel_sum_squares");
 }
 
 static void initLossPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -956,6 +982,7 @@ static constexpr int OP_CROSS_ENTROPY_LOSS = 39;
 static constexpr int OP_CROSS_ENTROPY_GRADIENT = 40;
 static constexpr int OP_SUM_SCALAR = 41;
 static constexpr int OP_SCATTER_ADD_ROWS_ATOMIC = 42;
+static constexpr int OP_SUM_SQUARES = 43;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -1433,17 +1460,23 @@ static void encodeReduction(GraphState& state, const jint* cmd, int pos) {
     dispatchReduction(encoder, pipeline, cmd[pos], rows, cols);
 }
 
-static void encodeSumAbs(GraphState& state, const jint* cmd, int pos) {
+static id<MTLComputePipelineState> rowStatisticPipeline(MetalContext* ctx, int op) {
+    if (op == OP_SUM_ABS) return ctx->sumAbsPSO;
+    if (op == OP_SUM_SQUARES) return ctx->sumSquaresPSO;
+    throw std::runtime_error("Invalid row statistic op");
+}
+
+static void encodeRowStatistic(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 4], "cols")};
     id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputePipelineState> pipeline = rowStatisticPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    [encoder setComputePipelineState:state.ctx->sumAbsPSO];
-    [encoder setBuffer:requireBuffer(cmd[pos + 1], "sum abs") offset:0 atIndex:0];
-    [encoder setBuffer:requireBuffer(cmd[pos + 2], "sum abs") offset:0 atIndex:1];
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "row statistic") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "row statistic") offset:0 atIndex:1];
     [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
-    NSUInteger threads = MIN((NSUInteger)256,
-                             state.ctx->sumAbsPSO.maxTotalThreadsPerThreadgroup);
+    NSUInteger threads = MIN((NSUInteger)256, pipeline.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
@@ -1633,7 +1666,7 @@ static int commandWidth(int op) {
     if (isUnaryOp(op)) return 4;
     if (isBinaryOp(op) || isScalarOp(op) || isReductionOp(op)) return 5;
     if (op == OP_TRANSPOSE || op == OP_SOFTMAX_ROWS ||
-        op == OP_SUM_ABS || op == OP_SUM_SCALAR) return 5;
+        op == OP_SUM_ABS || op == OP_SUM_SQUARES || op == OP_SUM_SCALAR) return 5;
     if (isBroadcastOp(op) || op == OP_CLAMP ||
         op == OP_SOFTMAX_BACKWARD || op == OP_CROSS_ENTROPY_LOSS ||
         op == OP_CROSS_ENTROPY_GRADIENT) return 6;
@@ -1653,7 +1686,7 @@ static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_CLAMP) encodeClamp(state, cmd, pos);
     else if (op == OP_TRANSPOSE) encodeTranspose(state, cmd, pos);
     else if (op == OP_SCATTER_ADD_ROWS || op == OP_SCATTER_ADD_ROWS_ATOMIC) encodeScatter(state, cmd, pos);
-    else if (op == OP_SUM_ABS) encodeSumAbs(state, cmd, pos);
+    else if (op == OP_SUM_ABS || op == OP_SUM_SQUARES) encodeRowStatistic(state, cmd, pos);
     else if (op == OP_SUM_SCALAR) encodeScalarSum(state, cmd, pos);
     else if (op == OP_CROSS_ENTROPY_LOSS || op == OP_CROSS_ENTROPY_GRADIENT) encodeCrossEntropy(state, cmd, pos);
     else if (op == OP_MATMUL) encodeMatmul(state, cmd, pos);

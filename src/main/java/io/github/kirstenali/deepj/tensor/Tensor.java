@@ -11,10 +11,15 @@ public class Tensor {
     public final int rows, cols;
 
     Object gpuTag;
+    private boolean retainDeviceBuffer;
 
     public Object getGpuTag() { return gpuTag; }
 
     public void setGpuTag(Object tag) { this.gpuTag = tag; }
+
+    public Tensor retainDeviceBuffer() { retainDeviceBuffer = true; return this; }
+
+    public boolean retainsDeviceBuffer() { return retainDeviceBuffer; }
 
     private static volatile TensorBackend BACKEND = new CpuBackend();
     private static final CpuBackend CPU_ACCESS = new CpuBackend();

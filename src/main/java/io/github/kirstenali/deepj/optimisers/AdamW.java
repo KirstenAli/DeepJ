@@ -62,8 +62,8 @@ public final class AdamW implements ParameterOptimizer {
         m.clear();
         v.clear();
         for (int index = 0; index < params.size(); index++) {
-            m.put(params.get(index), state.firstMoments().get(index));
-            v.put(params.get(index), state.secondMoments().get(index));
+            m.put(params.get(index), retained(state.firstMoments().get(index)));
+            v.put(params.get(index), retained(state.secondMoments().get(index)));
         }
         step = state.step();
         lr = state.learningRate();
@@ -75,7 +75,15 @@ public final class AdamW implements ParameterOptimizer {
 
     private static Tensor moment(Parameter parameter, Map<Parameter, Tensor> source) {
         Tensor saved = source.get(parameter);
-        return saved == null ? Tensor.zeros(parameter.value.rows, parameter.value.cols) : saved;
+        return saved == null ? newMoment(parameter.value) : saved;
+    }
+
+    private static Tensor newMoment(Tensor value) {
+        return Tensor.zeros(value.rows, value.cols).retainDeviceBuffer();
+    }
+
+    private static Tensor retained(Tensor tensor) {
+        return tensor.retainDeviceBuffer();
     }
 
     private void validateState(List<Parameter> params, State state) {
@@ -152,8 +160,8 @@ public final class AdamW implements ParameterOptimizer {
 
         validateParamShapes(w, g);
 
-        Tensor mt = m.computeIfAbsent(p, __ -> Tensor.zeros(w.rows, w.cols));
-        Tensor vt = v.computeIfAbsent(p, __ -> Tensor.zeros(w.rows, w.cols));
+        Tensor mt = m.computeIfAbsent(p, __ -> newMoment(w));
+        Tensor vt = v.computeIfAbsent(p, __ -> newMoment(w));
 
         Tensor.adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
     }

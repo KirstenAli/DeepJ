@@ -86,24 +86,14 @@ public final class CausalLMTraining {
     }
 
     private static float computeGlobalGradNorm(List<Parameter> params) {
-        float gradNormSq = 0.0f;
-        for (Parameter p : params) {
-            if (p.grad != null) {
-                p.grad.materialize();
-                float l2sq = 0.0f;
-                for (float v : p.grad.data) {
-                    l2sq += v * v;
-                }
-                if (!Float.isFinite(l2sq)) {
-                    throw new IllegalStateException("Non-finite gradient encountered during training");
-                }
-                gradNormSq += l2sq;
-            }
+        List<Tensor> gradients = params.stream().map(parameter -> parameter.grad)
+                .filter(gradient -> gradient != null).toList();
+        float norm = Tensor.backend().l2Norm(gradients);
+        if (!Float.isFinite(norm)) {
+            throw new IllegalStateException("Non-finite gradient encountered during training");
         }
-        return fSqrt(gradNormSq);
+        return norm;
     }
-
-    private static float fSqrt(float x) { return (float) Math.sqrt(x); }
 
     private static void scaleGradients(List<Parameter> params, float scale) {
         for (Parameter p : params) {

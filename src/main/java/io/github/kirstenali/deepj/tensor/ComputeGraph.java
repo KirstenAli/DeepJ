@@ -49,6 +49,7 @@ public final class ComputeGraph {
     public static final int OP_CROSS_ENTROPY_GRADIENT = 40;
     public static final int OP_SUM_SCALAR = 41;
     public static final int OP_SCATTER_ADD_ROWS_ATOMIC = 42;
+    public static final int OP_SUM_SQUARES = 43;
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
@@ -73,10 +74,11 @@ public final class ComputeGraph {
     }
 
     private static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_SCATTER_ADD_ROWS_ATOMIC + 1];
+        OpMeta[] meta = new OpMeta[OP_SUM_SQUARES + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
+        registerLossMeta(meta);
         registerBroadcastMeta(meta);
         registerComplexMeta(meta);
         return meta;
@@ -117,9 +119,13 @@ public final class ComputeGraph {
         registerMeta(meta, OP_POW, 5, 1, 2);
         registerMeta(meta, OP_SCATTER_ADD_ROWS, 7, 1, 2, 3);
         registerMeta(meta, OP_SUM_ABS, 5, 1, 2);
+        registerMeta(meta, OP_SUM_SQUARES, 5, 1, 2);
+        registerMeta(meta, OP_SUM_SCALAR, 5, 1, 2);
+    }
+
+    private static void registerLossMeta(OpMeta[] meta) {
         registerMeta(meta, OP_CROSS_ENTROPY_LOSS, 6, 1, 2, 3);
         registerMeta(meta, OP_CROSS_ENTROPY_GRADIENT, 6, 1, 2, 3);
-        registerMeta(meta, OP_SUM_SCALAR, 5, 1, 2);
         registerMeta(meta, OP_SCATTER_ADD_ROWS_ATOMIC, 7, 1, 2, 3);
     }
 
@@ -331,6 +337,16 @@ public final class ComputeGraph {
     public void recordSumAbs(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SUM_ABS);
+        emitInt(in.id);
+        emitInt(out.id);
+        emitInt(rows);
+        emitInt(cols);
+        endOp();
+    }
+
+    public void recordSumSquares(GpuBuffer in, GpuBuffer out, int rows, int cols) {
+        beginOp(5);
+        emitInt(OP_SUM_SQUARES);
         emitInt(in.id);
         emitInt(out.id);
         emitInt(rows);
@@ -614,6 +630,37 @@ public final class ComputeGraph {
         resetGraphState();
     }
 
+    public void releaseTemporary() {
+        flush();
+        List<Integer> ids = temporaryBufferIds();
+        clearTensorGpuTags(ids);
+        releaseNativeBuffers(ids);
+        allocatedBufferIds.removeAll(ids);
+    }
+
+    private List<Integer> temporaryBufferIds() {
+        List<Integer> ids = new ArrayList<>();
+        for (int id : allocatedBufferIds) {
+            WeakReference<Tensor> reference = bufIdToTensor.get(id);
+            Tensor tensor = reference == null ? null : reference.get();
+            if (tensor == null || !tensor.retainsDeviceBuffer()) ids.add(id);
+        }
+        return ids;
+    }
+
+    private void clearTensorGpuTags(List<Integer> ids) {
+        for (int id : ids) {
+            WeakReference<Tensor> reference = bufIdToTensor.remove(id);
+            Tensor tensor = reference == null ? null : reference.get();
+            if (ownsBuffer(tensor, id)) tensor.setGpuTag(null);
+        }
+    }
+
+    private static boolean ownsBuffer(Tensor tensor, int id) {
+        return tensor != null && tensor.getGpuTag() instanceof GpuBuffer buffer
+                && buffer.id == id;
+    }
+
     private void materializeTrackedTensors() {
         flush();
         for (WeakReference<Tensor> ref : bufIdToTensor.values()) {
@@ -638,6 +685,12 @@ public final class ComputeGraph {
     private void releaseNativeBuffers() {
         if (allocatedBufferIds.isEmpty()) return;
         int[] ids = allocatedBufferIds.stream().mapToInt(Integer::intValue).toArray();
+        runtime.releaseBuffers(ids, ids.length);
+    }
+
+    private void releaseNativeBuffers(List<Integer> buffers) {
+        if (buffers.isEmpty()) return;
+        int[] ids = buffers.stream().mapToInt(Integer::intValue).toArray();
         runtime.releaseBuffers(ids, ids.length);
     }
 
