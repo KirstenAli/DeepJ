@@ -4,9 +4,11 @@
 
 # DeepJ
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.kirstenali/deepj.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.kirstenali/deepj)
-[![Java 20](https://img.shields.io/badge/Java-20%2B-blue)](https://adoptium.net/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<p align="center">
+  <a href="https://central.sonatype.com/artifact/io.github.kirstenali/deepj"><img src="https://img.shields.io/maven-central/v/io.github.kirstenali/deepj.svg?label=Maven%20Central" alt="Maven Central"></a>
+  <a href="https://adoptium.net/"><img src="https://img.shields.io/badge/Java-20%2B-blue" alt="Java 20"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
 DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes built-in gradient calculations for model training, GPT-, Llama-, and DeepSeek-style models, BPE tokenization, training utilities, model persistence, and optional Apple Metal acceleration.
 
