@@ -21,7 +21,7 @@ public final class ExportDeepSeekTinyStories {
     public static void main(String[] args) throws Exception {
         Path output = Path.of(System.getProperty("deepj.output", "checkpoints/tinystories-deepseek"));
         Path checkpoint = output.resolve("model-final.dj");
-        Path bundle = Path.of(System.getProperty("deepj.bundle", "dist/deepj-tinystories-deepseek"));
+        Path bundle = Path.of(System.getProperty("deepj.bundle", "dist/deepj-tinystories"));
         Path validation = Path.of(System.getProperty(
                 "deepj.validationCorpus", "sample_data/TinyStories-valid.txt"));
         export(output, checkpoint, bundle, validation,
