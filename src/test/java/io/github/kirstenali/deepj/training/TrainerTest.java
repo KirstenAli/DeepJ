@@ -64,7 +64,20 @@ public class TrainerTest {
             Tensor.setBackend(previous);
         }
 
-        Assertions.assertEquals(3, releaseCalls.get());
+        Assertions.assertEquals(4, releaseCalls.get());
+    }
+
+    @Test
+    void releaseEveryStepIncludesFirstStep() {
+        AtomicInteger releases = new AtomicInteger();
+        TensorBackend previous = Tensor.backend();
+        Tensor.setBackend(countingBackend(releases));
+        try {
+            new Trainer(bs -> 1.0f).train(1, 1, 1000, 0.9f, null, 1);
+        } finally {
+            Tensor.setBackend(previous);
+        }
+        Assertions.assertEquals(2, releases.get());
     }
 
     @Test

@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.GpuMemoryStats;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
@@ -112,11 +113,20 @@ public final class TrainDeepSeekTinyStories {
         return (step, loss, ema) -> {
             int completed = step + 1;
             optimizer.setLr(schedule.learningRate(completed));
+            maybeLogMemory(completed);
             int interval = config.training().checkpointEvery();
             if (interval > 0 && completed % interval == 0) {
                 model.save(config.files().outputDirectory().resolve(LATEST_MODEL_FILE));
             }
         };
+    }
+
+    private static void maybeLogMemory(int completedSteps) {
+        int interval = Integer.getInteger("deepj.memoryLogEvery", 0);
+        if (interval <= 0 || completedSteps % interval != 0) return;
+        GpuMemoryStats stats = Tensor.backend().memoryStats();
+        double mebibytes = stats.allocatedBytes() / (1024.0 * 1024.0);
+        System.out.printf("gpuBuffers=%d gpuMiB=%.1f%n", stats.bufferCount(), mebibytes);
     }
 
     private static void loadCheckpointIfRequested(DeepSeekModel model, Path checkpoint)

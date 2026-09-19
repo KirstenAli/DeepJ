@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
+import io.github.kirstenali.deepj.tensor.GpuMemoryStats;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
@@ -35,6 +36,7 @@ public final class MetalBackendTest {
 
     @AfterAll
     static void tearDown() {
+        if (gpu != null) gpu.releaseResources();
         if (previousBackend != null) {
             Tensor.setBackend(previousBackend);
         }
@@ -47,6 +49,15 @@ public final class MetalBackendTest {
     @Test
     void metalNativeIsAvailable() {
         assertTrue(MetalBackend.isAvailable());
+    }
+
+    @Test
+    void releaseResourcesClearsMemoryAccounting() {
+        Tensor result = gpu.neg(randomTensor(8, 8, 140L));
+        result.materialize();
+        assertTrue(gpu.memoryStats().bufferCount() > 0);
+        gpu.releaseResources();
+        assertEquals(GpuMemoryStats.empty(), gpu.memoryStats());
     }
 
     @Test

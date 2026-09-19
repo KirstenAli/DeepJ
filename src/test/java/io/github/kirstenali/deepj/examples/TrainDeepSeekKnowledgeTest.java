@@ -19,4 +19,11 @@ class TrainDeepSeekKnowledgeTest {
 
         assertEquals(19_006_848L, parameters);
     }
+
+    @Test
+    void releasesMetalMemoryAfterEveryStepByDefault() {
+        var training = TrainDeepSeekKnowledge.configuration().training();
+        assertEquals(TrainDeepSeekKnowledge.RELEASE_EVERY, training.releaseEvery());
+        assertEquals(1, training.releaseEvery());
+    }
 }

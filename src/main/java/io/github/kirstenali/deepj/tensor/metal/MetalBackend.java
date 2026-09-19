@@ -601,4 +601,9 @@ public final class MetalBackend implements TensorBackend {
     public void releaseResources() {
         graph.releaseAll();
     }
+
+    @Override
+    public GpuMemoryStats memoryStats() {
+        return graph.memoryStats();
+    }
 }
