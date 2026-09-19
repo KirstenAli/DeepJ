@@ -154,11 +154,11 @@ public final class DeepJModelBundle {
     private static String modelCard(ModelCard card, DeepSeekConfig config) {
         String details = "This compact language model was created with "
                 + "[DeepJ](https://github.com/KirstenAli/DeepJ) and uses a DeepSeek-style "
-                + "Transformer architecture with %d layers, a width of %d, "
+                + "Transformer architecture with %d layers, a hidden size of %d, "
                 .formatted(config.nLayers(), config.dModel())
-                + "%d attention heads, Q rank %d, KV rank %d and a %,d-token vocabulary. "
+                + "%d attention heads, Q rank %d, KV rank %d and a %,d-token vocabulary."
                 .formatted(config.nHeads(), config.qRank(), config.kvRank(), config.vocabSize())
-                + "It is not an exact implementation of DeepSeek V2, V3 or R1 and does not "
+                + "\n\nIt is not an exact implementation of DeepSeek V2, V3 or R1 and does not "
                 + "currently use an incremental KV cache.";
         return formatModelCard(card, details, usage(config));
     }

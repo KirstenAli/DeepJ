@@ -69,6 +69,8 @@ class DeepJModelBundleTest {
     private static void assertDeepSeekModelCard(String modelCard) {
         assertTrue(modelCard.contains("created with [DeepJ](https://github.com/KirstenAli/DeepJ)"));
         assertTrue(modelCard.contains("DeepSeek-style Transformer architecture"));
+        assertTrue(modelCard.contains("a hidden size of 8"));
+        assertTrue(modelCard.contains("vocabulary.\n\nIt is not an exact implementation"));
         assertTrue(modelCard.contains("not an exact implementation of DeepSeek V2, V3 or R1"));
         assertTrue(modelCard.contains("## Usage"));
         assertTrue(modelCard.contains("io.github.kirstenali"));
