@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="DeepJ is a compact Java tensor and Transformer library with automatic differentiation and optional Apple Metal acceleration.">
+    <meta name="description" content="DeepJ is a compact Java tensor and Transformer library with built-in gradient calculations and optional Apple Metal acceleration.">
     <meta name="theme-color" content="#07111f">
     <meta property="og:title" content="DeepJ — tensors and Transformers in Java">
     <meta property="og:description" content="Build, train, and inspect compact GPT-, Llama-, and DeepSeek-style models on the JVM.">
@@ -46,7 +46,7 @@
                 </div>
                 <ul class="hero-facts" aria-label="Project facts">
                     <li>MIT licensed</li>
-                    <li>Automatic differentiation</li>
+                    <li>Built-in training gradients</li>
                     <li>405 tests</li>
                 </ul>
             </div>
@@ -84,8 +84,8 @@
             <div class="feature-grid">
                 <article class="feature-card">
                     <span class="feature-number">01</span>
-                    <h3>Tensors + autodiff</h3>
-                    <p>Two-dimensional float32 tensors, reverse-mode differentiation, and numerical gradient tests.</p>
+                    <h3>Tensors + gradients</h3>
+                    <p>Two-dimensional float32 tensors, built-in model gradient calculations, and tests that check gradient accuracy.</p>
                 </article>
                 <article class="feature-card">
                     <span class="feature-number">02</span>
@@ -189,6 +189,7 @@ model.load(Path.of(<span class="code-string">"model.dj"</span>));
             <ul>
                 <li>The public API and checkpoint format may change before a stable release.</li>
                 <li>Tensors are currently two-dimensional and use float32 values.</li>
+                <li>Each model layer has its own gradient code. DeepJ does not calculate gradients automatically for every tensor operation.</li>
                 <li>Generation recomputes context; incremental KV caching is not implemented yet.</li>
                 <li>Metal is Apple Silicon-only, and Hugging Face bundles use DeepJ—not PyTorch—formats.</li>
                 <li>DeepJ is not validated for safety-critical or production inference workloads.</li>
