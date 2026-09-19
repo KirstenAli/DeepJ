@@ -11,15 +11,9 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.function.Function;
 
-/**
- * Autoregressive text generation for any decoder-only transformer model.
- * Supports temperature sampling and optional top-k filtering.
- */
 public final class TextGenerator {
 
     private TextGenerator() {}
-
-    // ── Model-specific convenience overloads ───────────────────────
 
     public static String generate(
             GPTModel model, Tokenizer tok, GPTConfig cfg,
@@ -42,11 +36,6 @@ public final class TextGenerator {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
     }
 
-    // ── Generic core ───────────────────────────────────────────────
-
-    /**
-     * Generate text using any model that maps {@code int[] ids → [seqLen × vocabSize]} logits.
-     */
     public static String generate(
             Function<int[], Tensor> forwarder,
             TransformerConfig cfg,
@@ -60,9 +49,6 @@ public final class TextGenerator {
         return generate(forwarder, cfg.maxSeqLen(), tok, prompt, maxNewTokens, temperature, topK, seed);
     }
 
-    /**
-     * Generate text with an explicit {@code maxSeqLen} — useful when no config is available.
-     */
     public static String generate(
             Function<int[], Tensor> forwarder,
             int maxSeqLen,
@@ -101,20 +87,16 @@ public final class TextGenerator {
         return length > 0 && tokenizer.isEndOfSequence(ids[length - 1]);
     }
 
-    // ── Autoregressive step ────────────────────────────────────────
-
     private static int nextToken(Function<int[], Tensor> forwarder, int maxSeqLen,
                                  int[] ids, int length, float temperature, int topK, Random rnd) {
         int[] context = context(ids, length, maxSeqLen);
         Tensor logits = forwarder.apply(context);
         logits.materialize();
-        // Extract last row directly from flat storage — no backend round-trip.
+
         float[] lastLogits = Arrays.copyOfRange(logits.data,
                 (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
     }
-
-    // ── Sampling ───────────────────────────────────────────────────
 
     private static int sampleFromLogits(float[] logits, float temperature, int topK, Random rnd) {
         int[] topIndices = topKIndices(logits, topK);
@@ -168,8 +150,6 @@ public final class TextGenerator {
         return indices[indices.length - 1];
     }
 
-    // ── Validation ─────────────────────────────────────────────────
-
     private static void validateArgs(int maxNewTokens, float temperature, int topK) {
         if (maxNewTokens < 0) throw new IllegalArgumentException("maxNewTokens must be >= 0");
         if (!Float.isFinite(temperature) || temperature <= 0.0f)
@@ -182,8 +162,6 @@ public final class TextGenerator {
             throw new IllegalArgumentException("prompt must encode to at least one token");
         }
     }
-
-    // ── Array utilities ────────────────────────────────────────────
 
     private static int[] indices(int length) {
         int[] indices = new int[length];

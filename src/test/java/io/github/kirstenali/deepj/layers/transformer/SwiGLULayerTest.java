@@ -13,23 +13,7 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Unit tests for {@link SwiGLULayer}.
- *
- * <p>Covers:
- * <ul>
- *   <li>Forward output shape and finiteness</li>
- *   <li>Backward output shape</li>
- *   <li>Backward accumulates gradients in all three projections</li>
- *   <li>Backward numerical gradient check (finite differences)</li>
- *   <li>Learning: MSE loss decreases with AdamW</li>
- *   <li>Projection count: exactly 3 Linear layers worth of parameters</li>
- *   <li>Guards: invalid constructor args throw</li>
- * </ul>
- */
 class SwiGLULayerTest {
-
-    // ── forward ──────────────────────────────────────────────────────────────
 
     @Test
     void forward_returns_correct_shape() {
@@ -59,8 +43,6 @@ class SwiGLULayerTest {
         Tensor y = layer.forward(x);
         TestSupport.assertTensorShape(y, 1, 4);
     }
-
-    // ── backward ─────────────────────────────────────────────────────────────
 
     @Test
     void backward_returns_correct_shape() {
@@ -93,11 +75,13 @@ class SwiGLULayerTest {
         SwiGLULayer layer = new SwiGLULayer(dModel, dFF, new Random(6));
         Tensor x = randomTensor(2, dModel, 17);
 
-        // Analytical gradient
         layer.forward(x);
         Tensor analyticGrad = layer.backward(Tensor.ones(2, dModel));
+        assertNumericalGradient(x, analyticGrad, dModel, dFF, eps, tol);
+    }
 
-        // Numerical gradient for each element of x
+    private static void assertNumericalGradient(Tensor x, Tensor analytic, int dModel,
+                                                int dFF, float eps, float tol) {
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < x.cols; c++) {
                 float orig = x.get(r, c);
@@ -111,13 +95,11 @@ class SwiGLULayerTest {
                 x.set(r, c, orig);
 
                 float numerical = (fPlus - fMinus) / (2 * eps);
-                assertEquals(numerical, analyticGrad.get(r, c), tol,
+                assertEquals(numerical, analytic.get(r, c), tol,
                         "Gradient mismatch at [" + r + "," + c + "]");
             }
         }
     }
-
-    // ── learning ─────────────────────────────────────────────────────────────
 
     @Test
     void learning_reduces_mse_loss_within_a_few_steps() {
@@ -139,17 +121,13 @@ class SwiGLULayerTest {
         assertTrue(improved, "MSE should decrease within a few AdamW steps");
     }
 
-    // ── parameters ───────────────────────────────────────────────────────────
-
     @Test
     void has_parameters_from_all_three_projections() {
-        // gateProj + upProj + downProj each contribute W and b → 6 parameters total
+
         SwiGLULayer layer = new SwiGLULayer(4, 8, new Random(8));
         assertEquals(6, layer.parameters().size(),
                 "Expected 6 parameters (W+b for each of gateProj, upProj, downProj)");
     }
-
-    // ── guards ───────────────────────────────────────────────────────────────
 
     @Test
     void constructor_zero_dModel_throws() {
@@ -162,8 +140,6 @@ class SwiGLULayerTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new SwiGLULayer(4, 0, new Random(1)));
     }
-
-    // ── helpers ──────────────────────────────────────────────────────────────
 
     private static Tensor randomTensor(int rows, int cols, long seed) {
         return Tensor.random(rows, cols, new Random(seed));

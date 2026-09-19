@@ -2,15 +2,9 @@ package io.github.kirstenali.deepj.activations;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-/**
- * Row-wise softmax for 2D tensors: applies softmax independently to each row.
- *
- * Forward:  softmaxRows(logits)
- * Backward: given upstream grad dY, returns dLogits using cached softmax output.
- */
 public final class Softmax implements ActivationFunction {
 
-    private Tensor softmaxOut; // cache from forward
+    private Tensor softmaxOut;
 
     @Override
     public Tensor forward(Tensor logits) {

@@ -12,7 +12,6 @@ import io.github.kirstenali.deepj.training.EvaluationResult;
 import java.nio.file.Path;
 import java.util.Properties;
 
-/** Evaluates and exports the trained TinyStories checkpoint for Hugging Face. */
 public final class ExportDeepSeekTinyStories {
 
     private static final String DATASET_URL = "https://huggingface.co/datasets/roneneldan/TinyStories";

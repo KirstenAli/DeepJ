@@ -7,14 +7,11 @@ import io.github.kirstenali.deepj.training.Trainable;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Learnable positional embeddings added to token embeddings.
- */
 public final class PositionalEmbedding implements Trainable {
 
     private final int maxSeq;
     private final int dModel;
-    private final Parameter weight; // [maxSeq x dModel]
+    private final Parameter weight;
     private int lastSeqLen;
 
     public PositionalEmbedding(int maxSeq, int dModel, Random rnd) {

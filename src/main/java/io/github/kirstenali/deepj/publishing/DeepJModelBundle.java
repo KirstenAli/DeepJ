@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/** Exports a DeepJ checkpoint, tokenizer, config, and Hugging Face model card. */
 public final class DeepJModelBundle {
 
     public static final String MODEL_FILE = "model.dj";

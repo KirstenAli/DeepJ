@@ -9,16 +9,6 @@ import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 
 import java.util.Random;
 
-/**
- * Pre-LN transformer block with Llama-style full-head attention:
- * <pre>
- *   x = x + RoPE-Attn( RMSNorm(x) )
- *   x = x + SwiGLU(    RMSNorm(x) )
- * </pre>
- *
- * <p>Composes {@link RMSNorm1D}, {@link RoPEMultiHeadSelfAttention}, and
- * {@link SwiGLULayer}.
- */
 public final class LlamaTransformerBlock extends AbstractTransformerBlock {
 
     private final RMSNorm1D ln1;
@@ -26,13 +16,6 @@ public final class LlamaTransformerBlock extends AbstractTransformerBlock {
     private final RoPEMultiHeadSelfAttention attn;
     private final SwiGLULayer mlp;
 
-    /**
-     * @param dModel     model dimension
-     * @param nHeads     attention heads (must divide dModel)
-     * @param dFF        SwiGLU intermediate dimension (typically ≈ 8/3 × dModel)
-     * @param maxSeqLen  maximum sequence length for the RoPE table
-     * @param rnd        random source for weight initialisation
-     */
     public LlamaTransformerBlock(int dModel, int nHeads, int dFF, int maxSeqLen, Random rnd) {
         RotaryEmbedding rope = createRope(dModel, nHeads, maxSeqLen);
         this.ln1  = new RMSNorm1D(dModel);
@@ -61,11 +44,10 @@ public final class LlamaTransformerBlock extends AbstractTransformerBlock {
 
     @Override
     public Tensor backward(Tensor gradOut) {
-        // residual add2: y = x2 + mlp(ln2(x2))
+
         Tensor gMlp = mlp.backward(gradOut);
         Tensor gX2  = gradOut.add(ln2.backward(gMlp));
 
-        // residual add1: x2 = x + attn(ln1(x))
         Tensor gAttn = attn.backward(gX2);
         return gX2.add(ln1.backward(gAttn));
     }

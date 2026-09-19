@@ -8,18 +8,6 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.nio.file.Path;
 
-/**
- * Example: tiny Llama training on a small text file using byte-level tokens.
- *
- * <p>Architecture differences from the GPT example:
- * <ul>
- *   <li>No learned positional embedding — RoPE is applied inside each attention block.</li>
- *   <li>RMSNorm instead of LayerNorm.</li>
- *   <li>SwiGLU feed-forward instead of GELU-FFN.</li>
- * </ul>
- *
- * Intended as a smoke test / reference, not for serious training.
- */
 public final class TrainSmallLlama {
 
     public static void main(String[] args) throws Exception {

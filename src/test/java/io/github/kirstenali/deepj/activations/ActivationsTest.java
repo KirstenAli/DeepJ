@@ -12,26 +12,23 @@ public class ActivationsTest {
     @Test
     void relu_forwardBackward() {
         ReLU relu = new ReLU();
-        Tensor x = Tensor.from2D(new float[][]{
-                {-1, 0, 2},
-                {3, -4, 5}
-        });
-
-        Tensor y = relu.forward(x);
-        TestSupport.assertTensorAllClose(y, Tensor.from2D(new float[][]{
-                {0, 0, 2},
-                {3, 0, 5}
-        }), 1e-12f);
-
-        Tensor gradOut = Tensor.from2D(new float[][]{
-                {1, 1, 1},
-                {2, 2, 2}
-        });
+        Tensor y = relu.forward(reluInput());
+        TestSupport.assertTensorAllClose(y, reluOutput(), 1e-12f);
+        Tensor gradOut = Tensor.from2D(new float[][]{{1, 1, 1}, {2, 2, 2}});
         Tensor gx = relu.backward(gradOut);
-        TestSupport.assertTensorAllClose(gx, Tensor.from2D(new float[][]{
-                {0, 0, 1},
-                {2, 0, 2}
-        }), 1e-12f);
+        TestSupport.assertTensorAllClose(gx, reluGradient(), 1e-12f);
+    }
+
+    private static Tensor reluInput() {
+        return Tensor.from2D(new float[][]{{-1, 0, 2}, {3, -4, 5}});
+    }
+
+    private static Tensor reluOutput() {
+        return Tensor.from2D(new float[][]{{0, 0, 2}, {3, 0, 5}});
+    }
+
+    private static Tensor reluGradient() {
+        return Tensor.from2D(new float[][]{{0, 0, 1}, {2, 0, 2}});
     }
 
     @Test
@@ -84,7 +81,6 @@ public class ActivationsTest {
             Assertions.assertEquals(1.0f, sum, 1e-6f);
         }
 
-        // backward should require forward
         Softmax sm2 = new Softmax();
         Assertions.assertThrows(IllegalStateException.class, () -> sm2.backward(p));
     }
@@ -93,12 +89,10 @@ public class ActivationsTest {
     void sigmoid_backward_matchesFiniteDifference() {
         Tensor x = Tensor.from2D(new float[][]{{-1.2f, 0.0f, 2.3f}});
 
-        // analytic: d/dx sum(sigmoid(x)) = sigmoid'(x)
         Sigmoid s = new Sigmoid();
         Tensor y = s.forward(x);
         Tensor analytic = s.backward(Tensor.ones(y.rows, y.cols));
 
-        // numeric
         Tensor numeric = finiteDiffGradSum(t -> {
             Sigmoid ss = new Sigmoid();
             return ss.forward(t);
@@ -136,7 +130,6 @@ public class ActivationsTest {
             return gg.forward(u);
         }, x, 1e-3f);
 
-        // GELU is approximate + exp/tanh internally -> slightly looser tolerance
         TestSupport.assertTensorAllClose(analytic, numeric, 2e-3f);
     }
 
@@ -152,18 +145,15 @@ public class ActivationsTest {
                 { -1.1f, 0.4f, 0.9f }
         });
 
-        // analytic: grad = softmax.backward(upstream)
         Softmax sm = new Softmax();
         sm.forward(logits);
         Tensor analytic = sm.backward(upstream);
 
-        // numeric: objective = sum( softmax(logits) * upstream )
         Tensor numeric = finiteDiffGradScalarObjective(x -> softmaxDotObjective(x, upstream), logits, 1e-3f);
 
         TestSupport.assertTensorAllClose(analytic, numeric, 2e-3f);
     }
 
-    /** Numerical grad of objective = sum(f(x)) */
     private static Tensor finiteDiffGradSum(Function<Tensor, Tensor> f, Tensor x, float eps) {
         Tensor grad = new Tensor(x.rows, x.cols);
 
@@ -185,7 +175,6 @@ public class ActivationsTest {
         return grad;
     }
 
-    /** Numerical grad of any scalar objective J(x) */
     private static Tensor finiteDiffGradScalarObjective(Function<Tensor, Float> objective, Tensor x, float eps) {
         Tensor grad = new Tensor(x.rows, x.cols);
 
@@ -220,4 +209,3 @@ public class ActivationsTest {
         return s;
     }
 }
-

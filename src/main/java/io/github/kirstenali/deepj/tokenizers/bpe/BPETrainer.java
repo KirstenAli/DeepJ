@@ -21,18 +21,9 @@ public final class BPETrainer {
     private static final String EOW_KEY                  = "<EOW_INTERNAL>";
     private static final String SPECIAL_KEY_PREFIX       = "<SPECIAL_INTERNAL>:";
 
-    /**
-     * Maximum characters read from a file when training from a path.
-     * Large corpora (e.g. multi-gigabyte files) exceed Java's String size limit,
-     * and a 50 MB sample is far more than sufficient for good BPE merge statistics.
-     */
-    private static final int FILE_SAMPLE_CHARS = 50 * 1024 * 1024; // 50 MB
+    private static final int FILE_SAMPLE_CHARS = 50 * 1024 * 1024;
 
     public static final List<String> DEFAULT_SPECIAL_TOKENS = List.of("<BOS>", "<EOS>", "<PAD>");
-
-    // -------------------------------------------------------------------------
-    // Public API
-    // -------------------------------------------------------------------------
 
     public BPEModel train(String text, int targetVocabSize) {
         return train(text, targetVocabSize, List.of());
@@ -93,10 +84,6 @@ public final class BPETrainer {
         return new BPETokenizer(trainFromFile(path, targetVocabSize, specialTokens));
     }
 
-    // -------------------------------------------------------------------------
-    // Validation & normalisation
-    // -------------------------------------------------------------------------
-
     private static void validateTargetVocabSize(int targetVocabSize, int specialCount) {
         int minimum = BASE_VOCAB_SIZE_WITH_EOW + specialCount;
         if (targetVocabSize <= minimum) {
@@ -117,10 +104,6 @@ public final class BPETrainer {
         }
         return List.copyOf(dedup);
     }
-
-    // -------------------------------------------------------------------------
-    // Vocabulary construction
-    // -------------------------------------------------------------------------
 
     private static VocabularyState createBaseVocabulary() {
         List<byte[]>         idToBytes    = new ArrayList<>();
@@ -167,10 +150,6 @@ public final class BPETrainer {
         return SPECIAL_KEY_PREFIX + token;
     }
 
-    // -------------------------------------------------------------------------
-    // Word segmentation
-    // -------------------------------------------------------------------------
-
     private static List<TrainingWord> buildInitialWords(String text, int endOfWordId) {
         Map<String, Integer> frequencies = countPieces(text);
         List<TrainingWord> words = new ArrayList<>(frequencies.size());
@@ -199,10 +178,6 @@ public final class BPETrainer {
     private static TrainingWord trainingWord(String piece, int endOfWordId, int frequency) {
         return new TrainingWord(BPEBytes.toTokenArray(piece, endOfWordId), frequency);
     }
-
-    // -------------------------------------------------------------------------
-    // Merge training loop
-    // -------------------------------------------------------------------------
 
     private static MergeResult trainMerges(List<TrainingWord> words, VocabularyState vocab, int targetVocabSize) {
         List<TokenPair>         merges       = new ArrayList<>();
@@ -233,11 +208,6 @@ public final class BPETrainer {
         return queue;
     }
 
-    /**
-     * Pops entries from the heap, skipping stale ones (count no longer matches the
-     * live map) and entries whose merge would produce an already-existing token.
-     * O(log P) amortised per valid selection.
-     */
     private static SelectedPair pollBestValidPair(PriorityQueue<PairEntry> queue,
                                                   Map<TokenPair, Integer> counts,
                                                   VocabularyState vocab) {
@@ -251,11 +221,6 @@ public final class BPETrainer {
         }
         return null;
     }
-
-
-    // -------------------------------------------------------------------------
-    // Pair counting
-    // -------------------------------------------------------------------------
 
     private static Map<TokenPair, Integer> countPairs(List<TrainingWord> words, int endOfWordId) {
         Map<TokenPair, Integer> counts = new HashMap<>();
@@ -274,12 +239,6 @@ public final class BPETrainer {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Pair selection
-    // -------------------------------------------------------------------------
-
-
-    // @VisibleForTesting
     static TokenPair selectBestPair(Map<TokenPair, Integer> counts) {
         return chooseBestPair(counts, (candidate, count) -> count > 1);
     }
@@ -309,10 +268,6 @@ public final class BPETrainer {
         return count == bestCount && (bestPair == null || candidate.compareTo(bestPair) < 0);
     }
 
-    // -------------------------------------------------------------------------
-    // Merge application
-    // -------------------------------------------------------------------------
-
     private static byte[] mergedBytes(VocabularyState vocab, TokenPair pair) {
         return BPEBytes.concat(
                 vocab.idToBytes().get(pair.left()),
@@ -328,15 +283,6 @@ public final class BPETrainer {
         }
     }
 
-    /**
-     * Two-pointer in-place merge. As each occurrence of {@code pair} is replaced by
-     * {@code newId}, the counts for the neighboring pairs are updated incrementally:
-     * <pre>
-     *   (leftNeighbor, pair.left)  → (leftNeighbor, newId)
-     *   (pair.right, rightNeighbor) → (newId, rightNeighbor)
-     * </pre>
-     * This keeps the counts map accurate across rounds without a full rescan.
-     */
     private static void applyMergeInPlace(TrainingWord word, TokenPair pair, int newId,
                                           int endOfWordId, Map<TokenPair, Integer> counts,
                                           PriorityQueue<PairEntry> queue) {
@@ -395,15 +341,6 @@ public final class BPETrainer {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // File I/O helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Reads at most {@link #FILE_SAMPLE_CHARS} characters from {@code path}.
-     * Uses a streaming {@link BufferedReader} so the full file is never loaded
-     * into memory — safe even for multi-gigabyte corpora.
-     */
     private static String readSample(Path path, int sampleChars) throws IOException {
         StringBuilder sb = new StringBuilder(sampleChars);
         try (BufferedReader br = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
@@ -423,10 +360,6 @@ public final class BPETrainer {
         if (last >= 0 && Character.isHighSurrogate(sample.charAt(last))) sample.setLength(last);
         return sample.toString();
     }
-
-    // -------------------------------------------------------------------------
-    // Inner types
-    // -------------------------------------------------------------------------
 
     private record MergeResult(List<TokenPair> merges, Map<TokenPair, Integer> mergeToNewId) {}
 
@@ -454,11 +387,10 @@ public final class BPETrainer {
         void truncate(int newSize) { size = newSize; }
     }
 
-    /** Heap entry: ordered by count descending, then by pair ascending for deterministic tie-breaking. */
     private record PairEntry(int count, TokenPair pair) implements Comparable<PairEntry> {
         @Override
         public int compareTo(PairEntry other) {
-            int cmp = Integer.compare(other.count, this.count); // max-heap
+            int cmp = Integer.compare(other.count, this.count);
             return cmp != 0 ? cmp : this.pair.compareTo(other.pair);
         }
     }

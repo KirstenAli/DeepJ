@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
-/** Loads a trained TinyStories model and its versioned tokenizer metadata. */
 final class DeepSeekTinyStoriesArtifacts {
 
     private DeepSeekTinyStoriesArtifacts() {}

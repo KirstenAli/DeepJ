@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
 
-/** Trains a compact DeepSeek-style model directly from the TinyStories corpus. */
 public final class TrainDeepSeekTinyStories {
 
     private static final List<String> SPECIAL_TOKENS =

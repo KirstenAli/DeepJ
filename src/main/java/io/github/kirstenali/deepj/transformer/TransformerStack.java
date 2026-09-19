@@ -10,13 +10,6 @@ import io.github.kirstenali.deepj.optimisers.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A sequential stack of transformer blocks.
- *
- * <p>Each block must implement {@link Layer} — forward, backward, and parameters.
- * Supports {@link GPTTransformerBlock}, {@link LlamaTransformerBlock},
- * and {@link DeepSeekTransformerBlock} blocks, or any custom {@link Layer}.
- */
 public record TransformerStack(List<Layer> blocks) implements Layer {
 
     public TransformerStack(List<Layer> blocks) {

@@ -6,10 +6,6 @@ import io.github.kirstenali.deepj.optimisers.Parameter;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Fully-connected layer: y = xW + b
- * x: [n x dIn], W: [dIn x dOut], b: [1 x dOut]
- */
 public final class Linear implements Projection {
 
     private final int dIn;
@@ -37,16 +33,14 @@ public final class Linear implements Projection {
 
     @Override
     public Tensor backward(Tensor gradY) {
-        // dW = X^T * dY
+
         Tensor dW = lastX.transpose().matmul(gradY);
-        // db = sumRows(dY)
+
         Tensor db = gradY.sumRows();
 
-        // accumulate
         W.grad.addInPlace(dW);
         b.grad.addInPlace(db);
 
-        // dX = dY * W^T
         return gradY.matmul(W.value.transpose());
     }
 

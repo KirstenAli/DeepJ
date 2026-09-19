@@ -53,15 +53,13 @@ public record BPEModel(
         return deepCopyBytes(idToBytes);
     }
 
-    /** Package-private fast path — returns the internal unmodifiable list without deep-copying byte arrays.
-     *  Safe for read-only access within this package (e.g. decode). */
     List<byte[]> idToBytesView() {
         return idToBytes;
     }
 
     @Override
     public Map<String, Integer> specialTokenToId() {
-        return specialTokenToId; // already Map.copyOf'd in constructor
+        return specialTokenToId;
     }
 
     public int vocabSize() {

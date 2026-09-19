@@ -2,7 +2,6 @@ package io.github.kirstenali.deepj.tokenizers.bpe;
 
 import java.util.Arrays;
 
-/** Small growable primitive array used to avoid boxing token ids. */
 final class IntArrayBuilder {
 
     private int[] values;

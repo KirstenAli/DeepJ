@@ -53,23 +53,20 @@ public class LayerNorm1DTest {
         return loss;
     }
 
-    // ── finite-difference gradient checks ────────────────────────────────────
-
     @Test
     void backward_numerical_gradient_check_wrt_input() {
         int dim = 3;
         float eps = 1e-3f;
         float tol = 3e-3f;
-
         LayerNorm1D ln = new LayerNorm1D(dim);
-        Tensor x = Tensor.from2D(new float[][]{
-                { 0.5f, -1.0f,  2.0f},
-                { 1.5f,  0.3f, -0.7f}
-        });
-
+        Tensor x = gradientInput();
         ln.forward(x);
         Tensor analytic = ln.backward(Tensor.ones(x.rows, dim));
+        assertInputGradient(ln, x, analytic, dim, eps, tol);
+    }
 
+    private static void assertInputGradient(LayerNorm1D ln, Tensor x, Tensor analytic,
+                                            int dim, float eps, float tol) {
         for (int r = 0; r < x.rows; r++) {
             for (int c = 0; c < dim; c++) {
                 float orig = x.get(r, c);
@@ -90,18 +87,17 @@ public class LayerNorm1DTest {
         int dim = 3;
         float eps = 1e-3f;
         float tol = 3e-3f;
-
         LayerNorm1D ln = new LayerNorm1D(dim);
-        Tensor x = Tensor.from2D(new float[][]{
-                { 0.5f, -1.0f,  2.0f},
-                { 1.5f,  0.3f, -0.7f}
-        });
-
+        Tensor x = gradientInput();
         ln.forward(x);
         ln.backward(Tensor.ones(x.rows, dim));
         Parameter gamma = ln.parameters().get(0);
         float[] analytic = gamma.grad.data.clone();
+        assertGammaGradient(ln, x, gamma, analytic, dim, eps, tol);
+    }
 
+    private static void assertGammaGradient(LayerNorm1D ln, Tensor x, Parameter gamma,
+                                            float[] analytic, int dim, float eps, float tol) {
         for (int c = 0; c < dim; c++) {
             float orig = gamma.value.get(0, c);
             gamma.value.set(0, c, orig + eps);
@@ -112,6 +108,10 @@ public class LayerNorm1DTest {
             float numerical = (fPlus - fMinus) / (2 * eps);
             assertEquals(numerical, analytic[c], tol, "gamma grad mismatch at col " + c);
         }
+    }
+
+    private static Tensor gradientInput() {
+        return Tensor.from2D(new float[][]{{0.5f, -1.0f, 2.0f}, {1.5f, 0.3f, -0.7f}});
     }
 
     @Test
@@ -126,7 +126,6 @@ public class LayerNorm1DTest {
         ln.forward(x);
         ln.backward(Tensor.ones(x.rows, dim));
 
-        // out = xHat·gamma + beta (broadcast over rows) → dL/dbeta[c] = Σ_r gradOut[r,c] = rows
         Parameter beta = ln.parameters().get(1);
         for (int c = 0; c < dim; c++) {
             assertEquals((float) x.rows, beta.grad.data[c], 1e-6f, "beta grad at col " + c);

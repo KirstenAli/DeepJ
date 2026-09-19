@@ -9,31 +9,14 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;
 
-/**
- * Flexible fully-connected neural network (MLP) built from {@link Linear} projections.
- *
- * <p>This class is intentionally small: it exists as a convenience for users who want a
- * classic ANN-style model while deepj remains transformer-oriented.
- *
- * <p>Design notes:
- * <ul>
- *   <li>Uses {@link Linear} so parameters can be optimized externally (AdamW/SGD/etc.).</li>
- *   <li>Accepts an {@link ActivationFunction} factory to avoid state-sharing bugs during backprop.</li>
- * </ul>
- */
 public final class FNN implements Layer {
 
     private final List<Linear> linears = new ArrayList<>();
     private final List<ActivationFunction> activations = new ArrayList<>();
-    private final ActivationFunction outputActivation; // may be null
+    private final ActivationFunction outputActivation;
 
-    // Cache last pre-activations per hidden layer (for clarity; activations cache internally too)
     private final List<Tensor> hiddenPreActs = new ArrayList<>();
 
-    /**
-     * Build an MLP of the form:
-     * Linear -> act -> Linear -> act -> ... -> Linear -> (optional outputAct)
-     */
     public FNN(
             int inputSize,
             int[] hiddenSizes,
@@ -57,7 +40,7 @@ public final class FNN implements Layer {
             activations.add(hiddenActivationFactory.get());
             in = h;
         }
-        // output projection
+
         linears.add(new Linear(in, outputSize, rnd));
         this.outputActivation = outputActivation;
     }
@@ -79,7 +62,6 @@ public final class FNN implements Layer {
             h = activations.get(i).forward(z);
         }
 
-        // final linear
         Tensor out = linears.get(linears.size() - 1).forward(h);
         if (outputActivation != null) {
             out = outputActivation.forward(out);
@@ -95,10 +77,8 @@ public final class FNN implements Layer {
             g = outputActivation.backward(g);
         }
 
-        // final linear grad
         g = linears.get(linears.size() - 1).backward(g);
 
-        // hidden layers (reverse)
         for (int i = activations.size() - 1; i >= 0; i--) {
             g = activations.get(i).backward(g);
             g = linears.get(i).backward(g);

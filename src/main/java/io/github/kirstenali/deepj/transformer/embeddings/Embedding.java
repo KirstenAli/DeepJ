@@ -7,16 +7,12 @@ import io.github.kirstenali.deepj.training.Trainable;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Token embedding: ids -> vectors. Input ids are provided via {@link #forward(int[])}.
- * Output is a tensor of shape [nTokens x dModel].
- */
 public final class Embedding implements Trainable {
 
     private final int vocabSize;
     private final int dModel;
 
-    private final Parameter weight; // [vocabSize x dModel]
+    private final Parameter weight;
     private int[] lastIds;
 
     public Embedding(int vocabSize, int dModel, Random rnd) {

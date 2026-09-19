@@ -7,16 +7,11 @@
 #include <stdexcept>
 #include <string>
 
-// ═══════════════════════════════════════════════════════════════════════
-//  Persistent Metal context (singleton)
-// ═══════════════════════════════════════════════════════════════════════
-
 struct MetalContext {
     id<MTLDevice>       device;
     id<MTLCommandQueue> queue;
     id<MTLLibrary>      library;
 
-    // Pipeline states for each kernel
     id<MTLComputePipelineState> addPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
@@ -68,7 +63,6 @@ static NSString* metalShaderSource = @R"(
 #include <metal_stdlib>
 using namespace metal;
 
-// ── element-wise binary ──
 kernel void kernel_add(device const float* a [[buffer(0)]],
                        device const float* b [[buffer(1)]],
                        device float* out     [[buffer(2)]],
@@ -97,7 +91,6 @@ kernel void kernel_divide(device const float* a [[buffer(0)]],
     out[id] = a[id] / b[id];
 }
 
-// ── scalar ──
 kernel void kernel_multiply_scalar(device const float* a       [[buffer(0)]],
                                    device float* out           [[buffer(1)]],
                                    device const float* scalar  [[buffer(2)]],
@@ -613,7 +606,6 @@ kernel void kernel_scatter_add_rows_atomic(device float* target        [[buffer(
     atomic_add_f32(&targetAtomic[flat], grad[i * targetCols + c]);
 }
 
-// ── unary math ──
 kernel void kernel_sqrt(device const float* a [[buffer(0)]],
                         device float* out     [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
@@ -638,7 +630,6 @@ kernel void kernel_log(device const float* a [[buffer(0)]],
     out[id] = log(a[id]);
 }
 
-// ── activations ──
 kernel void kernel_tanh(device const float* a [[buffer(0)]],
                         device float* out     [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
@@ -668,9 +659,9 @@ kernel void kernel_gelu(device const float* a [[buffer(0)]],
                         device float* out     [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
     float x = a[id];
-    float c = 0.7978845608f; // sqrt(2/pi)
+    float sqrtTwoOverPi = 0.7978845608f;
     float x3 = x * x * x;
-    float t = c * (x + 0.044715f * x3);
+    float t = sqrtTwoOverPi * (x + 0.044715f * x3);
     out[id] = 0.5f * x * (1.0f + tanh(t));
 }
 
@@ -679,19 +670,16 @@ kernel void kernel_gelu_backward(device const float* input [[buffer(0)]],
                                  device float* out         [[buffer(2)]],
                                  uint id [[thread_position_in_grid]]) {
     float x = input[id];
-    float c = 0.7978845608f;
+    float sqrtTwoOverPi = 0.7978845608f;
     float x2 = x * x;
     float x3 = x2 * x;
-    float t = c * (x + 0.044715f * x3);
+    float t = sqrtTwoOverPi * (x + 0.044715f * x3);
     float tanhT = tanh(t);
     float sech2 = 1.0f - tanhT * tanhT;
-    float dt_dx = c * (1.0f + 3.0f * 0.044715f * x2);
+    float dt_dx = sqrtTwoOverPi * (1.0f + 3.0f * 0.044715f * x2);
     float d_gelu = 0.5f * (1.0f + tanhT) + 0.5f * x * sech2 * dt_dx;
     out[id] = grad[id] * d_gelu;
 }
-
-// ── softmax (3-pass: max, exp+sum, normalize) ──
-// Each row processed independently; dispatch rows threads for max and expsum, then n threads for norm.
 
 kernel void kernel_softmax_max(device const float* a     [[buffer(0)]],
                                device float* rowMax      [[buffer(1)]],
@@ -1027,27 +1015,15 @@ static MetalContext* getContext() {
     return gCtx;
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-//  Persistent GPU Buffer Pool + Batch Op Execution (Lazy Graph)
-//
-//  Buffers persist across JNI calls. Ops are batched into a single
-//  MTLCommandBuffer. Data stays GPU-resident between ops.
-// ═══════════════════════════════════════════════════════════════════════
-
 #include <unordered_map>
 
 static std::unordered_map<int, id<MTLBuffer>> gBufferPool;
 static std::mutex gBufferMutex;
 
-// Cache of MPSMatrixMultiplication kernels keyed by (m,n,k). Building an MPS
-// kernel is expensive, and matmul is the most frequent op in a transformer, so
-// re-allocating one per call was a major throughput sink. A given (m,n,k) shape
-// always maps to the same kernel; buffers are bound at encode time, so caching
-// by shape is correct. Only a handful of distinct shapes occur per model.
 static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCache;
 
 static MPSMatrixMultiplication* cachedMatmulKernel(MetalContext* ctx, int m, int n, int k) {
-    // m, n, k are all well below 2^21 for any realistic model, so pack losslessly.
+
     uint64_t key = ((uint64_t)(uint32_t)m << 42) | ((uint64_t)(uint32_t)n << 21) | (uint64_t)(uint32_t)k;
     auto it = gMatmulKernelCache.find(key);
     if (it != gMatmulKernelCache.end()) return it->second;
@@ -1057,12 +1033,11 @@ static MPSMatrixMultiplication* cachedMatmulKernel(MetalContext* ctx, int m, int
             transposeLeft:NO transposeRight:NO
             resultRows:m resultColumns:n interiorColumns:k
             alpha:1.0 beta:0.0];
-    gMatmulKernelCache[key] = mm;   // ARC retains the kernel in the map
+    gMatmulKernelCache[key] = mm;
     return mm;
 }
 
-
-// Op codes — must match ComputeGraph.java
+// Keep these values synchronized with ComputeGraph.java.
 static constexpr int OP_ADD            = 1;
 static constexpr int OP_SUBTRACT       = 2;
 static constexpr int OP_MULTIPLY       = 3;
@@ -1204,8 +1179,6 @@ static void encodeSoftmaxGraph(id<MTLComputeCommandEncoder> __strong &encoder,
                       (NSUInteger)rows * (NSUInteger)cols);
 }
 
-// ── nativeAllocBuffers ─────────────────────────────────────────────────
-
 static bool validateAllocationArrays(JNIEnv* env, jintArray ids, jintArray sizes, jint count) {
     if (ids == nullptr || sizes == nullptr) {
         throwJavaRuntimeException(env, "GPU allocation arrays cannot be null");
@@ -1261,8 +1234,6 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
     env->ReleaseIntArrayElements(sizesArr, sizes, JNI_ABORT);
 }
 
-// ── nativeUploadBuffer ─────────────────────────────────────────────────
-
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
         JNIEnv* env, jclass, jint bufId, jfloatArray dataArr) {
@@ -1287,8 +1258,6 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
     env->ReleaseFloatArrayElements(dataArr, data, JNI_ABORT);
 }
 
-// ── nativeDownloadBuffer ───────────────────────────────────────────────
-
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer(
         JNIEnv* env, jclass, jint bufId, jfloatArray outArr) {
@@ -1312,8 +1281,6 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer(
     std::memcpy(out, [it->second contents], (size_t)len * sizeof(float));
     env->ReleaseFloatArrayElements(outArr, out, 0);
 }
-
-// ── nativeReleaseBuffers ───────────────────────────────────────────────
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
@@ -1832,9 +1799,6 @@ static bool validateCommandArray(JNIEnv* env, jintArray commands, jint length) {
     throwJavaRuntimeException(env, "Invalid Metal command stream length");
     return false;
 }
-
-
-// ── nativeFlushOps: batch execute all ops in one MTLCommandBuffer ──────
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(

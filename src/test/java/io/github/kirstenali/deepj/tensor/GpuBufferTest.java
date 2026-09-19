@@ -38,4 +38,3 @@ class GpuBufferTest {
         assertEquals(1, buf.floatCount());
     }
 }
-

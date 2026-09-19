@@ -6,17 +6,14 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.List;
 
-/**
- * LayerNorm over feature dimension (cols) with trainable gamma/beta exposed as {@link Parameter}s.
- */
 public final class LayerNorm1D implements NormLayer {
 
     private static final float EPS = 1e-5f;
 
     private final int dim;
 
-    private final Parameter gamma; // 1 x dim
-    private final Parameter beta;  // 1 x dim
+    private final Parameter gamma;
+    private final Parameter beta;
 
     private Tensor x;
     private Tensor mean;
@@ -74,7 +71,6 @@ public final class LayerNorm1D implements NormLayer {
         gamma.grad.addInPlace(xHat.multiply(gradOut).sumRows());
         beta.grad.addInPlace(gradOut.sumRows());
     }
-
 
     @Override
     public List<Parameter> parameters() {

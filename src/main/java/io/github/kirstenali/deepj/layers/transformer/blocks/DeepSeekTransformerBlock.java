@@ -9,17 +9,6 @@ import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 
 import java.util.Random;
 
-/**
- * Pre-LN transformer block with DeepSeek-style latent attention:
- * <pre>
- *   x = x + MLA( RMSNorm(x) )
- *   x = x + SwiGLU( RMSNorm(x) )
- * </pre>
- *
- * <p>Identical to {@link LlamaTransformerBlock} except attention uses
- * {@link MultiHeadLatentAttention} instead of RoPE-MHA. The latent representation
- * can support a compressed cache in a future incremental decoder.
- */
 public final class DeepSeekTransformerBlock extends AbstractTransformerBlock {
 
     private final RMSNorm1D             ln1;
@@ -27,15 +16,6 @@ public final class DeepSeekTransformerBlock extends AbstractTransformerBlock {
     private final MultiHeadLatentAttention attn;
     private final SwiGLULayer           mlp;
 
-    /**
-     * @param dModel     model dimension
-     * @param nHeads     attention heads (must divide dModel)
-     * @param qRank      Q latent dimension
-     * @param kvRank     KV latent dimension
-     * @param dFF        SwiGLU intermediate dimension
-     * @param maxSeqLen  maximum sequence length for the RoPE table
-     * @param rnd        random source for weight initialisation
-     */
     public DeepSeekTransformerBlock(int dModel, int nHeads, int qRank, int kvRank,
                                     int dFF, int maxSeqLen, Random rnd) {
         RotaryEmbedding rope = createRope(dModel, nHeads, maxSeqLen);

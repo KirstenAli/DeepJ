@@ -17,7 +17,6 @@ public final class BPETokenizer implements Tokenizer {
             List.of("<EOS>", "<|endoftext|>");
     private final BPEModel model;
 
-    // Precomputed once at construction — model is immutable so these never change.
     private final int              endOfWordId;
     private final BPEMergeTable mergeTable;
     private final List<SpecialTokenEntry> sortedSpecials;
@@ -44,7 +43,6 @@ public final class BPETokenizer implements Tokenizer {
         return Set.copyOf(ids);
     }
 
-    /** Builds both special-token views in a single pass to avoid iterating the map twice. */
     private static SpecialTokenViews buildSpecialTokenViews(Map<String, Integer> specials) {
         Map<Integer, String> inverse = new HashMap<>(specials.size());
         List<SpecialTokenEntry> sorted = new ArrayList<>(specials.size());
@@ -57,7 +55,6 @@ public final class BPETokenizer implements Tokenizer {
 
         return new SpecialTokenViews(Map.copyOf(inverse), List.copyOf(sorted));
     }
-
 
     public BPEModel model() {
         return model;
@@ -107,7 +104,7 @@ public final class BPETokenizer implements Tokenizer {
 
     @Override
     public String decode(int[] ids) {
-        // idToBytesView() avoids the deep-copy done by idToBytes() — safe here because we only read.
+
         List<byte[]> vocab = model.idToBytesView();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         StringBuilder textOut = new StringBuilder();

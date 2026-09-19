@@ -80,7 +80,6 @@ class CpuBackendTest {
         }, mask);
     }
 
-
     @Test
     void matmul_shouldMultiplyMatrices() {
         Tensor a = Tensor.from2D(new float[][]{

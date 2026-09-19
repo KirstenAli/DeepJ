@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/** Prepares separate training and validation text for the larger knowledge model. */
 public final class PrepareKnowledgeCorpus {
 
     private static final String END_TOKEN = "<|endoftext|>";

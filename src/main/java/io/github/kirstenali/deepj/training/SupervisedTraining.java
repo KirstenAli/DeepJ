@@ -7,10 +7,6 @@ import io.github.kirstenali.deepj.optimisers.ParameterOptimizer;
 
 import java.util.Random;
 
-/**
- * Helpers to train classic Tensor->Tensor supervised models (e.g., FNN)
- * using the unified Trainer wrapper.
- */
 public final class SupervisedTraining {
 
     private SupervisedTraining() {}

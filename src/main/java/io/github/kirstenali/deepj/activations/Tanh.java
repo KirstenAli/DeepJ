@@ -13,7 +13,7 @@ public class Tanh implements ActivationFunction {
 
     @Override
     public Tensor backward(Tensor gradOutput) {
-        // d_tanh = (1 - tanh^2) * grad
+
         Tensor tanhSq = output.multiply(output);
         tanhSq.multiplyScalarInPlace(-1.0f);
         tanhSq.addScalarInPlace(1.0f);

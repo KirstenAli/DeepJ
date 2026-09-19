@@ -2,15 +2,6 @@ package io.github.kirstenali.deepj.activations;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-/**
- * Sigmoid Linear Unit (SiLU / Swish).
- *
- * <p>Forward:  SiLU(x) = x · σ(x)
- * <p>Backward: SiLU'(x) = σ(x) · (1 + x · (1 − σ(x)))
- *
- * <p>Used as the gate activation inside {@link io.github.kirstenali.deepj.layers.transformer.SwiGLULayer}
- * and is the standard FFN activation in Llama, Mistral, and Qwen.
- */
 public final class SiLU implements ActivationFunction {
 
     private Tensor lastX;
@@ -19,8 +10,8 @@ public final class SiLU implements ActivationFunction {
     @Override
     public Tensor forward(Tensor input) {
         lastX = input;
-        lastSigmoid = input.sigmoidActivation();   // σ(x)
-        return input.multiply(lastSigmoid);         // x · σ(x)
+        lastSigmoid = input.sigmoidActivation();
+        return input.multiply(lastSigmoid);
     }
 
     @Override
@@ -32,9 +23,7 @@ public final class SiLU implements ActivationFunction {
             throw new IllegalArgumentException("gradOutput shape must match input shape");
         }
 
-        // SiLU'(x) = σ(x) · (1 + x · (1 − σ(x)))
-        //           = σ(x) + x · σ(x) · (1 − σ(x))
-        Tensor oneMinusSig = lastSigmoid.multiplyScalar(-1.0f); // 1 - σ(x)
+        Tensor oneMinusSig = lastSigmoid.multiplyScalar(-1.0f);
         oneMinusSig.addScalarInPlace(1.0f);
 
         Tensor xSig = lastX.multiply(lastSigmoid);
@@ -44,4 +33,3 @@ public final class SiLU implements ActivationFunction {
         return gradOutput.multiply(dSiLU);
     }
 }
-

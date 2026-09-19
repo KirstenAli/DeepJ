@@ -17,7 +17,7 @@ import java.util.List;
 
 public final class ModelSerializer {
 
-    private static final int MAGIC = 0x444A4D44; // DJMD
+    private static final int MAGIC = 0x444A4D44;
     public static final int CURRENT_FORMAT_VERSION = 1;
 
     private ModelSerializer() {}
@@ -109,7 +109,7 @@ public final class ModelSerializer {
     }
 
     private static void markGpuBufferNeedsUpload(Tensor t) {
-        // If this tensor is already GPU-bound, force a fresh upload of loaded CPU weights.
+
         if (t.getGpuTag() instanceof GpuBuffer gb) {
             gb.needsUpload = true;
             gb.cpuStale = false;

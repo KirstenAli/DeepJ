@@ -16,7 +16,7 @@ import java.util.Map;
 
 public final class BPEModelIO {
 
-    private static final int MAGIC = 0x444A4250; // DJBP
+    private static final int MAGIC = 0x444A4250;
     private static final int MAX_COLLECTION_SIZE = 1_000_000;
     private static final int MAX_TOKEN_BYTES = 16 * 1024 * 1024;
 
@@ -119,7 +119,6 @@ public final class BPEModelIO {
         return vocab;
     }
 
-
     private static void writeMerges(DataOutputStream out, List<TokenPair> merges) throws IOException {
         out.writeInt(merges.size());
         for (TokenPair pair : merges) {
@@ -157,7 +156,6 @@ public final class BPEModelIO {
         }
         return map;
     }
-
 
     private static void writeStringIntMap(DataOutputStream out, Map<String, Integer> map) throws IOException {
         out.writeInt(map.size());
