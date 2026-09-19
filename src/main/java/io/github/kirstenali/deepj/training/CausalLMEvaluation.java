@@ -32,13 +32,29 @@ public final class CausalLMEvaluation {
     private static double batchLoss(CausalLM model, Batch batch) {
         double loss = 0.0;
         for (int row = 0; row < batch.x().length; row++) {
-            loss += CrossEntropyLoss.loss(model.forward(batch.x()[row]), batch.y()[row]);
+            Tensor logits = model.forward(batch.x()[row]);
+            loss += sequenceLoss(logits, batch.y()[row], batch.mask(row));
         }
         return loss;
     }
 
     private static long batchTokenCount(Batch batch) {
-        return (long) batch.x().length * batch.x()[0].length;
+        long count = 0;
+        for (int row = 0; row < batch.x().length; row++) count += tokenCount(batch, row);
+        return count;
+    }
+
+    private static float sequenceLoss(Tensor logits, int[] targets, boolean[] mask) {
+        return mask == null ? CrossEntropyLoss.loss(logits, targets)
+                : CrossEntropyLoss.loss(logits, targets, mask);
+    }
+
+    private static int tokenCount(Batch batch, int row) {
+        boolean[] mask = batch.mask(row);
+        if (mask == null) return batch.x()[row].length;
+        int count = 0;
+        for (boolean included : mask) if (included) count++;
+        return count;
     }
 
     private static void validate(CausalLM model, BatchSource source, int batches, int batchSize) {

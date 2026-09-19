@@ -52,6 +52,8 @@ public interface TensorBackend {
 
     float crossEntropyLoss(Tensor logits, int[] targets);
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
+    float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask);
+    Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask);
 
     void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                      float lr, float beta1, float beta2, float eps,

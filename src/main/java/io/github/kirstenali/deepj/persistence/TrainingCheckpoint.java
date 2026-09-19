@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.persistence;
 
-import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
+import io.github.kirstenali.deepj.data.StatefulBatchSource;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -33,7 +33,7 @@ public final class TrainingCheckpoint {
     }
 
     public static void save(List<Parameter> params, AdamW optimizer,
-                            RandomAccessTextDataset dataset, TrainingProgress progress,
+                            StatefulBatchSource dataset, TrainingProgress progress,
                             CosineLearningRateSchedule schedule, Path path) throws IOException {
         ensureParent(path);
         Path temporary = temporaryPath(path);
@@ -47,7 +47,7 @@ public final class TrainingCheckpoint {
     }
 
     public static TrainingProgress load(List<Parameter> params, AdamW optimizer,
-                                        RandomAccessTextDataset dataset,
+                                        StatefulBatchSource dataset,
                                         CosineLearningRateSchedule schedule,
                                         Path path) throws IOException {
         ModelSerializer.prepareForLoad();

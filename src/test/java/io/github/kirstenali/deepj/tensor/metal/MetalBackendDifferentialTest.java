@@ -103,6 +103,19 @@ class MetalBackendDifferentialTest {
     }
 
     @Test
+    void maskedCrossEntropyMatchesCpu() {
+        Tensor logits = random(5, 7, 10L);
+        int[] targets = {0, 1, 2, 3, 4};
+        boolean[] mask = {false, true, false, true, true};
+        float expectedLoss = cpu.crossEntropyLoss(new Tensor(logits), targets, mask);
+        float actualLoss = metal.crossEntropyLoss(new Tensor(logits), targets, mask);
+        Tensor expectedGradient = cpu.crossEntropyGradient(new Tensor(logits), targets, mask);
+        Tensor actualGradient = metal.crossEntropyGradient(new Tensor(logits), targets, mask);
+        assertEquals(expectedLoss, actualLoss, 1e-3f);
+        assertTensorClose(expectedGradient, actualGradient, 1e-3f, 1e-2f);
+    }
+
+    @Test
     void queuedScatterIndicesRemainIndependent() {
         Tensor expectedA = Tensor.zeros(6, 2);
         Tensor expectedB = Tensor.zeros(6, 2);

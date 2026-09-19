@@ -405,6 +405,48 @@ public final class CpuBackend implements TensorBackend {
     }
 
     @Override
+    public float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask) {
+        Tensor.requireTargetsMatchRows(logits, targets);
+        float sum = 0.0f;
+        for (int row = 0; row < logits.rows; row++) {
+            if (mask[row]) sum += crossEntropyRowLoss(logits, targets[row], row);
+        }
+        return sum / includedRows(mask);
+    }
+
+    @Override
+    public Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask) {
+        Tensor.requireTargetsMatchRows(logits, targets);
+        Tensor gradient = new Tensor(logits.rows, logits.cols);
+        int included = includedRows(mask);
+        for (int row = 0; row < logits.rows; row++) {
+            if (mask[row]) writeCrossEntropyRow(gradient, logits, targets[row], row, included);
+        }
+        return gradient;
+    }
+
+    private static float crossEntropyRowLoss(Tensor logits, int target, int row) {
+        int base = row * logits.cols;
+        float max = rowMax(logits.data, base, logits.cols);
+        return fLog(rowSumExpShifted(logits.data, base, logits.cols, max))
+                + max - logits.data[base + target];
+    }
+
+    private static void writeCrossEntropyRow(Tensor gradient, Tensor logits, int target,
+                                             int row, int included) {
+        int base = row * logits.cols;
+        rowWriteSoftmax(logits.data, gradient.data, base, logits.cols);
+        gradient.data[base + target] -= 1.0f;
+        for (int col = 0; col < logits.cols; col++) gradient.data[base + col] /= included;
+    }
+
+    private static int includedRows(boolean[] mask) {
+        int count = 0;
+        for (boolean included : mask) if (included) count++;
+        return count;
+    }
+
+    @Override
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             float lr, float beta1, float beta2, float eps,
                             float weightDecay, float bc1, float bc2) {

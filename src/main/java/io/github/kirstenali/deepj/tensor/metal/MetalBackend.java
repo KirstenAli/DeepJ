@@ -527,6 +527,42 @@ public final class MetalBackend implements TensorBackend {
     }
 
     @Override
+    public float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask) {
+        Tensor losses = crossEntropyRowLosses(logits, targets);
+        Tensor masked = multiply(losses, maskTensor(mask));
+        Tensor scalar = divideScalar(sumRows(masked), includedRows(mask));
+        scalar.materialize();
+        return scalar.data[0];
+    }
+
+    @Override
+    public Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask) {
+        Tensor gradient = crossEntropyGradient(logits, targets);
+        Tensor masked = multiplyBroadcastCols(gradient, maskTensor(mask));
+        return multiplyScalar(masked, (float) logits.rows / includedRows(mask));
+    }
+
+    private Tensor crossEntropyRowLosses(Tensor logits, int[] targets) {
+        Tensor targetTensor = immutableIntColumn(targets);
+        GpuBuffer output = graph.newOutputBuffer(logits.rows, 1);
+        graph.recordCrossEntropyLoss(gpuIn(logits), gpuIn(targetTensor), output,
+                logits.rows, logits.cols);
+        return gpuOut(output);
+    }
+
+    private static Tensor maskTensor(boolean[] mask) {
+        Tensor tensor = new Tensor(mask.length, 1);
+        for (int row = 0; row < mask.length; row++) tensor.data[row] = mask[row] ? 1.0f : 0.0f;
+        return tensor;
+    }
+
+    private static int includedRows(boolean[] mask) {
+        int count = 0;
+        for (boolean included : mask) if (included) count++;
+        return count;
+    }
+
+    @Override
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             float lr, float beta1, float beta2, float eps,
                             float weightDecay, float bc1, float bc2) {
