@@ -6,6 +6,38 @@ public interface TensorBackend {
 
     Tensor matmul(Tensor a, Tensor b);
 
+    default Tensor sliceRows(Tensor input, int[] rows) {
+        return TensorBackendDefaults.sliceRows(input, rows);
+    }
+
+    default Tensor splitHeads(Tensor input, int heads) {
+        return TensorBackendDefaults.splitHeads(input, heads);
+    }
+
+    default Tensor mergeHeads(Tensor input, int heads) {
+        return TensorBackendDefaults.mergeHeads(input, heads);
+    }
+
+    default Tensor batchedMatmul(Tensor left, Tensor right, int batches,
+                                 boolean transposeLeft, boolean transposeRight) {
+        return TensorBackendDefaults.batchedMatmul(
+                left, right, batches, transposeLeft, transposeRight);
+    }
+
+    default Tensor causalMask(Tensor input, int sequenceLength) {
+        return TensorBackendDefaults.causalMask(input, sequenceLength);
+    }
+
+    default Tensor causalSoftmax(Tensor input, int sequenceLength, float scale) {
+        Tensor scaled = multiplyScalar(input, scale);
+        return softmaxRows(causalMask(scaled, sequenceLength));
+    }
+
+    default Tensor rotary(Tensor input, Tensor cosine, Tensor sine,
+                          int sequenceLength, boolean inverse) {
+        return TensorBackendDefaults.rotary(input, cosine, sine, sequenceLength, inverse);
+    }
+
     Tensor add(Tensor a, Tensor b);
     Tensor subtract(Tensor a, Tensor b);
     Tensor multiply(Tensor a, Tensor b);

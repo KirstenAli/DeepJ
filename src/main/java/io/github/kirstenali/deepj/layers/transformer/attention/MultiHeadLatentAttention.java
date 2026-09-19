@@ -78,9 +78,8 @@ public final class MultiHeadLatentAttention implements Layer {
         Tensor qhRope = rope.apply(qh, seqLen, nHeads);
         Tensor khRope = rope.apply(kh, seqLen, nHeads);
 
-        Tensor scores   = computeScores(qhRope, khRope, seqLen);
-        Tensor masked   = applyMask(scores, seqLen);
-        Tensor attnProb = softmax.forward(masked);
+        Tensor scores   = computeScores(qhRope, khRope);
+        Tensor attnProb = softmax.forwardCausal(scores, seqLen, scale);
         Tensor outH     = applyAttentionToValues(attnProb, vh, seqLen);
         Tensor merged   = mergeHeads(outH, seqLen);
 
@@ -107,9 +106,9 @@ public final class MultiHeadLatentAttention implements Layer {
     private ProjectionGrads backwardAttention(Tensor dMerged, int seqLen) {
         Tensor dOutH = splitHeads(dMerged, seqLen);
         HeadOps.AttentionGrads attnGrads = HeadOps.backwardAttentionAndValues(
-                dOutH, cache.vh, cache.attnProb, softmax, scale, nHeads, seqLen, headDim);
+                dOutH, cache.vh, cache.attnProb, softmax, scale, nHeads);
         HeadOps.QKGrads qkGrads = HeadOps.backwardQueriesAndKeys(
-                attnGrads.dScores(), cache.qhRope, cache.khRope, nHeads, seqLen, headDim);
+                attnGrads.dScores(), cache.qhRope, cache.khRope, nHeads);
         Tensor dQh = rope.applyBackward(qkGrads.dQh(), seqLen, nHeads);
         Tensor dKh = rope.applyBackward(qkGrads.dKh(), seqLen, nHeads);
         return new ProjectionGrads(mergeHeads(dQh, seqLen), mergeHeads(dKh, seqLen),
@@ -138,32 +137,20 @@ public final class MultiHeadLatentAttention implements Layer {
         return List.of(Wdq, Wuq, Wdkv, Wuk, Wuv, Wo);
     }
 
-    private Tensor computeScores(Tensor qh, Tensor kh, int seqLen) {
-        return HeadOps.scaledDotProductScores(qh, kh, nHeads, seqLen, headDim, scale);
-    }
-
-    private Tensor applyMask(Tensor scores, int seqLen) {
-        return HeadOps.applyCausalMask(scores, nHeads, seqLen);
+    private Tensor computeScores(Tensor qh, Tensor kh) {
+        return HeadOps.dotProductScores(qh, kh, nHeads);
     }
 
     private Tensor applyAttentionToValues(Tensor attnProb, Tensor vh, int seqLen) {
-        return HeadOps.applyAttentionToValues(attnProb, vh, nHeads, seqLen, headDim);
+        return HeadOps.applyAttentionToValues(attnProb, vh, nHeads);
     }
 
     private Tensor splitHeads(Tensor t, int seqLen) {
-        return HeadOps.splitHeads(t, seqLen, nHeads, headDim, dModel);
+        return HeadOps.splitHeads(t, nHeads);
     }
 
     private Tensor mergeHeads(Tensor t, int seqLen) {
-        return HeadOps.mergeHeads(t, seqLen, nHeads, headDim, dModel);
-    }
-
-    private Tensor extractBlock(Tensor t, int rowStart, int numRows, int numCols) {
-        return HeadOps.extractBlock(t, rowStart, numRows, numCols);
-    }
-
-    private void insertBlock(Tensor target, Tensor block, int rowStart, int numRows, int numCols) {
-        HeadOps.insertBlock(target, block, rowStart, numRows, numCols);
+        return HeadOps.mergeHeads(t, nHeads);
     }
 
     private record ForwardCache(

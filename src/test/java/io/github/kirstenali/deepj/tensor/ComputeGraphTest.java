@@ -49,6 +49,8 @@ class ComputeGraphTest {
         GpuBuffer second = graph.ensureGpuBuffer(t);
 
         assertSame(first, second, "should reuse existing GpuBuffer");
+        graph.flush();
+        assertEquals(1, runtime.uploads.size());
     }
 
     @Test
@@ -129,6 +131,15 @@ class ComputeGraphTest {
         GpuBuffer out = graph.newOutputBuffer(2, 4);
 
         graph.recordMatmul(a, b, out, 2, 4, 3);
+        assertFalse(graph.isEmpty());
+    }
+
+    @Test
+    void recordAttentionOperationsMakeGraphNonEmpty() {
+        GpuBuffer input = graph.newOutputBuffer(6, 4);
+        GpuBuffer output = graph.newOutputBuffer(6, 4);
+        graph.recordHeadPermutation(ComputeGraph.OP_SPLIT_HEADS,
+                input, output, 3, 2, 2, 4);
         assertFalse(graph.isEmpty());
     }
 
@@ -353,7 +364,7 @@ class ComputeGraphTest {
         for (int index = 0; index < fields.size(); index++) {
             codes[index] = fields.get(index).getInt(null);
         }
-        assertEquals(43, fields.size());
+        assertEquals(50, fields.size());
         assertEquals(fields.size(), java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
     }

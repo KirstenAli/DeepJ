@@ -223,8 +223,7 @@ public class Tensor {
     public static Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
         if (cols != t.cols) throw new IllegalArgumentException("Requested width must match tensor width");
         for (int row : rowIndices) t.requireRow(row);
-        t.materialize();
-        return CPU_ACCESS.sliceRows(t, rowIndices, cols);
+        return backend().sliceRows(t, rowIndices);
     }
 
     public static Tensor sampleRows(Tensor t, int n, Random rnd) {

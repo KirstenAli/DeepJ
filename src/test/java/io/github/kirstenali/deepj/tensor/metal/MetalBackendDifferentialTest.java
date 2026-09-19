@@ -18,9 +18,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -134,6 +136,71 @@ class MetalBackendDifferentialTest {
     }
 
     @Test
+    void headLayoutOperationsMatchCpu() {
+        Tensor input = random(5, 12, 11L);
+        Tensor expectedSplit = cpu.splitHeads(new Tensor(input), 3);
+        Tensor actualSplit = metal.splitHeads(new Tensor(input), 3);
+        assertTensorClose(expectedSplit, actualSplit, 1e-5f, 1e-5f);
+        assertTensorClose(cpu.mergeHeads(expectedSplit, 3),
+                metal.mergeHeads(actualSplit, 3), 1e-5f, 1e-5f);
+    }
+
+    @Test
+    void batchedMatmulVariantsMatchCpu() {
+        compareBatched(random(12, 5, 12L), random(15, 6, 13L), false, false);
+        compareBatched(random(12, 5, 14L), random(18, 5, 15L), false, true);
+        compareBatched(random(15, 4, 16L), random(15, 6, 17L), true, false);
+        compareBatched(random(15, 4, 18L), random(18, 5, 19L), true, true);
+    }
+
+    @Test
+    void causalAttentionRotaryAndGatherMatchCpu() {
+        compareCausalMask();
+        compareCausalSoftmax();
+        compareRotary(false);
+        compareRotary(true);
+        compareGather();
+    }
+
+    private void compareBatched(Tensor left, Tensor right,
+                                boolean transposeLeft, boolean transposeRight) {
+        Tensor expected = cpu.batchedMatmul(new Tensor(left), new Tensor(right),
+                3, transposeLeft, transposeRight);
+        Tensor actual = metal.batchedMatmul(new Tensor(left), new Tensor(right),
+                3, transposeLeft, transposeRight);
+        assertTensorClose(expected, actual, 1e-4f, 1e-4f);
+    }
+
+    private void compareCausalMask() {
+        Tensor input = random(12, 4, 20L);
+        assertTensorClose(cpu.causalMask(new Tensor(input), 4),
+                metal.causalMask(new Tensor(input), 4), 1e-5f, 1e-5f);
+    }
+
+    private void compareCausalSoftmax() {
+        Tensor input = random(12, 4, 28L);
+        assertTensorClose(cpu.causalSoftmax(new Tensor(input), 4, 0.25f),
+                metal.causalSoftmax(new Tensor(input), 4, 0.25f), 1e-5f, 1e-5f);
+    }
+
+    private void compareRotary(boolean inverse) {
+        Tensor input = random(12, 6, inverse ? 25L : 21L);
+        Tensor cosine = random(4, 3, inverse ? 26L : 22L);
+        Tensor sine = random(4, 3, inverse ? 27L : 23L);
+        Tensor expected = cpu.rotary(input, cosine, sine, 4, inverse);
+        Tensor actual = metal.rotary(new Tensor(input), new Tensor(cosine),
+                new Tensor(sine), 4, inverse);
+        assertTensorClose(expected, actual, 1e-5f, 1e-5f);
+    }
+
+    private void compareGather() {
+        Tensor input = random(8, 5, 24L);
+        int[] rows = {7, 1, 4, 1};
+        assertTensorClose(cpu.sliceRows(input, rows),
+                metal.sliceRows(new Tensor(input), rows), 1e-5f, 1e-5f);
+    }
+
+    @Test
     void gptForwardBackwardAndParameterGradientsMatchCpu() {
         compareModel(() -> new GPTModel(new GPTConfig(11, 4, 4, 2, 1, 6), 21L));
     }
@@ -146,6 +213,28 @@ class MetalBackendDifferentialTest {
     @Test
     void deepSeekForwardBackwardAndParameterGradientsMatchCpu() {
         compareModel(() -> new DeepSeekModel(new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2), 23L));
+    }
+
+    @Test
+    void deepSeekForwardBackwardDoesNotDownloadIntermediateTensors() {
+        AtomicInteger downloads = new AtomicInteger();
+        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
+        DecoderOnlyModel model = new DeepSeekModel(config, 25L);
+        Tensor.setBackend(countingBackend(downloads));
+        model.backward(model.forward(new int[]{1, 3, 5}).multiplyScalar(0.25f));
+        assertEquals(0, downloads.get());
+    }
+
+    private TensorBackend countingBackend(AtomicInteger downloads) {
+        return (TensorBackend) Proxy.newProxyInstance(
+                TensorBackend.class.getClassLoader(), new Class<?>[]{TensorBackend.class},
+                (proxy, method, args) -> invokeMetal(method.getName(), method, args, downloads));
+    }
+
+    private Object invokeMetal(String name, java.lang.reflect.Method method,
+                               Object[] args, AtomicInteger downloads) throws Exception {
+        if (name.equals("materializeTensor")) downloads.incrementAndGet();
+        return method.invoke(metal, args);
     }
 
     @Test

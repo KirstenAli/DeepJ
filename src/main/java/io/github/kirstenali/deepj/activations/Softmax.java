@@ -12,6 +12,11 @@ public final class Softmax implements ActivationFunction {
         return softmaxOut;
     }
 
+    public Tensor forwardCausal(Tensor logits, int sequenceLength, float scale) {
+        this.softmaxOut = Tensor.backend().causalSoftmax(logits, sequenceLength, scale);
+        return softmaxOut;
+    }
+
     @Override
     public Tensor backward(Tensor gradOutput) {
         if (softmaxOut == null) {

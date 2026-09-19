@@ -50,6 +50,13 @@ public final class ComputeGraph {
     public static final int OP_SUM_SCALAR = 41;
     public static final int OP_SCATTER_ADD_ROWS_ATOMIC = 42;
     public static final int OP_SUM_SQUARES = 43;
+    public static final int OP_BATCHED_MATMUL = 44;
+    public static final int OP_SPLIT_HEADS = 45;
+    public static final int OP_MERGE_HEADS = 46;
+    public static final int OP_CAUSAL_MASK = 47;
+    public static final int OP_ROTARY = 48;
+    public static final int OP_GATHER_ROWS = 49;
+    public static final int OP_CAUSAL_SOFTMAX = 50;
 
     private record OpMeta(int stride, int[] bufferArgOffsets) {}
 
@@ -74,11 +81,12 @@ public final class ComputeGraph {
     }
 
     private static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_SUM_SQUARES + 1];
+        OpMeta[] meta = new OpMeta[OP_CAUSAL_SOFTMAX + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
         registerLossMeta(meta);
+        registerAttentionMeta(meta);
         registerBroadcastMeta(meta);
         registerComplexMeta(meta);
         return meta;
@@ -127,6 +135,16 @@ public final class ComputeGraph {
         registerMeta(meta, OP_CROSS_ENTROPY_LOSS, 6, 1, 2, 3);
         registerMeta(meta, OP_CROSS_ENTROPY_GRADIENT, 6, 1, 2, 3);
         registerMeta(meta, OP_SCATTER_ADD_ROWS_ATOMIC, 7, 1, 2, 3);
+    }
+
+    private static void registerAttentionMeta(OpMeta[] meta) {
+        registerMeta(meta, OP_BATCHED_MATMUL, 11, 1, 2, 3);
+        registerMeta(meta, OP_SPLIT_HEADS, 7, 1, 2);
+        registerMeta(meta, OP_MERGE_HEADS, 7, 1, 2);
+        registerMeta(meta, OP_CAUSAL_MASK, 5, 1, 2);
+        registerMeta(meta, OP_ROTARY, 9, 1, 2, 3, 4);
+        registerMeta(meta, OP_GATHER_ROWS, 7, 1, 2, 3);
+        registerMeta(meta, OP_CAUSAL_SOFTMAX, 7, 1, 2);
     }
 
     private static void registerBroadcastMeta(OpMeta[] meta) {
@@ -184,6 +202,8 @@ public final class ComputeGraph {
 
         scheduleAlloc(id, buf.floatCount());
         scheduleUpload(id, TensorAdapters.packF32(t));
+        buf.needsUpload = false;
+        buf.cpuStale = false;
 
         t.setGpuTag(buf);
         trackTensorBinding(id, t);
@@ -255,6 +275,61 @@ public final class ComputeGraph {
         emitInt(m);
         emitInt(n);
         emitInt(k);
+        endOp();
+    }
+
+    public void recordBatchedMatmul(GpuBuffer left, GpuBuffer right, GpuBuffer out,
+                                    int batches, int leftRows, int leftCols,
+                                    int rightRows, int rightCols,
+                                    boolean transposeLeft, boolean transposeRight) {
+        beginOp(11);
+        emitInt(OP_BATCHED_MATMUL);
+        emitInt(left.id); emitInt(right.id); emitInt(out.id); emitInt(batches);
+        emitInt(leftRows); emitInt(leftCols); emitInt(rightRows); emitInt(rightCols);
+        emitInt(transposeLeft ? 1 : 0); emitInt(transposeRight ? 1 : 0);
+        endOp();
+    }
+
+    public void recordHeadPermutation(int opCode, GpuBuffer input, GpuBuffer output,
+                                      int sequenceLength, int heads, int headDim, int modelWidth) {
+        beginOp(7);
+        emitInt(opCode); emitInt(input.id); emitInt(output.id);
+        emitInt(sequenceLength); emitInt(heads); emitInt(headDim); emitInt(modelWidth);
+        endOp();
+    }
+
+    public void recordCausalMask(GpuBuffer input, GpuBuffer output,
+                                 int rows, int sequenceLength) {
+        beginOp(5);
+        emitInt(OP_CAUSAL_MASK); emitInt(input.id); emitInt(output.id);
+        emitInt(rows); emitInt(sequenceLength);
+        endOp();
+    }
+
+    public void recordCausalSoftmax(GpuBuffer input, GpuBuffer output,
+                                    int rows, int sequenceLength, float scale) {
+        beginOp(7);
+        emitInt(OP_CAUSAL_SOFTMAX); emitInt(input.id); emitInt(output.id);
+        emitInt(rows); emitInt(sequenceLength); emitInt(sequenceLength);
+        emitFloatBits(scale);
+        endOp();
+    }
+
+    public void recordGatherRows(GpuBuffer input, GpuBuffer indices, GpuBuffer output,
+                                 int inputRows, int columns, int outputRows) {
+        beginOp(7);
+        emitInt(OP_GATHER_ROWS); emitInt(input.id); emitInt(indices.id); emitInt(output.id);
+        emitInt(inputRows); emitInt(columns); emitInt(outputRows);
+        endOp();
+    }
+
+    public void recordRotary(GpuBuffer input, GpuBuffer cosine, GpuBuffer sine,
+                             GpuBuffer output, int rows, int sequenceLength,
+                             int headDim, boolean inverse) {
+        beginOp(9);
+        emitInt(OP_ROTARY); emitInt(input.id); emitInt(cosine.id); emitInt(sine.id);
+        emitInt(output.id); emitInt(rows); emitInt(sequenceLength); emitInt(headDim);
+        emitInt(inverse ? 1 : 0);
         endOp();
     }
 

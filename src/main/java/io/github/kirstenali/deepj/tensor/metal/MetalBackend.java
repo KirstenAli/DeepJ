@@ -67,6 +67,119 @@ public final class MetalBackend implements TensorBackend {
     }
 
     @Override
+    public Tensor sliceRows(Tensor input, int[] rows) {
+        for (int row : rows) requireRow(input, row);
+        Tensor indices = immutableIntColumn(rows);
+        GpuBuffer output = graph.newOutputBuffer(rows.length, input.cols);
+        graph.recordGatherRows(gpuIn(input), gpuIn(indices), output,
+                input.rows, input.cols, rows.length);
+        return gpuOut(output);
+    }
+
+    private static void requireRow(Tensor input, int row) {
+        if (row < 0 || row >= input.rows) {
+            throw new IllegalArgumentException("Row index out of range: " + row);
+        }
+    }
+
+    @Override
+    public Tensor splitHeads(Tensor input, int heads) {
+        requireDivisible(input.cols, heads, "model width");
+        int headDim = input.cols / heads;
+        GpuBuffer output = graph.newOutputBuffer(heads * input.rows, headDim);
+        graph.recordHeadPermutation(ComputeGraph.OP_SPLIT_HEADS, gpuIn(input), output,
+                input.rows, heads, headDim, input.cols);
+        return gpuOut(output);
+    }
+
+    @Override
+    public Tensor mergeHeads(Tensor input, int heads) {
+        requireDivisible(input.rows, heads, "head rows");
+        int sequenceLength = input.rows / heads;
+        int modelWidth = heads * input.cols;
+        GpuBuffer output = graph.newOutputBuffer(sequenceLength, modelWidth);
+        graph.recordHeadPermutation(ComputeGraph.OP_MERGE_HEADS, gpuIn(input), output,
+                sequenceLength, heads, input.cols, modelWidth);
+        return gpuOut(output);
+    }
+
+    @Override
+    public Tensor batchedMatmul(Tensor left, Tensor right, int batches,
+                                boolean transposeLeft, boolean transposeRight) {
+        BatchedShape shape = batchedShape(left, right, batches, transposeLeft, transposeRight);
+        GpuBuffer output = graph.newOutputBuffer(batches * shape.rows(), shape.cols());
+        graph.recordBatchedMatmul(gpuIn(left), gpuIn(right), output, batches,
+                shape.leftRows(), left.cols, shape.rightRows(), right.cols,
+                transposeLeft, transposeRight);
+        return gpuOut(output);
+    }
+
+    @Override
+    public Tensor causalMask(Tensor input, int sequenceLength) {
+        requireCausalShape(input, sequenceLength);
+        GpuBuffer output = graph.newOutputBuffer(input.rows, input.cols);
+        graph.recordCausalMask(gpuIn(input), output, input.rows, sequenceLength);
+        return gpuOut(output);
+    }
+
+    @Override
+    public Tensor causalSoftmax(Tensor input, int sequenceLength, float scale) {
+        requireCausalShape(input, sequenceLength);
+        GpuBuffer output = graph.newOutputBuffer(input.rows, input.cols);
+        graph.recordCausalSoftmax(gpuIn(input), output, input.rows, sequenceLength, scale);
+        return gpuOut(output);
+    }
+
+    @Override
+    public Tensor rotary(Tensor input, Tensor cosine, Tensor sine,
+                         int sequenceLength, boolean inverse) {
+        requireRotaryShape(input, cosine, sine, sequenceLength);
+        GpuBuffer output = graph.newOutputBuffer(input.rows, input.cols);
+        graph.recordRotary(gpuIn(input), gpuIn(cosine), gpuIn(sine), output,
+                input.rows, sequenceLength, input.cols, inverse);
+        return gpuOut(output);
+    }
+
+    private static BatchedShape batchedShape(Tensor left, Tensor right, int batches,
+                                             boolean transposeLeft, boolean transposeRight) {
+        requireDivisible(left.rows, batches, "left rows");
+        requireDivisible(right.rows, batches, "right rows");
+        int leftRows = left.rows / batches, rightRows = right.rows / batches;
+        int rows = transposeLeft ? left.cols : leftRows;
+        int leftInner = transposeLeft ? leftRows : left.cols;
+        int rightInner = transposeRight ? right.cols : rightRows;
+        int cols = transposeRight ? rightRows : right.cols;
+        if (leftInner != rightInner) throw new IllegalArgumentException("Batched matmul shape mismatch");
+        return new BatchedShape(leftRows, rightRows, rows, cols);
+    }
+
+    private static void requireDivisible(int dimension, int divisor, String name) {
+        if (divisor <= 0 || dimension % divisor != 0) {
+            throw new IllegalArgumentException(name + " must be divisible by a positive batch count");
+        }
+    }
+
+    private static void requireCausalShape(Tensor input, int sequenceLength) {
+        if (sequenceLength <= 0 || input.cols != sequenceLength
+                || input.rows % sequenceLength != 0) {
+            throw new IllegalArgumentException("Scores must contain complete square attention heads");
+        }
+    }
+
+    private static void requireRotaryShape(Tensor input, Tensor cosine, Tensor sine,
+                                           int sequenceLength) {
+        if (sequenceLength <= 0 || input.rows % sequenceLength != 0 || input.cols % 2 != 0) {
+            throw new IllegalArgumentException("Invalid rotary input shape");
+        }
+        if (cosine.rows < sequenceLength || cosine.cols != input.cols / 2
+                || sine.rows != cosine.rows || sine.cols != cosine.cols) {
+            throw new IllegalArgumentException("Invalid rotary table shape");
+        }
+    }
+
+    private record BatchedShape(int leftRows, int rightRows, int rows, int cols) {}
+
+    @Override
     public Tensor add(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "add");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);

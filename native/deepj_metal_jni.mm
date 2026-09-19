@@ -20,6 +20,11 @@ struct MetalContext {
     id<MTLComputePipelineState> addScalarPSO;
     id<MTLComputePipelineState> divideScalarPSO;
     id<MTLComputePipelineState> transposePSO;
+    id<MTLComputePipelineState> splitHeadsPSO;
+    id<MTLComputePipelineState> mergeHeadsPSO;
+    id<MTLComputePipelineState> causalMaskPSO;
+    id<MTLComputePipelineState> causalSoftmaxPSO;
+    id<MTLComputePipelineState> rotaryPSO;
     id<MTLComputePipelineState> addRowVectorPSO;
     id<MTLComputePipelineState> addBroadcastColsPSO;
     id<MTLComputePipelineState> subtractBroadcastColsPSO;
@@ -39,6 +44,7 @@ struct MetalContext {
     id<MTLComputePipelineState> powPSO;
     id<MTLComputePipelineState> scatterAddRowsPSO;
     id<MTLComputePipelineState> scatterAddRowsAtomicPSO;
+    id<MTLComputePipelineState> gatherRowsPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
     id<MTLComputePipelineState> expPSO;
@@ -125,6 +131,58 @@ kernel void kernel_transpose(device const float* a      [[buffer(0)]],
     uint r = id / cols;
     uint c = id % cols;
     out[c * rows + r] = a[id];
+}
+
+kernel void kernel_split_heads(device const float* input [[buffer(0)]],
+                               device float* output      [[buffer(1)]],
+                               device const uint4* dims  [[buffer(2)]],
+                               uint id [[thread_position_in_grid]]) {
+    uint seq = dims[0].x, heads = dims[0].y, headDim = dims[0].z;
+    uint modelWidth = dims[0].w, total = seq * heads * headDim;
+    if (id >= total) return;
+    uint dim = id % headDim, entry = id / headDim;
+    uint position = entry % seq, head = entry / seq;
+    output[id] = input[position * modelWidth + head * headDim + dim];
+}
+
+kernel void kernel_merge_heads(device const float* input [[buffer(0)]],
+                               device float* output      [[buffer(1)]],
+                               device const uint4* dims  [[buffer(2)]],
+                               uint id [[thread_position_in_grid]]) {
+    uint seq = dims[0].x, heads = dims[0].y, headDim = dims[0].z;
+    uint modelWidth = dims[0].w, total = seq * modelWidth;
+    if (id >= total) return;
+    uint position = id / modelWidth, column = id % modelWidth;
+    uint head = column / headDim, dim = column % headDim;
+    output[id] = input[(head * seq + position) * headDim + dim];
+}
+
+kernel void kernel_causal_mask(device const float* input [[buffer(0)]],
+                               device float* output      [[buffer(1)]],
+                               device const uint2* dims  [[buffer(2)]],
+                               uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x, seq = dims[0].y, total = rows * seq;
+    if (id >= total) return;
+    uint row = id / seq, column = id % seq, position = row % seq;
+    output[id] = column > position ? -1.0e9f : input[id];
+}
+
+kernel void kernel_rotary(device const float* input  [[buffer(0)]],
+                          device const float* cosine [[buffer(1)]],
+                          device const float* sine   [[buffer(2)]],
+                          device float* output       [[buffer(3)]],
+                          device const uint4* dims   [[buffer(4)]],
+                          uint id [[thread_position_in_grid]]) {
+    uint rows = dims[0].x, seq = dims[0].y, headDim = dims[0].z;
+    uint halfDim = headDim / 2, total = rows * halfDim;
+    if (id >= total) return;
+    uint row = id / halfDim, pair = id % halfDim, position = row % seq;
+    uint inputIndex = row * headDim + pair * 2, tableIndex = position * halfDim + pair;
+    float direction = dims[0].w == 0 ? 1.0f : -1.0f;
+    float x = input[inputIndex], y = input[inputIndex + 1];
+    float c = cosine[tableIndex], s = sine[tableIndex] * direction;
+    output[inputIndex] = x * c - y * s;
+    output[inputIndex + 1] = x * s + y * c;
 }
 
 kernel void kernel_add_row_vector(device const float* a      [[buffer(0)]],
@@ -491,6 +549,19 @@ kernel void kernel_scatter_add_rows(device float* target      [[buffer(0)]],
     target[row * targetCols + c] += grad[i * targetCols + c];
 }
 
+kernel void kernel_gather_rows(device const float* input   [[buffer(0)]],
+                               device const float* indices [[buffer(1)]],
+                               device float* output        [[buffer(2)]],
+                               device const uint3* dims    [[buffer(3)]],
+                               uint id [[thread_position_in_grid]]) {
+    uint inputRows = dims[0].x, cols = dims[0].y, outputRows = dims[0].z;
+    uint total = outputRows * cols;
+    if (id >= total) return;
+    uint outputRow = id / cols, column = id % cols;
+    uint inputRow = (uint)indices[outputRow];
+    output[id] = inputRow < inputRows ? input[inputRow * cols + column] : 0.0f;
+}
+
 inline void atomic_add_f32(device atomic_uint* addr, float value) {
     uint expected = atomic_load_explicit(addr, memory_order_relaxed);
     while (true) {
@@ -680,6 +751,57 @@ kernel void kernel_softmax_max(device const float* a     [[buffer(0)]],
     if (tid == 0) rowMax[row] = maximum;
 }
 
+struct CausalSoftmaxParams {
+    uint rows;
+    uint cols;
+    uint sequenceLength;
+    float scale;
+};
+
+inline float causal_max(device const float* input, uint base, uint position,
+                        float scale, uint tid, uint width) {
+    float result = -INFINITY;
+    for (uint col = tid; col <= position; col += width) {
+        result = max(result, input[base + col] * scale);
+    }
+    return result;
+}
+
+inline float causal_exp(device const float* input, device float* output,
+                        uint base, uint cols, uint position, float scale,
+                        float maximum, uint tid, uint width) {
+    float result = 0.0f;
+    for (uint col = tid; col < cols; col += width) {
+        float value = col <= position ? exp(input[base + col] * scale - maximum) : 0.0f;
+        output[base + col] = value;
+        result += value;
+    }
+    return result;
+}
+
+inline void normalize_causal_row(device float* output, uint base, uint cols,
+                                 float sum, uint tid, uint width) {
+    for (uint col = tid; col < cols; col += width) output[base + col] /= sum;
+}
+
+kernel void kernel_causal_softmax(device const float* input [[buffer(0)]],
+                                  device float* output      [[buffer(1)]],
+                                  device const CausalSoftmaxParams* params [[buffer(2)]],
+                                  uint3 gid [[thread_position_in_grid]],
+                                  uint3 tid3 [[thread_position_in_threadgroup]],
+                                  uint3 tptg [[threads_per_threadgroup]]) {
+    uint row = gid.y, tid = tid3.x, cols = params[0].cols;
+    if (row >= params[0].rows) return;
+    uint base = row * cols, position = row % params[0].sequenceLength;
+    threadgroup float scratch[1024];
+    float localMax = causal_max(input, base, position, params[0].scale, tid, tptg.x);
+    float maximum = reduce_max(scratch, localMax, tid, tptg.x);
+    float localSum = causal_exp(input, output, base, cols, position,
+                                params[0].scale, maximum, tid, tptg.x);
+    float sum = reduce_sum(scratch, localSum, tid, tptg.x);
+    normalize_causal_row(output, base, cols, sum, tid, tptg.x);
+}
+
 kernel void kernel_softmax_expsum(device const float* a     [[buffer(0)]],
                                   device float* out         [[buffer(1)]],
                                   device const float* rowMax[[buffer(2)]],
@@ -836,6 +958,15 @@ static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->transposePSO = makePSO(library, @"kernel_transpose");
 }
 
+static void initAttentionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->splitHeadsPSO = makePSO(library, @"kernel_split_heads");
+    ctx->mergeHeadsPSO = makePSO(library, @"kernel_merge_heads");
+    ctx->causalMaskPSO = makePSO(library, @"kernel_causal_mask");
+    ctx->causalSoftmaxPSO = makePSO(library, @"kernel_causal_softmax");
+    ctx->rotaryPSO = makePSO(library, @"kernel_rotary");
+    ctx->gatherRowsPSO = makePSO(library, @"kernel_gather_rows");
+}
+
 static void initBroadcastPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->addRowVectorPSO = makePSO(library, @"kernel_add_row_vector");
     ctx->addBroadcastColsPSO = makePSO(library, @"kernel_add_broadcast_cols");
@@ -897,6 +1028,7 @@ static MetalContext* createContext() {
     ctx->queue = queue;
     ctx->library = library;
     initBasicPipelines(ctx, library);
+    initAttentionPipelines(ctx, library);
     initBroadcastPipelines(ctx, library);
     initReductionPipelines(ctx, library);
     initLossPipelines(ctx, library);
@@ -922,20 +1054,21 @@ using BufferEntry = BufferPool::iterator;
 static BufferPool gBufferPool;
 static std::mutex gBufferMutex;
 
-static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCache;
+static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCaches[4];
 
-static MPSMatrixMultiplication* cachedMatmulKernel(MetalContext* ctx, int m, int n, int k) {
-
+static MPSMatrixMultiplication* cachedMatmulKernel(
+        MetalContext* ctx, int m, int n, int k, bool transposeLeft, bool transposeRight) {
     uint64_t key = ((uint64_t)(uint32_t)m << 42) | ((uint64_t)(uint32_t)n << 21) | (uint64_t)(uint32_t)k;
-    auto it = gMatmulKernelCache.find(key);
-    if (it != gMatmulKernelCache.end()) return it->second;
-
+    int flags = (transposeLeft ? 2 : 0) | (transposeRight ? 1 : 0);
+    auto& cache = gMatmulKernelCaches[flags];
+    auto it = cache.find(key);
+    if (it != cache.end()) return it->second;
     MPSMatrixMultiplication* mm =
         [[MPSMatrixMultiplication alloc] initWithDevice:ctx->device
-            transposeLeft:NO transposeRight:NO
+            transposeLeft:transposeLeft transposeRight:transposeRight
             resultRows:m resultColumns:n interiorColumns:k
             alpha:1.0 beta:0.0];
-    gMatmulKernelCache[key] = mm;
+    cache[key] = mm;
     return mm;
 }
 
@@ -983,6 +1116,13 @@ static constexpr int OP_CROSS_ENTROPY_GRADIENT = 40;
 static constexpr int OP_SUM_SCALAR = 41;
 static constexpr int OP_SCATTER_ADD_ROWS_ATOMIC = 42;
 static constexpr int OP_SUM_SQUARES = 43;
+static constexpr int OP_BATCHED_MATMUL = 44;
+static constexpr int OP_SPLIT_HEADS = 45;
+static constexpr int OP_MERGE_HEADS = 46;
+static constexpr int OP_CAUSAL_MASK = 47;
+static constexpr int OP_ROTARY = 48;
+static constexpr int OP_GATHER_ROWS = 49;
+static constexpr int OP_CAUSAL_SOFTMAX = 50;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -1374,6 +1514,75 @@ static void encodeTranspose(GraphState& state, const jint* cmd, int pos) {
     dispatch1D(encoder, state.ctx->transposePSO, total);
 }
 
+static id<MTLComputePipelineState> headPermutationPipeline(MetalContext* ctx, int op) {
+    if (op == OP_SPLIT_HEADS) return ctx->splitHeadsPSO;
+    if (op == OP_MERGE_HEADS) return ctx->mergeHeadsPSO;
+    throw std::runtime_error("Invalid head permutation op");
+}
+
+static void encodeHeadPermutation(GraphState& state, const jint* cmd, int pos) {
+    uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4],
+                       (uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6]};
+    NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 6]);
+    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputePipelineState> pipeline = headPermutationPipeline(state.ctx, cmd[pos]);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "head permutation") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "head permutation") offset:0 atIndex:1];
+    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    dispatch1D(encoder, pipeline, total);
+}
+
+static void encodeCausalMask(GraphState& state, const jint* cmd, int pos) {
+    uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4]};
+    NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 4]);
+    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->causalMaskPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "causal mask") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "causal mask") offset:0 atIndex:1];
+    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    dispatch1D(encoder, state.ctx->causalMaskPSO, total);
+}
+
+struct CausalSoftmaxParamsHost {
+    uint32_t rows, cols, sequenceLength;
+    float scale;
+};
+
+static void encodeCausalSoftmax(GraphState& state, const jint* cmd, int pos) {
+    CausalSoftmaxParamsHost params{
+        (uint32_t)positiveCount(cmd[pos + 3], "causal softmax rows"),
+        (uint32_t)positiveCount(cmd[pos + 4], "causal softmax columns"),
+        (uint32_t)positiveCount(cmd[pos + 5], "causal softmax sequence"),
+        floatFromBits(cmd[pos + 6])};
+    id<MTLBuffer> values = valueBuffer(state.ctx, &params, sizeof(params));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->causalSoftmaxPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "causal softmax") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "causal softmax") offset:0 atIndex:1];
+    [encoder setBuffer:values offset:0 atIndex:2];
+    NSUInteger threads = rowReductionWidth(state.ctx->causalSoftmaxPSO);
+    [encoder dispatchThreads:MTLSizeMake(threads, params.rows, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void encodeRotary(GraphState& state, const jint* cmd, int pos) {
+    uint32_t dims[] = {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6],
+                       (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8]};
+    NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 7] / 2);
+    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->rotaryPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "rotary input") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "rotary cosine") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "rotary sine") offset:0 atIndex:2];
+    [encoder setBuffer:requireBuffer(cmd[pos + 4], "rotary output") offset:0 atIndex:3];
+    [encoder setBuffer:dimensions offset:0 atIndex:4];
+    dispatch1D(encoder, state.ctx->rotaryPSO, total);
+}
+
 static id<MTLComputePipelineState> scatterPipeline(MetalContext* ctx, int op) {
     if (op == OP_SCATTER_ADD_ROWS) return ctx->scatterAddRowsPSO;
     if (op == OP_SCATTER_ADD_ROWS_ATOMIC) return ctx->scatterAddRowsAtomicPSO;
@@ -1393,6 +1602,20 @@ static void encodeScatter(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "scatter") offset:0 atIndex:2];
     [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
     dispatch1D(encoder, pipeline, total);
+}
+
+static void encodeGatherRows(GraphState& state, const jint* cmd, int pos) {
+    uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
+                       (uint32_t)cmd[pos + 6]};
+    NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 6]);
+    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->gatherRowsPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 1], "gather input") offset:0 atIndex:0];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "gather indices") offset:0 atIndex:1];
+    [encoder setBuffer:requireBuffer(cmd[pos + 3], "gather output") offset:0 atIndex:2];
+    [encoder setBuffer:dimensions offset:0 atIndex:3];
+    dispatch1D(encoder, state.ctx->gatherRowsPSO, total);
 }
 
 static id<MTLComputePipelineState> broadcastPipeline(MetalContext* ctx, int op) {
@@ -1550,11 +1773,19 @@ static MPSMatrixDescriptor* matrixDescriptor(int rows, int cols) {
         rowBytes:(NSUInteger)cols * sizeof(float) dataType:MPSDataTypeFloat32];
 }
 
+static MPSMatrix* matrixAt(id<MTLBuffer> buffer, int rows, int cols, NSUInteger offset) {
+    return [[MPSMatrix alloc] initWithBuffer:buffer offset:offset
+                                  descriptor:matrixDescriptor(rows, cols)];
+}
+
+static void endGraphEncoder(GraphState& state) {
+    if (state.encoder == nil) return;
+    [state.encoder endEncoding];
+    state.encoder = nil;
+}
+
 static void encodeMatmul(GraphState& state, const jint* cmd, int pos) {
-    if (state.encoder != nil) {
-        [state.encoder endEncoding];
-        state.encoder = nil;
-    }
+    endGraphEncoder(state);
     int m = cmd[pos + 4], n = cmd[pos + 5], k = cmd[pos + 6];
     MPSMatrix* a = [[MPSMatrix alloc]
         initWithBuffer:requireBuffer(cmd[pos + 1], "matmul")
@@ -1565,8 +1796,56 @@ static void encodeMatmul(GraphState& state, const jint* cmd, int pos) {
     MPSMatrix* out = [[MPSMatrix alloc]
         initWithBuffer:requireBuffer(cmd[pos + 3], "matmul")
              descriptor:matrixDescriptor(m, n)];
-    [cachedMatmulKernel(state.ctx, m, n, k)
+    [cachedMatmulKernel(state.ctx, m, n, k, false, false)
         encodeToCommandBuffer:state.commandBuffer leftMatrix:a rightMatrix:b resultMatrix:out];
+}
+
+struct BatchedMatmulSpec {
+    int batches, leftRows, leftCols, rightRows, rightCols;
+    int rows, cols, inner;
+    bool transposeLeft, transposeRight;
+};
+
+static BatchedMatmulSpec batchedMatmulSpec(const jint* cmd, int pos) {
+    int batches = (int)positiveCount(cmd[pos + 4], "batches");
+    int leftRows = (int)positiveCount(cmd[pos + 5], "left rows");
+    int leftCols = (int)positiveCount(cmd[pos + 6], "left cols");
+    int rightRows = (int)positiveCount(cmd[pos + 7], "right rows");
+    int rightCols = (int)positiveCount(cmd[pos + 8], "right cols");
+    bool transposeLeft = cmd[pos + 9] != 0, transposeRight = cmd[pos + 10] != 0;
+    int rows = transposeLeft ? leftCols : leftRows;
+    int inner = transposeLeft ? leftRows : leftCols;
+    int rightInner = transposeRight ? rightCols : rightRows;
+    int cols = transposeRight ? rightRows : rightCols;
+    if (inner != rightInner) throw std::runtime_error("Batched matmul shape mismatch");
+    return {batches, leftRows, leftCols, rightRows, rightCols,
+            rows, cols, inner, transposeLeft, transposeRight};
+}
+
+static void encodeMatmulBatch(GraphState& state, const BatchedMatmulSpec& spec,
+                              id<MTLBuffer> leftBuffer, id<MTLBuffer> rightBuffer,
+                              id<MTLBuffer> outputBuffer, int batch) {
+    NSUInteger leftOffset = (NSUInteger)batch * spec.leftRows * spec.leftCols * sizeof(float);
+    NSUInteger rightOffset = (NSUInteger)batch * spec.rightRows * spec.rightCols * sizeof(float);
+    NSUInteger outputOffset = (NSUInteger)batch * spec.rows * spec.cols * sizeof(float);
+    MPSMatrix* left = matrixAt(leftBuffer, spec.leftRows, spec.leftCols, leftOffset);
+    MPSMatrix* right = matrixAt(rightBuffer, spec.rightRows, spec.rightCols, rightOffset);
+    MPSMatrix* output = matrixAt(outputBuffer, spec.rows, spec.cols, outputOffset);
+    [cachedMatmulKernel(state.ctx, spec.rows, spec.cols, spec.inner,
+                        spec.transposeLeft, spec.transposeRight)
+        encodeToCommandBuffer:state.commandBuffer leftMatrix:left
+        rightMatrix:right resultMatrix:output];
+}
+
+static void encodeBatchedMatmul(GraphState& state, const jint* cmd, int pos) {
+    BatchedMatmulSpec spec = batchedMatmulSpec(cmd, pos);
+    endGraphEncoder(state);
+    id<MTLBuffer> left = requireBuffer(cmd[pos + 1], "batched matmul left");
+    id<MTLBuffer> right = requireBuffer(cmd[pos + 2], "batched matmul right");
+    id<MTLBuffer> output = requireBuffer(cmd[pos + 3], "batched matmul output");
+    for (int batch = 0; batch < spec.batches; batch++) {
+        encodeMatmulBatch(state, spec, left, right, output, batch);
+    }
 }
 
 static void encodeSoftmax(GraphState& state, const jint* cmd, int pos) {
@@ -1666,17 +1945,22 @@ static int commandWidth(int op) {
     if (isUnaryOp(op)) return 4;
     if (isBinaryOp(op) || isScalarOp(op) || isReductionOp(op)) return 5;
     if (op == OP_TRANSPOSE || op == OP_SOFTMAX_ROWS ||
-        op == OP_SUM_ABS || op == OP_SUM_SQUARES || op == OP_SUM_SCALAR) return 5;
+        op == OP_SUM_ABS || op == OP_SUM_SQUARES || op == OP_SUM_SCALAR ||
+        op == OP_CAUSAL_MASK) return 5;
     if (isBroadcastOp(op) || op == OP_CLAMP ||
         op == OP_SOFTMAX_BACKWARD || op == OP_CROSS_ENTROPY_LOSS ||
         op == OP_CROSS_ENTROPY_GRADIENT) return 6;
     if (op == OP_MATMUL || op == OP_SCATTER_ADD_ROWS ||
-        op == OP_SCATTER_ADD_ROWS_ATOMIC || op == OP_LAYERNORM_BACKWARD) return 7;
+        op == OP_SCATTER_ADD_ROWS_ATOMIC || op == OP_LAYERNORM_BACKWARD ||
+        op == OP_SPLIT_HEADS || op == OP_MERGE_HEADS || op == OP_GATHER_ROWS ||
+        op == OP_CAUSAL_SOFTMAX) return 7;
+    if (op == OP_ROTARY) return 9;
+    if (op == OP_BATCHED_MATMUL) return 11;
     if (op == OP_ADAMW_UPDATE) return 13;
     throw std::runtime_error("Unknown op code in graph: " + std::to_string(op));
 }
 
-static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
+static bool encodeBasicCommand(GraphState& state, const jint* cmd, int pos) {
     int op = cmd[pos];
     if (isBinaryOp(op)) encodeBinary(state, cmd, pos);
     else if (isUnaryOp(op)) encodeUnary(state, cmd, pos);
@@ -1685,16 +1969,35 @@ static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
     else if (isReductionOp(op)) encodeReduction(state, cmd, pos);
     else if (op == OP_CLAMP) encodeClamp(state, cmd, pos);
     else if (op == OP_TRANSPOSE) encodeTranspose(state, cmd, pos);
-    else if (op == OP_SCATTER_ADD_ROWS || op == OP_SCATTER_ADD_ROWS_ATOMIC) encodeScatter(state, cmd, pos);
+    else if (op == OP_SPLIT_HEADS || op == OP_MERGE_HEADS) encodeHeadPermutation(state, cmd, pos);
+    else if (op == OP_CAUSAL_MASK) encodeCausalMask(state, cmd, pos);
+    else if (op == OP_CAUSAL_SOFTMAX) encodeCausalSoftmax(state, cmd, pos);
+    else if (op == OP_ROTARY) encodeRotary(state, cmd, pos);
+    else return false;
+    return true;
+}
+
+static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
+    int op = cmd[pos];
+    if (op == OP_SCATTER_ADD_ROWS || op == OP_SCATTER_ADD_ROWS_ATOMIC) encodeScatter(state, cmd, pos);
+    else if (op == OP_GATHER_ROWS) encodeGatherRows(state, cmd, pos);
     else if (op == OP_SUM_ABS || op == OP_SUM_SQUARES) encodeRowStatistic(state, cmd, pos);
     else if (op == OP_SUM_SCALAR) encodeScalarSum(state, cmd, pos);
     else if (op == OP_CROSS_ENTROPY_LOSS || op == OP_CROSS_ENTROPY_GRADIENT) encodeCrossEntropy(state, cmd, pos);
     else if (op == OP_MATMUL) encodeMatmul(state, cmd, pos);
+    else if (op == OP_BATCHED_MATMUL) encodeBatchedMatmul(state, cmd, pos);
     else if (op == OP_SOFTMAX_ROWS) encodeSoftmax(state, cmd, pos);
     else if (op == OP_SOFTMAX_BACKWARD) encodeSoftmaxBackward(state, cmd, pos);
     else if (op == OP_LAYERNORM_BACKWARD) encodeLayerNormBackward(state, cmd, pos);
     else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
-    else throw std::runtime_error("Unknown op code in graph: " + std::to_string(op));
+    else return false;
+    return true;
+}
+
+static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
+    if (encodeBasicCommand(state, cmd, pos)) return;
+    if (encodeSpecialCommand(state, cmd, pos)) return;
+    throw std::runtime_error("Unknown op code in graph: " + std::to_string(cmd[pos]));
 }
 
 static void encodeCommandStream(GraphState& state, const jint* cmd, int length) {
