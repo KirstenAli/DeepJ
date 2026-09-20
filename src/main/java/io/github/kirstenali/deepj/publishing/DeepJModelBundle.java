@@ -17,6 +17,7 @@ import java.util.Objects;
 
 public final class DeepJModelBundle {
 
+    private static final String DEEPJ_VERSION = "0.7.0-alpha";
     public static final String MODEL_FILE = "model.dj";
     public static final String TOKENIZER_FILE = "tokenizer.bpe";
     public static final String CONFIG_FILE = "config.json";
@@ -205,18 +206,18 @@ public final class DeepJModelBundle {
 
     private static String usageHeader() {
         return """
-                Use [DeepJ 0.6.0-alpha from Maven Central](https://central.sonatype.com/artifact/io.github.kirstenali/deepj/0.6.0-alpha), or a later format-compatible release.
+                Use [DeepJ %s from Maven Central](https://central.sonatype.com/artifact/io.github.kirstenali/deepj/%s), or a later format-compatible release.
 
                 ```xml
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.6.0-alpha</version>
+                    <version>%s</version>
                 </dependency>
                 ```
 
                 Download this repository's `model.dj` and `tokenizer.bpe` into `downloaded-model`. Imports are omitted below.
 
-                """;
+                """.formatted(DEEPJ_VERSION, DEEPJ_VERSION, DEEPJ_VERSION);
     }
 }

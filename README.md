@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.6.0-alpha</version>
+    <version>0.7.0-alpha</version>
 </dependency>
 ```
 
@@ -31,12 +31,13 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 ## What is included
 
 - A two-dimensional `Tensor` API and built-in gradient calculations for model training.
-- CPU execution and an optional Metal backend for Apple Silicon macOS.
+- CPU execution and an optional Metal backend with fused Apple GPU training operations.
 - GPT-style attention with learned positions, LayerNorm, and GELU.
 - Llama-style attention with RoPE, RMSNorm, and SwiGLU.
 - DeepSeek-inspired low-rank Q/KV attention with RoPE, RMSNorm, and SwiGLU.
 - Byte and BPE tokenizers, including BPE training and persistence.
-- Causal language-model training, AdamW, gradient clipping, and checkpoints.
+- Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
+- Bounded-memory sequential, random-access, and response-only datasets.
 - Versioned model bundles for sharing DeepJ checkpoints on Hugging Face.
 - A small optional JavaFX chat UI.
 
@@ -126,6 +127,12 @@ Export a Hugging Face-ready DeepJ bundle:
 ```
 
 The published demonstration model is [netsrik/deepj-tinystories](https://huggingface.co/netsrik/deepj-tinystories). Its `model.dj` and `tokenizer.bpe` files use DeepJ formats; they are not PyTorch or Transformers checkpoints.
+
+## Train the 90M example
+
+DeepJ also includes a staged 90M-parameter training pipeline using FineWeb-Edu, SmolTalk, MMLU, GSM8K, and ARC. It uses bounded-memory datasets and complete checkpoints that preserve model weights, Adam state, training progress, and dataset position.
+
+See [TRAINING_90M.md](TRAINING_90M.md) for data preparation, training, resumption, and evaluation commands.
 
 ## Metal acceleration
 
