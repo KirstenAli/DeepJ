@@ -8,6 +8,8 @@ import java.util.List;
 
 public final class FineTuneDeepJ90M {
 
+    static final int FINE_TUNING_STEPS = 22_500;
+
     private FineTuneDeepJ90M() {}
 
     public static void main(String[] args) throws Exception {
@@ -23,14 +25,14 @@ public final class FineTuneDeepJ90M {
                 path("deepj.initialModel", base.resolve("model-final.dj").toString()),
                 optionalPath("deepj.resume"));
         var source = new ResponseOnlyTextDataset.Source(
-                path("deepj.corpus", "sample_data/deepj-90m/instruction-train.txt"), 1);
+                path("deepj.corpus", "sample_data/deepj-90m/sft-train.txt"), 1);
         return new ResponseFineTuningConfig(files, training(), List.of(source),
                 Long.getLong("deepj.seed", 92L));
     }
 
     private static ResponseFineTuningConfig.Training training() {
         return new ResponseFineTuningConfig.Training(
-                integer("deepj.steps", 20_000), integer("deepj.batchSize", 1),
+                integer("deepj.steps", FINE_TUNING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 2e-5f), decimal("deepj.minLearningRate", 2e-6f),
                 integer("deepj.warmupSteps", 500), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
