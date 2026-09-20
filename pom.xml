@@ -32,7 +32,6 @@
         <connection>scm:git:https://github.com/KirstenAli/DeepJ.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/KirstenAli/DeepJ.git</developerConnection>
         <url>https://github.com/KirstenAli/DeepJ</url>
-        <tag>v0.7.0-alpha</tag>
     </scm>
 
     <properties>
