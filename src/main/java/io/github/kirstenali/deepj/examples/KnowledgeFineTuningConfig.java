@@ -43,10 +43,21 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
 
     record Training(int steps, int batchSize, float peakLearningRate,
                     float minimumLearningRate, int warmupSteps, int logEvery,
-                    int checkpointEvery, int releaseEvery) {
+                    int checkpointEvery, int releaseEvery,
+                    int gradientAccumulationSteps) {
+
+        Training(int steps, int batchSize, float peakLearningRate,
+                 float minimumLearningRate, int warmupSteps, int logEvery,
+                 int checkpointEvery, int releaseEvery) {
+            this(steps, batchSize, peakLearningRate, minimumLearningRate, warmupSteps,
+                    logEvery, checkpointEvery, releaseEvery, 1);
+        }
 
         Training {
-            if (steps < 1 || batchSize < 1 || logEvery < 1) throw new IllegalArgumentException("training counts must be positive");
+            if (steps < 1 || batchSize < 1 || logEvery < 1
+                    || gradientAccumulationSteps < 1) {
+                throw new IllegalArgumentException("training counts must be positive");
+            }
             if (checkpointEvery < 0 || releaseEvery < 0) throw new IllegalArgumentException("intervals must be non-negative");
             new CosineLearningRateSchedule(peakLearningRate, minimumLearningRate, warmupSteps, steps);
         }
@@ -55,12 +66,14 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
             return new Training(integer("deepj.steps", 20_000), integer("deepj.batchSize", 1),
                     decimal("deepj.learningRate", 5e-5f), decimal("deepj.minLearningRate", 5e-6f),
                     integer("deepj.warmupSteps", 500), integer("deepj.logEvery", 100),
-                    integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 25));
+                    integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 25),
+                    integer("deepj.gradientAccumulationSteps", 1));
         }
 
         ResponseFineTuningConfig.Training responseConfig() {
             return new ResponseFineTuningConfig.Training(steps, batchSize, peakLearningRate,
-                    minimumLearningRate, warmupSteps, logEvery, checkpointEvery, releaseEvery);
+                    minimumLearningRate, warmupSteps, logEvery, checkpointEvery, releaseEvery,
+                    gradientAccumulationSteps);
         }
     }
 

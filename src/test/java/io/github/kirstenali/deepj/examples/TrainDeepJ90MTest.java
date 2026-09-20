@@ -22,7 +22,7 @@ class TrainDeepJ90MTest {
     @Test
     void pretrainingCoversChinchillaTokenBudget() {
         var config = TrainDeepJ90M.configuration();
-        long tokens = (long) config.training().steps() * config.training().batchSize()
+        long tokens = (long) config.training().steps() * config.training().effectiveBatchSize()
                 * config.architecture().sequenceLength();
 
         assertEquals(1_800_000_512L, tokens);
@@ -48,5 +48,33 @@ class TrainDeepJ90MTest {
     @Test
     void fineTuningUsesOneCuratedPass() {
         assertEquals(22_500, FineTuneDeepJ90M.configuration().training().steps());
+    }
+
+    @Test
+    void accumulationCanBeConfiguredWithoutChangingBatchSize() {
+        withProperty("deepj.gradientAccumulationSteps", "8",
+                TrainDeepJ90MTest::assertAccumulationConfiguration);
+    }
+
+    private static void assertAccumulationConfiguration() {
+        var training = TrainDeepJ90M.configuration().training();
+        assertEquals(1, training.batchSize());
+        assertEquals(8, training.gradientAccumulationSteps());
+        assertEquals(8, training.effectiveBatchSize());
+    }
+
+    private static void withProperty(String name, String value, Runnable assertion) {
+        String previous = System.getProperty(name);
+        System.setProperty(name, value);
+        try {
+            assertion.run();
+        } finally {
+            restoreProperty(name, previous);
+        }
+    }
+
+    private static void restoreProperty(String name, String value) {
+        if (value == null) System.clearProperty(name);
+        else System.setProperty(name, value);
     }
 }

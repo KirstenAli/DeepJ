@@ -83,6 +83,9 @@ class TrainDeepSeekTinyStoriesTest {
                 () -> new DeepSeekTinyStoriesConfig.Training(2, 1, 1e-3f,
                         1e-4f, 2, 1, 1, 0));
         assertThrows(IllegalArgumentException.class,
+                () -> new DeepSeekTinyStoriesConfig.Training(2, 1, 1e-3f,
+                        1e-4f, 1, 1, 1, 0, 0));
+        assertThrows(IllegalArgumentException.class,
                 () -> new DeepSeekTinyStoriesConfig.TokenizerConfig(261, 1));
     }
 

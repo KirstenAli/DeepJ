@@ -8,6 +8,7 @@ import io.github.kirstenali.deepj.models.gpt.GPTConfig;
 import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.models.llama.LlamaConfig;
 import io.github.kirstenali.deepj.models.llama.LlamaModel;
+import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
@@ -20,6 +21,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class CausalLMTrainingTest {
@@ -90,6 +92,27 @@ public class CausalLMTrainingTest {
     }
 
     @Test
+    void accumulationMatchesEquivalentBatch() throws IOException {
+        GPTModel accumulated = gptModel(3L);
+        GPTModel batched = gptModel(3L);
+        float accumulatedLoss = accumulatedLoss(accumulated);
+        float batchedLoss = batchedLoss(batched);
+
+        Assertions.assertEquals(batchedLoss, accumulatedLoss, 1e-6f);
+        assertParametersClose(batched.parameters(), accumulated.parameters());
+    }
+
+    @Test
+    void accumulationStepsMustBePositive() throws IOException {
+        GPTModel model = gptModel(3L);
+        TextDataset dataset = accumulationDataset();
+        var optimizer = AdamW.defaultAdamW(1e-2f);
+
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CausalLMTraining.trainer(model, dataset, optimizer, 0));
+    }
+
+    @Test
     void trainer_usesConfigGradClipNorm_toLimitUpdateMagnitude() throws IOException {
         Path tmp = Files.createTempFile("deepj_lm_clip", ".txt");
         Files.writeString(tmp, "hello hello hello hello hello hello");
@@ -110,5 +133,33 @@ public class CausalLMTrainingTest {
         Tensor before = parameter.value.multiplyScalar(1.0f);
         CausalLMTraining.trainer(model, dataset, 1e-2f).trainStep(2);
         return parameter.value.subtract(before).sumAbs();
+    }
+
+    private static float accumulatedLoss(GPTModel model) throws IOException {
+        var optimizer = AdamW.defaultAdamW(1e-2f);
+        return CausalLMTraining.trainer(model, accumulationDataset(), optimizer, 2).trainStep(1);
+    }
+
+    private static float batchedLoss(GPTModel model) throws IOException {
+        return CausalLMTraining.trainer(model, accumulationDataset(), 1e-2f).trainStep(2);
+    }
+
+    private static TextDataset accumulationDataset() throws IOException {
+        return tinyDataset("one two three four five six seven eight nine ten", 8);
+    }
+
+    private static GPTModel gptModel(long seed) {
+        return new GPTModel(new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64), seed);
+    }
+
+    private static void assertParametersClose(List<Parameter> expected, List<Parameter> actual) {
+        Assertions.assertEquals(expected.size(), actual.size());
+        for (int index = 0; index < expected.size(); index++) {
+            assertTensorClose(expected.get(index).value, actual.get(index).value);
+        }
+    }
+
+    private static void assertTensorClose(Tensor expected, Tensor actual) {
+        Assertions.assertArrayEquals(expected.data, actual.data, 1e-6f);
     }
 }

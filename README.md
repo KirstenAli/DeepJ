@@ -107,7 +107,10 @@ JAVA_HOME="$DEEPJ_JDK" mvn compile
   io.github.kirstenali.deepj.examples.TrainDeepSeekTinyStories
 ```
 
-Useful overrides include `deepj.batchSize`, `deepj.seqLen`, `deepj.dModel`, `deepj.layers`, `deepj.vocabSize`, `deepj.learningRate`, `deepj.output`, and `deepj.checkpointEvery`.
+Useful overrides include `deepj.batchSize`, `deepj.gradientAccumulationSteps`, `deepj.seqLen`, `deepj.dModel`, `deepj.layers`, `deepj.vocabSize`, `deepj.learningRate`, `deepj.output`, and `deepj.checkpointEvery`.
+
+Gradient accumulation defaults to `1`. DeepJ averages the gradients across `batchSize × gradientAccumulationSteps` sequences before each optimizer update.
+Training steps count optimizer updates, so reduce the step count when increasing accumulation to preserve the same token budget.
 
 Evaluate the saved model on the validation split:
 

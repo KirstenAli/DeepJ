@@ -26,10 +26,19 @@ record ResponseFineTuningConfig(FilesConfig files, Training training,
 
     record Training(int steps, int batchSize, float peakLearningRate,
                     float minimumLearningRate, int warmupSteps, int logEvery,
-                    int checkpointEvery, int releaseEvery) {
+                    int checkpointEvery, int releaseEvery,
+                    int gradientAccumulationSteps) {
+
+        Training(int steps, int batchSize, float peakLearningRate,
+                 float minimumLearningRate, int warmupSteps, int logEvery,
+                 int checkpointEvery, int releaseEvery) {
+            this(steps, batchSize, peakLearningRate, minimumLearningRate, warmupSteps,
+                    logEvery, checkpointEvery, releaseEvery, 1);
+        }
 
         Training {
-            if (steps < 1 || batchSize < 1 || logEvery < 1) {
+            if (steps < 1 || batchSize < 1 || logEvery < 1
+                    || gradientAccumulationSteps < 1) {
                 throw new IllegalArgumentException("training counts must be positive");
             }
             if (checkpointEvery < 0 || releaseEvery < 0) {
@@ -37,6 +46,10 @@ record ResponseFineTuningConfig(FilesConfig files, Training training,
             }
             new CosineLearningRateSchedule(peakLearningRate, minimumLearningRate,
                     warmupSteps, steps);
+        }
+
+        int effectiveBatchSize() {
+            return Math.multiplyExact(batchSize, gradientAccumulationSteps);
         }
     }
 }

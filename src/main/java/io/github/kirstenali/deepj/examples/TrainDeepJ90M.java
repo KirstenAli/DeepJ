@@ -57,7 +57,8 @@ public final class TrainDeepJ90M {
                 integer("deepj.steps", PRETRAINING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 1e-4f), decimal("deepj.minLearningRate", 1e-5f),
                 integer("deepj.warmupSteps", 2_000), integer("deepj.logEvery", 100),
-                integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
+                integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1),
+                integer("deepj.gradientAccumulationSteps", 1));
     }
 
     private static DeepSeekTinyStoriesConfig.TokenizerConfig tokenizer() {

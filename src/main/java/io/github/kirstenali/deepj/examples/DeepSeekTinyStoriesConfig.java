@@ -77,11 +77,20 @@ public record DeepSeekTinyStoriesConfig(
 
     public record Training(int steps, int batchSize, float peakLearningRate,
                            float minimumLearningRate, int warmupSteps, int logEvery,
-                           int checkpointEvery, int releaseEvery) {
+                           int checkpointEvery, int releaseEvery,
+                           int gradientAccumulationSteps) {
+
+        public Training(int steps, int batchSize, float peakLearningRate,
+                        float minimumLearningRate, int warmupSteps, int logEvery,
+                        int checkpointEvery, int releaseEvery) {
+            this(steps, batchSize, peakLearningRate, minimumLearningRate, warmupSteps,
+                    logEvery, checkpointEvery, releaseEvery, 1);
+        }
 
         public Training {
-            if (steps <= 0 || batchSize <= 0 || logEvery <= 0) {
-                throw new IllegalArgumentException("steps, batchSize, and logEvery must be positive");
+            if (steps <= 0 || batchSize <= 0 || logEvery <= 0
+                    || gradientAccumulationSteps <= 0) {
+                throw new IllegalArgumentException("training counts must be positive");
             }
             if (checkpointEvery < 0 || releaseEvery < 0) {
                 throw new IllegalArgumentException("checkpointEvery and releaseEvery must be non-negative");
@@ -94,7 +103,12 @@ public record DeepSeekTinyStoriesConfig(
                     floatProperty("deepj.learningRate", 3e-4f),
                     floatProperty("deepj.minLearningRate", 3e-5f),
                     intProperty("deepj.warmupSteps", 200), intProperty("deepj.logEvery", 10),
-                    intProperty("deepj.checkpointEvery", 500), intProperty("deepj.releaseEvery", 25));
+                    intProperty("deepj.checkpointEvery", 500), intProperty("deepj.releaseEvery", 25),
+                    intProperty("deepj.gradientAccumulationSteps", 1));
+        }
+
+        public int effectiveBatchSize() {
+            return Math.multiplyExact(batchSize, gradientAccumulationSteps);
         }
     }
 

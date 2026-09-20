@@ -109,17 +109,25 @@ public final class TrainDeepSeekTinyStories {
     private static TrainingResult train(DeepSeekModel model, StatefulTrainingDataset dataset,
                                         DeepSeekTinyStoriesConfig config) throws IOException {
         DeepSeekTinyStoriesConfig.Training options = config.training();
+        printBatchConfiguration(options);
         CosineLearningRateSchedule schedule = schedule(options);
         AdamW optimizer = AdamW.defaultAdamW(schedule.learningRate(0));
         TrainingProgress progress = loadCheckpointIfRequested(
                 model, optimizer, dataset, schedule, config.files().resumeCheckpoint());
-        Trainer trainer = CausalLMTraining.trainer(model, dataset, optimizer);
+        Trainer trainer = CausalLMTraining.trainer(
+                model, dataset, optimizer, options.gradientAccumulationSteps());
         Trainer.StepHook hook = checkpointHook(model, optimizer, dataset, schedule, config);
         TrainingResult result = trainer.train(options.steps(), options.batchSize(), options.logEvery(),
                 0.98f, null, options.releaseEvery(), hook, progress);
         model.save(config.files().outputDirectory().resolve(FINAL_MODEL_FILE));
         printResult(result);
         return result;
+    }
+
+    private static void printBatchConfiguration(DeepSeekTinyStoriesConfig.Training options) {
+        System.out.printf("Batch size: %d; accumulation: %d; effective batch: %d%n",
+                options.batchSize(), options.gradientAccumulationSteps(),
+                options.effectiveBatchSize());
     }
 
     private static CosineLearningRateSchedule schedule(DeepSeekTinyStoriesConfig.Training options) {
@@ -229,6 +237,9 @@ public final class TrainDeepSeekTinyStories {
         DeepSeekTinyStoriesConfig.Training training = config.training();
         target.setProperty("steps", Integer.toString(training.steps()));
         target.setProperty("batchSize", Integer.toString(training.batchSize()));
+        target.setProperty("gradientAccumulationSteps",
+                Integer.toString(training.gradientAccumulationSteps()));
+        target.setProperty("effectiveBatchSize", Integer.toString(training.effectiveBatchSize()));
         target.setProperty("peakLearningRate", Float.toString(training.peakLearningRate()));
         target.setProperty("minimumLearningRate", Float.toString(training.minimumLearningRate()));
         target.setProperty("warmupSteps", Integer.toString(training.warmupSteps()));

@@ -41,13 +41,21 @@ final class ResponseOnlyFineTuner {
     private static TrainingResult train(ResponseFineTuningConfig config, DeepSeekModel model,
                                         Resources resources) throws Exception {
         var options = config.training();
+        printBatchConfiguration(options);
         var progress = loadProgress(config, model, resources);
-        Trainer trainer = CausalLMTraining.trainer(model, resources.dataset(), resources.optimizer());
+        Trainer trainer = CausalLMTraining.trainer(model, resources.dataset(),
+                resources.optimizer(), options.gradientAccumulationSteps());
         TrainingResult result = trainer.train(options.steps(), options.batchSize(), options.logEvery(),
                 0.98f, null, options.releaseEvery(), hook(config, model, resources), progress);
         model.save(config.files().output().resolve(FINAL_MODEL));
         printResult(result);
         return result;
+    }
+
+    private static void printBatchConfiguration(ResponseFineTuningConfig.Training options) {
+        System.out.printf("Batch size: %d; accumulation: %d; effective batch: %d%n",
+                options.batchSize(), options.gradientAccumulationSteps(),
+                options.effectiveBatchSize());
     }
 
     private static TrainingProgress loadProgress(ResponseFineTuningConfig config,
@@ -147,6 +155,9 @@ final class ResponseOnlyFineTuner {
                                               ResponseFineTuningConfig.Training training) {
         target.setProperty("steps", Integer.toString(training.steps()));
         target.setProperty("batchSize", Integer.toString(training.batchSize()));
+        target.setProperty("gradientAccumulationSteps",
+                Integer.toString(training.gradientAccumulationSteps()));
+        target.setProperty("effectiveBatchSize", Integer.toString(training.effectiveBatchSize()));
         target.setProperty("peakLearningRate", Float.toString(training.peakLearningRate()));
         target.setProperty("minimumLearningRate", Float.toString(training.minimumLearningRate()));
         target.setProperty("warmupSteps", Integer.toString(training.warmupSteps()));

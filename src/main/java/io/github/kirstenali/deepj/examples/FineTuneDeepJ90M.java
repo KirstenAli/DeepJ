@@ -35,7 +35,8 @@ public final class FineTuneDeepJ90M {
                 integer("deepj.steps", FINE_TUNING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 2e-5f), decimal("deepj.minLearningRate", 2e-6f),
                 integer("deepj.warmupSteps", 500), integer("deepj.logEvery", 100),
-                integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
+                integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1),
+                integer("deepj.gradientAccumulationSteps", 1));
     }
 
     private static int integer(String name, int fallback) {

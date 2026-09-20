@@ -54,7 +54,8 @@ public final class TrainDeepSeekKnowledge {
                 decimal("deepj.minLearningRate", 2e-5f),
                 integer("deepj.warmupSteps", 2_000), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000),
-                integer("deepj.releaseEvery", RELEASE_EVERY));
+                integer("deepj.releaseEvery", RELEASE_EVERY),
+                integer("deepj.gradientAccumulationSteps", 1));
     }
 
     private static DeepSeekTinyStoriesConfig.TokenizerConfig tokenizer() {

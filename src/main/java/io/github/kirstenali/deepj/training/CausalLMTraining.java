@@ -20,11 +20,34 @@ public final class CausalLMTraining {
         return trainer(model, dataset, AdamW.defaultAdamW(lr));
     }
 
+    public static Trainer trainer(CausalLM model, BatchSource dataset, float lr,
+                                  int accumulationSteps) {
+        return trainer(model, dataset, AdamW.defaultAdamW(lr), accumulationSteps);
+    }
+
     public static Trainer trainer(CausalLM model, BatchSource dataset, ParameterOptimizer optimizer) {
+        return trainer(model, dataset, optimizer, 1);
+    }
+
+    public static Trainer trainer(CausalLM model, BatchSource dataset,
+                                  ParameterOptimizer optimizer, int accumulationSteps) {
+        validateTrainerArgs(model, dataset, optimizer, accumulationSteps);
+        return new Trainer(batchSize -> trainStep(model, dataset, optimizer,
+                effectiveBatchSize(batchSize, accumulationSteps)));
+    }
+
+    private static void validateTrainerArgs(CausalLM model, BatchSource dataset,
+                                            ParameterOptimizer optimizer, int accumulationSteps) {
         if (model == null || dataset == null || optimizer == null) {
             throw new IllegalArgumentException("model, dataset, and optimizer must not be null");
         }
-        return new Trainer(batchSize -> trainStep(model, dataset, optimizer, batchSize));
+        if (accumulationSteps < 1) {
+            throw new IllegalArgumentException("accumulationSteps must be positive");
+        }
+    }
+
+    private static int effectiveBatchSize(int batchSize, int accumulationSteps) {
+        return Math.multiplyExact(batchSize, accumulationSteps);
     }
 
     private static float trainStep(CausalLM model, BatchSource dataset,
