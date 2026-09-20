@@ -132,8 +132,6 @@ The published demonstration model is [netsrik/deepj-tinystories](https://hugging
 
 DeepJ also includes a staged 90M-parameter training pipeline using FineWeb-Edu, SmolTalk, MMLU, GSM8K, and ARC. It uses bounded-memory datasets and complete checkpoints that preserve model weights, Adam state, training progress, and dataset position.
 
-See [TRAINING_90M.md](TRAINING_90M.md) for data preparation, training, resumption, and evaluation commands.
-
 ## Metal acceleration
 
 On Apple Silicon macOS, enable Metal when it is available:
