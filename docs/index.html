@@ -189,8 +189,8 @@ model.load(Path.of(<span class="code-string">"model.dj"</span>));
             <ul>
                 <li>The public API and checkpoint format may change before a stable release.</li>
                 <li>Tensors are currently two-dimensional and use float32 values.</li>
-                <li>Each model layer has its own gradient code. DeepJ does not calculate gradients automatically for every tensor operation.</li>
-                <li>Generation recomputes context; incremental KV caching is not implemented yet.</li>
+                <li>Training uses backward calculations built into each layer rather than a general-purpose automatic differentiation engine.</li>
+                <li>Text generation recalculates the full context for every new token because attention caching is not yet implemented.</li>
                 <li>Metal is Apple Silicon-only, and Hugging Face bundles use DeepJ—not PyTorch—formats.</li>
                 <li>DeepJ is not validated for safety-critical or production inference workloads.</li>
             </ul>

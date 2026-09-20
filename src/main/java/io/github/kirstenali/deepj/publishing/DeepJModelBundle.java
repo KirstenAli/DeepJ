@@ -159,8 +159,8 @@ public final class DeepJModelBundle {
                 .formatted(config.nLayers(), config.dModel())
                 + "%d attention heads, Q rank %d, KV rank %d and a %,d-token vocabulary."
                 .formatted(config.nHeads(), config.qRank(), config.kvRank(), config.vocabSize())
-                + "\n\nIt is not an exact implementation of DeepSeek V2, V3 or R1 and does not "
-                + "currently use an incremental KV cache.";
+                + "\n\nIt is not an exact implementation of DeepSeek V2, V3 or R1 and "
+                + "recalculates the full context for every generated token.";
         return formatModelCard(card, details, usage(config));
     }
 
