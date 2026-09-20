@@ -9,6 +9,7 @@ import io.github.kirstenali.deepj.models.gpt.GPTModel;
 import io.github.kirstenali.deepj.models.llama.LlamaConfig;
 import io.github.kirstenali.deepj.models.llama.LlamaModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterOptimizer;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
@@ -20,6 +21,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class CausalLMTrainingTest {
@@ -90,6 +93,15 @@ public class CausalLMTrainingTest {
     }
 
     @Test
+    void batchingAveragesIndividualLossesAndGradients() throws IOException {
+        TrainingObservation batched = observeTraining(2, 1);
+        TrainingObservation singles = observeTraining(1, 2);
+
+        Assertions.assertEquals(mean(singles.losses()), batched.losses().get(0), 1e-6f);
+        assertGradientAverage(batched.gradients().get(0), singles.gradients());
+    }
+
+    @Test
     void trainer_usesConfigGradClipNorm_toLimitUpdateMagnitude() throws IOException {
         Path tmp = Files.createTempFile("deepj_lm_clip", ".txt");
         Files.writeString(tmp, "hello hello hello hello hello hello");
@@ -110,5 +122,55 @@ public class CausalLMTrainingTest {
         Tensor before = parameter.value.multiplyScalar(1.0f);
         CausalLMTraining.trainer(model, dataset, 1e-2f).trainStep(2);
         return parameter.value.subtract(before).sumAbs();
+    }
+
+    private static TrainingObservation observeTraining(int batchSize, int steps) throws IOException {
+        GradientRecorder optimizer = new GradientRecorder();
+        Trainer trainer = CausalLMTraining.trainer(averagingModel(), averagingDataset(), optimizer);
+        List<Float> losses = new ArrayList<>();
+        for (int step = 0; step < steps; step++) losses.add(trainer.trainStep(batchSize));
+        return new TrainingObservation(losses, optimizer.gradients);
+    }
+
+    private static GPTModel averagingModel() {
+        GPTConfig config = new GPTConfig(
+                ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 0.2f, Float.MAX_VALUE);
+        return new GPTModel(config, 3L);
+    }
+
+    private static TextDataset averagingDataset() throws IOException {
+        return tinyDataset("one two three four five six seven eight nine ten", 8);
+    }
+
+    private static float mean(List<Float> values) {
+        return (values.get(0) + values.get(1)) * 0.5f;
+    }
+
+    private static void assertGradientAverage(List<Tensor> batched,
+                                              List<List<Tensor>> singles) {
+        for (int index = 0; index < batched.size(); index++) {
+            assertTensorAverage(batched.get(index), singles.get(0).get(index),
+                    singles.get(1).get(index));
+        }
+    }
+
+    private static void assertTensorAverage(Tensor actual, Tensor first, Tensor second) {
+        for (int index = 0; index < actual.data.length; index++) {
+            float expected = (first.data[index] + second.data[index]) * 0.5f;
+            Assertions.assertEquals(expected, actual.data[index], 1e-6f);
+        }
+    }
+
+    private record TrainingObservation(List<Float> losses,
+                                       List<List<Tensor>> gradients) {}
+
+    private static final class GradientRecorder implements ParameterOptimizer {
+
+        private final List<List<Tensor>> gradients = new ArrayList<>();
+
+        @Override
+        public void step(List<Parameter> parameters) {
+            gradients.add(parameters.stream().map(parameter -> new Tensor(parameter.grad)).toList());
+        }
     }
 }

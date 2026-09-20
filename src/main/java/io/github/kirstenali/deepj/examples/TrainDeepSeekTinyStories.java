@@ -109,6 +109,7 @@ public final class TrainDeepSeekTinyStories {
     private static TrainingResult train(DeepSeekModel model, StatefulTrainingDataset dataset,
                                         DeepSeekTinyStoriesConfig config) throws IOException {
         DeepSeekTinyStoriesConfig.Training options = config.training();
+        printBatchConfiguration(config);
         CosineLearningRateSchedule schedule = schedule(options);
         AdamW optimizer = AdamW.defaultAdamW(schedule.learningRate(0));
         TrainingProgress progress = loadCheckpointIfRequested(
@@ -120,6 +121,14 @@ public final class TrainDeepSeekTinyStories {
         model.save(config.files().outputDirectory().resolve(FINAL_MODEL_FILE));
         printResult(result);
         return result;
+    }
+
+    private static void printBatchConfiguration(DeepSeekTinyStoriesConfig config) {
+        int sequences = config.training().batchSize();
+        long tokens = Math.multiplyExact((long) sequences, config.architecture().sequenceLength());
+        String unit = sequences == 1 ? "sequence" : "sequences";
+        System.out.printf("Batch: %d %s (%,d tokens per optimizer update)%n",
+                sequences, unit, tokens);
     }
 
     private static CosineLearningRateSchedule schedule(DeepSeekTinyStoriesConfig.Training options) {

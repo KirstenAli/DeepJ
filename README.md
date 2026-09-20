@@ -109,6 +109,8 @@ JAVA_HOME="$DEEPJ_JDK" mvn compile
 
 Useful overrides include `deepj.batchSize`, `deepj.seqLen`, `deepj.dModel`, `deepj.layers`, `deepj.vocabSize`, `deepj.learningRate`, `deepj.output`, and `deepj.checkpointEvery`.
 
+`deepj.batchSize` is the number of sequences averaged before each optimizer update. DeepJ processes those sequences one at a time, accumulates their gradients, then averages and clips the result.
+
 Evaluate the saved model on the validation split:
 
 ```bash
