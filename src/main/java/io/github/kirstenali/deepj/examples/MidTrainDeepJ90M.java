@@ -17,7 +17,7 @@ public final class MidTrainDeepJ90M {
         var config = configuration();
         prepareTokenizer(config.files().outputDirectory());
         System.out.println("Backend: " + Tensor.backend().getClass().getSimpleName());
-        TrainDeepSeekTinyStories.run(config);
+        DeepSeekTrainingRunner.run(config);
     }
 
     static DeepSeekTinyStoriesConfig configuration() {

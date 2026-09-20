@@ -21,7 +21,7 @@ public final class TrainDeepSeekKnowledge {
     public static void main(String[] args) throws Exception {
         TrainingExampleSupport.configureBackend();
         System.out.println("Backend: " + Tensor.backend().getClass().getSimpleName());
-        TrainDeepSeekTinyStories.run(configuration());
+        DeepSeekTrainingRunner.run(configuration());
     }
 
     static DeepSeekTinyStoriesConfig configuration() {
