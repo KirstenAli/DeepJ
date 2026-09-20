@@ -17,7 +17,7 @@ import java.util.Objects;
 
 public final class DeepJModelBundle {
 
-    private static final String DEEPJ_VERSION = "0.7.0-alpha";
+    private static final String DEEPJ_VERSION = "0.7.1-alpha";
     public static final String MODEL_FILE = "model.dj";
     public static final String TOKENIZER_FILE = "tokenizer.bpe";
     public static final String CONFIG_FILE = "config.json";

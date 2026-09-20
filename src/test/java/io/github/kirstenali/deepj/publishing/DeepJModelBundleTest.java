@@ -75,7 +75,7 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("## Usage"));
         assertTrue(modelCard.contains("io.github.kirstenali"));
-        assertTrue(modelCard.contains("<version>0.7.0-alpha</version>"));
+        assertTrue(modelCard.contains("<version>0.7.1-alpha</version>"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("model.load(directory.resolve(\"model.dj\"))"));
         assertTrue(modelCard.contains("0.2f, 1.0f"));
