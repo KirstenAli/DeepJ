@@ -5,4 +5,7 @@
 /checkpoints/
 /dist/
 /.training-venv/
+/TRAINING_90M.md
+/training-data-requirements.txt
+/scripts/prepare_deepj_90m_data.py
 .DS_Store
