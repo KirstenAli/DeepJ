@@ -91,7 +91,7 @@ The model configuration must match the saved checkpoint.
 | `LlamaModel` | RoPE attention, RMSNorm, SwiGLU MLP |
 | `DeepSeekModel` | Compact low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 
-These models currently recompute the context for each generated token; incremental KV caching is not yet implemented. The DeepSeek-style model is inspired by Multi-Head Latent Attention but is not an exact DeepSeek-V2, V3, or R1 implementation.
+These models currently recalculate the full context for every generated token because attention caching is not yet implemented. The DeepSeek-style model is inspired by Multi-Head Latent Attention but is not an exact DeepSeek-V2, V3, or R1 implementation.
 
 ## Train on TinyStories
 
@@ -170,9 +170,9 @@ JAVA_HOME=$(/usr/libexec/java_home -v 20) \
 
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
-- Each model layer has its own gradient code. DeepJ does not calculate gradients automatically for every tensor operation.
+- Training uses backward calculations built into each layer rather than a general-purpose automatic differentiation engine.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
-- Generation does not yet use a KV cache.
+- Text generation recalculates the full context for every new token because attention caching is not yet implemented.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
 - The library has not been validated for safety-critical or production inference workloads.
 

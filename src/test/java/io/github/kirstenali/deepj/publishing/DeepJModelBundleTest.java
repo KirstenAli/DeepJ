@@ -72,6 +72,7 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("a hidden size of 8"));
         assertTrue(modelCard.contains("vocabulary.\n\nIt is not an exact implementation"));
         assertTrue(modelCard.contains("not an exact implementation of DeepSeek V2, V3 or R1"));
+        assertTrue(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("## Usage"));
         assertTrue(modelCard.contains("io.github.kirstenali"));
         assertTrue(modelCard.contains("<version>0.7.0-alpha</version>"));
