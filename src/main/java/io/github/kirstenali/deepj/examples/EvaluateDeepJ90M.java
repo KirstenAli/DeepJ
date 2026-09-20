@@ -59,7 +59,7 @@ public final class EvaluateDeepJ90M {
             Path base = path("deepj.base", "checkpoints/deepj-90m/sft");
             return new Settings(base,
                     path("deepj.checkpoint", base.resolve("model-final.dj").toString()),
-                    path("deepj.validation", "sample_data/deepj-90m/instruction-valid.txt"),
+                    path("deepj.validation", "sample_data/deepj-90m/sft-valid.txt"),
                     integer("deepj.evalBatches", 100), integer("deepj.generateTokens", 80),
                     decimal("deepj.temperature", 0.2f), integer("deepj.topK", 20),
                     Long.getLong("deepj.evalSeed", 1_000_090L));

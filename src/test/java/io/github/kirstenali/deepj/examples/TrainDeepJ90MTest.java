@@ -3,6 +3,8 @@ package io.github.kirstenali.deepj.examples;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekParameterCount;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TrainDeepJ90MTest {
@@ -24,5 +26,27 @@ class TrainDeepJ90MTest {
                 * config.architecture().sequenceLength();
 
         assertEquals(1_800_000_512L, tokens);
+    }
+
+    @Test
+    void postTrainingStagesUseSeparateCorpora() {
+        var mid = MidTrainDeepJ90M.configuration();
+        var fine = FineTuneDeepJ90M.configuration();
+
+        assertEquals(Path.of("sample_data/deepj-90m/midtrain-train.txt"), mid.files().corpus());
+        assertEquals(Path.of("sample_data/deepj-90m/sft-train.txt"), fine.sources().get(0).path());
+    }
+
+    @Test
+    void midTrainingMatchesArticleTokenExposure() {
+        var config = MidTrainDeepJ90M.configuration();
+        long tokens = (long) config.training().steps() * config.architecture().sequenceLength();
+
+        assertEquals(262_144_000L, tokens);
+    }
+
+    @Test
+    void fineTuningUsesOneCuratedPass() {
+        assertEquals(22_500, FineTuneDeepJ90M.configuration().training().steps());
     }
 }

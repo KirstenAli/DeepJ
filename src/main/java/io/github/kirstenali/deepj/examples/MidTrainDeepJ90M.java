@@ -8,6 +8,8 @@ import java.nio.file.StandardCopyOption;
 
 public final class MidTrainDeepJ90M {
 
+    static final int MID_TRAINING_STEPS = 256_000;
+
     private MidTrainDeepJ90M() {}
 
     public static void main(String[] args) throws Exception {
@@ -21,7 +23,7 @@ public final class MidTrainDeepJ90M {
     static DeepSeekTinyStoriesConfig configuration() {
         Path output = path("deepj.output", "checkpoints/deepj-90m/midtrain");
         var files = new DeepSeekTinyStoriesConfig.FilesConfig(
-                path("deepj.corpus", "sample_data/deepj-90m/instruction-train.txt"), output, resume());
+                path("deepj.corpus", "sample_data/deepj-90m/midtrain-train.txt"), output, resume());
         return new DeepSeekTinyStoriesConfig(files, TrainDeepJ90M.architecture(), training(),
                 tokenizer(), Long.getLong("deepj.seed", 91L));
     }
@@ -32,7 +34,7 @@ public final class MidTrainDeepJ90M {
 
     private static DeepSeekTinyStoriesConfig.Training training() {
         return new DeepSeekTinyStoriesConfig.Training(
-                integer("deepj.steps", 20_000), integer("deepj.batchSize", 1),
+                integer("deepj.steps", MID_TRAINING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 5e-5f), decimal("deepj.minLearningRate", 5e-6f),
                 integer("deepj.warmupSteps", 500), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
