@@ -24,10 +24,10 @@ public final class TrainDeepJ90M {
         var config = configuration();
         printRun(config);
         if (Boolean.getBoolean("deepj.tokenizerOnly")) {
-            TrainDeepSeekTinyStories.prepareTokenizer(config);
+            DeepSeekTrainingRunner.prepareTokenizer(config);
             return;
         }
-        TrainDeepSeekTinyStories.runSequential(config);
+        DeepSeekTrainingRunner.runSequential(config);
     }
 
     static DeepSeekTinyStoriesConfig configuration() {
