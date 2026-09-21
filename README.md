@@ -60,25 +60,28 @@ Tensor weights = Tensor.from2D(new float[][]{
 Tensor output = inputs.matmul(weights).reluActivation();
 ```
 
-Create a compact DeepSeek-style model and generate from trained or loaded weights:
+Load a compact DeepSeek-style checkpoint with its BPE tokenizer:
 
 ```java
 import io.github.kirstenali.deepj.models.TextGenerator;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
 import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
-import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
-import io.github.kirstenali.deepj.tokenizers.Tokenizer;
+import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
+import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
+import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 
 import java.nio.file.Path;
 
-Tokenizer tokenizer = new ByteTokenizer();
+Path directory = Path.of("downloaded-model");
+BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
+BPETokenizer tokenizer = new BPETokenizer(bpe);
 DeepSeekConfig config = new DeepSeekConfig(
-        tokenizer.vocabSize(), 128, 64, 4, 2, 256, 32, 16);
+        tokenizer.vocabSize(), 128, 128, 4, 4, 384, 64, 32);
 DeepSeekModel model = new DeepSeekModel(config, 42L);
 
-model.load(Path.of("model.dj"));
+model.load(directory.resolve("model.dj"));
 String text = TextGenerator.generate(
-        model, tokenizer, config, "Once upon a time", 80, 0.8f, 20, 42L);
+        model, tokenizer, config, "Once upon a time", 80, 0.8f, 40, 2026L);
 ```
 
 The model configuration must match the saved checkpoint.
