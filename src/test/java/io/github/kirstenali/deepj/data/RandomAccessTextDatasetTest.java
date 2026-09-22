@@ -87,9 +87,13 @@ class RandomAccessTextDatasetTest {
 
     private static boolean contains(Batch batch, int tokenId) {
         for (int[] row : batch.x()) {
-            for (int token : row) if (token == tokenId) return true;
+            for (int token : row) {
+                if (token == tokenId) return true;
+            }
         }
-        for (int token : batch.y()[batch.y().length - 1]) if (token == tokenId) return true;
+        for (int token : batch.y()[batch.y().length - 1]) {
+            if (token == tokenId) return true;
+        }
         return false;
     }
 }

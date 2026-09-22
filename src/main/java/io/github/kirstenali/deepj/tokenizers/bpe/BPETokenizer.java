@@ -98,7 +98,9 @@ public final class BPETokenizer implements Tokenizer {
     private static int findPieceEnd(String text, int start, int end) {
         boolean whitespace = Character.isWhitespace(text.charAt(start));
         int cursor = start + 1;
-        while (cursor < end && Character.isWhitespace(text.charAt(cursor)) == whitespace) cursor++;
+        while (cursor < end && Character.isWhitespace(text.charAt(cursor)) == whitespace) {
+            cursor++;
+        }
         return cursor;
     }
 

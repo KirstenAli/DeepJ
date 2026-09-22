@@ -77,7 +77,9 @@ public final class DeepJExecutor {
 
         int threads = exec.getCorePoolSize();
         if (threads <= 1 || !parallelEnabled) {
-            for (int i = startInclusive; i < endExclusive; i++) body.accept(i);
+            for (int i = startInclusive; i < endExclusive; i++) {
+                body.accept(i);
+            }
             return;
         }
 
@@ -128,7 +130,9 @@ public final class DeepJExecutor {
     private static void runChunk(int start, int end, CountDownLatch latch, AtomicBoolean cancelled,
                                  AtomicReference<RuntimeException> firstError, IntConsumer body) {
         try {
-            for (int i = start; i < end && !cancelled.get(); i++) body.accept(i);
+            for (int i = start; i < end && !cancelled.get(); i++) {
+                body.accept(i);
+            }
         } catch (RuntimeException ex) {
             cancelled.set(true);
             firstError.compareAndSet(null, ex);

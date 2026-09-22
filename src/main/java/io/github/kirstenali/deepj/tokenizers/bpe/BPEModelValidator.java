@@ -35,7 +35,9 @@ final class BPEModelValidator {
     private static void requireValidVocab(List<byte[]> vocab, int endOfWordId) {
         if (vocab.isEmpty()) throw invalid("Vocabulary must not be empty");
         if (endOfWordId < 0 || endOfWordId >= vocab.size()) throw invalid("Invalid end-of-word id");
-        for (byte[] token : vocab) if (token == null) throw invalid("Vocabulary contains null token");
+        for (byte[] token : vocab) {
+            if (token == null) throw invalid("Vocabulary contains null token");
+        }
         if (vocab.get(endOfWordId).length != 0) throw invalid("End-of-word token must be empty");
     }
 
@@ -50,18 +52,40 @@ final class BPEModelValidator {
         if (merges.size() != mergeIds.size()) throw invalid("Merge tables have different sizes");
         Set<TokenPair> pairs = new HashSet<>();
         Set<Integer> results = new HashSet<>();
-        for (TokenPair pair : merges) validateMerge(vocab, mergeIds, pairs, results, pair);
+        for (TokenPair pair : merges) {
+            validateMerge(vocab, mergeIds, pairs, results, pair);
+        }
     }
 
     private static void validateMerge(List<byte[]> vocab, Map<TokenPair, Integer> mergeIds,
                                       Set<TokenPair> pairs, Set<Integer> results, TokenPair pair) {
+        requireUniquePair(pair, pairs);
+        int result = requireMergeResult(pair, mergeIds, vocab.size());
+        requireAvailableInputs(pair, result);
+        requireUniqueResult(result, results);
+    }
+
+    private static void requireUniquePair(TokenPair pair, Set<TokenPair> pairs) {
         if (pair == null || !pairs.add(pair)) throw invalid("Duplicate or null merge pair");
-        Integer result = mergeIds.get(pair);
-        if (result == null || result < 0 || result >= vocab.size()) throw invalid("Invalid merge result id");
-        if (pair.left() < 0 || pair.right() < 0 || pair.left() >= result || pair.right() >= result) {
-            throw invalid("Merge references an unavailable token: " + pair);
-        }
+    }
+
+    private static int requireMergeResult(TokenPair pair, Map<TokenPair, Integer> ids, int size) {
+        Integer result = ids.get(pair);
+        if (result == null || result < 0 || result >= size) throw invalid("Invalid merge result id");
+        return result;
+    }
+
+    private static void requireAvailableInputs(TokenPair pair, int result) {
+        if (pair.left() < 0 || pair.right() < 0) throw unavailable(pair);
+        if (pair.left() >= result || pair.right() >= result) throw unavailable(pair);
+    }
+
+    private static void requireUniqueResult(int result, Set<Integer> results) {
         if (!results.add(result)) throw invalid("Duplicate merge result id: " + result);
+    }
+
+    private static IllegalArgumentException unavailable(TokenPair pair) {
+        return invalid("Merge references an unavailable token: " + pair);
     }
 
     private static void requireValidSpecials(Map<String, Integer> specials, int vocabSize, int endOfWordId) {

@@ -67,16 +67,8 @@ public class PositionalEmbeddingTest {
 
         double lr = 0.1f;
 
-        double prev = oneSgdStepMSE(pe, w, seqLen, target, lr);
-        boolean improved = false;
-
-        for (int i = 0; i < 30; i++) {
-            double cur = oneSgdStepMSE(pe, w, seqLen, target, lr);
-            if (cur < prev) { improved = true; break; }
-            prev = cur;
-        }
-
-        assertTrue(improved, "expected MSE to decrease after SGD updates on positional rows");
+        TestSupport.assertLossDecreases(() -> oneSgdStepMSE(pe, w, seqLen, target, lr), 30,
+                "expected MSE to decrease after SGD updates on positional rows");
     }
 
     private static double oneSgdStepMSE(PositionalEmbedding pe,

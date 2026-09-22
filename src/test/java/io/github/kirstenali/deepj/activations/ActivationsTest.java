@@ -77,7 +77,9 @@ public class ActivationsTest {
 
         for (int r = 0; r < p.rows; r++) {
             float sum = 0.0f;
-            for (int c = 0; c < p.cols; c++) sum += p.data[r * p.cols + c];
+            for (int c = 0; c < p.cols; c++) {
+                sum += p.data[r * p.cols + c];
+            }
             Assertions.assertEquals(1.0f, sum, 1e-6f);
         }
 

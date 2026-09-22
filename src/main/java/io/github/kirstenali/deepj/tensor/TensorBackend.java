@@ -70,7 +70,9 @@ public interface TensorBackend {
         float squares = 0.0f;
         for (Tensor tensor : tensors) {
             tensor.materialize();
-            for (float value : tensor.data) squares += value * value;
+            for (float value : tensor.data) {
+                squares += value * value;
+            }
         }
         return (float) Math.sqrt(squares);
     }

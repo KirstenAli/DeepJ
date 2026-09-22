@@ -2,7 +2,6 @@ package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 
-import java.util.Arrays;
 import java.util.Random;
 
 public class Tensor {
@@ -17,20 +16,14 @@ public class Tensor {
 
     public void setGpuTag(Object tag) { this.gpuTag = tag; }
 
-    public Tensor retainDeviceBuffer() { retainDeviceBuffer = true; return this; }
+    public Tensor retainDeviceBuffer() {
+        retainDeviceBuffer = true;
+        return this;
+    }
 
     public boolean retainsDeviceBuffer() { return retainDeviceBuffer; }
 
     private static volatile TensorBackend BACKEND = new CpuBackend();
-    private static final CpuBackend CPU_ACCESS = new CpuBackend();
-
-    private static void markGpuNeedsUpload(Tensor t) {
-        if (t.getGpuTag() instanceof GpuBuffer gb) {
-            gb.needsUpload = true;
-            gb.cpuStale = false;
-        }
-    }
-
     public static void setBackend(TensorBackend backend) {
         if (backend == null) throw new IllegalArgumentException("backend cannot be null");
         BACKEND = backend;
@@ -43,38 +36,23 @@ public class Tensor {
     public Tensor(int rows, int cols) {
         this.rows = rows;
         this.cols = cols;
-        this.data = new float[checkedSize(rows, cols)];
-    }
-
-    private static int checkedSize(int rows, int cols) {
-        if (rows < 1 || cols < 1) throw new IllegalArgumentException("Tensor dimensions must be positive");
-        try {
-            return Math.multiplyExact(rows, cols);
-        } catch (ArithmeticException ex) {
-            throw new IllegalArgumentException("Tensor shape is too large: " + rows + "x" + cols, ex);
-        }
+        this.data = new float[TensorStorage.checkedSize(rows, cols)];
     }
 
     public Tensor(Tensor source) {
-        if (source == null) throw new IllegalArgumentException("source cannot be null");
-        source.materialize();
+        TensorStorage.requireSource(source);
         this.rows = source.rows;
         this.cols = source.cols;
-        this.data = Arrays.copyOf(source.data, source.data.length);
-
+        this.data = TensorStorage.copyData(source);
         this.gpuTag = null;
     }
 
     public float[] rowData(int r) {
-        requireRow(r);
-        materialize();
-        return Arrays.copyOfRange(data, r * cols, (r + 1) * cols);
+        return TensorStorage.rowData(this, r);
     }
 
     public void materialize() {
-        if (gpuTag != null) {
-            backend().materializeTensor(this);
-        }
+        TensorStorage.materialize(this);
     }
 
     public Tensor matmul(Tensor other) { return backend().matmul(this, other); }
@@ -114,23 +92,80 @@ public class Tensor {
     public Tensor geluActivation() { return backend().gelu(this); }
     public Tensor geluBackward(Tensor gradOutput) { return backend().geluBackward(this, gradOutput); }
 
-    public Tensor addInPlace(Tensor b)           { backend().addInPlace(this, b); return this; }
-    public Tensor subtractInPlace(Tensor b)      { backend().subtractInPlace(this, b); return this; }
-    public Tensor multiplyInPlace(Tensor b)      { backend().multiplyInPlace(this, b); return this; }
-    public Tensor divideInPlace(Tensor b)        { backend().divideInPlace(this, b); return this; }
+    public Tensor addInPlace(Tensor other) {
+        backend().addInPlace(this, other);
+        return this;
+    }
 
-    public Tensor multiplyScalarInPlace(float s) { backend().multiplyScalarInPlace(this, s); return this; }
-    public Tensor addScalarInPlace(float s)      { backend().addScalarInPlace(this, s); return this; }
-    public Tensor divideScalarInPlace(float s)   { backend().divideScalarInPlace(this, s); return this; }
+    public Tensor subtractInPlace(Tensor other) {
+        backend().subtractInPlace(this, other);
+        return this;
+    }
 
-    public Tensor sqrtInPlace()    { backend().sqrtInPlace(this); return this; }
-    public Tensor negInPlace()     { backend().negInPlace(this); return this; }
-    public Tensor expInPlace()     { backend().expInPlace(this); return this; }
-    public Tensor logInPlace()     { backend().logInPlace(this); return this; }
-    public Tensor reluInPlace()    { backend().reluInPlace(this); return this; }
-    public Tensor geluInPlace()    { backend().geluInPlace(this); return this; }
-    public Tensor tanhInPlace()    { backend().tanhInPlace(this); return this; }
-    public Tensor sigmoidInPlace() { backend().sigmoidInPlace(this); return this; }
+    public Tensor multiplyInPlace(Tensor other) {
+        backend().multiplyInPlace(this, other);
+        return this;
+    }
+
+    public Tensor divideInPlace(Tensor other) {
+        backend().divideInPlace(this, other);
+        return this;
+    }
+
+    public Tensor multiplyScalarInPlace(float scalar) {
+        backend().multiplyScalarInPlace(this, scalar);
+        return this;
+    }
+
+    public Tensor addScalarInPlace(float scalar) {
+        backend().addScalarInPlace(this, scalar);
+        return this;
+    }
+
+    public Tensor divideScalarInPlace(float scalar) {
+        backend().divideScalarInPlace(this, scalar);
+        return this;
+    }
+
+    public Tensor sqrtInPlace() {
+        backend().sqrtInPlace(this);
+        return this;
+    }
+
+    public Tensor negInPlace() {
+        backend().negInPlace(this);
+        return this;
+    }
+
+    public Tensor expInPlace() {
+        backend().expInPlace(this);
+        return this;
+    }
+
+    public Tensor logInPlace() {
+        backend().logInPlace(this);
+        return this;
+    }
+
+    public Tensor reluInPlace() {
+        backend().reluInPlace(this);
+        return this;
+    }
+
+    public Tensor geluInPlace() {
+        backend().geluInPlace(this);
+        return this;
+    }
+
+    public Tensor tanhInPlace() {
+        backend().tanhInPlace(this);
+        return this;
+    }
+
+    public Tensor sigmoidInPlace() {
+        backend().sigmoidInPlace(this);
+        return this;
+    }
 
     public Tensor softmaxRows() { return backend().softmaxRows(this); }
     public Tensor softmaxBackward(Tensor softmaxOut) { return backend().softmaxBackward(this, softmaxOut); }
@@ -164,19 +199,7 @@ public class Tensor {
     }
 
     public static Tensor from2D(float[][] data) {
-        if (data == null || data.length == 0 || data[0] == null || data[0].length == 0) {
-            throw new IllegalArgumentException("Tensor data must contain at least one value");
-        }
-        int rows = data.length;
-        int cols = data[0].length;
-        Tensor t = new Tensor(rows, cols);
-        for (int r = 0; r < rows; r++) {
-            if (data[r] == null || data[r].length != cols) {
-                throw new IllegalArgumentException("All rows must have the same length (expected " + cols + ")");
-            }
-            System.arraycopy(data[r], 0, t.data, r * cols, cols);
-        }
-        return t;
+        return TensorStorage.from2D(data);
     }
 
     public float sum() {
@@ -192,77 +215,43 @@ public class Tensor {
     }
 
     public float get(int r, int c) {
-        requireIndex(r, c);
-        materialize();
-        return CPU_ACCESS.get(this, r, c);
+        return TensorStorage.get(this, r, c);
     }
 
     public void set(int r, int c, float value) {
-        requireIndex(r, c);
-        materialize();
-        CPU_ACCESS.set(this, r, c, value);
-        markGpuNeedsUpload(this);
+        TensorStorage.set(this, r, c, value);
     }
 
     public Tensor getRow(int row) {
-        requireRow(row);
-        materialize();
-        return CPU_ACCESS.getRow(this, row);
+        return TensorStorage.getRow(this, row);
     }
 
     public void setRow(int row, Tensor source, int srcRow) {
-        requireRow(row);
-        source.requireRow(srcRow);
-        if (source.cols != cols) throw new IllegalArgumentException("Source row width must match tensor width");
-        materialize();
-        source.materialize();
-        CPU_ACCESS.setRow(this, row, source, srcRow);
-        markGpuNeedsUpload(this);
+        TensorStorage.setRow(this, row, source, srcRow);
     }
 
     public static Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
-        if (cols != t.cols) throw new IllegalArgumentException("Requested width must match tensor width");
-        for (int row : rowIndices) t.requireRow(row);
-        return backend().sliceRows(t, rowIndices);
+        return TensorStorage.sliceRows(t, rowIndices, cols);
     }
 
     public static Tensor sampleRows(Tensor t, int n, Random rnd) {
-        if (n < 1) throw new IllegalArgumentException("Sample count must be positive");
-        t.materialize();
-        return CPU_ACCESS.sampleRows(t, n, rnd);
+        return TensorStorage.sampleRows(t, n, rnd);
     }
 
     public void print(String label) {
-        materialize();
-        CPU_ACCESS.print(this, label);
+        TensorStorage.print(this, label);
     }
 
-    public static Tensor zeros(int rows, int cols) { return CPU_ACCESS.zeros(rows, cols); }
-    public static Tensor ones(int rows, int cols) { return CPU_ACCESS.ones(rows, cols); }
-    public static Tensor random(int rows, int cols, Random rand) { return CPU_ACCESS.random(rows, cols, rand); }
-    public static Tensor causalMask(int size) { return CPU_ACCESS.causalMask(size); }
+    public static Tensor zeros(int rows, int cols) { return TensorStorage.zeros(rows, cols); }
+    public static Tensor ones(int rows, int cols) { return TensorStorage.ones(rows, cols); }
+    public static Tensor random(int rows, int cols, Random rand) { return TensorStorage.random(rows, cols, rand); }
+    public static Tensor causalMask(int size) { return TensorStorage.causalMask(size); }
 
     public static void requireSameShape(Tensor a, Tensor b, String op) {
-        if (a.rows != b.rows || a.cols != b.cols) {
-            throw new IllegalArgumentException(
-                    "Shape mismatch for " + op + ": " + a.rows + "x" + a.cols +
-                            " vs " + b.rows + "x" + b.cols);
-        }
+        TensorStorage.requireSameShape(a, b, op);
     }
 
     public static void requireTargetsMatchRows(Tensor logits, int[] targets) {
-        if (targets.length != logits.rows) {
-            throw new IllegalArgumentException(
-                    "targets length " + targets.length + " must match logits rows " + logits.rows);
-        }
-    }
-
-    private void requireIndex(int row, int col) {
-        requireRow(row);
-        if (col < 0 || col >= cols) throw new IndexOutOfBoundsException("Column index: " + col);
-    }
-
-    private void requireRow(int row) {
-        if (row < 0 || row >= rows) throw new IndexOutOfBoundsException("Row index: " + row);
+        TensorStorage.requireTargetsMatchRows(logits, targets);
     }
 }

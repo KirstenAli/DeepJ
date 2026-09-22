@@ -216,7 +216,8 @@ public final class DeepJModelBundle {
                 </dependency>
                 ```
 
-                Download this repository's `model.dj` and `tokenizer.bpe` into `downloaded-model`. Imports are omitted below.
+                Download this repository's `model.dj` and `tokenizer.bpe` into `downloaded-model`.
+                Imports are omitted below.
 
                 """.formatted(DEEPJ_VERSION, DEEPJ_VERSION, DEEPJ_VERSION);
     }

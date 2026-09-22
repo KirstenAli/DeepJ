@@ -49,7 +49,9 @@ public class TransformerBlockTest {
         TestSupport.assertTensorShape(gradIn, x.rows, x.cols);
 
         double totalGrad = 0.0f;
-        for (Parameter p : block.parameters()) totalGrad += p.grad.sumAbs();
+        for (Parameter p : block.parameters()) {
+            totalGrad += p.grad.sumAbs();
+        }
         assertTrue(totalGrad > 0.0f, "Expected some non-zero gradients in block parameters");
     }
 
@@ -74,16 +76,8 @@ public class TransformerBlockTest {
 
         Tensor target = Tensor.zeros(x.rows, x.cols);
 
-        double prev = trainOneStepMSE(block, opt, x, target);
-        boolean improved = false;
-
-        for (int i = 0; i < 10; i++) {
-            double cur = trainOneStepMSE(block, opt, x, target);
-            if (cur < prev) { improved = true; break; }
-            prev = cur;
-        }
-
-        assertTrue(improved, "Expected MSE loss to decrease within a few optimizer steps");
+        TestSupport.assertLossDecreases(() -> trainOneStepMSE(block, opt, x, target), 10,
+                "Expected MSE loss to decrease within a few optimizer steps");
     }
 
     private static double trainOneStepMSE(GPTTransformerBlock block, AdamW opt, Tensor x, Tensor target) {
@@ -95,7 +89,9 @@ public class TransformerBlockTest {
 
         block.backward(gradOut);
         opt.step(block.parameters());
-        for (Parameter p : block.parameters()) p.zeroGrad();
+        for (Parameter p : block.parameters()) {
+            p.zeroGrad();
+        }
 
         return loss;
     }

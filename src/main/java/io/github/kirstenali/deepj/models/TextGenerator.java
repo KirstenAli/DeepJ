@@ -108,7 +108,9 @@ public final class TextGenerator {
         int k = (topK == 0) ? logits.length : Math.min(topK, logits.length);
         if (k == logits.length) return indices(logits.length);
         int[] heap = new int[k];
-        for (int i = 0; i < logits.length; i++) offerTopIndex(heap, Math.min(i, k), i, logits);
+        for (int i = 0; i < logits.length; i++) {
+            offerTopIndex(heap, Math.min(i, k), i, logits);
+        }
         sortDescending(heap, logits);
         return heap;
     }
@@ -136,7 +138,9 @@ public final class TextGenerator {
             probs[i] = p;
             sum += p;
         }
-        for (int i = 0; i < probs.length; i++) probs[i] /= sum;
+        for (int i = 0; i < probs.length; i++) {
+            probs[i] /= sum;
+        }
         return probs;
     }
 
@@ -165,7 +169,9 @@ public final class TextGenerator {
 
     private static int[] indices(int length) {
         int[] indices = new int[length];
-        for (int i = 0; i < length; i++) indices[i] = i;
+        for (int i = 0; i < length; i++) {
+            indices[i] = i;
+        }
         return indices;
     }
 
@@ -216,7 +222,9 @@ public final class TextGenerator {
     }
 
     private static void sortDescending(int[] indices, float[] logits) {
-        for (int i = 1; i < indices.length; i++) insert(indices, i, logits);
+        for (int i = 1; i < indices.length; i++) {
+            insert(indices, i, logits);
+        }
     }
 
     private static void insert(int[] indices, int position, float[] logits) {

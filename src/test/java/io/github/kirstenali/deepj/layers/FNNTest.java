@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers;
 
+import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.activations.ReLU;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -19,17 +20,8 @@ public class FNNTest {
         AdamW opt = new AdamW(0.05f, 0.9f, 0.999f, 1e-8f, 0.0f);
         Tensor x = Tensor.from2D(new float[][]{{1, 0, -1}, {0.5f, 2, 1}});
         Tensor target = Tensor.from2D(new float[][]{{1, 0}, {0, 1}});
-        double prev = trainOneStepMSE(mlp, opt, x, target);
-        boolean improved = false;
-        for (int i = 0; i < 20; i++) {
-            double cur = trainOneStepMSE(mlp, opt, x, target);
-            if (cur < prev) {
-                improved = true;
-                break;
-            }
-            prev = cur;
-        }
-        assertTrue(improved, "expected MSE loss to decrease within a few optimizer steps");
+        TestSupport.assertLossDecreases(() -> trainOneStepMSE(mlp, opt, x, target), 20,
+                "expected MSE loss to decrease within a few optimizer steps");
     }
 
     private static double trainOneStepMSE(FNN mlp, AdamW opt, Tensor x, Tensor target) {
@@ -42,7 +34,9 @@ public class FNNTest {
         mlp.backward(gradOut);
         opt.step(mlp.parameters());
 
-        for (Parameter p : mlp.parameters()) p.zeroGrad();
+        for (Parameter p : mlp.parameters()) {
+            p.zeroGrad();
+        }
 
         return loss;
     }

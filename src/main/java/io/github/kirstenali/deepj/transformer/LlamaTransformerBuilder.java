@@ -17,14 +17,36 @@ public final class LlamaTransformerBuilder {
     private Random rnd;
     private long seed = 42;
 
-    public LlamaTransformerBuilder dModel(int dModel)     { this.dModel = dModel;       return this; }
-    public LlamaTransformerBuilder nHeads(int nHeads)     { this.nHeads = nHeads;       return this; }
-    public LlamaTransformerBuilder dFF(int dFF)           { this.dFF = dFF;             return this; }
-    public LlamaTransformerBuilder nLayers(int nLayers)   { this.nLayers = nLayers;     return this; }
+    public LlamaTransformerBuilder dModel(int dModel) {
+        this.dModel = dModel;
+        return this;
+    }
 
-    public LlamaTransformerBuilder maxSeqLen(int maxSeqLen) { this.maxSeqLen = maxSeqLen; return this; }
+    public LlamaTransformerBuilder nHeads(int nHeads) {
+        this.nHeads = nHeads;
+        return this;
+    }
 
-    public LlamaTransformerBuilder seed(long seed) { this.seed = seed; this.rnd = null; return this; }
+    public LlamaTransformerBuilder dFF(int dFF) {
+        this.dFF = dFF;
+        return this;
+    }
+
+    public LlamaTransformerBuilder nLayers(int nLayers) {
+        this.nLayers = nLayers;
+        return this;
+    }
+
+    public LlamaTransformerBuilder maxSeqLen(int maxSeqLen) {
+        this.maxSeqLen = maxSeqLen;
+        return this;
+    }
+
+    public LlamaTransformerBuilder seed(long seed) {
+        this.seed = seed;
+        this.rnd = null;
+        return this;
+    }
 
     public LlamaTransformerBuilder random(Random rnd) {
         if (rnd == null) throw new IllegalArgumentException("rnd must not be null");

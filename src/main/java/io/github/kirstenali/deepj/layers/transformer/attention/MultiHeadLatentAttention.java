@@ -51,41 +51,51 @@ public final class MultiHeadLatentAttention implements Layer {
 
     private static void validateDimensions(int dModel, int nHeads, int qRank, int kvRank,
                                            RotaryEmbedding rope) {
-        if (dModel <= 0) throw new IllegalArgumentException("dModel must be > 0");
-        if (nHeads <= 0) throw new IllegalArgumentException("nHeads must be > 0");
-        if (dModel % nHeads != 0) throw new IllegalArgumentException("dModel must be divisible by nHeads");
-        if (qRank <= 0) throw new IllegalArgumentException("qRank must be > 0");
-        if (kvRank <= 0) throw new IllegalArgumentException("kvRank must be > 0");
+        requirePositive(dModel, "dModel");
+        requirePositive(nHeads, "nHeads");
+        requirePositive(qRank, "qRank");
+        requirePositive(kvRank, "kvRank");
+        requireDivisible(dModel, nHeads);
         if (rope == null) throw new IllegalArgumentException("rope must not be null");
         if (rope.headDim() != dModel / nHeads) throw new IllegalArgumentException("RoPE head dimension mismatch");
+    }
+
+    private static void requirePositive(int value, String name) {
+        if (value <= 0) throw new IllegalArgumentException(name + " must be > 0");
+    }
+
+    private static void requireDivisible(int dModel, int nHeads) {
+        if (dModel % nHeads != 0) throw new IllegalArgumentException("dModel must be divisible by nHeads");
     }
 
     @Override
     public Tensor forward(Tensor x) {
         int seqLen = x.rows;
+        cache = projectAndAttend(x, seqLen);
+        return cache.merged().matmul(Wo.value);
+    }
 
+    private ForwardCache projectAndAttend(Tensor x, int seqLen) {
         Tensor cQ = x.matmul(Wdq.value);
         Tensor Q  = cQ.matmul(Wuq.value);
-
         Tensor cKV = x.matmul(Wdkv.value);
         Tensor K   = cKV.matmul(Wuk.value);
         Tensor V   = cKV.matmul(Wuv.value);
-
         Tensor qh = splitHeads(Q, seqLen);
         Tensor kh = splitHeads(K, seqLen);
         Tensor vh = splitHeads(V, seqLen);
+        return attend(x, cQ, cKV, qh, kh, vh, seqLen);
+    }
 
+    private ForwardCache attend(Tensor x, Tensor cQ, Tensor cKV, Tensor qh,
+                                Tensor kh, Tensor vh, int seqLen) {
         Tensor qhRope = rope.apply(qh, seqLen, nHeads);
         Tensor khRope = rope.apply(kh, seqLen, nHeads);
-
         Tensor scores   = computeScores(qhRope, khRope);
         Tensor attnProb = softmax.forwardCausal(scores, seqLen, scale);
         Tensor outH     = applyAttentionToValues(attnProb, vh, seqLen);
         Tensor merged   = mergeHeads(outH, seqLen);
-
-        cache = new ForwardCache(x, cQ, cKV, qhRope, khRope, vh, attnProb, outH, merged);
-
-        return merged.matmul(Wo.value);
+        return new ForwardCache(x, cQ, cKV, qhRope, khRope, vh, attnProb, outH, merged);
     }
 
     @Override

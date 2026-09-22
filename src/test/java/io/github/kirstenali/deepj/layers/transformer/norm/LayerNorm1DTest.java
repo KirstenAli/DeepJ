@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.norm;
 
+import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.layers.transformer.norm.LayerNorm1D;
 
 import io.github.kirstenali.deepj.loss.MSELoss;
@@ -27,16 +28,8 @@ public class LayerNorm1DTest {
                 {-0.5f, -0.5f, -0.5f}
         });
 
-        double prev = oneStepMSE(ln, opt, x, target);
-        boolean improved = false;
-
-        for (int i = 0; i < 10; i++) {
-            double cur = oneStepMSE(ln, opt, x, target);
-            if (cur < prev) { improved = true; break; }
-            prev = cur;
-        }
-
-        assertTrue(improved, "expected loss to decrease within a few optimizer steps");
+        TestSupport.assertLossDecreases(() -> oneStepMSE(ln, opt, x, target), 10,
+                "expected loss to decrease within a few optimizer steps");
     }
 
     private static double oneStepMSE(LayerNorm1D ln, AdamW opt, Tensor x, Tensor target) {
@@ -48,7 +41,9 @@ public class LayerNorm1DTest {
 
         ln.backward(gradOut);
         opt.step(ln.parameters());
-        for (Parameter p : ln.parameters()) p.zeroGrad();
+        for (Parameter p : ln.parameters()) {
+            p.zeroGrad();
+        }
 
         return loss;
     }
@@ -134,9 +129,11 @@ public class LayerNorm1DTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
+        for (int r = 0; r < t.rows; r++) {
+            for (int c = 0; c < t.cols; c++) {
                 s += t.data[r * t.cols + c];
+            }
+        }
         return s;
     }
 }

@@ -206,7 +206,9 @@ public class TextDatasetTest {
     private static Path writeTokenFile(int[] tokens) throws IOException {
         Path tmp = Files.createTempFile("deepj-test-tokens-", ".bin");
         ByteBuffer buf = ByteBuffer.allocate(tokens.length * Integer.BYTES);
-        for (int t : tokens) buf.putInt(t);
+        for (int t : tokens) {
+            buf.putInt(t);
+        }
         buf.flip();
         try (FileChannel ch = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
             ch.write(buf);

@@ -57,8 +57,12 @@ class ResponseOnlyTextDatasetTest {
     }
 
     private static void assertMaskBoundary(boolean[] mask, int boundary) {
-        for (int index = 0; index < boundary; index++) assertFalse(mask[index]);
-        for (int index = boundary; index < mask.length; index++) assertTrue(mask[index]);
+        for (int index = 0; index < boundary; index++) {
+            assertFalse(mask[index]);
+        }
+        for (int index = boundary; index < mask.length; index++) {
+            assertTrue(mask[index]);
+        }
     }
 
     private static void assertBatchEquals(Batch expected, Batch actual) {

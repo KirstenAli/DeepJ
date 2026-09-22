@@ -74,7 +74,9 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     }
 
     private static boolean isFilledWith(Tensor tensor, float value) {
-        for (float element : tensor.data) if (element != value) return false;
+        for (float element : tensor.data) {
+            if (element != value) return false;
+        }
         return true;
     }
 }

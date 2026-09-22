@@ -27,10 +27,18 @@ class PrepareKnowledgeCorpusTest {
         String training = Files.readString(output.resolve("knowledge-train.txt"));
         String validation = Files.readString(output.resolve("knowledge-valid.txt"));
 
+        assertSplitCounts(result);
+        assertCorpusContents(training, validation);
+    }
+
+    private static void assertSplitCounts(PrepareKnowledgeCorpus.PreparationResult result) {
         assertEquals(20, result.alpacaSplit().training());
         assertEquals(2, result.alpacaSplit().validation());
         assertEquals(68, result.factSplit().training());
         assertEquals(4, result.factSplit().validation());
+    }
+
+    private static void assertCorpusContents(String training, String validation) {
         assertTrue(training.contains("What is 1 plus 1?"));
         assertEquals(2, training.lines().filter("What is 1 plus 1?"::equals).count());
         assertTrue(training.contains("Story one."));

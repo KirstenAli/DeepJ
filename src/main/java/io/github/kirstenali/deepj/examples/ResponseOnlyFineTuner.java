@@ -205,7 +205,9 @@ final class ResponseOnlyFineTuner {
 
         private static long sourceBytes(ResponseFineTuningConfig config) throws IOException {
             long bytes = 0;
-            for (var source : config.sources()) bytes = Math.addExact(bytes, Files.size(source.path()));
+            for (var source : config.sources()) {
+                bytes = Math.addExact(bytes, Files.size(source.path()));
+            }
             return bytes;
         }
 

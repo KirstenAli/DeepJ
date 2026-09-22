@@ -116,7 +116,8 @@ public final class Trainer {
         maybeReleaseResources(step, releaseEverySteps);
     }
 
-    private static void validateTrainArgs(int maxSteps, int batchSize, int logEvery, float emaBeta, int releaseEverySteps) {
+    private static void validateTrainArgs(int maxSteps, int batchSize, int logEvery,
+                                          float emaBeta, int releaseEverySteps) {
         if (maxSteps <= 0) throw new IllegalArgumentException("maxSteps must be > 0");
         if (batchSize <= 0) throw new IllegalArgumentException("batchSize must be > 0");
         if (logEvery <= 0) throw new IllegalArgumentException("logEvery must be > 0");

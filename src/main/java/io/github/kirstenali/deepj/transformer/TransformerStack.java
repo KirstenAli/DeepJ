@@ -39,7 +39,9 @@ public record TransformerStack(List<Layer> blocks) implements Layer {
     @Override
     public List<Parameter> parameters() {
         List<Parameter> ps = new ArrayList<>();
-        for (Layer b : blocks) ps.addAll(b.parameters());
+        for (Layer b : blocks) {
+            ps.addAll(b.parameters());
+        }
         return ps;
     }
 }

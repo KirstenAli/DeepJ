@@ -61,7 +61,9 @@ final class BPEMergeTable {
     private void index(int rank, TokenPair pair, int resultId) {
         long key = pairKey(pair.left(), pair.right());
         int slot = slot(key);
-        while (ranks[slot] != NO_MERGE) slot = nextDistinctSlot(slot, key);
+        while (ranks[slot] != NO_MERGE) {
+            slot = nextDistinctSlot(slot, key);
+        }
         keys[slot] = key;
         ranks[slot] = rank;
         leftByRank[rank] = pair.left();
@@ -88,7 +90,9 @@ final class BPEMergeTable {
     private static int tableCapacity(int mergeCount) {
         int required = Math.max(2, mergeCount * 2);
         int capacity = 1;
-        while (capacity < required) capacity <<= 1;
+        while (capacity < required) {
+            capacity <<= 1;
+        }
         return capacity;
     }
 

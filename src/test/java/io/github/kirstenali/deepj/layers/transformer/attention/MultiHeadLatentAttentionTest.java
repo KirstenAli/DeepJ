@@ -118,9 +118,11 @@ public class MultiHeadLatentAttentionTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
+        for (int r = 0; r < t.rows; r++) {
+            for (int c = 0; c < t.cols; c++) {
                 s += t.data[r * t.cols + c];
+            }
+        }
         return s;
     }
 }

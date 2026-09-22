@@ -45,7 +45,9 @@ public final class IndexedResponseTextDataset implements StatefulBatchSource, Au
         int[][] inputs = new int[batchSize][];
         int[][] targets = new int[batchSize][];
         boolean[][] masks = new boolean[batchSize][];
-        for (int row = 0; row < batchSize; row++) fillRow(sample(), inputs, targets, masks, row);
+        for (int row = 0; row < batchSize; row++) {
+            fillRow(sample(), inputs, targets, masks, row);
+        }
         return new Batch(inputs, targets, masks);
     }
 

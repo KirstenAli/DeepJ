@@ -35,7 +35,9 @@ public final class ResponseOnlyTextDataset implements StatefulBatchSource {
         int[][] inputs = new int[batchSize][];
         int[][] targets = new int[batchSize][];
         boolean[][] masks = new boolean[batchSize][];
-        for (int row = 0; row < batchSize; row++) fillRow(sample(), inputs, targets, masks, row);
+        for (int row = 0; row < batchSize; row++) {
+            fillRow(sample(), inputs, targets, masks, row);
+        }
         return new Batch(inputs, targets, masks);
     }
 
@@ -127,12 +129,16 @@ public final class ResponseOnlyTextDataset implements StatefulBatchSource {
         if (sources == null || sources.isEmpty()) throw new IllegalArgumentException("sources are required");
         Objects.requireNonNull(tokenizer, "tokenizer");
         if (maxSequenceLength < 2) throw new IllegalArgumentException("maxSequenceLength must be at least 2");
-        for (Source source : sources) validateSource(source);
+        for (Source source : sources) {
+            validateSource(source);
+        }
     }
 
     private static void validateSource(Source source) {
         Objects.requireNonNull(source, "source");
-        if (!Files.isRegularFile(source.path())) throw new IllegalArgumentException("Corpus not found: " + source.path());
+        if (!Files.isRegularFile(source.path())) {
+            throw new IllegalArgumentException("Corpus not found: " + source.path());
+        }
         if (source.weight() < 1) throw new IllegalArgumentException("source weight must be positive");
     }
 

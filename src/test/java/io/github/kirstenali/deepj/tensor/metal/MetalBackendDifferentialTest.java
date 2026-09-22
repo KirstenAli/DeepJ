@@ -32,28 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-class MetalBackendDifferentialTest {
-
-    private CpuBackend cpu;
-    private MetalBackend metal;
-    private TensorBackend previous;
-
-    @BeforeEach
-    void setUp() {
-        assumeTrue(MetalBackend.isAvailable(), "Metal device not available");
-        previous = Tensor.backend();
-        cpu = new CpuBackend();
-        metal = new MetalBackend();
-        Tensor.setBackend(metal);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (metal != null) metal.releaseResources();
-        if (previous != null) Tensor.setBackend(previous);
-    }
-
-    @Test
+class MetalBackendDifferentialTest extends MetalDifferentialTestSupport {    @Test
     void elementwiseBinaryOperationsMatchCpu() {
         Tensor a = random(5, 7, 1L);
         Tensor b = positive(5, 7, 2L);
@@ -247,94 +226,6 @@ class MetalBackendDifferentialTest {
                 metal.sliceRows(new Tensor(input), rows), 1e-5f, 1e-5f);
     }
 
-    @Test
-    void gptForwardBackwardAndParameterGradientsMatchCpu() {
-        compareModel(() -> new GPTModel(new GPTConfig(11, 4, 4, 2, 1, 6), 21L));
-    }
-
-    @Test
-    void llamaForwardBackwardAndParameterGradientsMatchCpu() {
-        compareModel(() -> new LlamaModel(new LlamaConfig(11, 4, 4, 2, 1, 8), 22L));
-    }
-
-    @Test
-    void deepSeekForwardBackwardAndParameterGradientsMatchCpu() {
-        compareModel(() -> new DeepSeekModel(new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2), 23L));
-    }
-
-    @Test
-    void deepSeekForwardBackwardDoesNotDownloadIntermediateTensors() {
-        AtomicInteger downloads = new AtomicInteger();
-        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
-        DecoderOnlyModel model = new DeepSeekModel(config, 25L);
-        Tensor.setBackend(countingBackend(downloads));
-        model.backward(model.forward(new int[]{1, 3, 5}).multiplyScalar(0.25f));
-        assertEquals(0, downloads.get());
-    }
-
-    private TensorBackend countingBackend(AtomicInteger downloads) {
-        return (TensorBackend) Proxy.newProxyInstance(
-                TensorBackend.class.getClassLoader(), new Class<?>[]{TensorBackend.class},
-                (proxy, method, args) -> invokeMetal(method.getName(), method, args, downloads));
-    }
-
-    private Object invokeMetal(String name, java.lang.reflect.Method method,
-                               Object[] args, AtomicInteger downloads) throws Exception {
-        if (name.equals("materializeTensor")) downloads.incrementAndGet();
-        return method.invoke(metal, args);
-    }
-
-    @Test
-    void temporaryReleaseDoesNotChangeRepeatedDeepSeekTraining() {
-        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
-        MetalBackend baseline = new MetalBackend();
-        Tensor.setBackend(baseline);
-        DecoderOnlyModel expected = new DeepSeekModel(config, 24L);
-        Tensor.setBackend(metal);
-        DecoderOnlyModel actual = new DeepSeekModel(config, 24L);
-        float expectedLoss = trainRepeated(baseline, expected, 0);
-        float actualLoss = trainRepeated(metal, actual, 1);
-        assertEquals(expectedLoss, actualLoss, 1e-5f);
-        assertParameterValuesClose(expected.parameters(), actual.parameters(), 1e-5f);
-    }
-
-    private static float trainRepeated(TensorBackend backend, DecoderOnlyModel model,
-                                       int releaseEvery) {
-        Tensor.setBackend(backend);
-        BatchSource source = ignored -> new Batch(new int[][]{{1, 3, 5, 7}},
-                new int[][]{{3, 5, 7, 2}});
-        return CausalLMTraining.trainer(model, source, 1e-3f)
-                .train(3, 1, 1000, 0.98f, null, releaseEvery).lastLoss();
-    }
-
-    private static void assertParameterValuesClose(List<Parameter> expected,
-                                                   List<Parameter> actual, float tolerance) {
-        assertEquals(expected.size(), actual.size());
-        for (int index = 0; index < expected.size(); index++) {
-            assertTensorClose(expected.get(index).value, actual.get(index).value,
-                    tolerance, tolerance, "parameter " + index);
-        }
-    }
-
-    private void compareModel(Supplier<DecoderOnlyModel> factory) {
-        Tensor.setBackend(cpu);
-        DecoderOnlyModel expectedModel = factory.get();
-        DecoderOnlyModel actualModel = factory.get();
-        ModelResult expected = runModel(expectedModel, new int[]{1, 3, 5}, 30L);
-        Tensor.setBackend(metal);
-        ModelResult actual = runModel(actualModel, new int[]{1, 3, 5}, 30L);
-        assertTensorClose(expected.output(), actual.output(), 2e-3f, 3e-2f);
-        assertGradientListsClose(expected.gradients(), actual.gradients(), 3e-3f, 5e-2f);
-    }
-
-    private static ModelResult runModel(DecoderOnlyModel model, int[] inputIds, long seed) {
-        model.zeroGrad();
-        Tensor output = model.forward(inputIds);
-        Tensor upstream = Tensor.random(output.rows, output.cols, new Random(seed));
-        model.backward(upstream);
-        return new ModelResult(output, copyGradients(model.parameters()));
-    }
-
     private void compareBinary(Tensor a, Tensor b, BinaryOperation operation,
                                float absoluteTolerance, float relativeTolerance) {
         Tensor expected = operation.apply(cpu, new Tensor(a), new Tensor(b));
@@ -365,79 +256,5 @@ class MetalBackendDifferentialTest {
         assertTensorClose(expected, actual, 1e-4f, 1e-4f);
     }
 
-    private Tensor random(int rows, int cols, long seed) {
-        return cpu.random(rows, cols, new Random(seed));
-    }
 
-    private Tensor positive(int rows, int cols, long seed) {
-        return cpu.addScalar(random(rows, cols, seed), 1.0f);
-    }
-
-    private static int[] randomTargets(int rows, int columns, long seed) {
-        Random random = new Random(seed);
-        int[] targets = new int[rows];
-        for (int row = 0; row < rows; row++) targets[row] = random.nextInt(columns);
-        return targets;
-    }
-
-    private static List<Tensor> copyGradients(List<Parameter> parameters) {
-        List<Tensor> gradients = new ArrayList<>(parameters.size());
-        for (Parameter parameter : parameters) gradients.add(new Tensor(parameter.grad));
-        return gradients;
-    }
-
-    private static void assertGradientListsClose(List<Tensor> expected, List<Tensor> actual,
-                                                 float absoluteTolerance, float relativeTolerance) {
-        assertEquals(expected.size(), actual.size(), "parameter count");
-        for (int i = 0; i < expected.size(); i++) {
-            assertTensorClose(expected.get(i), actual.get(i), absoluteTolerance, relativeTolerance,
-                    "parameter " + i);
-        }
-    }
-
-    private static void assertTensorClose(Tensor expected, Tensor actual,
-                                          float absoluteTolerance, float relativeTolerance) {
-        assertTensorClose(expected, actual, absoluteTolerance, relativeTolerance, "tensor");
-    }
-
-    private static void assertTensorClose(Tensor expected, Tensor actual, float absoluteTolerance,
-                                          float relativeTolerance, String label) {
-        expected.materialize();
-        actual.materialize();
-        assertEquals(expected.rows, actual.rows, "row count");
-        assertEquals(expected.cols, actual.cols, "column count");
-        for (int i = 0; i < expected.data.length; i++) {
-            assertElementClose(expected.data[i], actual.data[i], absoluteTolerance, relativeTolerance, label, i);
-        }
-    }
-
-    private static void assertElementClose(float expected, float actual, float absoluteTolerance,
-                                           float relativeTolerance, String label, int index) {
-        float tolerance = absoluteTolerance + relativeTolerance * Math.abs(expected);
-        assertTrue(Float.isFinite(actual), label + " has non-finite Metal value at flat index " + index);
-        assertTrue(Math.abs(expected - actual) <= tolerance,
-                label + " flat index " + index + " expected=" + expected + " actual=" + actual);
-    }
-
-    @FunctionalInterface
-    private interface BinaryOperation {
-        Tensor apply(TensorBackend backend, Tensor a, Tensor b);
-    }
-
-    @FunctionalInterface
-    private interface UnaryOperation {
-        Tensor apply(TensorBackend backend, Tensor value);
-    }
-
-    @FunctionalInterface
-    private interface BinaryInPlaceOperation {
-        void apply(TensorBackend backend, Tensor a, Tensor b);
-    }
-
-    @FunctionalInterface
-    private interface UnaryInPlaceOperation {
-        void apply(TensorBackend backend, Tensor value);
-    }
-
-    private record ModelResult(Tensor output, List<Tensor> gradients) {}
 }

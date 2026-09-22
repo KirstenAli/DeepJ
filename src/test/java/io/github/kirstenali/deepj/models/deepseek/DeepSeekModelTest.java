@@ -159,7 +159,9 @@ public class DeepSeekModelTest {
     }
 
     private static boolean isAllOnes(Tensor tensor) {
-        for (float value : tensor.data) if (value != 1.0f) return false;
+        for (float value : tensor.data) {
+            if (value != 1.0f) return false;
+        }
         return true;
     }
 }

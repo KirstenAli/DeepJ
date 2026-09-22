@@ -136,7 +136,8 @@ public final class BPEModelIO {
         return merges;
     }
 
-    private static void writeMergeToNewId(DataOutputStream out, Map<TokenPair, Integer> mergeToNewId) throws IOException {
+    private static void writeMergeToNewId(DataOutputStream out,
+                                          Map<TokenPair, Integer> mergeToNewId) throws IOException {
         out.writeInt(mergeToNewId.size());
         List<Map.Entry<TokenPair, Integer>> entries = new ArrayList<>(mergeToNewId.entrySet());
         entries.sort(Map.Entry.comparingByKey());

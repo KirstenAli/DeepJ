@@ -174,7 +174,9 @@ class RotaryEmbeddingTest {
         attn.backward(Tensor.ones(seqLen, dModel));
 
         double totalGrad = 0;
-        for (Parameter p : attn.parameters()) totalGrad += p.grad.sumAbs();
+        for (Parameter p : attn.parameters()) {
+            totalGrad += p.grad.sumAbs();
+        }
         assertTrue(totalGrad > 0, "RoPE-enabled MHSA should produce non-zero weight gradients");
     }
 
@@ -208,16 +210,8 @@ class RotaryEmbeddingTest {
         Tensor x      = Tensor.random(seqLen, dModel, new Random(22));
         Tensor target = Tensor.zeros(seqLen, dModel);
 
-        double prev = trainOneStep(block, opt, x, target);
-        boolean improved = false;
-
-        for (int i = 0; i < 10; i++) {
-            double cur = trainOneStep(block, opt, x, target);
-            if (cur < prev) { improved = true; break; }
-            prev = cur;
-        }
-
-        assertTrue(improved, "Llama-style block MSE should decrease within a few steps");
+        TestSupport.assertLossDecreases(() -> trainOneStep(block, opt, x, target), 10,
+                "Llama-style block MSE should decrease within a few steps");
     }
 
     private static LlamaTransformerBlock llamaBlock(int dModel, int nHeads, int dFF, long seed) {
@@ -230,14 +224,18 @@ class RotaryEmbeddingTest {
         double loss = mse.loss(y, target);
         block.backward(mse.gradient(y, target));
         opt.step(block.parameters());
-        for (Parameter p : block.parameters()) p.zeroGrad();
+        for (Parameter p : block.parameters()) {
+            p.zeroGrad();
+        }
         return loss;
     }
 
     private static double rowNorm(Tensor t, int row) {
         double s = 0;
         int base = row * t.cols;
-        for (int c = 0; c < t.cols; c++) s += t.data[base + c] * t.data[base + c];
+        for (int c = 0; c < t.cols; c++) {
+            s += t.data[base + c] * t.data[base + c];
+        }
         return Math.sqrt(s);
     }
 
@@ -252,9 +250,14 @@ class RotaryEmbeddingTest {
         Tensor g = Tensor.random(nHeads * seqLen, headDim, new Random(6));
 
         Tensor analytic = rope.applyBackward(g, seqLen, nHeads);
+        assertRotaryGradients(rope, x, g, analytic, seqLen, nHeads, eps, tol);
+    }
 
+    private static void assertRotaryGradients(RotaryEmbedding rope, Tensor x, Tensor g,
+                                              Tensor analytic, int seqLen, int nHeads,
+                                              float eps, float tol) {
         for (int r = 0; r < x.rows; r++) {
-            for (int c = 0; c < headDim; c++) {
+            for (int c = 0; c < x.cols; c++) {
                 float orig = x.get(r, c);
                 x.set(r, c, orig + eps);
                 float fPlus = weightedSum(rope.apply(x, seqLen, nHeads), g);
@@ -300,15 +303,19 @@ class RotaryEmbeddingTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
+        for (int r = 0; r < t.rows; r++) {
+            for (int c = 0; c < t.cols; c++) {
                 s += t.data[r * t.cols + c];
+            }
+        }
         return s;
     }
 
     private static float weightedSum(Tensor y, Tensor g) {
         float s = 0.0f;
-        for (int i = 0; i < y.data.length; i++) s += y.data[i] * g.data[i];
+        for (int i = 0; i < y.data.length; i++) {
+            s += y.data[i] * g.data[i];
+        }
         return s;
     }
 }

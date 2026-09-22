@@ -40,20 +40,28 @@ public class MultiHeadSelfAttentionTest {
                 dModel, 2, true, new Random(42));
         assertEquals(4, attention.parameters().size());
         Tensor identity = Tensor.zeros(dModel, dModel);
-        for (int index = 0; index < dModel; index++) identity.data[index * dModel + index] = 1;
-        for (Parameter parameter : attention.parameters()) parameter.value = identity;
+        for (int index = 0; index < dModel; index++) {
+            identity.data[index * dModel + index] = 1;
+        }
+        for (Parameter parameter : attention.parameters()) {
+            parameter.value = identity;
+        }
         return attention;
     }
 
     private static Tensor identityInput(int size) {
         Tensor input = Tensor.zeros(size, size);
-        for (int index = 0; index < size; index++) input.data[index * size + index] = 1;
+        for (int index = 0; index < size; index++) {
+            input.data[index * size + index] = 1;
+        }
         return input;
     }
 
     private static void overwriteLastRow(Tensor tensor, float value) {
         int offset = (tensor.rows - 1) * tensor.cols;
-        for (int column = 0; column < tensor.cols; column++) tensor.data[offset + column] = value;
+        for (int column = 0; column < tensor.cols; column++) {
+            tensor.data[offset + column] = value;
+        }
     }
 
     private static void assertPastRowsEqual(Tensor first, Tensor second, int rows, int columns) {
@@ -98,17 +106,8 @@ public class MultiHeadSelfAttentionTest {
         AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
         Tensor x = Tensor.from2D(new float[][]{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}});
         Tensor target = Tensor.from2D(new float[][]{{0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}});
-        double prev = trainOneStepMSE(attn, opt, x, target);
-        boolean improved = false;
-        for (int i = 0; i < 10; i++) {
-            double cur = trainOneStepMSE(attn, opt, x, target);
-            if (cur < prev) {
-                improved = true;
-                break;
-            }
-            prev = cur;
-        }
-        assertTrue(improved, "expected loss to decrease within a few optimizer steps");
+        TestSupport.assertLossDecreases(() -> trainOneStepMSE(attn, opt, x, target), 10,
+                "expected loss to decrease within a few optimizer steps");
     }
 
     private static double trainOneStepMSE(MultiHeadSelfAttention attn, AdamW opt, Tensor x, Tensor target) {
@@ -120,7 +119,9 @@ public class MultiHeadSelfAttentionTest {
 
         attn.backward(gradOut);
         opt.step(attn.parameters());
-        for (Parameter p : attn.parameters()) p.zeroGrad();
+        for (Parameter p : attn.parameters()) {
+            p.zeroGrad();
+        }
 
         return loss;
     }
@@ -135,9 +136,13 @@ public class MultiHeadSelfAttentionTest {
 
         attn.forward(x);
         Tensor dX = attn.backward(Tensor.ones(seqLen, dModel));
+        assertInputGradients(attn, x, dX, eps, tol);
+    }
 
-        for (int r = 0; r < seqLen; r++) {
-            for (int c = 0; c < dModel; c++) {
+    private static void assertInputGradients(MultiHeadSelfAttention attn, Tensor x,
+                                             Tensor dX, float eps, float tol) {
+        for (int r = 0; r < x.rows; r++) {
+            for (int c = 0; c < x.cols; c++) {
                 float orig = x.get(r, c);
                 x.set(r, c, orig + eps);
                 float fPlus = sumAll(attn.forward(x));
@@ -182,9 +187,11 @@ public class MultiHeadSelfAttentionTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
+        for (int r = 0; r < t.rows; r++) {
+            for (int c = 0; c < t.cols; c++) {
                 s += t.data[r * t.cols + c];
+            }
+        }
         return s;
     }
 }

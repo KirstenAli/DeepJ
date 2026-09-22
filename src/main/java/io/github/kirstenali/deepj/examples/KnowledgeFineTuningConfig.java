@@ -46,8 +46,12 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
                     int checkpointEvery, int releaseEvery) {
 
         Training {
-            if (steps < 1 || batchSize < 1 || logEvery < 1) throw new IllegalArgumentException("training counts must be positive");
-            if (checkpointEvery < 0 || releaseEvery < 0) throw new IllegalArgumentException("intervals must be non-negative");
+            if (steps < 1 || batchSize < 1 || logEvery < 1) {
+                throw new IllegalArgumentException("training counts must be positive");
+            }
+            if (checkpointEvery < 0 || releaseEvery < 0) {
+                throw new IllegalArgumentException("intervals must be non-negative");
+            }
             new CosineLearningRateSchedule(peakLearningRate, minimumLearningRate, warmupSteps, steps);
         }
 
