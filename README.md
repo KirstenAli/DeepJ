@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.7.1-alpha</version>
+    <version>0.7.2-alpha</version>
 </dependency>
 ```
 
