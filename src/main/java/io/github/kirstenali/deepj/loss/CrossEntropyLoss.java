@@ -56,7 +56,9 @@ public final class CrossEntropyLoss implements LossFunction {
 
         actual.materialize();
         int[] y = new int[actual.rows];
-        for (int i = 0; i < actual.rows; i++) y[i] = requireIntegerTarget(actual.data[i], i);
+        for (int i = 0; i < actual.rows; i++) {
+            y[i] = requireIntegerTarget(actual.data[i], i);
+        }
         return y;
     }
 
@@ -97,7 +99,9 @@ public final class CrossEntropyLoss implements LossFunction {
         if (mask == null || mask.length != logits.rows) {
             throw new IllegalArgumentException("loss mask must match logits rows");
         }
-        for (boolean included : mask) if (included) return;
+        for (boolean included : mask) {
+            if (included) return;
+        }
         throw new IllegalArgumentException("loss mask must include at least one row");
     }
 }

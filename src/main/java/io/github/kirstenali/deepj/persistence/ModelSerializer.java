@@ -132,7 +132,9 @@ public final class ModelSerializer {
     private static void writeModel(List<Parameter> params, Path path) throws IOException {
         try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path)))) {
             writeParameterCount(out, params.size());
-            for (Parameter parameter : params) writeParameter(out, parameter);
+            for (Parameter parameter : params) {
+                writeParameter(out, parameter);
+            }
         }
     }
 

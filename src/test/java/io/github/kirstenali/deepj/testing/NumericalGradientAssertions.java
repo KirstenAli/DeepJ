@@ -72,13 +72,17 @@ public final class NumericalGradientAssertions {
         output.materialize();
         upstream.materialize();
         float result = 0.0f;
-        for (int i = 0; i < output.data.length; i++) result += output.data[i] * upstream.data[i];
+        for (int i = 0; i < output.data.length; i++) {
+            result += output.data[i] * upstream.data[i];
+        }
         return result;
     }
 
     private static List<Tensor> copyGradients(List<Parameter> parameters) {
         List<Tensor> gradients = new ArrayList<>(parameters.size());
-        for (Parameter parameter : parameters) gradients.add(new Tensor(parameter.grad));
+        for (Parameter parameter : parameters) {
+            gradients.add(new Tensor(parameter.grad));
+        }
         return gradients;
     }
 

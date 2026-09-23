@@ -6,6 +6,11 @@ import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 import java.nio.file.Path;
 import java.util.List;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.decimal;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.integer;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.optionalPath;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
+
 record KnowledgeFineTuningConfig(FilesConfig files, Training training,
                                  int alpacaWeight, int factWeight, long seed) {
 
@@ -46,8 +51,12 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
                     int checkpointEvery, int releaseEvery) {
 
         Training {
-            if (steps < 1 || batchSize < 1 || logEvery < 1) throw new IllegalArgumentException("training counts must be positive");
-            if (checkpointEvery < 0 || releaseEvery < 0) throw new IllegalArgumentException("intervals must be non-negative");
+            if (steps < 1 || batchSize < 1 || logEvery < 1) {
+                throw new IllegalArgumentException("training counts must be positive");
+            }
+            if (checkpointEvery < 0 || releaseEvery < 0) {
+                throw new IllegalArgumentException("intervals must be non-negative");
+            }
             new CosineLearningRateSchedule(peakLearningRate, minimumLearningRate, warmupSteps, steps);
         }
 
@@ -64,20 +73,4 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
         }
     }
 
-    private static int integer(String name, int fallback) {
-        return Integer.parseInt(System.getProperty(name, Integer.toString(fallback)));
-    }
-
-    private static float decimal(String name, float fallback) {
-        return Float.parseFloat(System.getProperty(name, Float.toString(fallback)));
-    }
-
-    private static Path path(String name, String fallback) {
-        return Path.of(System.getProperty(name, fallback));
-    }
-
-    private static Path optionalPath(String name) {
-        String value = System.getProperty(name);
-        return value == null || value.isBlank() ? null : Path.of(value);
-    }
 }

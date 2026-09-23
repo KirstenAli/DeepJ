@@ -128,7 +128,9 @@ public class CausalLMTrainingTest {
         GradientRecorder optimizer = new GradientRecorder();
         Trainer trainer = CausalLMTraining.trainer(averagingModel(), averagingDataset(), optimizer);
         List<Float> losses = new ArrayList<>();
-        for (int step = 0; step < steps; step++) losses.add(trainer.trainStep(batchSize));
+        for (int step = 0; step < steps; step++) {
+            losses.add(trainer.trainStep(batchSize));
+        }
         return new TrainingObservation(losses, optimizer.gradients);
     }
 

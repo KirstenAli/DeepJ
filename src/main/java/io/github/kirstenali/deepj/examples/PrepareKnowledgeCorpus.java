@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
+
 public final class PrepareKnowledgeCorpus {
 
     private static final String END_TOKEN = "<|endoftext|>";
@@ -130,10 +132,6 @@ public final class PrepareKnowledgeCorpus {
                 result.factSplit().training(), result.factSplit().validation());
         System.out.printf("Training corpus: %.1f MiB in %s%n",
                 result.corpusBytes() / (double) MEBIBYTE, output);
-    }
-
-    private static Path path(String name, String fallback) {
-        return Path.of(System.getProperty(name, fallback));
     }
 
     public record PreparationResult(

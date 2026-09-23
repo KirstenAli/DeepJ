@@ -47,7 +47,9 @@ public class LossTest {
 
         for (int r = 0; r < g.rows; r++) {
             float sum = 0.0f;
-            for (int c = 0; c < g.cols; c++) sum += g.data[r * g.cols + c];
+            for (int c = 0; c < g.cols; c++) {
+                sum += g.data[r * g.cols + c];
+            }
             Assertions.assertEquals(0.0f, sum, 1e-6f, "softmax-crossentropy grad rows should sum to 0");
         }
     }

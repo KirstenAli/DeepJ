@@ -68,16 +68,8 @@ public class EmbeddingTest {
 
         double lr = 0.1f;
 
-        double prev = oneSgdStepMSE(emb, id, target, lr);
-        boolean improved = false;
-
-        for (int i = 0; i < 20; i++) {
-            double cur = oneSgdStepMSE(emb, id, target, lr);
-            if (cur < prev) { improved = true; break; }
-            prev = cur;
-        }
-
-        assertTrue(improved, "expected MSE to decrease after SGD updates on the embedding row");
+        TestSupport.assertLossDecreases(() -> oneSgdStepMSE(emb, id, target, lr), 20,
+                "expected MSE to decrease after SGD updates on the embedding row");
     }
 
     private static double oneSgdStepMSE(Embedding emb, int id, Tensor target, double lr) {

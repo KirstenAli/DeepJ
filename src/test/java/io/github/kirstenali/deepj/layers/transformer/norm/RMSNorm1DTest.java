@@ -46,7 +46,9 @@ class RMSNorm1DTest {
         Tensor y = norm.forward(x);
 
         double sumSq = 0;
-        for (int c = 0; c < y.cols; c++) sumSq += y.data[c] * y.data[c];
+        for (int c = 0; c < y.cols; c++) {
+            sumSq += y.data[c] * y.data[c];
+        }
         double rms = Math.sqrt(sumSq / y.cols);
         assertEquals(1.0f, rms, 1e-5f);
     }
@@ -106,7 +108,9 @@ class RMSNorm1DTest {
 
         Parameter gamma = norm.parameters().get(0);
         double totalGrad = 0;
-        for (int c = 0; c < 4; c++) totalGrad += Math.abs(gamma.grad.data[c]);
+        for (int c = 0; c < 4; c++) {
+            totalGrad += Math.abs(gamma.grad.data[c]);
+        }
         assertTrue(totalGrad > 0, "gamma gradient should be non-zero after backward");
     }
 
@@ -176,9 +180,11 @@ class RMSNorm1DTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
+        for (int r = 0; r < t.rows; r++) {
+            for (int c = 0; c < t.cols; c++) {
                 s += t.data[r * t.cols + c];
+            }
+        }
         return s;
     }
 }

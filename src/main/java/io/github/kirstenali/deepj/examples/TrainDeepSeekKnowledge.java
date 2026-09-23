@@ -4,6 +4,11 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.nio.file.Path;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.decimal;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.integer;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.nullablePath;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
+
 public final class TrainDeepSeekKnowledge {
 
     static final int VOCAB_SIZE = 8_192;
@@ -33,9 +38,7 @@ public final class TrainDeepSeekKnowledge {
 
     private static DeepSeekTinyStoriesConfig.FilesConfig files(Path output) {
         Path corpus = path("deepj.corpus", output.resolve("knowledge-train.txt").toString());
-        String resume = System.getProperty("deepj.resume");
-        return new DeepSeekTinyStoriesConfig.FilesConfig(
-                corpus, output, resume == null ? null : Path.of(resume));
+        return new DeepSeekTinyStoriesConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
     }
 
     private static DeepSeekTinyStoriesConfig.Architecture architecture() {
@@ -63,15 +66,4 @@ public final class TrainDeepSeekKnowledge {
                 integer("deepj.tokenizerSampleMiB", 16));
     }
 
-    private static int integer(String name, int fallback) {
-        return Integer.parseInt(System.getProperty(name, Integer.toString(fallback)));
-    }
-
-    private static float decimal(String name, float fallback) {
-        return Float.parseFloat(System.getProperty(name, Float.toString(fallback)));
-    }
-
-    private static Path path(String name, String fallback) {
-        return Path.of(System.getProperty(name, fallback));
-    }
 }

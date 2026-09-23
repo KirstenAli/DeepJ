@@ -109,12 +109,16 @@ public final class RandomAccessTextDataset implements StatefulTrainingDataset {
     }
 
     private static int indexAfterFirstNewline(byte[] bytes) {
-        for (int i = 0; i < bytes.length; i++) if (bytes[i] == '\n') return i + 1;
+        for (int i = 0; i < bytes.length; i++) {
+            if (bytes[i] == '\n') return i + 1;
+        }
         return -1;
     }
 
     private static int indexAfterLastNewline(byte[] bytes) {
-        for (int i = bytes.length - 1; i >= 0; i--) if (bytes[i] == '\n') return i + 1;
+        for (int i = bytes.length - 1; i >= 0; i--) {
+            if (bytes[i] == '\n') return i + 1;
+        }
         return -1;
     }
 

@@ -13,7 +13,9 @@ public final class RoPEMultiHeadSelfAttention extends MultiHeadSelfAttention {
                                       RotaryEmbedding rope, Random rnd) {
         super(dModel, nHeads, causalMask, rnd);
         if (rope == null) throw new IllegalArgumentException("rope must not be null");
-        if (rope.headDim() != headDim) throw new IllegalArgumentException("RoPE head dimension does not match attention");
+        if (rope.headDim() != headDim) {
+            throw new IllegalArgumentException("RoPE head dimension does not match attention");
+        }
         this.rope = rope;
     }
 

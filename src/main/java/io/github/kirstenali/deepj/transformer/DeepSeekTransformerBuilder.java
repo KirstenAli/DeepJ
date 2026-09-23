@@ -19,18 +19,46 @@ public final class DeepSeekTransformerBuilder {
     private Random rnd;
     private long seed = 42;
 
-    public DeepSeekTransformerBuilder dModel(int dModel)     { this.dModel = dModel;       return this; }
-    public DeepSeekTransformerBuilder nHeads(int nHeads)     { this.nHeads = nHeads;       return this; }
-    public DeepSeekTransformerBuilder dFF(int dFF)           { this.dFF = dFF;             return this; }
-    public DeepSeekTransformerBuilder nLayers(int nLayers)   { this.nLayers = nLayers;     return this; }
+    public DeepSeekTransformerBuilder dModel(int dModel) {
+        this.dModel = dModel;
+        return this;
+    }
 
-    public DeepSeekTransformerBuilder maxSeqLen(int maxSeqLen) { this.maxSeqLen = maxSeqLen; return this; }
+    public DeepSeekTransformerBuilder nHeads(int nHeads) {
+        this.nHeads = nHeads;
+        return this;
+    }
 
-    public DeepSeekTransformerBuilder qRank(int qRank)  { this.qRank = qRank;   return this; }
+    public DeepSeekTransformerBuilder dFF(int dFF) {
+        this.dFF = dFF;
+        return this;
+    }
 
-    public DeepSeekTransformerBuilder kvRank(int kvRank) { this.kvRank = kvRank; return this; }
+    public DeepSeekTransformerBuilder nLayers(int nLayers) {
+        this.nLayers = nLayers;
+        return this;
+    }
 
-    public DeepSeekTransformerBuilder seed(long seed) { this.seed = seed; this.rnd = null; return this; }
+    public DeepSeekTransformerBuilder maxSeqLen(int maxSeqLen) {
+        this.maxSeqLen = maxSeqLen;
+        return this;
+    }
+
+    public DeepSeekTransformerBuilder qRank(int qRank) {
+        this.qRank = qRank;
+        return this;
+    }
+
+    public DeepSeekTransformerBuilder kvRank(int kvRank) {
+        this.kvRank = kvRank;
+        return this;
+    }
+
+    public DeepSeekTransformerBuilder seed(long seed) {
+        this.seed = seed;
+        this.rnd = null;
+        return this;
+    }
 
     public DeepSeekTransformerBuilder random(Random rnd) {
         if (rnd == null) throw new IllegalArgumentException("rnd must not be null");

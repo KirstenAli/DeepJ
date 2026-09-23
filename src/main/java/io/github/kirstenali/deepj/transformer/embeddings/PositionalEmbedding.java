@@ -25,14 +25,18 @@ public final class PositionalEmbedding implements Trainable {
         this.lastSeqLen = seqLen;
 
         int[] indices = new int[seqLen];
-        for (int i = 0; i < seqLen; i++) indices[i] = i;
+        for (int i = 0; i < seqLen; i++) {
+            indices[i] = i;
+        }
         return Tensor.sliceRows(weight.value, indices, dModel);
     }
 
     public void backward(Tensor gradOut) {
         int seqLen = gradOut.rows;
         int[] indices = new int[seqLen];
-        for (int i = 0; i < seqLen; i++) indices[i] = i;
+        for (int i = 0; i < seqLen; i++) {
+            indices[i] = i;
+        }
         Tensor.scatterAddRows(weight.grad, indices, gradOut);
     }
 

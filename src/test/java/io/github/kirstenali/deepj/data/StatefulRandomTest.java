@@ -11,7 +11,9 @@ class StatefulRandomTest {
     @Test
     void restoredStateContinuesTheSameSequence() {
         StatefulRandom random = new StatefulRandom(42L);
-        for (int index = 0; index < 5; index++) random.nextLong(97L);
+        for (int index = 0; index < 5; index++) {
+            random.nextLong(97L);
+        }
         long state = random.state();
         long expected = random.nextLong(97L);
         StatefulRandom restored = new StatefulRandom(0L);

@@ -134,8 +134,12 @@ class BPETokenizerTest {
     private static List<Integer> referencePiece(BPEModel model, String piece) {
         int[] initial = BPEBytes.toTokenArray(piece, model.endOfWordId());
         List<Integer> tokens = new ArrayList<>(initial.length);
-        for (int id : initial) tokens.add(id);
-        for (TokenPair pair : model.merges()) tokens = merge(tokens, pair, model.mergeToNewId().get(pair));
+        for (int id : initial) {
+            tokens.add(id);
+        }
+        for (TokenPair pair : model.merges()) {
+            tokens = merge(tokens, pair, model.mergeToNewId().get(pair));
+        }
         if (!tokens.isEmpty() && tokens.get(tokens.size() - 1) == model.endOfWordId()) tokens.remove(tokens.size() - 1);
         return tokens;
     }

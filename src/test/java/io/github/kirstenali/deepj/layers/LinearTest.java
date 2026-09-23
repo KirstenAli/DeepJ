@@ -59,16 +59,8 @@ public class LinearTest {
                 {0, 0, 0}
         });
 
-        double prev = trainOneStepMSE(lin, opt, x, target);
-        boolean improved = false;
-
-        for (int i = 0; i < 10; i++) {
-            double cur = trainOneStepMSE(lin, opt, x, target);
-            if (cur < prev) { improved = true; break; }
-            prev = cur;
-        }
-
-        assertTrue(improved, "expected loss to decrease within a few steps");
+        TestSupport.assertLossDecreases(() -> trainOneStepMSE(lin, opt, x, target), 10,
+                "expected loss to decrease within a few steps");
     }
 
     private static double trainOneStepMSE(Linear lin, AdamW opt, Tensor x, Tensor target) {
@@ -80,7 +72,9 @@ public class LinearTest {
 
         lin.backward(gradOut);
         opt.step(lin.parameters());
-        for (Parameter p : lin.parameters()) p.zeroGrad();
+        for (Parameter p : lin.parameters()) {
+            p.zeroGrad();
+        }
 
         return loss;
     }
@@ -154,9 +148,11 @@ public class LinearTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
+        for (int r = 0; r < t.rows; r++) {
+            for (int c = 0; c < t.cols; c++) {
                 s += t.data[r * t.cols + c];
+            }
+        }
         return s;
     }
 }

@@ -278,14 +278,18 @@ kernel void kernel_multiply_broadcast_rows(device const float* a      [[buffer(0
 inline float row_sum(device const float* values, uint base, uint cols,
                      uint tid, uint width) {
     float result = 0.0f;
-    for (uint c = tid; c < cols; c += width) result += values[base + c];
+    for (uint c = tid; c < cols; c += width) {
+        result += values[base + c];
+    }
     return result;
 }
 
 inline float row_abs_sum(device const float* values, uint base, uint cols,
                          uint tid, uint width) {
     float result = 0.0f;
-    for (uint c = tid; c < cols; c += width) result += fabs(values[base + c]);
+    for (uint c = tid; c < cols; c += width) {
+        result += fabs(values[base + c]);
+    }
     return result;
 }
 
@@ -302,14 +306,18 @@ inline float row_square_sum(device const float* values, uint base, uint cols,
 inline float row_max(device const float* values, uint base, uint cols,
                      uint tid, uint width) {
     float result = -INFINITY;
-    for (uint c = tid; c < cols; c += width) result = max(result, values[base + c]);
+    for (uint c = tid; c < cols; c += width) {
+        result = max(result, values[base + c]);
+    }
     return result;
 }
 
 inline float row_exp_sum(device const float* values, uint base, uint cols,
                          uint tid, uint width, float maximum) {
     float result = 0.0f;
-    for (uint c = tid; c < cols; c += width) result += exp(values[base + c] - maximum);
+    for (uint c = tid; c < cols; c += width) {
+        result += exp(values[base + c] - maximum);
+    }
     return result;
 }
 
@@ -326,7 +334,9 @@ inline float row_variance_sum(device const float* values, uint base, uint cols,
 inline float column_sum(device const float* values, uint rows, uint cols,
                         uint column, uint tid, uint width) {
     float result = 0.0f;
-    for (uint row = tid; row < rows; row += width) result += values[row * cols + column];
+    for (uint row = tid; row < rows; row += width) {
+        result += values[row * cols + column];
+    }
     return result;
 }
 
@@ -354,7 +364,9 @@ inline float reduce_max(threadgroup float* scratch, float value,
 
 inline void write_row_value(device float* output, uint base, uint cols,
                             uint tid, uint width, float value) {
-    for (uint c = tid; c < cols; c += width) output[base + c] = value;
+    for (uint c = tid; c < cols; c += width) {
+        output[base + c] = value;
+    }
 }
 
 inline bool valid_cross_entropy_target(device float* output, uint base, uint cols,
@@ -832,7 +844,9 @@ inline float write_row_exp(device const float* input, device float* output,
 inline float row_dot(device const float* left, device const float* right,
                      uint base, uint cols, uint tid, uint width) {
     float result = 0.0f;
-    for (uint c = tid; c < cols; c += width) result += left[base + c] * right[base + c];
+    for (uint c = tid; c < cols; c += width) {
+        result += left[base + c] * right[base + c];
+    }
     return result;
 }
 
@@ -927,7 +941,9 @@ inline float causal_exp(device const float* input, device float* output,
 
 inline void normalize_causal_row(device float* output, uint base, uint cols,
                                  float sum, uint tid, uint width) {
-    for (uint col = tid; col < cols; col += width) output[base + col] /= sum;
+    for (uint col = tid; col < cols; col += width) {
+        output[base + col] /= sum;
+    }
 }
 
 kernel void kernel_causal_softmax(device const float* input [[buffer(0)]],
@@ -1065,7 +1081,8 @@ static id<MTLComputePipelineState> makePSO(id<MTLLibrary> lib, NSString* name) {
     id<MTLComputePipelineState> pso = [lib.device newComputePipelineStateWithFunction:fn error:&error];
     if (pso == nil) {
         NSString* desc = error.localizedDescription ?: @"Unknown error";
-        throw std::runtime_error(std::string("Failed to create PSO for ") + [name UTF8String] + ": " + [desc UTF8String]);
+        throw std::runtime_error(std::string("Failed to create PSO for ")
+                + [name UTF8String] + ": " + [desc UTF8String]);
     }
     return pso;
 }
@@ -1431,7 +1448,9 @@ static void allocateBuffer(MetalContext* ctx, int bufferId, int floatCount) {
 
 static void allocateBuffers(const jint* ids, const jint* sizes, int count) {
     MetalContext* ctx = getContext();
-    for (int i = 0; i < count; i++) allocateBuffer(ctx, ids[i], sizes[i]);
+    for (int i = 0; i < count; i++) {
+        allocateBuffer(ctx, ids[i], sizes[i]);
+    }
 }
 
 static BufferEntry transferEntry(JNIEnv* env, int bufferId, jfloatArray values,
@@ -1518,7 +1537,9 @@ static void releaseBuffers(JNIEnv* env, jintArray idsArr, jint count) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
     jint* ids = env->GetIntArrayElements(idsArr, nullptr);
     if (ids == nullptr) return;
-    for (int i = 0; i < count; i++) gBufferPool.erase(ids[i]);
+    for (int i = 0; i < count; i++) {
+        gBufferPool.erase(ids[i]);
+    }
     env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
 }
 

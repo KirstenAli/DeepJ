@@ -5,6 +5,12 @@ import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 
 import java.nio.file.Path;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.decimal;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.integer;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.longValue;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.optionalPath;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
+
 public record DeepSeekTinyStoriesConfig(
         FilesConfig files,
         Architecture architecture,
@@ -25,7 +31,7 @@ public record DeepSeekTinyStoriesConfig(
                 Architecture.fromSystemProperties(),
                 Training.fromSystemProperties(),
                 TokenizerConfig.fromSystemProperties(),
-                longProperty("deepj.seed", 42L));
+                longValue("deepj.seed", 42L));
     }
 
     public DeepSeekConfig modelConfig(int vocabSize) {
@@ -42,9 +48,9 @@ public record DeepSeekTinyStoriesConfig(
 
         static FilesConfig fromSystemProperties() {
             return new FilesConfig(
-                    pathProperty("deepj.corpus", "sample_data/TinyStories-train.txt"),
-                    pathProperty("deepj.output", "checkpoints/tinystories-deepseek"),
-                    optionalPathProperty("deepj.resume"));
+                    path("deepj.corpus", "sample_data/TinyStories-train.txt"),
+                    path("deepj.output", "checkpoints/tinystories-deepseek"),
+                    optionalPath("deepj.resume"));
         }
     }
 
@@ -62,11 +68,11 @@ public record DeepSeekTinyStoriesConfig(
         }
 
         static Architecture fromSystemProperties() {
-            return new Architecture(intProperty("deepj.seqLen", 128), intProperty("deepj.dModel", 128),
-                    intProperty("deepj.heads", 4), intProperty("deepj.layers", 4),
-                    intProperty("deepj.dFF", 384), intProperty("deepj.qRank", 64),
-                    intProperty("deepj.kvRank", 32), floatProperty("deepj.initScale", 0.2f),
-                    floatProperty("deepj.gradClipNorm", 1.0f));
+            return new Architecture(integer("deepj.seqLen", 128), integer("deepj.dModel", 128),
+                    integer("deepj.heads", 4), integer("deepj.layers", 4),
+                    integer("deepj.dFF", 384), integer("deepj.qRank", 64),
+                    integer("deepj.kvRank", 32), decimal("deepj.initScale", 0.2f),
+                    decimal("deepj.gradClipNorm", 1.0f));
         }
 
         DeepSeekConfig modelConfig(int vocabSize) {
@@ -77,7 +83,7 @@ public record DeepSeekTinyStoriesConfig(
 
     public record Training(int steps, int batchSize, float peakLearningRate,
                            float minimumLearningRate, int warmupSteps, int logEvery,
-                           int checkpointEvery, int releaseEvery) {
+                           int checkpointEvery, int releaseEvery) implements TrainingProperties.Settings {
 
         public Training {
             if (steps <= 0 || batchSize <= 0 || logEvery <= 0) {
@@ -90,11 +96,10 @@ public record DeepSeekTinyStoriesConfig(
         }
 
         static Training fromSystemProperties() {
-            return new Training(intProperty("deepj.steps", 10_000), intProperty("deepj.batchSize", 1),
-                    floatProperty("deepj.learningRate", 3e-4f),
-                    floatProperty("deepj.minLearningRate", 3e-5f),
-                    intProperty("deepj.warmupSteps", 200), intProperty("deepj.logEvery", 10),
-                    intProperty("deepj.checkpointEvery", 500), intProperty("deepj.releaseEvery", 25));
+            return new Training(integer("deepj.steps", 10_000), integer("deepj.batchSize", 1),
+                    decimal("deepj.learningRate", 3e-4f), decimal("deepj.minLearningRate", 3e-5f),
+                    integer("deepj.warmupSteps", 200), integer("deepj.logEvery", 10),
+                    integer("deepj.checkpointEvery", 500), integer("deepj.releaseEvery", 25));
         }
     }
 
@@ -108,8 +113,8 @@ public record DeepSeekTinyStoriesConfig(
         }
 
         static TokenizerConfig fromSystemProperties() {
-            return new TokenizerConfig(intProperty("deepj.vocabSize", 2_048),
-                    intProperty("deepj.tokenizerSampleMiB", 16));
+            return new TokenizerConfig(integer("deepj.vocabSize", 2_048),
+                    integer("deepj.tokenizerSampleMiB", 16));
         }
 
         int sampleChars() {
@@ -117,24 +122,4 @@ public record DeepSeekTinyStoriesConfig(
         }
     }
 
-    private static int intProperty(String name, int fallback) {
-        return Integer.parseInt(System.getProperty(name, Integer.toString(fallback)));
-    }
-
-    private static long longProperty(String name, long fallback) {
-        return Long.parseLong(System.getProperty(name, Long.toString(fallback)));
-    }
-
-    private static float floatProperty(String name, float fallback) {
-        return Float.parseFloat(System.getProperty(name, Float.toString(fallback)));
-    }
-
-    private static Path pathProperty(String name, String fallback) {
-        return Path.of(System.getProperty(name, fallback));
-    }
-
-    private static Path optionalPathProperty(String name) {
-        String value = System.getProperty(name);
-        return value == null || value.isBlank() ? null : Path.of(value);
-    }
 }

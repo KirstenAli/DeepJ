@@ -134,7 +134,9 @@ public class GPTModelTest {
             dLogits.data[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0f;
         }
 
-        for (Parameter p : model.parameters()) p.zeroGrad();
+        for (Parameter p : model.parameters()) {
+            p.zeroGrad();
+        }
 
         model.backward(dLogits);
 

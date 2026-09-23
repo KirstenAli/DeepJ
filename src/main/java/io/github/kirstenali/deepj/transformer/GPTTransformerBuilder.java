@@ -20,10 +20,25 @@ public final class GPTTransformerBuilder {
     private Random rnd;
     private long seed = 42;
 
-    public GPTTransformerBuilder dModel(int dModel)   { this.dModel = dModel;   return this; }
-    public GPTTransformerBuilder nHeads(int nHeads)   { this.nHeads = nHeads;   return this; }
-    public GPTTransformerBuilder dFF(int dFF)         { this.dFF = dFF;         return this; }
-    public GPTTransformerBuilder nLayers(int nLayers) { this.nLayers = nLayers; return this; }
+    public GPTTransformerBuilder dModel(int dModel) {
+        this.dModel = dModel;
+        return this;
+    }
+
+    public GPTTransformerBuilder nHeads(int nHeads) {
+        this.nHeads = nHeads;
+        return this;
+    }
+
+    public GPTTransformerBuilder dFF(int dFF) {
+        this.dFF = dFF;
+        return this;
+    }
+
+    public GPTTransformerBuilder nLayers(int nLayers) {
+        this.nLayers = nLayers;
+        return this;
+    }
 
     public GPTTransformerBuilder ffnActivation(Supplier<ActivationFunction> factory) {
         if (factory == null) throw new IllegalArgumentException("factory must not be null");
@@ -31,7 +46,11 @@ public final class GPTTransformerBuilder {
         return this;
     }
 
-    public GPTTransformerBuilder seed(long seed) { this.seed = seed; this.rnd = null; return this; }
+    public GPTTransformerBuilder seed(long seed) {
+        this.seed = seed;
+        this.rnd = null;
+        return this;
+    }
 
     public GPTTransformerBuilder random(Random rnd) {
         if (rnd == null) throw new IllegalArgumentException("rnd must not be null");

@@ -6,6 +6,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.decimal;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.integer;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
+
 public final class MidTrainDeepJ90M {
 
     static final int MID_TRAINING_STEPS = 256_000;
@@ -50,15 +54,4 @@ public final class MidTrainDeepJ90M {
         Files.copy(source, output.resolve("tokenizer.bpe"), StandardCopyOption.REPLACE_EXISTING);
     }
 
-    private static int integer(String name, int fallback) {
-        return Integer.parseInt(System.getProperty(name, Integer.toString(fallback)));
-    }
-
-    private static float decimal(String name, float fallback) {
-        return Float.parseFloat(System.getProperty(name, Float.toString(fallback)));
-    }
-
-    private static Path path(String name, String fallback) {
-        return Path.of(System.getProperty(name, fallback));
-    }
 }

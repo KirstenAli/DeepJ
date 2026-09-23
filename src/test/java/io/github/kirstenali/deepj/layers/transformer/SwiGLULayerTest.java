@@ -61,7 +61,9 @@ class SwiGLULayerTest {
         layer.backward(Tensor.ones(2, 4));
 
         float totalGrad = 0.0f;
-        for (Parameter p : layer.parameters()) totalGrad += p.grad.sumAbs();
+        for (Parameter p : layer.parameters()) {
+            totalGrad += p.grad.sumAbs();
+        }
         assertTrue(totalGrad > 0, "At least one parameter should have a non-zero gradient");
     }
 
@@ -109,16 +111,8 @@ class SwiGLULayerTest {
         Tensor x      = randomTensor(3, 4, 21);
         Tensor target = Tensor.zeros(3, 4);
 
-        double prev = trainOneStep(layer, opt, x, target);
-        boolean improved = false;
-
-        for (int i = 0; i < 10; i++) {
-            double cur = trainOneStep(layer, opt, x, target);
-            if (cur < prev) { improved = true; break; }
-            prev = cur;
-        }
-
-        assertTrue(improved, "MSE should decrease within a few AdamW steps");
+        TestSupport.assertLossDecreases(() -> trainOneStep(layer, opt, x, target), 10,
+                "MSE should decrease within a few AdamW steps");
     }
 
     @Test
@@ -147,9 +141,11 @@ class SwiGLULayerTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++)
-            for (int c = 0; c < t.cols; c++)
+        for (int r = 0; r < t.rows; r++) {
+            for (int c = 0; c < t.cols; c++) {
                 s += t.data[r * t.cols + c];
+            }
+        }
         return s;
     }
 
@@ -159,7 +155,9 @@ class SwiGLULayerTest {
         float loss = mse.loss(y, target);
         layer.backward(mse.gradient(y, target));
         opt.step(layer.parameters());
-        for (Parameter p : layer.parameters()) p.zeroGrad();
+        for (Parameter p : layer.parameters()) {
+            p.zeroGrad();
+        }
         return loss;
     }
 }

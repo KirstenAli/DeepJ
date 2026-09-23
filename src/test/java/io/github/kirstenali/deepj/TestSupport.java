@@ -3,6 +3,8 @@ package io.github.kirstenali.deepj;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.Assertions;
 
+import java.util.function.DoubleSupplier;
+
 public final class TestSupport {
 
     private TestSupport() {}
@@ -27,5 +29,15 @@ public final class TestSupport {
                         "Mismatch at [" + r + "," + c + "]: " + av + " vs " + bv);
             }
         }
+    }
+
+    public static void assertLossDecreases(DoubleSupplier trainingStep, int attempts, String message) {
+        double previous = trainingStep.getAsDouble();
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            double current = trainingStep.getAsDouble();
+            if (current < previous) return;
+            previous = current;
+        }
+        Assertions.fail(message);
     }
 }

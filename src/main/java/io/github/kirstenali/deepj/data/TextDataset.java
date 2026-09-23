@@ -151,7 +151,9 @@ public final class TextDataset implements BatchSource {
 
     private static void flushWriteBuffer(ByteBuffer buf, FileChannel ch) throws IOException {
         buf.flip();
-        while (buf.hasRemaining()) ch.write(buf);
+        while (buf.hasRemaining()) {
+            ch.write(buf);
+        }
         buf.clear();
     }
 

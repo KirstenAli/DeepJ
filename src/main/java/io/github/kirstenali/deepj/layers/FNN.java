@@ -25,27 +25,44 @@ public final class FNN implements Layer {
             ActivationFunction outputActivation,
             Random rnd
     ) {
-        if (inputSize <= 0) throw new IllegalArgumentException("inputSize must be > 0");
-        if (outputSize <= 0) throw new IllegalArgumentException("outputSize must be > 0");
-        if (hiddenSizes == null) throw new IllegalArgumentException("hiddenSizes must not be null");
-        if (rnd == null) throw new IllegalArgumentException("rnd must not be null");
-        if (hiddenSizes.length > 0 && hiddenActivationFactory == null) {
-            throw new IllegalArgumentException("hiddenActivationFactory must not be null when hiddenSizes is non-empty");
-        }
-
-        int in = inputSize;
-        for (int h : hiddenSizes) {
-            if (h <= 0) throw new IllegalArgumentException("hidden layer size must be > 0");
-            linears.add(new Linear(in, h, rnd));
-            activations.add(hiddenActivationFactory.get());
-            in = h;
-        }
-
-        linears.add(new Linear(in, outputSize, rnd));
+        validateArguments(inputSize, hiddenSizes, outputSize, hiddenActivationFactory, rnd);
+        int lastSize = buildHiddenLayers(inputSize, hiddenSizes, hiddenActivationFactory, rnd);
+        linears.add(new Linear(lastSize, outputSize, rnd));
         this.outputActivation = outputActivation;
     }
 
-    public FNN(int inputSize, int[] hiddenSizes, int outputSize, Supplier<ActivationFunction> hiddenActivationFactory, Random rnd) {
+    private static void validateArguments(int inputSize, int[] hiddenSizes, int outputSize,
+                                          Supplier<ActivationFunction> activationFactory, Random rnd) {
+        requirePositive(inputSize, "inputSize");
+        requirePositive(outputSize, "outputSize");
+        if (hiddenSizes == null) throw new IllegalArgumentException("hiddenSizes must not be null");
+        if (rnd == null) throw new IllegalArgumentException("rnd must not be null");
+        if (hiddenSizes.length > 0 && activationFactory == null) throw missingActivationFactory();
+    }
+
+    private int buildHiddenLayers(int inputSize, int[] sizes,
+                                  Supplier<ActivationFunction> activationFactory, Random rnd) {
+        int currentSize = inputSize;
+        for (int size : sizes) {
+            requirePositive(size, "hidden layer size");
+            linears.add(new Linear(currentSize, size, rnd));
+            activations.add(activationFactory.get());
+            currentSize = size;
+        }
+        return currentSize;
+    }
+
+    private static void requirePositive(int value, String name) {
+        if (value <= 0) throw new IllegalArgumentException(name + " must be > 0");
+    }
+
+    private static IllegalArgumentException missingActivationFactory() {
+        return new IllegalArgumentException(
+                "hiddenActivationFactory must not be null when hiddenSizes is non-empty");
+    }
+
+    public FNN(int inputSize, int[] hiddenSizes, int outputSize,
+               Supplier<ActivationFunction> hiddenActivationFactory, Random rnd) {
         this(inputSize, hiddenSizes, outputSize, hiddenActivationFactory, null, rnd);
     }
 
@@ -89,7 +106,9 @@ public final class FNN implements Layer {
     @Override
     public List<Parameter> parameters() {
         List<Parameter> ps = new ArrayList<>();
-        for (Linear lin : linears) ps.addAll(lin.parameters());
+        for (Linear lin : linears) {
+            ps.addAll(lin.parameters());
+        }
         return ps;
     }
 }

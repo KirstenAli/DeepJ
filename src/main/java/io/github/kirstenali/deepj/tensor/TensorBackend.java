@@ -70,7 +70,9 @@ public interface TensorBackend {
         float squares = 0.0f;
         for (Tensor tensor : tensors) {
             tensor.materialize();
-            for (float value : tensor.data) squares += value * value;
+            for (float value : tensor.data) {
+                squares += value * value;
+            }
         }
         return (float) Math.sqrt(squares);
     }
@@ -161,9 +163,9 @@ public interface TensorBackend {
     void tanhInPlace(Tensor a);
     void sigmoidInPlace(Tensor a);
 
-    default void materializeTensor(Tensor t) {  }
+    default void materializeTensor(Tensor t) {}
 
     default void releaseTemporaryResources() { releaseResources(); }
 
-    default void releaseResources() {  }
+    default void releaseResources() {}
 }

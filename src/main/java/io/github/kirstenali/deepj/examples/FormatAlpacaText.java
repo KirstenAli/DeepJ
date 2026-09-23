@@ -44,7 +44,9 @@ public final class FormatAlpacaText {
             throws IOException {
         Parser parser = new Parser(writer);
         String line;
-        while ((line = reader.readLine()) != null) parser.accept(line);
+        while ((line = reader.readLine()) != null) {
+            parser.accept(line);
+        }
         return parser.finish();
     }
 
@@ -84,7 +86,8 @@ public final class FormatAlpacaText {
 
         private void writeCurrent() throws IOException {
             if (current == null) return;
-            if (current.writeTo(writer)) count++; else skipped++;
+            if (current.writeTo(writer)) count++;
+            else skipped++;
             current = null;
         }
     }

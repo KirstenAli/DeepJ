@@ -40,7 +40,9 @@ public final class CausalLMEvaluation {
 
     private static long batchTokenCount(Batch batch) {
         long count = 0;
-        for (int row = 0; row < batch.x().length; row++) count += tokenCount(batch, row);
+        for (int row = 0; row < batch.x().length; row++) {
+            count += tokenCount(batch, row);
+        }
         return count;
     }
 
@@ -53,7 +55,9 @@ public final class CausalLMEvaluation {
         boolean[] mask = batch.mask(row);
         if (mask == null) return batch.x()[row].length;
         int count = 0;
-        for (boolean included : mask) if (included) count++;
+        for (boolean included : mask) {
+            if (included) count++;
+        }
         return count;
     }
 

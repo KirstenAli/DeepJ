@@ -16,7 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public final class IndexedResponseTextDataset implements StatefulBatchSource, AutoCloseable {
+public final class IndexedResponseTextDataset extends ResponseBatchSource implements AutoCloseable {
 
     private static final String END_TOKEN = "<|endoftext|>";
     private static final String RESPONSE_MARKER = "Response:\n";
@@ -25,28 +25,17 @@ public final class IndexedResponseTextDataset implements StatefulBatchSource, Au
     private static final int SAMPLE_ATTEMPTS = 128;
 
     private final List<Group> groups;
-    private final StatefulRandom random;
     private final long totalWeight;
     private final long recordCount;
 
     public IndexedResponseTextDataset(List<ResponseOnlyTextDataset.Source> sources,
                                       Tokenizer tokenizer, int maxSequenceLength, long seed)
             throws IOException {
+        super(seed);
         validate(sources, tokenizer, maxSequenceLength);
         this.groups = openGroups(sources, tokenizer, maxSequenceLength);
-        this.random = new StatefulRandom(seed);
         this.totalWeight = groups.stream().mapToLong(Group::weight).sum();
         this.recordCount = groups.stream().mapToLong(group -> group.file().size()).sum();
-    }
-
-    @Override
-    public synchronized Batch nextBatch(int batchSize) {
-        if (batchSize < 1) throw new IllegalArgumentException("batchSize must be positive");
-        int[][] inputs = new int[batchSize][];
-        int[][] targets = new int[batchSize][];
-        boolean[][] masks = new boolean[batchSize][];
-        for (int row = 0; row < batchSize; row++) fillRow(sample(), inputs, targets, masks, row);
-        return new Batch(inputs, targets, masks);
     }
 
     public long recordCount() {
@@ -54,36 +43,18 @@ public final class IndexedResponseTextDataset implements StatefulBatchSource, Au
     }
 
     @Override
-    public synchronized long randomState() {
-        return random.state();
-    }
-
-    @Override
-    public synchronized void restoreRandomState(long state) {
-        random.restore(state);
+    void sampleRow(int[][] inputs, int[][] targets, boolean[][] masks, int row) {
+        Example example = sample();
+        fill(example.tokens(), example.responseStart(), inputs, targets, masks, row);
     }
 
     private Example sample() {
-        long selected = random.nextLong(totalWeight);
+        long selected = random().nextLong(totalWeight);
         for (Group group : groups) {
-            if (selected < group.weight()) return group.file().sample(random);
+            if (selected < group.weight()) return group.file().sample(random());
             selected -= group.weight();
         }
         throw new IllegalStateException("Could not select a dataset group");
-    }
-
-    private static void fillRow(Example example, int[][] inputs, int[][] targets,
-                                boolean[][] masks, int row) {
-        int length = example.tokens().length - 1;
-        inputs[row] = Arrays.copyOf(example.tokens(), length);
-        targets[row] = Arrays.copyOfRange(example.tokens(), 1, length + 1);
-        masks[row] = responseMask(length, example.responseStart());
-    }
-
-    private static boolean[] responseMask(int length, int responseStart) {
-        boolean[] mask = new boolean[length];
-        Arrays.fill(mask, responseStart - 1, length, true);
-        return mask;
     }
 
     private static List<Group> openGroups(List<ResponseOnlyTextDataset.Source> sources,

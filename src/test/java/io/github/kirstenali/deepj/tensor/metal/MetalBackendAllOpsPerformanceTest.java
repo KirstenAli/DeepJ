@@ -72,7 +72,10 @@ public final class MetalBackendAllOpsPerformanceTest {
     }
 
     private void bench(String label, Runnable cpuOp, Runnable gpuOp) {
-        for (int i = 0; i < 3; i++) { cpuOp.run(); gpuOp.run(); }
+        for (int i = 0; i < 3; i++) {
+            cpuOp.run();
+            gpuOp.run();
+        }
         long cpuNs = bestOfNanos(cpuOp, IT_CPU);
         long gpuNs = bestOfNanos(gpuOp, IT_GPU);
         results.put(label, new long[]{cpuNs, gpuNs});
@@ -122,24 +125,24 @@ public final class MetalBackendAllOpsPerformanceTest {
     void chain_mixed10() {
         Tensor a = rand(N, N, 72L), b = rand(N, N, 73L);
         bench("10 mixed ops (2 matmuls)",
-                () -> mixedTen(cpu, a, b),
-                () -> mixedTen(gpu, a, b).materialize());
+                () -> MetalPerformanceWorkloads.mixedTen(cpu, a, b),
+                () -> MetalPerformanceWorkloads.mixedTen(gpu, a, b).materialize());
     }
 
     @Test @Order(3)
     void chain_mixed20() {
         Tensor a = rand(N, N, 74L), b = rand(N, N, 75L);
         bench("20 mixed ops (4 matmuls)",
-                () -> mixedChain(cpu, a, b, 19),
-                () -> mixedChain(gpu, a, b, 19).materialize());
+                () -> MetalPerformanceWorkloads.mixedChain(cpu, a, b, 19),
+                () -> MetalPerformanceWorkloads.mixedChain(gpu, a, b, 19).materialize());
     }
 
     @Test @Order(4)
     void chain_mixed50() {
         Tensor a = rand(N, N, 76L), b = rand(N, N, 77L);
         bench("50 mixed ops (10 matmuls)",
-                () -> mixedChain(cpu, a, b, 49),
-                () -> mixedChain(gpu, a, b, 49).materialize());
+                () -> MetalPerformanceWorkloads.mixedChain(cpu, a, b, 49),
+                () -> MetalPerformanceWorkloads.mixedChain(gpu, a, b, 49).materialize());
     }
 
     @Test @Order(10)
@@ -206,8 +209,8 @@ public final class MetalBackendAllOpsPerformanceTest {
         Tensor hPreAct = rand(N, N, 90L);
         Tensor offset = rand(N, N, 91L);
         bench("backward (6 ops, 2 matmuls)",
-                () -> backward(cpu, grad, smOut, W1, W2, hPreAct, offset),
-                () -> backward(gpu, grad, smOut, W1, W2, hPreAct, offset).materialize());
+                () -> MetalPerformanceWorkloads.backward(cpu, grad, smOut, W1, W2, hPreAct, offset),
+                () -> MetalPerformanceWorkloads.backward(gpu, grad, smOut, W1, W2, hPreAct, offset).materialize());
     }
 
     @Test @Order(20)
@@ -252,43 +255,6 @@ public final class MetalBackendAllOpsPerformanceTest {
                     }
                     g.materialize();
                 });
-    }
-
-    private static Tensor mixedTen(TensorBackend backend, Tensor a, Tensor b) {
-        Tensor value = backend.matmul(a, b);
-        value = backend.gelu(value);
-        value = backend.multiplyScalar(value, 0.5f);
-        value = backend.subtract(value, b);
-        value = backend.relu(value);
-        value = backend.matmul(value, a);
-        value = backend.sigmoid(value);
-        value = backend.multiply(value, b);
-        value = backend.tanh(value);
-        return backend.neg(value);
-    }
-
-    private static Tensor mixedChain(TensorBackend backend, Tensor a, Tensor b, int operations) {
-        Tensor value = backend.matmul(a, b);
-        for (int index = 0; index < operations; index++) {
-            value = switch (index % 5) {
-                case 0 -> backend.gelu(value);
-                case 1 -> backend.matmul(value, a);
-                case 2 -> backend.add(value, b);
-                case 3 -> backend.sigmoid(value);
-                default -> backend.subtract(value, a);
-            };
-        }
-        return value;
-    }
-
-    private static Tensor backward(TensorBackend backend, Tensor gradient, Tensor softmax,
-                                   Tensor w1, Tensor w2, Tensor preActivation, Tensor offset) {
-        Tensor value = backend.softmaxBackward(gradient, softmax);
-        value = backend.matmul(value, w2);
-        value = backend.geluBackward(preActivation, value);
-        value = backend.matmul(value, w1);
-        value = backend.subtract(value, offset);
-        return backend.multiplyScalar(value, 0.5f);
     }
 
     private static MiniState miniState() {
@@ -356,7 +322,9 @@ public final class MetalBackendAllOpsPerformanceTest {
     private static int[] randomTargets(int count, int range, long seed) {
         Random rng = new Random(seed);
         int[] targets = new int[count];
-        for (int i = 0; i < count; i++) targets[i] = rng.nextInt(range);
+        for (int i = 0; i < count; i++) {
+            targets[i] = rng.nextInt(range);
+        }
         return targets;
     }
 

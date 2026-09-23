@@ -9,6 +9,8 @@ public interface Trainable {
     List<Parameter> parameters();
 
     default void zeroGrad() {
-        for (Parameter p : parameters()) p.zeroGrad();
+        for (Parameter p : parameters()) {
+            p.zeroGrad();
+        }
     }
 }
