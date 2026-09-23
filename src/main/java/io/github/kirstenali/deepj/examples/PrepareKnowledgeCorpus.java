@@ -18,7 +18,7 @@ public final class PrepareKnowledgeCorpus {
     private PrepareKnowledgeCorpus() {}
 
     public static void main(String[] args) throws IOException {
-        Path output = path("deepj.output", "checkpoints/knowledge-deepseek");
+        Path output = path("deepj.output", "checkpoints/knowledge-prism");
         PreparationResult result = prepare(
                 path("deepj.alpacaInput", "sample_data/Alpaca.txt"),
                 path("deepj.storyInput", "sample_data/TinyStories-train.txt"), output,

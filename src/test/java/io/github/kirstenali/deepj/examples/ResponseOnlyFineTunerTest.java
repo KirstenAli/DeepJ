@@ -41,18 +41,18 @@ class ResponseOnlyFineTunerTest {
     private Path trainBaseModel() throws Exception {
         Path corpus = Files.writeString(temporaryDirectory.resolve("base.txt"), baseText());
         Path output = temporaryDirectory.resolve("base");
-        TrainDeepSeekTinyStories.run(baseConfig(corpus, output));
+        TrainDeepJPrismTinyStories.run(baseConfig(corpus, output));
         return output;
     }
 
-    private DeepSeekTinyStoriesConfig baseConfig(Path corpus, Path output) {
-        var files = new DeepSeekTinyStoriesConfig.FilesConfig(corpus, output, null);
-        var architecture = new DeepSeekTinyStoriesConfig.Architecture(
+    private DeepJPrismTinyStoriesConfig baseConfig(Path corpus, Path output) {
+        var files = new DeepJPrismTinyStoriesConfig.FilesConfig(corpus, output, null);
+        var architecture = new DeepJPrismTinyStoriesConfig.Architecture(
                 64, 8, 2, 1, 16, 4, 2, 0.2f, 1.0f);
-        var training = new DeepSeekTinyStoriesConfig.Training(
+        var training = new DeepJPrismTinyStoriesConfig.Training(
                 1, 1, 1e-2f, 1e-3f, 0, 1, 1, 0);
-        return new DeepSeekTinyStoriesConfig(files, architecture,
-                training, new DeepSeekTinyStoriesConfig.TokenizerConfig(280, 1), 42L);
+        return new DeepJPrismTinyStoriesConfig(files, architecture,
+                training, new DeepJPrismTinyStoriesConfig.TokenizerConfig(280, 1), 42L);
     }
 
     private ResponseFineTuningConfig config(Path base, Path output, Path corpus) {

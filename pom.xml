@@ -6,7 +6,7 @@
 
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.7.2-alpha</version>
+    <version>0.8.0-alpha</version>
 
     <name>DeepJ</name>
     <description>A lightweight Java tensor and Transformer library with optional Apple Metal acceleration.</description>
@@ -32,13 +32,13 @@
         <connection>scm:git:https://github.com/KirstenAli/DeepJ.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/KirstenAli/DeepJ.git</developerConnection>
         <url>https://github.com/KirstenAli/DeepJ</url>
-        <tag>v0.7.2-alpha</tag>
+        <tag>v0.8.0-alpha</tag>
     </scm>
 
     <properties>
         <maven.compiler.release>20</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.build.outputTimestamp>2026-09-20T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-09-23T00:00:00Z</project.build.outputTimestamp>
         <javafx.version>21.0.2</javafx.version>
     </properties>
 

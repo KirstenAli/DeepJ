@@ -16,7 +16,7 @@ public class TransformerBlockTest {
     @Test
     void forward_isIdentity_whenAllTrainableParametersAreZero() {
         int dModel = 4;
-        GPTTransformerBlock block = new GPTTransformerBlock(dModel, 2, 8, new Random(1));
+        DeepJOriginTransformerBlock block = new DeepJOriginTransformerBlock(dModel, 2, 8, new Random(1));
 
         for (Parameter p : block.parameters()) {
             p.value = Tensor.zeros(p.value.rows, p.value.cols);
@@ -34,7 +34,7 @@ public class TransformerBlockTest {
 
     @Test
     void backward_returnsSameShape_andAccumulatesSomeGradients() {
-        GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(2));
+        DeepJOriginTransformerBlock block = new DeepJOriginTransformerBlock(4, 2, 8, new Random(2));
 
         Tensor x = Tensor.from2D(new float[][]{
                 { 0.2f, -0.1f,  0.3f,  0.0f},
@@ -56,16 +56,16 @@ public class TransformerBlockTest {
     }
 
     @Test
-    void llamaBlockRejectsInvalidHeadDimensionsCleanly() {
+    void orbitBlockRejectsInvalidHeadDimensionsCleanly() {
         assertThrows(IllegalArgumentException.class,
-                () -> new LlamaTransformerBlock(4, 0, 8, 16, new Random(1L)));
+                () -> new DeepJOrbitTransformerBlock(4, 0, 8, 16, new Random(1L)));
         assertThrows(IllegalArgumentException.class,
-                () -> new LlamaTransformerBlock(5, 2, 8, 16, new Random(1L)));
+                () -> new DeepJOrbitTransformerBlock(5, 2, 8, 16, new Random(1L)));
     }
 
     @Test
     void learning_can_reduce_mse_loss_within_a_few_steps() {
-        GPTTransformerBlock block = new GPTTransformerBlock(4, 2, 8, new Random(3));
+        DeepJOriginTransformerBlock block = new DeepJOriginTransformerBlock(4, 2, 8, new Random(3));
         AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
         Tensor x = Tensor.from2D(new float[][]{
@@ -80,7 +80,7 @@ public class TransformerBlockTest {
                 "Expected MSE loss to decrease within a few optimizer steps");
     }
 
-    private static double trainOneStepMSE(GPTTransformerBlock block, AdamW opt, Tensor x, Tensor target) {
+    private static double trainOneStepMSE(DeepJOriginTransformerBlock block, AdamW opt, Tensor x, Tensor target) {
         Tensor y = block.forward(x);
 
         MSELoss mse = new MSELoss();

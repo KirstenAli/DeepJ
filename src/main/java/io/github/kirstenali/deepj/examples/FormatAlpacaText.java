@@ -23,7 +23,7 @@ public final class FormatAlpacaText {
     public static void main(String[] args) throws IOException {
         Path input = Path.of(System.getProperty("deepj.alpacaInput", "sample_data/Alpaca.txt"));
         Path output = Path.of(System.getProperty(
-                "deepj.alpacaOutput", "checkpoints/alpaca-deepseek/alpaca-formatted.txt"));
+                "deepj.alpacaOutput", "checkpoints/alpaca-prism/alpaca-formatted.txt"));
         FormatResult result = format(input, output);
         System.out.printf("Formatted %,d Alpaca records in %s; skipped %,d incomplete records%n",
                 result.formatted(), output, result.skipped());

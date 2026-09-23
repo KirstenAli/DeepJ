@@ -10,9 +10,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes built-in gradient calculations for model training, GPT-, Llama-, and DeepSeek-style models, BPE tokenization, training utilities, model persistence, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes built-in gradient calculations, three trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
 
-DeepJ is an alpha project. Its model implementations are compact educational architectures, not drop-in reproductions of the official GPT, Llama, or DeepSeek releases.
+DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
 ## Install
 
@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.7.2-alpha</version>
+    <version>0.8.0-alpha</version>
 </dependency>
 ```
 
@@ -32,9 +32,9 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 - A two-dimensional `Tensor` API and built-in gradient calculations for model training.
 - CPU execution and an optional Metal backend with fused Apple GPU training operations.
-- GPT-style attention with learned positions, LayerNorm, and GELU.
-- Llama-style attention with RoPE, RMSNorm, and SwiGLU.
-- DeepSeek-inspired low-rank Q/KV attention with RoPE, RMSNorm, and SwiGLU.
+- DeepJ Origin with learned positions, LayerNorm, and GELU.
+- DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
+- DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - Bounded-memory sequential, random-access, and response-only datasets.
@@ -60,12 +60,12 @@ Tensor weights = Tensor.from2D(new float[][]{
 Tensor output = inputs.matmul(weights).reluActivation();
 ```
 
-Load a compact DeepSeek-style checkpoint with its BPE tokenizer:
+Load a DeepJ Prism checkpoint with its BPE tokenizer:
 
 ```java
 import io.github.kirstenali.deepj.models.TextGenerator;
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
@@ -75,9 +75,9 @@ import java.nio.file.Path;
 Path directory = Path.of("downloaded-model");
 BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
 BPETokenizer tokenizer = new BPETokenizer(bpe);
-DeepSeekConfig config = new DeepSeekConfig(
+DeepJPrismConfig config = new DeepJPrismConfig(
         tokenizer.vocabSize(), 128, 128, 4, 4, 384, 64, 32);
-DeepSeekModel model = new DeepSeekModel(config, 42L);
+DeepJPrismModel model = new DeepJPrismModel(config, 42L);
 
 model.load(directory.resolve("model.dj"));
 String text = TextGenerator.generate(
@@ -90,11 +90,11 @@ The model configuration must match the saved checkpoint.
 
 | Model | Main components |
 |---|---|
-| `GPTModel` | Learned positions, causal multi-head attention, LayerNorm, GELU MLP |
-| `LlamaModel` | RoPE attention, RMSNorm, SwiGLU MLP |
-| `DeepSeekModel` | Compact low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
+| `DeepJOriginModel` | Learned positions, causal multi-head attention, LayerNorm, GELU MLP |
+| `DeepJOrbitModel` | RoPE attention, RMSNorm, SwiGLU MLP |
+| `DeepJPrismModel` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 
-These models currently recalculate the full context for every generated token because attention caching is not yet implemented. The DeepSeek-style model is inspired by Multi-Head Latent Attention but is not an exact DeepSeek-V2, V3, or R1 implementation.
+All three models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
 
 ## Train on TinyStories
 
@@ -107,7 +107,7 @@ JAVA_HOME="$DEEPJ_JDK" mvn compile
 "$DEEPJ_JDK/bin/java" \
   -Ddeepj.steps=10000 \
   -cp target/classes \
-  io.github.kirstenali.deepj.examples.TrainDeepSeekTinyStories
+  io.github.kirstenali.deepj.examples.TrainDeepJPrismTinyStories
 ```
 
 Useful overrides include `deepj.batchSize`, `deepj.seqLen`, `deepj.dModel`, `deepj.layers`, `deepj.vocabSize`, `deepj.learningRate`, `deepj.output`, and `deepj.checkpointEvery`.
@@ -120,7 +120,7 @@ Evaluate the saved model on the validation split:
 "$DEEPJ_JDK/bin/java" \
   -Ddeepj.evalCorpus=sample_data/TinyStories-valid.txt \
   -cp target/classes \
-  io.github.kirstenali.deepj.examples.EvaluateDeepSeekTinyStories
+  io.github.kirstenali.deepj.examples.EvaluateDeepJPrismTinyStories
 ```
 
 Export a Hugging Face-ready DeepJ bundle:
@@ -128,7 +128,7 @@ Export a Hugging Face-ready DeepJ bundle:
 ```bash
 "$DEEPJ_JDK/bin/java" \
   -cp target/classes \
-  io.github.kirstenali.deepj.examples.ExportDeepSeekTinyStories
+  io.github.kirstenali.deepj.examples.ExportDeepJPrismTinyStories
 ```
 
 The published demonstration model is [netsrik/deepj-tinystories](https://huggingface.co/netsrik/deepj-tinystories). Its `model.dj` and `tokenizer.bpe` files use DeepJ formats; they are not PyTorch or Transformers checkpoints.

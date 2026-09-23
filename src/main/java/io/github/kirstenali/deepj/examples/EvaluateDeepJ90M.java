@@ -27,13 +27,13 @@ public final class EvaluateDeepJ90M {
     public static void main(String[] args) throws Exception {
         TrainingExampleSupport.configureBackend();
         Settings settings = Settings.fromSystemProperties();
-        var artifacts = DeepSeekTinyStoriesArtifacts.load(settings.base(), settings.checkpoint());
+        var artifacts = DeepJPrismTinyStoriesArtifacts.load(settings.base(), settings.checkpoint());
         evaluate(artifacts, settings);
         generate(artifacts, settings);
         Tensor.backend().releaseResources();
     }
 
-    private static void evaluate(DeepSeekTinyStoriesArtifacts.Loaded artifacts,
+    private static void evaluate(DeepJPrismTinyStoriesArtifacts.Loaded artifacts,
                                  Settings settings) throws Exception {
         var source = new ResponseOnlyTextDataset.Source(settings.validation(), 1);
         var dataset = new ResponseOnlyTextDataset(List.of(source), artifacts.tokenizer(),
@@ -45,7 +45,7 @@ public final class EvaluateDeepJ90M {
                 result.loss(), result.perplexity());
     }
 
-    private static void generate(DeepSeekTinyStoriesArtifacts.Loaded artifacts,
+    private static void generate(DeepJPrismTinyStoriesArtifacts.Loaded artifacts,
                                  Settings settings) {
         for (String prompt : PROMPTS) {
             String formatted = "Instruction:\n" + prompt + "\nResponse:\n";

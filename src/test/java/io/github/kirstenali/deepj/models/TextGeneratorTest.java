@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.models;
 
-import io.github.kirstenali.deepj.models.gpt.GPTConfig;
-import io.github.kirstenali.deepj.models.gpt.GPTModel;
+import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.models.origin.DeepJOriginModel;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
@@ -15,13 +15,13 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TextGeneratorTest {
 
     private Tokenizer tok;
-    private GPTConfig cfg;
-    private GPTModel model;
+    private DeepJOriginConfig cfg;
+    private DeepJOriginModel model;
 
     @BeforeEach
     void setUp() {
         tok = new ByteTokenizer();
-        cfg = new GPTConfig(
+        cfg = new DeepJOriginConfig(
                 ByteTokenizer.VOCAB_SIZE,
                 16,
                 32,
@@ -29,7 +29,7 @@ public class TextGeneratorTest {
                 2,
                 64
         );
-        model = new GPTModel(cfg, 1L);
+        model = new DeepJOriginModel(cfg, 1L);
     }
 
     @Test

@@ -12,7 +12,7 @@ public class TransformerStackTest {
 
     @Test
     void forwardBackward_shapes() {
-        TransformerStack stack = new GPTTransformerBuilder()
+        TransformerStack stack = new DeepJOriginTransformerBuilder()
                 .dModel(8)
                 .nHeads(2)
                 .dFF(16)
