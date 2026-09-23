@@ -229,13 +229,7 @@ final class DeepSeekTrainingRunner {
 
     private static void addTrainingProperties(Properties target, DeepSeekTinyStoriesConfig config) {
         DeepSeekTinyStoriesConfig.Training training = config.training();
-        target.setProperty("steps", Integer.toString(training.steps()));
-        target.setProperty("batchSize", Integer.toString(training.batchSize()));
-        target.setProperty("peakLearningRate", Float.toString(training.peakLearningRate()));
-        target.setProperty("minimumLearningRate", Float.toString(training.minimumLearningRate()));
-        target.setProperty("warmupSteps", Integer.toString(training.warmupSteps()));
-        target.setProperty("checkpointEvery", Integer.toString(training.checkpointEvery()));
-        target.setProperty("releaseEvery", Integer.toString(training.releaseEvery()));
+        TrainingProperties.add(target, training);
         target.setProperty("tokenizerSampleMiB", Integer.toString(config.tokenizer().sampleMiB()));
     }
 

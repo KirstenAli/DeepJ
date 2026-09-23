@@ -26,7 +26,7 @@ record ResponseFineTuningConfig(FilesConfig files, Training training,
 
     record Training(int steps, int batchSize, float peakLearningRate,
                     float minimumLearningRate, int warmupSteps, int logEvery,
-                    int checkpointEvery, int releaseEvery) {
+                    int checkpointEvery, int releaseEvery) implements TrainingProperties.Settings {
 
         Training {
             if (steps < 1 || batchSize < 1 || logEvery < 1) {

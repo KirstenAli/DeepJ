@@ -8,6 +8,10 @@ import io.github.kirstenali.deepj.training.CausalLMEvaluation;
 import java.nio.file.Path;
 import java.util.List;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.decimal;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.integer;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
+
 public final class EvaluateDeepJ90M {
 
     private static final String[] PROMPTS = {
@@ -65,16 +69,5 @@ public final class EvaluateDeepJ90M {
                     Long.getLong("deepj.evalSeed", 1_000_090L));
         }
 
-        private static int integer(String name, int fallback) {
-            return Integer.parseInt(System.getProperty(name, Integer.toString(fallback)));
-        }
-
-        private static float decimal(String name, float fallback) {
-            return Float.parseFloat(System.getProperty(name, Float.toString(fallback)));
-        }
-
-        private static Path path(String name, String fallback) {
-            return Path.of(System.getProperty(name, fallback));
-        }
     }
 }

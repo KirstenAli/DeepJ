@@ -145,13 +145,7 @@ final class ResponseOnlyFineTuner {
 
     private static void addTrainingProperties(Properties target,
                                               ResponseFineTuningConfig.Training training) {
-        target.setProperty("steps", Integer.toString(training.steps()));
-        target.setProperty("batchSize", Integer.toString(training.batchSize()));
-        target.setProperty("peakLearningRate", Float.toString(training.peakLearningRate()));
-        target.setProperty("minimumLearningRate", Float.toString(training.minimumLearningRate()));
-        target.setProperty("warmupSteps", Integer.toString(training.warmupSteps()));
-        target.setProperty("checkpointEvery", Integer.toString(training.checkpointEvery()));
-        target.setProperty("releaseEvery", Integer.toString(training.releaseEvery()));
+        TrainingProperties.add(target, training);
     }
 
     private static void addSourceProperties(Properties target, ResponseFineTuningConfig config) {

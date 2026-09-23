@@ -10,35 +10,22 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public final class ResponseOnlyTextDataset implements StatefulBatchSource {
+public final class ResponseOnlyTextDataset extends ResponseBatchSource {
 
     private static final String END_TOKEN = "<|endoftext|>";
     private static final String RESPONSE_MARKER = "Response:\n";
 
     private final List<Group> groups;
     private final List<Example> examples;
-    private final StatefulRandom random;
     private final long totalWeight;
 
     public ResponseOnlyTextDataset(List<Source> sources, Tokenizer tokenizer,
                                    int maxSequenceLength, long seed) throws IOException {
+        super(seed);
         validateArguments(sources, tokenizer, maxSequenceLength);
         this.groups = loadGroups(sources, tokenizer, maxSequenceLength);
         this.examples = groups.stream().flatMap(group -> group.examples().stream()).toList();
         this.totalWeight = groups.stream().mapToLong(Group::weight).sum();
-        this.random = new StatefulRandom(seed);
-    }
-
-    @Override
-    public synchronized Batch nextBatch(int batchSize) {
-        if (batchSize < 1) throw new IllegalArgumentException("batchSize must be positive");
-        int[][] inputs = new int[batchSize][];
-        int[][] targets = new int[batchSize][];
-        boolean[][] masks = new boolean[batchSize][];
-        for (int row = 0; row < batchSize; row++) {
-            fillRow(sample(), inputs, targets, masks, row);
-        }
-        return new Batch(inputs, targets, masks);
     }
 
     public List<Example> examples() {
@@ -46,17 +33,13 @@ public final class ResponseOnlyTextDataset implements StatefulBatchSource {
     }
 
     @Override
-    public synchronized long randomState() {
-        return random.state();
-    }
-
-    @Override
-    public synchronized void restoreRandomState(long state) {
-        random.restore(state);
+    void sampleRow(int[][] inputs, int[][] targets, boolean[][] masks, int row) {
+        Example example = sample();
+        fill(example.tokens(), example.responseStart(), inputs, targets, masks, row);
     }
 
     private Example sample() {
-        long selected = random.nextLong(totalWeight);
+        long selected = random().nextLong(totalWeight);
         for (Group group : groups) {
             if (selected < group.weight()) return randomExample(group.examples());
             selected -= group.weight();
@@ -65,21 +48,7 @@ public final class ResponseOnlyTextDataset implements StatefulBatchSource {
     }
 
     private Example randomExample(List<Example> choices) {
-        return choices.get((int) random.nextLong(choices.size()));
-    }
-
-    private static void fillRow(Example example, int[][] inputs, int[][] targets,
-                                boolean[][] masks, int row) {
-        int length = example.tokens().length - 1;
-        inputs[row] = Arrays.copyOf(example.tokens(), length);
-        targets[row] = Arrays.copyOfRange(example.tokens(), 1, length + 1);
-        masks[row] = responseMask(length, example.responseStart());
-    }
-
-    private static boolean[] responseMask(int length, int responseStart) {
-        boolean[] mask = new boolean[length];
-        Arrays.fill(mask, responseStart - 1, length, true);
-        return mask;
+        return choices.get((int) random().nextLong(choices.size()));
     }
 
     private static List<Group> loadGroups(List<Source> sources, Tokenizer tokenizer,

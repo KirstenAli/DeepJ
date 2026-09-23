@@ -6,6 +6,11 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import java.nio.file.Path;
 import java.util.List;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.decimal;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.integer;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.optionalPath;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
+
 public final class FineTuneDeepJ90M {
 
     static final int FINE_TUNING_STEPS = 22_500;
@@ -38,20 +43,4 @@ public final class FineTuneDeepJ90M {
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
     }
 
-    private static int integer(String name, int fallback) {
-        return Integer.parseInt(System.getProperty(name, Integer.toString(fallback)));
-    }
-
-    private static float decimal(String name, float fallback) {
-        return Float.parseFloat(System.getProperty(name, Float.toString(fallback)));
-    }
-
-    private static Path path(String name, String fallback) {
-        return Path.of(System.getProperty(name, fallback));
-    }
-
-    private static Path optionalPath(String name) {
-        String value = System.getProperty(name);
-        return value == null || value.isBlank() ? null : Path.of(value);
-    }
 }
