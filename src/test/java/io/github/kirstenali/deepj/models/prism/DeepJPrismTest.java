@@ -12,13 +12,13 @@ import java.nio.file.Path;
 import static io.github.kirstenali.deepj.models.CausalLMTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DeepJPrismModelTest {
+public class DeepJPrismTest {
 
     @TempDir
     Path tempDir;
 
     private DeepJPrismConfig cfg;
-    private DeepJPrismModel model;
+    private DeepJPrism model;
 
     @BeforeEach
     void setUp() {
@@ -32,7 +32,7 @@ public class DeepJPrismModelTest {
                 16,
                 8
         );
-        model = new DeepJPrismModel(cfg, 42L);
+        model = new DeepJPrism(cfg, 42L);
     }
 
     @Test
@@ -65,8 +65,8 @@ public class DeepJPrismModelTest {
     void modelAppliesInitScaleWithoutScalingNormGains() {
         DeepJPrismConfig unscaled = new DeepJPrismConfig(11, 8, 4, 2, 1, 8, 3, 2, 1.0f, 1.0f);
         DeepJPrismConfig scaled = new DeepJPrismConfig(11, 8, 4, 2, 1, 8, 3, 2, 0.2f, 1.0f);
-        DeepJPrismModel baseModel = new DeepJPrismModel(unscaled, 1234L);
-        DeepJPrismModel scaledModel = new DeepJPrismModel(scaled, 1234L);
+        DeepJPrism baseModel = new DeepJPrism(unscaled, 1234L);
+        DeepJPrism scaledModel = new DeepJPrism(scaled, 1234L);
         float ratio = scaledModel.parameters().get(0).value.sumAbs()
                 / baseModel.parameters().get(0).value.sumAbs();
         assertEquals(0.2f, ratio, 1e-6f);
@@ -105,7 +105,7 @@ public class DeepJPrismModelTest {
 
     @Test
     void checkpointRoundTripPreservesLogits() throws IOException {
-        assertCheckpoint(model, new DeepJPrismModel(cfg, 99L), tempDir.resolve("prism.dj"));
+        assertCheckpoint(model, new DeepJPrism(cfg, 99L), tempDir.resolve("prism.dj"));
     }
 
     @Test

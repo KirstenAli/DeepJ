@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.publishing;
 
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginModel;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
@@ -92,7 +92,7 @@ public final class DeepJModelBundle {
 
     private DeepJModelBundle() {}
 
-    public static Path export(Path directory, DeepJOriginModel model, BPEModel tokenizer,
+    public static Path export(Path directory, DeepJOrigin model, BPEModel tokenizer,
                               ModelCard card) throws IOException {
         Objects.requireNonNull(model, "model");
         DeepJOriginConfig config = model.config();
@@ -100,7 +100,7 @@ public final class DeepJModelBundle {
         return writeBundle(directory, model, tokenizer, configJson(config), modelCard(card, config));
     }
 
-    public static Path export(Path directory, DeepJPrismModel model, BPEModel tokenizer,
+    public static Path export(Path directory, DeepJPrism model, BPEModel tokenizer,
                               ModelCard card) throws IOException {
         Objects.requireNonNull(model, "model");
         DeepJPrismConfig config = model.config();
@@ -178,7 +178,7 @@ public final class DeepJModelBundle {
                 BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
                 BPETokenizer tokenizer = new BPETokenizer(bpe);
                 DeepJOriginConfig config = new DeepJOriginConfig(%d, %d, %d, %d, %d, %d, %sf, %sf);
-                DeepJOriginModel model = new DeepJOriginModel(config, 42L);
+                DeepJOrigin model = new DeepJOrigin(config, 42L);
                 model.load(directory.resolve("model.dj"));
                 String text = TextGenerator.generate(model, tokenizer, config,
                         "Once upon a time", 80, 0.8f, 40, 2026L);
@@ -196,7 +196,7 @@ public final class DeepJModelBundle {
                 BPETokenizer tokenizer = new BPETokenizer(bpe);
                 DeepJPrismConfig config = new DeepJPrismConfig(
                         %d, %d, %d, %d, %d, %d, %d, %d, %sf, %sf);
-                DeepJPrismModel model = new DeepJPrismModel(config, 42L);
+                DeepJPrism model = new DeepJPrism(config, 42L);
                 model.load(directory.resolve("model.dj"));
                 String text = TextGenerator.generate(model, tokenizer, config,
                         "Once upon a time", 80, 0.8f, 40, 2026L);

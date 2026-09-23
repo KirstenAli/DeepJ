@@ -4,7 +4,7 @@ import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
 import io.github.kirstenali.deepj.data.SequentialTextDataset;
 import io.github.kirstenali.deepj.data.StatefulTrainingDataset;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.persistence.TrainingCheckpoint;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
@@ -51,7 +51,7 @@ final class DeepJPrismTrainingRunner {
         Files.createDirectories(output);
         BPETokenizer tokenizer = prepareTokenizer(runConfig);
         DeepJPrismConfig modelConfig = runConfig.modelConfig(tokenizer.vocabSize());
-        DeepJPrismModel model = new DeepJPrismModel(modelConfig, runConfig.seed());
+        DeepJPrism model = new DeepJPrism(modelConfig, runConfig.seed());
         ensureCheckpointSpace(output, model);
         writeConfiguration(output, runConfig, tokenizer.model(), sequential);
         try (StatefulTrainingDataset dataset = dataset(runConfig, tokenizer, sequential)) {
@@ -99,7 +99,7 @@ final class DeepJPrismTrainingRunner {
         }
     }
 
-    private static TrainingResult train(DeepJPrismModel model, StatefulTrainingDataset dataset,
+    private static TrainingResult train(DeepJPrism model, StatefulTrainingDataset dataset,
                                         DeepJPrismTinyStoriesConfig config) throws IOException {
         DeepJPrismTinyStoriesConfig.Training options = config.training();
         printBatchConfiguration(config);
@@ -129,7 +129,7 @@ final class DeepJPrismTrainingRunner {
                 options.warmupSteps(), options.steps());
     }
 
-    private static Trainer.StepHook checkpointHook(DeepJPrismModel model, AdamW optimizer,
+    private static Trainer.StepHook checkpointHook(DeepJPrism model, AdamW optimizer,
                                                     StatefulTrainingDataset dataset,
                                                     CosineLearningRateSchedule schedule,
                                                     DeepJPrismTinyStoriesConfig config) {
@@ -144,7 +144,7 @@ final class DeepJPrismTrainingRunner {
         };
     }
 
-    private static void saveCheckpoint(DeepJPrismModel model, AdamW optimizer,
+    private static void saveCheckpoint(DeepJPrism model, AdamW optimizer,
                                        StatefulTrainingDataset dataset,
                                        CosineLearningRateSchedule schedule,
                                        DeepJPrismTinyStoriesConfig config,
@@ -156,7 +156,7 @@ final class DeepJPrismTrainingRunner {
     }
 
     private static TrainingProgress loadCheckpointIfRequested(
-            DeepJPrismModel model, AdamW optimizer, StatefulTrainingDataset dataset,
+            DeepJPrism model, AdamW optimizer, StatefulTrainingDataset dataset,
             CosineLearningRateSchedule schedule, Path checkpoint) throws IOException {
         if (checkpoint == null) return TrainingProgress.initial();
         if (TrainingCheckpoint.matches(checkpoint)) {
@@ -168,7 +168,7 @@ final class DeepJPrismTrainingRunner {
         return loadLegacyCheckpoint(model, optimizer, schedule, checkpoint);
     }
 
-    private static TrainingProgress loadLegacyCheckpoint(DeepJPrismModel model, AdamW optimizer,
+    private static TrainingProgress loadLegacyCheckpoint(DeepJPrism model, AdamW optimizer,
                                                          CosineLearningRateSchedule schedule,
                                                          Path checkpoint) throws IOException {
         model.load(checkpoint);
@@ -185,7 +185,7 @@ final class DeepJPrismTrainingRunner {
         }
     }
 
-    private static void ensureCheckpointSpace(Path output, DeepJPrismModel model) throws IOException {
+    private static void ensureCheckpointSpace(Path output, DeepJPrism model) throws IOException {
         long checkpointBytes = model.parameters().stream()
                 .mapToLong(parameter -> (long) parameter.value.data.length * Float.BYTES + 8L).sum();
         long required = checkpointBytes * 7L + 16L * 1024L * 1024L;

@@ -8,11 +8,11 @@ import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 
 import java.util.Random;
 
-public final class DeepJPrismModel extends DecoderOnlyModel {
+public final class DeepJPrism extends DecoderOnlyModel {
 
     private final DeepJPrismConfig cfg;
 
-    public DeepJPrismModel(DeepJPrismConfig cfg, long seed) {
+    public DeepJPrism(DeepJPrismConfig cfg, long seed) {
         super(
                 new Embedding(cfg.vocabSize(), cfg.dModel(), new Random(seed)),
                 new DeepJPrismTransformerBuilder()

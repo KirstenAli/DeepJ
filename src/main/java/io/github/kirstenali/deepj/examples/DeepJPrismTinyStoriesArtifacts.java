@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 
@@ -19,7 +19,7 @@ final class DeepJPrismTinyStoriesArtifacts {
         Properties properties = properties(output.resolve("training.properties"));
         BPETokenizer tokenizer = tokenizer(output.resolve("tokenizer.bpe"));
         DeepJPrismConfig config = config(properties, tokenizer.vocabSize());
-        DeepJPrismModel model = new DeepJPrismModel(config, longValue(properties, "seed"));
+        DeepJPrism model = new DeepJPrism(config, longValue(properties, "seed"));
         model.load(checkpoint);
         return new Loaded(properties, tokenizer, config, model);
     }
@@ -61,5 +61,5 @@ final class DeepJPrismTinyStoriesArtifacts {
     }
 
     record Loaded(Properties properties, BPETokenizer tokenizer,
-                  DeepJPrismConfig config, DeepJPrismModel model) {}
+                  DeepJPrismConfig config, DeepJPrism model) {}
 }

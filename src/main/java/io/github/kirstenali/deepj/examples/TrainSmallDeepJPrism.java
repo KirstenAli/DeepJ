@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
@@ -17,9 +17,9 @@ public final class TrainSmallDeepJPrism {
         int dModel = 512;
         DeepJPrismConfig cfg = new DeepJPrismConfig(tok.vocabSize(), 256, dModel, 4, 5,
                 1024, dModel / 2, dModel / 4);
-        DeepJPrismModel model = new DeepJPrismModel(cfg, 42);
+        DeepJPrism model = new DeepJPrism(cfg, 42);
         Path finalModelPath = TrainingExampleSupport.trainAndSave(model, model, ds, "small-deepj-prism");
-        DeepJPrismModel loadedModel = new DeepJPrismModel(cfg, 42);
+        DeepJPrism loadedModel = new DeepJPrism(cfg, 42);
         loadedModel.load(finalModelPath);
         TrainingExampleSupport.generate(loadedModel, tok, cfg, "Bob Marley was ");
     }

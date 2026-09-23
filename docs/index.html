@@ -130,7 +130,7 @@
 <span class="code-keyword">DeepJPrismConfig</span> config = <span class="code-keyword">new</span> DeepJPrismConfig(
         tokenizer.vocabSize(), <span class="code-number">128</span>, <span class="code-number">64</span>, <span class="code-number">4</span>, <span class="code-number">2</span>, <span class="code-number">256</span>, <span class="code-number">32</span>, <span class="code-number">16</span>);
 
-<span class="code-keyword">DeepJPrismModel</span> model = <span class="code-keyword">new</span> DeepJPrismModel(config, <span class="code-number">42L</span>);
+<span class="code-keyword">DeepJPrism</span> model = <span class="code-keyword">new</span> DeepJPrism(config, <span class="code-number">42L</span>);
 model.load(Path.of(<span class="code-string">"model.dj"</span>));
 
 <span class="code-keyword">String</span> text = TextGenerator.generate(

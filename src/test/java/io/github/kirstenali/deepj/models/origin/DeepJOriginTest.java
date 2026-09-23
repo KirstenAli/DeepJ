@@ -11,7 +11,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DeepJOriginModelTest {
+public class DeepJOriginTest {
 
     @TempDir
     Path temporaryDirectory;
@@ -28,8 +28,8 @@ public class DeepJOriginModelTest {
         DeepJOriginConfig base = new DeepJOriginConfig(11, 8, 4, 2, 1, 8, 1.0f, 1.0f);
         DeepJOriginConfig scaled = new DeepJOriginConfig(11, 8, 4, 2, 1, 8, 0.2f, 1.0f);
 
-        DeepJOriginModel mBase = new DeepJOriginModel(base, 1234L);
-        DeepJOriginModel mScaled = new DeepJOriginModel(scaled, 1234L);
+        DeepJOrigin mBase = new DeepJOrigin(base, 1234L);
+        DeepJOrigin mScaled = new DeepJOrigin(scaled, 1234L);
 
         double baseAbs = mBase.parameters().get(0).value.sumAbs();
         double scaledAbs = mScaled.parameters().get(0).value.sumAbs();
@@ -42,16 +42,16 @@ public class DeepJOriginModelTest {
 
     @Test
     void modelUsesIndependentInitializationStreams() {
-        DeepJOriginModel model = new DeepJOriginModel(new DeepJOriginConfig(11, 8, 4, 2, 1, 8), 1234L);
+        DeepJOrigin model = new DeepJOrigin(new DeepJOriginConfig(11, 8, 4, 2, 1, 8), 1234L);
         float embeddingFirst = model.parameters().get(0).value.data[0];
         float attentionFirst = model.parameters().get(6).value.data[0];
         assertNotEquals(embeddingFirst, attentionFirst);
     }
 
-    private static void assertLayerNormGainsRemainOne(DeepJOriginModel model) {
+    private static void assertLayerNormGainsRemainOne(DeepJOrigin model) {
         long unitParameters = model.parameters().stream()
                 .map(parameter -> parameter.value)
-                .filter(DeepJOriginModelTest::isAllOnes)
+                .filter(DeepJOriginTest::isAllOnes)
                 .count();
         assertTrue(unitParameters > 0, "LayerNorm gains must not be scaled");
     }
@@ -104,7 +104,7 @@ public class DeepJOriginModelTest {
                 8
         );
 
-        DeepJOriginModel model = new DeepJOriginModel(cfg, 1234L);
+        DeepJOrigin model = new DeepJOrigin(cfg, 1234L);
 
         int[] ids = new int[]{1, 2, 3, 4};
         Tensor logits = model.forward(ids);
@@ -115,7 +115,7 @@ public class DeepJOriginModelTest {
     @Test
     void parameters_countMatchesExpected_forSmallConfig() {
         DeepJOriginConfig cfg = new DeepJOriginConfig(10, 8, 4, 2, 1, 8);
-        DeepJOriginModel model = new DeepJOriginModel(cfg, 1L);
+        DeepJOrigin model = new DeepJOrigin(cfg, 1L);
 
         int expected = 1 + 1 + 12 * cfg.nLayers() + 2 + 2;
         assertEquals(expected, model.parameters().size());
@@ -124,7 +124,7 @@ public class DeepJOriginModelTest {
     @Test
     void backward_setsNonZeroGrads_forTokenEmbeddingRowsUsed() {
         DeepJOriginConfig cfg = new DeepJOriginConfig(13, 8, 4, 2, 1, 8);
-        DeepJOriginModel model = new DeepJOriginModel(cfg, 99L);
+        DeepJOrigin model = new DeepJOrigin(cfg, 99L);
 
         int[] ids = new int[]{5, 1, 5, 2};
         Tensor logits = model.forward(ids);
@@ -152,12 +152,12 @@ public class DeepJOriginModelTest {
     @Test
     void checkpointRoundTripPreservesLogits() throws IOException {
         DeepJOriginConfig config = new DeepJOriginConfig(11, 8, 4, 2, 1, 8);
-        DeepJOriginModel original = new DeepJOriginModel(config, 1L);
+        DeepJOrigin original = new DeepJOrigin(config, 1L);
         int[] ids = {1, 2, 3};
         float[] expected = materializedData(original.forward(ids));
         Path checkpoint = temporaryDirectory.resolve("origin.dj");
         original.save(checkpoint);
-        DeepJOriginModel restored = new DeepJOriginModel(config, 2L);
+        DeepJOrigin restored = new DeepJOrigin(config, 2L);
         restored.load(checkpoint);
         assertArrayEquals(expected, materializedData(restored.forward(ids)));
     }

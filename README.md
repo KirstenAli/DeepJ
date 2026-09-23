@@ -65,7 +65,7 @@ Load a DeepJ Prism checkpoint with its BPE tokenizer:
 ```java
 import io.github.kirstenali.deepj.models.TextGenerator;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
@@ -77,7 +77,7 @@ BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
 BPETokenizer tokenizer = new BPETokenizer(bpe);
 DeepJPrismConfig config = new DeepJPrismConfig(
         tokenizer.vocabSize(), 128, 128, 4, 4, 384, 64, 32);
-DeepJPrismModel model = new DeepJPrismModel(config, 42L);
+DeepJPrism model = new DeepJPrism(config, 42L);
 
 model.load(directory.resolve("model.dj"));
 String text = TextGenerator.generate(
@@ -90,9 +90,9 @@ The model configuration must match the saved checkpoint.
 
 | Model | Main components |
 |---|---|
-| `DeepJOriginModel` | Learned positions, causal multi-head attention, LayerNorm, GELU MLP |
-| `DeepJOrbitModel` | RoPE attention, RMSNorm, SwiGLU MLP |
-| `DeepJPrismModel` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
+| `DeepJOrigin` | Learned positions, causal multi-head attention, LayerNorm, GELU MLP |
+| `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
+| `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 
 All three models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
 

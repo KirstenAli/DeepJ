@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginModel;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.TextGenerator;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
@@ -14,7 +14,7 @@ public final class DeepJOriginChatService implements ChatService {
     private final Tokenizer tokenizer;
     private final DeepJOriginConfig config;
 
-    private DeepJOriginModel loadedModel;
+    private DeepJOrigin loadedModel;
     private Path loadedModelPath;
 
     public DeepJOriginChatService() {
@@ -31,7 +31,7 @@ public final class DeepJOriginChatService implements ChatService {
 
     @Override
     public void loadModel(Path modelPath) throws IOException {
-        DeepJOriginModel model = new DeepJOriginModel(config, 42);
+        DeepJOrigin model = new DeepJOrigin(config, 42);
         model.load(modelPath);
 
         this.loadedModel = model;

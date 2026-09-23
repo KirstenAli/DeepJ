@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,7 +11,7 @@ class TrainDeepJPrismKnowledgeTest {
     void defaultArchitectureHasExpectedParameterCount() {
         var config = TrainDeepJPrismKnowledge.configuration().modelConfig(
                 TrainDeepJPrismKnowledge.VOCAB_SIZE);
-        var model = new DeepJPrismModel(config, 42L);
+        var model = new DeepJPrism(config, 42L);
 
         long parameters = model.parameters().stream()
                 .mapToLong(parameter -> parameter.value.data.length)

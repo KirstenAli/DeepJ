@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.models.orbit;
+package io.github.kirstenali.deepj.models.prism;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -9,7 +9,7 @@ import java.util.Random;
 
 import static io.github.kirstenali.deepj.testing.NumericalGradientAssertions.assertParameterGradients;
 
-class DeepJOrbitModelNumericalGradientTest {
+class DeepJPrismNumericalGradientTest {
 
     @BeforeEach
     void useCpuBackend() {
@@ -18,7 +18,8 @@ class DeepJOrbitModelNumericalGradientTest {
 
     @Test
     void fullModelParameterGradientsMatchFiniteDifferences() {
-        DeepJOrbitModel model = new DeepJOrbitModel(new DeepJOrbitConfig(7, 3, 4, 2, 1, 6), 42L);
+        DeepJPrismConfig config = new DeepJPrismConfig(7, 3, 4, 2, 1, 6, 3, 2);
+        DeepJPrism model = new DeepJPrism(config, 42L);
         int[] inputIds = {1, 3, 5};
         Tensor upstream = Tensor.random(3, 7, new Random(99L));
         model.zeroGrad();

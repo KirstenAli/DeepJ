@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.models;
 
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginModel;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
@@ -16,7 +16,7 @@ public class TextGeneratorTest {
 
     private Tokenizer tok;
     private DeepJOriginConfig cfg;
-    private DeepJOriginModel model;
+    private DeepJOrigin model;
 
     @BeforeEach
     void setUp() {
@@ -29,7 +29,7 @@ public class TextGeneratorTest {
                 2,
                 64
         );
-        model = new DeepJOriginModel(cfg, 1L);
+        model = new DeepJOrigin(cfg, 1L);
     }
 
     @Test

@@ -8,11 +8,11 @@ import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 
 import java.util.Random;
 
-public final class DeepJOrbitModel extends DecoderOnlyModel {
+public final class DeepJOrbit extends DecoderOnlyModel {
 
     private final DeepJOrbitConfig cfg;
 
-    public DeepJOrbitModel(DeepJOrbitConfig cfg, long seed) {
+    public DeepJOrbit(DeepJOrbitConfig cfg, long seed) {
         super(
                 new Embedding(cfg.vocabSize(), cfg.dModel(), new Random(seed)),
                 new DeepJOrbitTransformerBuilder()

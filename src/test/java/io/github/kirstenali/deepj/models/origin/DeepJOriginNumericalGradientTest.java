@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.models.prism;
+package io.github.kirstenali.deepj.models.origin;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -9,7 +9,7 @@ import java.util.Random;
 
 import static io.github.kirstenali.deepj.testing.NumericalGradientAssertions.assertParameterGradients;
 
-class DeepJPrismModelNumericalGradientTest {
+class DeepJOriginNumericalGradientTest {
 
     @BeforeEach
     void useCpuBackend() {
@@ -18,14 +18,13 @@ class DeepJPrismModelNumericalGradientTest {
 
     @Test
     void fullModelParameterGradientsMatchFiniteDifferences() {
-        DeepJPrismConfig config = new DeepJPrismConfig(7, 3, 4, 2, 1, 6, 3, 2);
-        DeepJPrismModel model = new DeepJPrismModel(config, 42L);
+        DeepJOrigin model = new DeepJOrigin(new DeepJOriginConfig(7, 3, 4, 2, 1, 6), 42L);
         int[] inputIds = {1, 3, 5};
         Tensor upstream = Tensor.random(3, 7, new Random(99L));
         model.zeroGrad();
         model.forward(inputIds);
         model.backward(upstream);
         assertParameterGradients(model.parameters(), () -> model.forward(inputIds), upstream,
-                1e-3f, 4e-3f, 7e-2f);
+                1e-3f, 3e-3f, 5e-2f);
     }
 }

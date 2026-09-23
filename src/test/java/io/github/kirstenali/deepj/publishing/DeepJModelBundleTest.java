@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.publishing;
 
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginModel;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETrainer;
@@ -29,12 +29,12 @@ class DeepJModelBundleTest {
         BPEModel tokenizer = tokenizer();
         DeepJOriginConfig config = config(tokenizer.vocabSize());
         Path bundle = DeepJModelBundle.export(temporaryDirectory.resolve("bundle"),
-                new DeepJOriginModel(config, 42L), tokenizer, card());
+                new DeepJOrigin(config, 42L), tokenizer, card());
 
         assertTrue(Files.isRegularFile(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
         BPEModel restoredTokenizer = BPEModelIO.load(bundle.resolve(DeepJModelBundle.TOKENIZER_FILE));
         assertEquals(tokenizer.vocabSize(), restoredTokenizer.vocabSize());
-        assertDoesNotThrow(() -> new DeepJOriginModel(config, 1L).load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
+        assertDoesNotThrow(() -> new DeepJOrigin(config, 1L).load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
         assertTrue(Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE)).contains("\"deepj-origin\""));
         assertTrue(Files.readString(bundle.resolve(DeepJModelBundle.MODEL_CARD_FILE)).contains("library_name: deepj"));
     }
@@ -44,20 +44,20 @@ class DeepJModelBundleTest {
         BPEModel tokenizer = tokenizer();
         DeepJOriginConfig wrongConfig = config(tokenizer.vocabSize() + 1);
         assertThrows(IllegalArgumentException.class, () -> DeepJModelBundle.export(
-                temporaryDirectory, new DeepJOriginModel(wrongConfig, 42L), tokenizer, card()));
+                temporaryDirectory, new DeepJOrigin(wrongConfig, 42L), tokenizer, card()));
     }
 
     @Test
-    void exportSupportsDeepJPrismModels() throws Exception {
+    void exportSupportsDeepJPrism() throws Exception {
         BPEModel tokenizer = tokenizer();
         DeepJPrismConfig config = new DeepJPrismConfig(tokenizer.vocabSize(), 16, 8, 2, 1, 16, 4, 2);
         Path bundle = DeepJModelBundle.export(temporaryDirectory.resolve("prism-bundle"),
-                new DeepJPrismModel(config, 42L), tokenizer, card());
+                new DeepJPrism(config, 42L), tokenizer, card());
         String json = Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE));
         String modelCard = Files.readString(bundle.resolve(DeepJModelBundle.MODEL_CARD_FILE));
         assertDeepJPrismConfig(json);
-        assertDeepJPrismModelCard(modelCard);
-        assertDoesNotThrow(() -> new DeepJPrismModel(config, 1L)
+        assertDeepJPrismCard(modelCard);
+        assertDoesNotThrow(() -> new DeepJPrism(config, 1L)
                 .load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
     }
 
@@ -66,7 +66,7 @@ class DeepJModelBundleTest {
         assertTrue(json.contains("\"q_rank\": 4"));
     }
 
-    private static void assertDeepJPrismModelCard(String modelCard) {
+    private static void assertDeepJPrismCard(String modelCard) {
         assertTrue(modelCard.contains("created with [DeepJ](https://github.com/KirstenAli/DeepJ)"));
         assertTrue(modelCard.contains("DeepJ Prism Transformer architecture"));
         assertTrue(modelCard.contains("a hidden size of 8"));

@@ -13,12 +13,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public final class DeepJOriginModel extends DecoderOnlyModel {
+public final class DeepJOrigin extends DecoderOnlyModel {
 
     private final DeepJOriginConfig cfg;
     private final PositionalEmbedding posEmb;
 
-    public DeepJOriginModel(DeepJOriginConfig cfg, long seed) {
+    public DeepJOrigin(DeepJOriginConfig cfg, long seed) {
         super(
                 new Embedding(cfg.vocabSize(), cfg.dModel(), new Random(seed)),
                 new DeepJOriginTransformerBuilder()

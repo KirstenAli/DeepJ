@@ -12,13 +12,13 @@ import java.nio.file.Path;
 import static io.github.kirstenali.deepj.models.CausalLMTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DeepJOrbitModelTest {
+public class DeepJOrbitTest {
 
     @TempDir
     Path temporaryDirectory;
 
     private DeepJOrbitConfig cfg;
-    private DeepJOrbitModel model;
+    private DeepJOrbit model;
 
     @BeforeEach
     void setUp() {
@@ -30,7 +30,7 @@ public class DeepJOrbitModelTest {
                 2,
                 DeepJOrbitConfig.defaultDFF(32)
         );
-        model = new DeepJOrbitModel(cfg, 42L);
+        model = new DeepJOrbit(cfg, 42L);
     }
 
     @Test
@@ -52,8 +52,8 @@ public class DeepJOrbitModelTest {
     void modelAppliesInitScaleAndUsesIndependentStreams() {
         DeepJOrbitConfig base = new DeepJOrbitConfig(11, 8, 4, 2, 1, 8, 1.0f, 1.0f);
         DeepJOrbitConfig scaled = new DeepJOrbitConfig(11, 8, 4, 2, 1, 8, 0.2f, 1.0f);
-        DeepJOrbitModel baseModel = new DeepJOrbitModel(base, 1234L);
-        DeepJOrbitModel scaledModel = new DeepJOrbitModel(scaled, 1234L);
+        DeepJOrbit baseModel = new DeepJOrbit(base, 1234L);
+        DeepJOrbit scaledModel = new DeepJOrbit(scaled, 1234L);
         float ratio = scaledModel.parameters().get(0).value.sumAbs()
                 / baseModel.parameters().get(0).value.sumAbs();
         assertEquals(0.2f, ratio, 1e-6f);
@@ -119,7 +119,7 @@ public class DeepJOrbitModelTest {
 
     @Test
     void checkpointRoundTripPreservesLogits() throws IOException {
-        assertCheckpoint(model, new DeepJOrbitModel(cfg, 99L), temporaryDirectory.resolve("orbit.dj"));
+        assertCheckpoint(model, new DeepJOrbit(cfg, 99L), temporaryDirectory.resolve("orbit.dj"));
     }
 
     @Test

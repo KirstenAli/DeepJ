@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.publishing.DeepJModelBundle;
 import io.github.kirstenali.deepj.publishing.ModelCard;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
@@ -47,7 +47,7 @@ public final class ExportDeepJPrismTinyStories {
             throw new IllegalStateException("Exported tokenizer vocabulary does not match the model");
         }
         long seed = DeepJPrismTinyStoriesArtifacts.longValue(artifacts.properties(), "seed");
-        DeepJPrismModel reloaded = new DeepJPrismModel(artifacts.config(), seed);
+        DeepJPrism reloaded = new DeepJPrism(artifacts.config(), seed);
         reloaded.load(bundle.resolve(DeepJModelBundle.MODEL_FILE));
     }
 

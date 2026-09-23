@@ -9,7 +9,7 @@ class DeepJPrismParameterCountTest {
     @Test
     void matchesAllocatedParametersForSmallModel() {
         var config = new DeepJPrismConfig(300, 8, 8, 2, 2, 16, 4, 2);
-        var model = new DeepJPrismModel(config, 42L);
+        var model = new DeepJPrism(config, 42L);
         long allocated = model.parameters().stream()
                 .mapToLong(parameter -> parameter.value.data.length).sum();
 

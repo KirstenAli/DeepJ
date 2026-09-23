@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.models;
 
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginModel;
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbitModel;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismModel;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
@@ -16,21 +16,21 @@ public final class TextGenerator {
     private TextGenerator() {}
 
     public static String generate(
-            DeepJOriginModel model, Tokenizer tok, DeepJOriginConfig cfg,
+            DeepJOrigin model, Tokenizer tok, DeepJOriginConfig cfg,
             String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
     }
 
     public static String generate(
-            DeepJOrbitModel model, Tokenizer tok, TransformerConfig cfg,
+            DeepJOrbit model, Tokenizer tok, TransformerConfig cfg,
             String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
     }
 
     public static String generate(
-            DeepJPrismModel model, Tokenizer tok, TransformerConfig cfg,
+            DeepJPrism model, Tokenizer tok, TransformerConfig cfg,
             String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
