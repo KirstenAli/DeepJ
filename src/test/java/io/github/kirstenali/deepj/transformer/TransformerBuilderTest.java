@@ -11,17 +11,17 @@ public class TransformerBuilderTest {
 
     @Test
     void builder_requiresAllHyperparams() {
-        Assertions.assertThrows(IllegalArgumentException.class, new GPTTransformerBuilder()::build);
+        Assertions.assertThrows(IllegalArgumentException.class, new DeepJOriginTransformerBuilder()::build);
 
-        TransformerStack s = new GPTTransformerBuilder()
+        TransformerStack s = new DeepJOriginTransformerBuilder()
                 .dModel(8).nHeads(2).dFF(16).nLayers(1).seed(1L)
                 .build();
         Assertions.assertNotNull(s);
     }
 
     @Test
-    void llamaBuilder_forwardBackward_shapes() {
-        TransformerStack stack = new LlamaTransformerBuilder()
+    void orbitBuilderForwardBackwardShapes() {
+        TransformerStack stack = new DeepJOrbitTransformerBuilder()
                 .dModel(8).nHeads(2).dFF(16).nLayers(2)
                 .maxSeqLen(16)
                 .seed(1L)
@@ -34,16 +34,16 @@ public class TransformerBuilderTest {
     }
 
     @Test
-    void llamaBuilder_requiresMaxSeqLen() {
+    void orbitBuilderRequiresMaxSeqLen() {
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> new LlamaTransformerBuilder()
+                () -> new DeepJOrbitTransformerBuilder()
                         .dModel(8).nHeads(2).dFF(16).nLayers(1)
                         .build());
     }
 
     @Test
-    void deepSeekBuilder_forwardBackward_shapes() {
-        TransformerStack stack = new DeepSeekTransformerBuilder()
+    void prismBuilderForwardBackwardShapes() {
+        TransformerStack stack = new DeepJPrismTransformerBuilder()
                 .dModel(8).nHeads(2).dFF(16).nLayers(2)
                 .maxSeqLen(16).qRank(4).kvRank(2)
                 .seed(1L)
@@ -56,9 +56,9 @@ public class TransformerBuilderTest {
     }
 
     @Test
-    void deepSeekBuilder_requiresRanks() {
+    void prismBuilderRequiresRanks() {
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> new DeepSeekTransformerBuilder()
+                () -> new DeepJPrismTransformerBuilder()
                         .dModel(8).nHeads(2).dFF(16).nLayers(1)
                         .maxSeqLen(16)
                         .build());

@@ -43,7 +43,7 @@ public final class GenerateFactDataset {
 
     public static void main(String[] args) throws IOException {
         Path output = Path.of(System.getProperty(
-                "deepj.factsOutput", "checkpoints/knowledge-deepseek/facts.txt"));
+                "deepj.factsOutput", "checkpoints/knowledge-prism/facts.txt"));
         int maximum = Integer.getInteger("deepj.factMaximum", 100);
         GenerationResult result = generate(output, maximum);
         System.out.printf("Generated %,d checked fact records in %s%n", result.total(), output);

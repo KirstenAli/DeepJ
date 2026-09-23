@@ -20,7 +20,7 @@ record KnowledgeFineTuningConfig(FilesConfig files, Training training,
     }
 
     static KnowledgeFineTuningConfig fromSystemProperties() {
-        Path base = path("deepj.base", "checkpoints/knowledge-deepseek");
+        Path base = path("deepj.base", "checkpoints/knowledge-prism");
         return new KnowledgeFineTuningConfig(FilesConfig.fromSystemProperties(base),
                 Training.fromSystemProperties(), integer("deepj.alpacaWeight", 1),
                 integer("deepj.factWeight", 1), Long.getLong("deepj.seed", 43L));

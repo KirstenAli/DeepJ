@@ -91,7 +91,7 @@ public class ChatController {
         prepareGeneration(prompt);
         Task<String> task = generationTask(prompt, settings);
         configureTaskHandlers(task);
-        startBackgroundTask(task, "gpt-generate-thread");
+        startBackgroundTask(task, "origin-generate-thread");
     }
 
     private GenerationSettings readSettings() {

@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekParameterCount;
+import io.github.kirstenali.deepj.models.prism.DeepJPrismParameterCount;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -12,7 +12,7 @@ class TrainDeepJ90MTest {
     @Test
     void defaultArchitectureHasExpectedParameterCount() {
         var config = TrainDeepJ90M.configuration();
-        long count = DeepSeekParameterCount.count(config.modelConfig(TrainDeepJ90M.VOCAB_SIZE));
+        long count = DeepJPrismParameterCount.count(config.modelConfig(TrainDeepJ90M.VOCAB_SIZE));
 
         assertEquals(90_128_896L, count);
         assertEquals(1_024, config.architecture().sequenceLength());

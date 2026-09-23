@@ -2,12 +2,12 @@ package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.models.CausalLM;
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
-import io.github.kirstenali.deepj.models.gpt.GPTConfig;
-import io.github.kirstenali.deepj.models.gpt.GPTModel;
-import io.github.kirstenali.deepj.models.llama.LlamaConfig;
-import io.github.kirstenali.deepj.models.llama.LlamaModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
+import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.optimisers.ParameterOptimizer;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -36,9 +36,9 @@ public class CausalLMTrainingTest {
     static Stream<CausalLM> allModels() {
         int vocab = ByteTokenizer.VOCAB_SIZE;
         return Stream.of(
-                new GPTModel(new GPTConfig(vocab, 8, 32, 4, 1, 64), 1L),
-                new LlamaModel(new LlamaConfig(vocab, 8, 32, 4, 1, LlamaConfig.defaultDFF(32)), 1L),
-                new DeepSeekModel(new DeepSeekConfig(vocab, 8, 32, 4, 1, 64, 16, 8), 1L)
+                new DeepJOrigin(new DeepJOriginConfig(vocab, 8, 32, 4, 1, 64), 1L),
+                new DeepJOrbit(new DeepJOrbitConfig(vocab, 8, 32, 4, 1, DeepJOrbitConfig.defaultDFF(32)), 1L),
+                new DeepJPrism(new DeepJPrismConfig(vocab, 8, 32, 4, 1, 64, 16, 8), 1L)
         );
     }
 
@@ -82,8 +82,8 @@ public class CausalLMTrainingTest {
 
         TextDataset ds = TextDataset.fromFile(tmp, tok, 8, 1L);
 
-        GPTConfig cfg = new GPTConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64);
-        GPTModel model = new GPTModel(cfg, 2L);
+        DeepJOriginConfig cfg = new DeepJOriginConfig(ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64);
+        DeepJOrigin model = new DeepJOrigin(cfg, 2L);
 
         Trainer trainer = CausalLMTraining.trainer(model, ds, 1e-2f);
 
@@ -115,9 +115,9 @@ public class CausalLMTrainingTest {
 
     private static double parameterDelta(Path corpus, float clipNorm) throws IOException {
         TextDataset dataset = TextDataset.fromFile(corpus, new ByteTokenizer(), 8, 7L);
-        GPTConfig config = new GPTConfig(
+        DeepJOriginConfig config = new DeepJOriginConfig(
                 ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 1.0f, clipNorm);
-        GPTModel model = new GPTModel(config, 2L);
+        DeepJOrigin model = new DeepJOrigin(config, 2L);
         Parameter parameter = model.parameters().get(0);
         Tensor before = parameter.value.multiplyScalar(1.0f);
         CausalLMTraining.trainer(model, dataset, 1e-2f).trainStep(2);
@@ -134,10 +134,10 @@ public class CausalLMTrainingTest {
         return new TrainingObservation(losses, optimizer.gradients);
     }
 
-    private static GPTModel averagingModel() {
-        GPTConfig config = new GPTConfig(
+    private static DeepJOrigin averagingModel() {
+        DeepJOriginConfig config = new DeepJOriginConfig(
                 ByteTokenizer.VOCAB_SIZE, 8, 32, 4, 1, 64, 0.2f, Float.MAX_VALUE);
-        return new GPTModel(config, 3L);
+        return new DeepJOrigin(config, 3L);
     }
 
     private static TextDataset averagingDataset() throws IOException {

@@ -3,12 +3,12 @@ package io.github.kirstenali.deepj.tensor.metal;
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
-import io.github.kirstenali.deepj.models.gpt.GPTConfig;
-import io.github.kirstenali.deepj.models.gpt.GPTModel;
-import io.github.kirstenali.deepj.models.llama.LlamaConfig;
-import io.github.kirstenali.deepj.models.llama.LlamaModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
+import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
 import io.github.kirstenali.deepj.tensor.RmsNormResult;
@@ -34,25 +34,25 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
     @Test
-    void gptForwardBackwardAndParameterGradientsMatchCpu() {
-        compareModel(() -> new GPTModel(new GPTConfig(11, 4, 4, 2, 1, 6), 21L));
+    void originForwardBackwardAndParameterGradientsMatchCpu() {
+        compareModel(() -> new DeepJOrigin(new DeepJOriginConfig(11, 4, 4, 2, 1, 6), 21L));
     }
 
     @Test
-    void llamaForwardBackwardAndParameterGradientsMatchCpu() {
-        compareModel(() -> new LlamaModel(new LlamaConfig(11, 4, 4, 2, 1, 8), 22L));
+    void orbitForwardBackwardAndParameterGradientsMatchCpu() {
+        compareModel(() -> new DeepJOrbit(new DeepJOrbitConfig(11, 4, 4, 2, 1, 8), 22L));
     }
 
     @Test
-    void deepSeekForwardBackwardAndParameterGradientsMatchCpu() {
-        compareModel(() -> new DeepSeekModel(new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2), 23L));
+    void prismForwardBackwardAndParameterGradientsMatchCpu() {
+        compareModel(() -> new DeepJPrism(new DeepJPrismConfig(11, 4, 4, 2, 1, 8, 3, 2), 23L));
     }
 
     @Test
-    void deepSeekForwardBackwardDoesNotDownloadIntermediateTensors() {
+    void prismForwardBackwardDoesNotDownloadIntermediateTensors() {
         AtomicInteger downloads = new AtomicInteger();
-        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
-        DecoderOnlyModel model = new DeepSeekModel(config, 25L);
+        var config = new DeepJPrismConfig(11, 4, 4, 2, 1, 8, 3, 2);
+        DecoderOnlyModel model = new DeepJPrism(config, 25L);
         Tensor.setBackend(countingBackend(downloads));
         model.backward(model.forward(new int[]{1, 3, 5}).multiplyScalar(0.25f));
         assertEquals(0, downloads.get());
@@ -71,7 +71,7 @@ class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
     }
 
     @Test
-    void temporaryReleaseDoesNotChangeRepeatedDeepSeekTraining() {
+    void temporaryReleaseDoesNotChangeRepeatedPrismTraining() {
         MetalBackend baseline = new MetalBackend();
         try {
             assertRepeatedTrainingMatches(baseline);
@@ -81,16 +81,16 @@ class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
     }
 
     private void assertRepeatedTrainingMatches(MetalBackend baseline) {
-        var config = new DeepSeekConfig(11, 4, 4, 2, 1, 8, 3, 2);
+        var config = new DeepJPrismConfig(11, 4, 4, 2, 1, 8, 3, 2);
         DecoderOnlyModel expected = modelOn(baseline, config);
         DecoderOnlyModel actual = modelOn(metal, config);
         assertEquals(trainRepeated(baseline, expected, 0), trainRepeated(metal, actual, 1), 1e-5f);
         assertParameterValuesClose(expected.parameters(), actual.parameters(), 1e-5f);
     }
 
-    private static DecoderOnlyModel modelOn(TensorBackend backend, DeepSeekConfig config) {
+    private static DecoderOnlyModel modelOn(TensorBackend backend, DeepJPrismConfig config) {
         Tensor.setBackend(backend);
-        return new DeepSeekModel(config, 24L);
+        return new DeepJPrism(config, 24L);
     }
 
     private static float trainRepeated(TensorBackend backend, DecoderOnlyModel model,

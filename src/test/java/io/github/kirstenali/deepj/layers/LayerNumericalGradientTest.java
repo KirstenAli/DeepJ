@@ -4,9 +4,9 @@ import io.github.kirstenali.deepj.layers.transformer.SwiGLULayer;
 import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadLatentAttention;
 import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention;
 import io.github.kirstenali.deepj.layers.transformer.attention.RoPEMultiHeadSelfAttention;
-import io.github.kirstenali.deepj.layers.transformer.blocks.GPTTransformerBlock;
-import io.github.kirstenali.deepj.layers.transformer.blocks.DeepSeekTransformerBlock;
-import io.github.kirstenali.deepj.layers.transformer.blocks.LlamaTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJOriginTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJPrismTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJOrbitTransformerBlock;
 import io.github.kirstenali.deepj.layers.transformer.norm.LayerNorm1D;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -69,17 +69,17 @@ class LayerNumericalGradientTest {
 
     @Test
     void transformerBlockInputAndParameterGradientsMatchFiniteDifferences() {
-        check(new GPTTransformerBlock(4, 2, 6, new Random(6L)), 3, 4, 4, 18L);
+        check(new DeepJOriginTransformerBlock(4, 2, 6, new Random(6L)), 3, 4, 4, 18L);
     }
 
     @Test
-    void llamaBlockInputAndParameterGradientsMatchFiniteDifferences() {
-        check(new LlamaTransformerBlock(4, 2, 6, 3, new Random(7L)), 3, 4, 4, 19L);
+    void orbitBlockInputAndParameterGradientsMatchFiniteDifferences() {
+        check(new DeepJOrbitTransformerBlock(4, 2, 6, 3, new Random(7L)), 3, 4, 4, 19L);
     }
 
     @Test
-    void deepSeekBlockInputAndParameterGradientsMatchFiniteDifferences() {
-        check(new DeepSeekTransformerBlock(4, 2, 3, 2, 6, 3, new Random(8L)),
+    void prismBlockInputAndParameterGradientsMatchFiniteDifferences() {
+        check(new DeepJPrismTransformerBlock(4, 2, 3, 2, 6, 3, new Random(8L)),
                 3, 4, 4, 20L);
     }
 

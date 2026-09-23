@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekParameterCount;
+import io.github.kirstenali.deepj.models.prism.DeepJPrismParameterCount;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.nio.file.Path;
@@ -29,20 +29,20 @@ public final class TrainDeepJ90M {
         var config = configuration();
         printRun(config);
         if (Boolean.getBoolean("deepj.tokenizerOnly")) {
-            DeepSeekTrainingRunner.prepareTokenizer(config);
+            DeepJPrismTrainingRunner.prepareTokenizer(config);
             return;
         }
-        DeepSeekTrainingRunner.runSequential(config);
+        DeepJPrismTrainingRunner.runSequential(config);
     }
 
-    static DeepSeekTinyStoriesConfig configuration() {
+    static DeepJPrismTinyStoriesConfig configuration() {
         Path output = path("deepj.output", "checkpoints/deepj-90m/pretrain");
-        return new DeepSeekTinyStoriesConfig(files(output), architecture(), training(),
+        return new DeepJPrismTinyStoriesConfig(files(output), architecture(), training(),
                 tokenizer(), Long.getLong("deepj.seed", 90L));
     }
 
-    static DeepSeekTinyStoriesConfig.Architecture architecture() {
-        return new DeepSeekTinyStoriesConfig.Architecture(
+    static DeepJPrismTinyStoriesConfig.Architecture architecture() {
+        return new DeepJPrismTinyStoriesConfig.Architecture(
                 integer("deepj.seqLen", SEQUENCE_LENGTH), integer("deepj.dModel", D_MODEL),
                 integer("deepj.heads", HEADS), integer("deepj.layers", LAYERS),
                 integer("deepj.dFF", D_FF), integer("deepj.qRank", Q_RANK),
@@ -50,27 +50,27 @@ public final class TrainDeepJ90M {
                 decimal("deepj.gradClipNorm", 1.0f));
     }
 
-    private static DeepSeekTinyStoriesConfig.FilesConfig files(Path output) {
+    private static DeepJPrismTinyStoriesConfig.FilesConfig files(Path output) {
         Path corpus = path("deepj.corpus", "sample_data/deepj-90m/fineweb-edu.txt");
-        return new DeepSeekTinyStoriesConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
+        return new DeepJPrismTinyStoriesConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
     }
 
-    private static DeepSeekTinyStoriesConfig.Training training() {
-        return new DeepSeekTinyStoriesConfig.Training(
+    private static DeepJPrismTinyStoriesConfig.Training training() {
+        return new DeepJPrismTinyStoriesConfig.Training(
                 integer("deepj.steps", PRETRAINING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 1e-4f), decimal("deepj.minLearningRate", 1e-5f),
                 integer("deepj.warmupSteps", 2_000), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
     }
 
-    private static DeepSeekTinyStoriesConfig.TokenizerConfig tokenizer() {
-        return new DeepSeekTinyStoriesConfig.TokenizerConfig(
+    private static DeepJPrismTinyStoriesConfig.TokenizerConfig tokenizer() {
+        return new DeepJPrismTinyStoriesConfig.TokenizerConfig(
                 integer("deepj.vocabSize", VOCAB_SIZE),
                 integer("deepj.tokenizerSampleMiB", 50));
     }
 
-    private static void printRun(DeepSeekTinyStoriesConfig config) {
-        long parameters = DeepSeekParameterCount.count(config.modelConfig(config.tokenizer().vocabSize()));
+    private static void printRun(DeepJPrismTinyStoriesConfig config) {
+        long parameters = DeepJPrismParameterCount.count(config.modelConfig(config.tokenizer().vocabSize()));
         System.out.printf("Backend: %s%nParameters: %,d%n", Tensor.backend().getClass().getSimpleName(),
                 parameters);
     }

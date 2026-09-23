@@ -21,14 +21,14 @@ public final class MidTrainDeepJ90M {
         var config = configuration();
         prepareTokenizer(config.files().outputDirectory());
         System.out.println("Backend: " + Tensor.backend().getClass().getSimpleName());
-        DeepSeekTrainingRunner.run(config);
+        DeepJPrismTrainingRunner.run(config);
     }
 
-    static DeepSeekTinyStoriesConfig configuration() {
+    static DeepJPrismTinyStoriesConfig configuration() {
         Path output = path("deepj.output", "checkpoints/deepj-90m/midtrain");
-        var files = new DeepSeekTinyStoriesConfig.FilesConfig(
+        var files = new DeepJPrismTinyStoriesConfig.FilesConfig(
                 path("deepj.corpus", "sample_data/deepj-90m/midtrain-train.txt"), output, resume());
-        return new DeepSeekTinyStoriesConfig(files, TrainDeepJ90M.architecture(), training(),
+        return new DeepJPrismTinyStoriesConfig(files, TrainDeepJ90M.architecture(), training(),
                 tokenizer(), Long.getLong("deepj.seed", 91L));
     }
 
@@ -36,16 +36,16 @@ public final class MidTrainDeepJ90M {
         return path("deepj.resume", "checkpoints/deepj-90m/pretrain/model-final.dj");
     }
 
-    private static DeepSeekTinyStoriesConfig.Training training() {
-        return new DeepSeekTinyStoriesConfig.Training(
+    private static DeepJPrismTinyStoriesConfig.Training training() {
+        return new DeepJPrismTinyStoriesConfig.Training(
                 integer("deepj.steps", MID_TRAINING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 5e-5f), decimal("deepj.minLearningRate", 5e-6f),
                 integer("deepj.warmupSteps", 500), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
     }
 
-    private static DeepSeekTinyStoriesConfig.TokenizerConfig tokenizer() {
-        return new DeepSeekTinyStoriesConfig.TokenizerConfig(TrainDeepJ90M.VOCAB_SIZE, 50);
+    private static DeepJPrismTinyStoriesConfig.TokenizerConfig tokenizer() {
+        return new DeepJPrismTinyStoriesConfig.TokenizerConfig(TrainDeepJ90M.VOCAB_SIZE, 50);
     }
 
     private static void prepareTokenizer(Path output) throws Exception {

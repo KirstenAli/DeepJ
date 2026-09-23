@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.TestSupport;
-import io.github.kirstenali.deepj.layers.transformer.blocks.LlamaTransformerBlock;
+import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJOrbitTransformerBlock;
 import io.github.kirstenali.deepj.layers.transformer.attention.RoPEMultiHeadSelfAttention;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -181,9 +181,9 @@ class RotaryEmbeddingTest {
     }
 
     @Test
-    void llama_style_block_forward_returns_correct_shape() {
+    void orbitBlockForwardReturnsCorrectShape() {
         int dModel = 8, nHeads = 2, dFF = 16, seqLen = 4;
-        LlamaTransformerBlock block = llamaBlock(dModel, nHeads, dFF, 1);
+        DeepJOrbitTransformerBlock block = orbitBlock(dModel, nHeads, dFF, 1);
 
         Tensor x = Tensor.random(seqLen, dModel, new Random(20));
         Tensor y = block.forward(x);
@@ -191,9 +191,9 @@ class RotaryEmbeddingTest {
     }
 
     @Test
-    void llama_style_block_backward_returns_correct_shape() {
+    void orbitBlockBackwardReturnsCorrectShape() {
         int dModel = 8, nHeads = 2, dFF = 16, seqLen = 4;
-        LlamaTransformerBlock block = llamaBlock(dModel, nHeads, dFF, 2);
+        DeepJOrbitTransformerBlock block = orbitBlock(dModel, nHeads, dFF, 2);
 
         Tensor x = Tensor.random(seqLen, dModel, new Random(21));
         block.forward(x);
@@ -202,23 +202,23 @@ class RotaryEmbeddingTest {
     }
 
     @Test
-    void llama_style_block_learning_reduces_mse() {
+    void orbitBlockLearningReducesMse() {
         int dModel = 8, nHeads = 2, dFF = 16, seqLen = 4;
-        LlamaTransformerBlock block = llamaBlock(dModel, nHeads, dFF, 3);
+        DeepJOrbitTransformerBlock block = orbitBlock(dModel, nHeads, dFF, 3);
         AdamW opt = new AdamW(0.01f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
         Tensor x      = Tensor.random(seqLen, dModel, new Random(22));
         Tensor target = Tensor.zeros(seqLen, dModel);
 
         TestSupport.assertLossDecreases(() -> trainOneStep(block, opt, x, target), 10,
-                "Llama-style block MSE should decrease within a few steps");
+                "DeepJ Orbit block MSE should decrease within a few steps");
     }
 
-    private static LlamaTransformerBlock llamaBlock(int dModel, int nHeads, int dFF, long seed) {
-        return new LlamaTransformerBlock(dModel, nHeads, dFF, 64, new Random(seed));
+    private static DeepJOrbitTransformerBlock orbitBlock(int dModel, int nHeads, int dFF, long seed) {
+        return new DeepJOrbitTransformerBlock(dModel, nHeads, dFF, 64, new Random(seed));
     }
 
-    private static double trainOneStep(LlamaTransformerBlock block, AdamW opt, Tensor x, Tensor target) {
+    private static double trainOneStep(DeepJOrbitTransformerBlock block, AdamW opt, Tensor x, Tensor target) {
         Tensor y = block.forward(x);
         MSELoss mse = new MSELoss();
         double loss = mse.loss(y, target);

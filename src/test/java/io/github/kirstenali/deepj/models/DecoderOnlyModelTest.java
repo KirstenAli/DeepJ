@@ -1,11 +1,11 @@
 package io.github.kirstenali.deepj.models;
 
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekConfig;
-import io.github.kirstenali.deepj.models.deepseek.DeepSeekModel;
-import io.github.kirstenali.deepj.models.gpt.GPTConfig;
-import io.github.kirstenali.deepj.models.gpt.GPTModel;
-import io.github.kirstenali.deepj.models.llama.LlamaConfig;
-import io.github.kirstenali.deepj.models.llama.LlamaModel;
+import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
+import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,16 +20,16 @@ class DecoderOnlyModelTest {
     static Stream<DecoderOnlyModel> allModels() {
         int vocab = ByteTokenizer.VOCAB_SIZE;
 
-        GPTModel gpt = new GPTModel(
-                new GPTConfig(vocab, 16, 32, 4, 1, 64), 1L);
+        DeepJOrigin origin = new DeepJOrigin(
+                new DeepJOriginConfig(vocab, 16, 32, 4, 1, 64), 1L);
 
-        LlamaModel llama = new LlamaModel(
-                new LlamaConfig(vocab, 16, 32, 4, 1, LlamaConfig.defaultDFF(32)), 1L);
+        DeepJOrbit orbit = new DeepJOrbit(
+                new DeepJOrbitConfig(vocab, 16, 32, 4, 1, DeepJOrbitConfig.defaultDFF(32)), 1L);
 
-        DeepSeekModel deepSeek = new DeepSeekModel(
-                new DeepSeekConfig(vocab, 16, 32, 4, 1, 64, 16, 8), 1L);
+        DeepJPrism prism = new DeepJPrism(
+                new DeepJPrismConfig(vocab, 16, 32, 4, 1, 64, 16, 8), 1L);
 
-        return Stream.of(gpt, llama, deepSeek);
+        return Stream.of(origin, orbit, prism);
     }
 
     @ParameterizedTest
