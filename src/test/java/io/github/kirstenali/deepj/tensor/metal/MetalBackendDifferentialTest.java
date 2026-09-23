@@ -32,7 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-class MetalBackendDifferentialTest extends MetalDifferentialTestSupport {    @Test
+class MetalBackendDifferentialTest extends MetalDifferentialTestSupport {
+
+    @Test
     void elementwiseBinaryOperationsMatchCpu() {
         Tensor a = random(5, 7, 1L);
         Tensor b = positive(5, 7, 2L);

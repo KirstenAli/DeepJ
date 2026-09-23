@@ -14,7 +14,9 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public final class MetalBackendTest extends MetalBackendTestSupport {    @Test
+public final class MetalBackendTest extends MetalBackendTestSupport {
+
+    @Test
     void metalNativeIsAvailable() {
         assertTrue(MetalBackend.isAvailable());
     }

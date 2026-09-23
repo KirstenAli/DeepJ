@@ -8,7 +8,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ComputeGraphTest extends ComputeGraphTestSupport {    @Test
+class ComputeGraphTest extends ComputeGraphTestSupport {
+
+    @Test
     void constructorRejectsNull() {
         assertThrows(NullPointerException.class, () -> new ComputeGraph(null));
     }

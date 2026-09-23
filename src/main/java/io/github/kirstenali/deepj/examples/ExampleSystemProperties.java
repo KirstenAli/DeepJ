@@ -26,4 +26,9 @@ final class ExampleSystemProperties {
         String value = System.getProperty(name);
         return value == null || value.isBlank() ? null : Path.of(value);
     }
+
+    static Path nullablePath(String name) {
+        String value = System.getProperty(name);
+        return value == null ? null : Path.of(value);
+    }
 }

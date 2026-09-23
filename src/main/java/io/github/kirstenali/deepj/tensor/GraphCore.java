@@ -4,7 +4,9 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-abstract class GraphCore extends GraphOpMetadata {    final GpuRuntime runtime;
+abstract class GraphCore extends GraphOpMetadata {
+
+    final GpuRuntime runtime;
 
     static final AtomicInteger NEXT_BUFFER_ID = new AtomicInteger();
 

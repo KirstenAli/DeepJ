@@ -163,9 +163,9 @@ public interface TensorBackend {
     void tanhInPlace(Tensor a);
     void sigmoidInPlace(Tensor a);
 
-    default void materializeTensor(Tensor t) {  }
+    default void materializeTensor(Tensor t) {}
 
     default void releaseTemporaryResources() { releaseResources(); }
 
-    default void releaseResources() {  }
+    default void releaseResources() {}
 }

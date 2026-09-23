@@ -6,7 +6,7 @@ import java.nio.file.Path;
 
 import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.decimal;
 import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.integer;
-import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.optionalPath;
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.nullablePath;
 import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
 
 public final class TrainDeepSeekKnowledge {
@@ -38,7 +38,7 @@ public final class TrainDeepSeekKnowledge {
 
     private static DeepSeekTinyStoriesConfig.FilesConfig files(Path output) {
         Path corpus = path("deepj.corpus", output.resolve("knowledge-train.txt").toString());
-        return new DeepSeekTinyStoriesConfig.FilesConfig(corpus, output, optionalPath("deepj.resume"));
+        return new DeepSeekTinyStoriesConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
     }
 
     private static DeepSeekTinyStoriesConfig.Architecture architecture() {

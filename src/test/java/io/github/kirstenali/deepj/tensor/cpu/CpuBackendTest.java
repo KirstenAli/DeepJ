@@ -8,7 +8,9 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class CpuBackendTest extends CpuBackendTestSupport {    @Test
+class CpuBackendTest extends CpuBackendTestSupport {
+
+    @Test
     void zeros_shouldCreateAllZeros() {
         Tensor t = backend.zeros(2, 3);
 
