@@ -23,14 +23,22 @@ public final class RandomAccessTextDataset implements StatefulTrainingDataset {
     private final int seqLen;
     private final StatefulRandom random;
     private final FileChannel channel;
-    private final long fileSize;
+    private final long rangeStart;
+    private final long rangeEnd;
 
     public RandomAccessTextDataset(Path path, Tokenizer tokenizer, int seqLen, long seed)
             throws IOException {
+        this(path, tokenizer, seqLen, seed, TextFileRange.entire(path));
+    }
+
+    public RandomAccessTextDataset(Path path, Tokenizer tokenizer, int seqLen, long seed,
+                                   TextFileRange range) throws IOException {
         this.tokenizer = Objects.requireNonNull(tokenizer, "tokenizer");
         if (seqLen < 2) throw new IllegalArgumentException("seqLen must be >= 2");
-        this.fileSize = Files.size(Objects.requireNonNull(path, "path"));
-        if (fileSize == 0) throw new IllegalArgumentException("text file must not be empty");
+        long fileSize = Files.size(Objects.requireNonNull(path, "path"));
+        Objects.requireNonNull(range, "range").validateFor(fileSize);
+        this.rangeStart = range.startInclusive();
+        this.rangeEnd = range.endExclusive();
         this.seqLen = seqLen;
         this.random = new StatefulRandom(seed);
         this.channel = FileChannel.open(path, StandardOpenOption.READ);
@@ -57,11 +65,11 @@ public final class RandomAccessTextDataset implements StatefulTrainingDataset {
     }
 
     private String readWindow(int requestedBytes) throws IOException {
-        int length = (int) Math.min(fileSize, requestedBytes);
+        int length = (int) Math.min(rangeEnd - rangeStart, requestedBytes);
         long position = randomPosition(length);
         byte[] bytes = readBytes(position, length);
-        int start = position == 0 ? 0 : indexAfterFirstNewline(bytes);
-        int end = position + bytes.length == fileSize ? bytes.length : indexAfterLastNewline(bytes);
+        int start = position == rangeStart ? 0 : indexAfterFirstNewline(bytes);
+        int end = position + bytes.length == rangeEnd ? bytes.length : indexAfterLastNewline(bytes);
         if (start < 0 || end <= start) return "";
         return new String(bytes, start, end - start, StandardCharsets.UTF_8);
     }
@@ -76,8 +84,8 @@ public final class RandomAccessTextDataset implements StatefulTrainingDataset {
     }
 
     private long randomPosition(int windowLength) {
-        long bound = fileSize - windowLength + 1;
-        return bound <= 1 ? 0 : random.nextLong(bound);
+        long bound = rangeEnd - rangeStart - windowLength + 1;
+        return bound <= 1 ? rangeStart : rangeStart + random.nextLong(bound);
     }
 
     public synchronized long randomState() {

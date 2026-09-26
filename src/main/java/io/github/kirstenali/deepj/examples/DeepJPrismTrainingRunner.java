@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.examples;
 import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
 import io.github.kirstenali.deepj.data.SequentialTextDataset;
 import io.github.kirstenali.deepj.data.StatefulTrainingDataset;
+import io.github.kirstenali.deepj.data.TextFileRange;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -36,16 +37,21 @@ final class DeepJPrismTrainingRunner {
     private DeepJPrismTrainingRunner() {}
 
     static TrainingResult run(DeepJPrismTinyStoriesConfig runConfig) throws Exception {
-        return run(runConfig, false);
+        return run(runConfig, DatasetOrder.random());
     }
 
     static TrainingResult runSequential(DeepJPrismTinyStoriesConfig runConfig)
             throws Exception {
-        return run(runConfig, true);
+        return run(runConfig, DatasetOrder.sequential(null));
+    }
+
+    static TrainingResult runSequential(DeepJPrismTinyStoriesConfig runConfig,
+                                        TextFileRange range) throws Exception {
+        return run(runConfig, DatasetOrder.sequential(range));
     }
 
     private static TrainingResult run(DeepJPrismTinyStoriesConfig runConfig,
-                                      boolean sequential) throws Exception {
+                                      DatasetOrder order) throws Exception {
         Path output = runConfig.files().outputDirectory();
         validateCorpus(runConfig.files().corpus());
         Files.createDirectories(output);
@@ -53,20 +59,25 @@ final class DeepJPrismTrainingRunner {
         DeepJPrismConfig modelConfig = runConfig.modelConfig(tokenizer.vocabSize());
         DeepJPrism model = new DeepJPrism(modelConfig, runConfig.seed());
         ensureCheckpointSpace(output, model);
-        writeConfiguration(output, runConfig, tokenizer.model(), sequential);
-        try (StatefulTrainingDataset dataset = dataset(runConfig, tokenizer, sequential)) {
+        writeConfiguration(output, runConfig, tokenizer.model(), order);
+        try (StatefulTrainingDataset dataset = dataset(runConfig, tokenizer, order)) {
             return train(model, dataset, runConfig);
         }
     }
 
     private static StatefulTrainingDataset dataset(DeepJPrismTinyStoriesConfig config,
                                                     BPETokenizer tokenizer,
-                                                    boolean sequential) throws IOException {
+                                                    DatasetOrder order) throws IOException {
         int length = config.architecture().sequenceLength();
-        if (sequential) {
-            return new SequentialTextDataset(config.files().corpus(), tokenizer, length);
-        }
+        if (order.sequential()) return sequentialDataset(config, tokenizer, length, order.range());
         return new RandomAccessTextDataset(config.files().corpus(), tokenizer, length, config.seed());
+    }
+
+    private static StatefulTrainingDataset sequentialDataset(
+            DeepJPrismTinyStoriesConfig config, BPETokenizer tokenizer,
+            int length, TextFileRange range) throws IOException {
+        if (range == null) return new SequentialTextDataset(config.files().corpus(), tokenizer, length);
+        return new SequentialTextDataset(config.files().corpus(), tokenizer, length, range);
     }
 
     static BPETokenizer prepareTokenizer(DeepJPrismTinyStoriesConfig config)
@@ -194,16 +205,23 @@ final class DeepJPrismTrainingRunner {
     }
 
     private static void writeConfiguration(Path output, DeepJPrismTinyStoriesConfig config,
-                                           BPEModel tokenizer, boolean sequential)
+                                           BPEModel tokenizer, DatasetOrder order)
             throws IOException {
         Properties properties = new Properties();
         addFileProperties(properties, config);
         addModelProperties(properties, config, tokenizer);
         addTrainingProperties(properties, config);
-        properties.setProperty("datasetOrder", sequential ? "sequential" : "random");
+        properties.setProperty("datasetOrder", order.sequential() ? "sequential" : "random");
+        addRangeProperties(properties, order.range());
         try (OutputStream stream = Files.newOutputStream(output.resolve("training.properties"))) {
             properties.store(stream, "DeepJ training configuration");
         }
+    }
+
+    private static void addRangeProperties(Properties target, TextFileRange range) {
+        if (range == null) return;
+        target.setProperty("corpusStartByte", Long.toString(range.startInclusive()));
+        target.setProperty("corpusEndByte", Long.toString(range.endExclusive()));
     }
 
     private static void addFileProperties(Properties target, DeepJPrismTinyStoriesConfig config) {
@@ -236,5 +254,16 @@ final class DeepJPrismTrainingRunner {
     private static void printResult(TrainingResult result) {
         System.out.printf("Training complete: steps=%d loss=%.6f ema=%.6f%n",
                 result.steps(), result.lastLoss(), result.emaLoss());
+    }
+
+    private record DatasetOrder(boolean sequential, TextFileRange range) {
+
+        private static DatasetOrder random() {
+            return new DatasetOrder(false, null);
+        }
+
+        private static DatasetOrder sequential(TextFileRange range) {
+            return new DatasetOrder(true, range);
+        }
     }
 }
