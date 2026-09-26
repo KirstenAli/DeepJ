@@ -9,6 +9,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SequentialTextDatasetTest {
@@ -57,6 +58,18 @@ class SequentialTextDatasetTest {
         }
     }
 
+    @Test
+    void boundedRangeNeverReadsReservedTail() throws Exception {
+        String training = "a".repeat(1_200) + "\n";
+        Path path = write(training + "z".repeat(1_200) + "\n");
+        var range = new TextFileRange(0, training.length());
+        try (var dataset = new SequentialTextDataset(path, new ByteTokenizer(), 64, range)) {
+            for (int index = 0; index < 25; index++) {
+                assertFalse(contains(dataset.nextBatch(1), 'z'));
+            }
+        }
+    }
+
     private SequentialTextDataset dataset(int sequenceLength) throws Exception {
         return new SequentialTextDataset(write(corpus()), new ByteTokenizer(),
                 sequenceLength, 1_024);
@@ -67,6 +80,13 @@ class SequentialTextDatasetTest {
             assertArrayEquals(expected.x()[row], actual.x()[row]);
             assertArrayEquals(expected.y()[row], actual.y()[row]);
         }
+    }
+
+    private static boolean contains(Batch batch, int token) {
+        for (int value : batch.x()[0]) {
+            if (value == token) return true;
+        }
+        return false;
     }
 
     private Path write(String text) throws Exception {

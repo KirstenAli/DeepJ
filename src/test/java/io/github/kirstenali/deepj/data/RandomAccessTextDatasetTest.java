@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -70,6 +71,18 @@ class RandomAccessTextDatasetTest {
             Batch expected = dataset.nextBatch(2);
             dataset.restoreRandomState(state);
             assertBatchEquals(expected, dataset.nextBatch(2));
+        }
+    }
+
+    @Test
+    void boundedRangeSamplesOnlyReservedText() throws Exception {
+        String training = "a line\n".repeat(1_000);
+        String validation = "z line\n".repeat(1_000);
+        Path path = write(training + validation);
+        var range = new TextFileRange(training.length(), training.length() + validation.length());
+        try (var dataset = new RandomAccessTextDataset(
+                path, new ByteTokenizer(), 64, 5L, range)) {
+            assertFalse(contains(dataset.nextBatch(8), 'a'));
         }
     }
 

@@ -32,7 +32,9 @@ public final class TrainDeepJ90M {
             DeepJPrismTrainingRunner.prepareTokenizer(config);
             return;
         }
-        DeepJPrismTrainingRunner.runSequential(config);
+        var split = DeepJ90MDataSplit.fromSystemProperties(config.files().corpus());
+        printSplit(split);
+        DeepJPrismTrainingRunner.runSequential(config, split.training());
     }
 
     static DeepJPrismTinyStoriesConfig configuration() {
@@ -73,6 +75,11 @@ public final class TrainDeepJ90M {
         long parameters = DeepJPrismParameterCount.count(config.modelConfig(config.tokenizer().vocabSize()));
         System.out.printf("Backend: %s%nParameters: %,d%n", Tensor.backend().getClass().getSimpleName(),
                 parameters);
+    }
+
+    private static void printSplit(DeepJ90MDataSplit.Split split) {
+        System.out.printf("Corpus: trainingBytes=%,d validationBytes=%,d%n",
+                split.training().length(), split.validation().length());
     }
 
 }

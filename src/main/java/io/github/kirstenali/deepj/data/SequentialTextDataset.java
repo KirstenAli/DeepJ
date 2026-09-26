@@ -22,7 +22,8 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
     private final int sequenceLength;
     private final int blockBytes;
     private final FileChannel channel;
-    private final long fileSize;
+    private final long rangeStart;
+    private final long rangeEnd;
 
     private long blockStart;
     private long nextBlockStart;
@@ -31,22 +32,34 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
 
     public SequentialTextDataset(Path path, Tokenizer tokenizer, int sequenceLength)
             throws IOException {
-        this(path, tokenizer, sequenceLength, DEFAULT_BLOCK_BYTES);
+        this(path, tokenizer, sequenceLength, DEFAULT_BLOCK_BYTES, TextFileRange.entire(path));
+    }
+
+    public SequentialTextDataset(Path path, Tokenizer tokenizer, int sequenceLength,
+                                 TextFileRange range) throws IOException {
+        this(path, tokenizer, sequenceLength, DEFAULT_BLOCK_BYTES, range);
     }
 
     SequentialTextDataset(Path path, Tokenizer tokenizer, int sequenceLength,
                           int blockBytes) throws IOException {
+        this(path, tokenizer, sequenceLength, blockBytes, TextFileRange.entire(path));
+    }
+
+    private SequentialTextDataset(Path path, Tokenizer tokenizer, int sequenceLength,
+                                  int blockBytes, TextFileRange range) throws IOException {
         this.tokenizer = Objects.requireNonNull(tokenizer, "tokenizer");
         if (sequenceLength < 2) throw new IllegalArgumentException("sequenceLength must be at least 2");
         if (blockBytes < 1_024 || blockBytes > CURSOR_MASK) {
             throw new IllegalArgumentException("blockBytes is out of range");
         }
-        this.fileSize = Files.size(Objects.requireNonNull(path, "path"));
-        if (fileSize == 0) throw new IllegalArgumentException("text file must not be empty");
+        long fileSize = Files.size(Objects.requireNonNull(path, "path"));
+        Objects.requireNonNull(range, "range").validateFor(fileSize);
+        this.rangeStart = range.startInclusive();
+        this.rangeEnd = range.endExclusive();
         this.sequenceLength = sequenceLength;
         this.blockBytes = blockBytes;
         this.channel = FileChannel.open(path, StandardOpenOption.READ);
-        loadBlock(0);
+        loadBlock(rangeStart);
     }
 
     @Override
@@ -84,7 +97,7 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
 
     private void loadNextBlock() {
         try {
-            loadBlock(nextBlockStart == fileSize ? 0 : nextBlockStart);
+            loadBlock(nextBlockStart == rangeEnd ? rangeStart : nextBlockStart);
         } catch (IOException error) {
             throw new UncheckedIOException("Could not read sequential training text", error);
         }
@@ -92,7 +105,7 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
 
     private void loadBlock(long position) throws IOException {
         byte[] bytes = readBytes(position);
-        int length = position + bytes.length == fileSize ? bytes.length : indexAfterLastNewline(bytes);
+        int length = position + bytes.length == rangeEnd ? bytes.length : indexAfterLastNewline(bytes);
         if (length <= 0) throw new IOException("Training block contains no complete line");
         this.blockStart = position;
         this.nextBlockStart = position + length;
@@ -102,7 +115,7 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
     }
 
     private byte[] readBytes(long position) throws IOException {
-        int length = (int) Math.min(blockBytes, fileSize - position);
+        int length = (int) Math.min(blockBytes, rangeEnd - position);
         ByteBuffer buffer = ByteBuffer.allocate(length);
         while (buffer.hasRemaining()) {
             int read = channel.read(buffer, position + buffer.position());
@@ -128,7 +141,9 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
         if (state < 0) throw new IllegalArgumentException("state must be non-negative");
         long restoredBlock = state >>> CURSOR_BITS;
         int restoredCursor = (int) (state & CURSOR_MASK);
-        if (restoredBlock >= fileSize) throw new IllegalArgumentException("invalid dataset block");
+        if (restoredBlock < rangeStart || restoredBlock >= rangeEnd) {
+            throw new IllegalArgumentException("invalid dataset block");
+        }
         try {
             loadBlock(restoredBlock);
         } catch (IOException error) {
