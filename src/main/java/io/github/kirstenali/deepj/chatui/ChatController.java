@@ -214,26 +214,41 @@ public class ChatController {
     }
 
     private void addMessage(ChatMessage message) {
+        HBox row = createMessageRow(message.user());
+        Label bubble = createMessageBubble(message);
+        Region spacer = createMessageSpacer();
+        arrangeMessage(row, bubble, spacer, message.user());
+        messagesBox.getChildren().add(row);
+    }
+
+    private static HBox createMessageRow(boolean user) {
         HBox row = new HBox();
-        row.setAlignment(message.user() ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+        row.setAlignment(user ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
         row.setPadding(new Insets(4, 0, 4, 0));
         row.getStyleClass().add("message-row");
+        return row;
+    }
 
+    private static Label createMessageBubble(ChatMessage message) {
         Label bubble = new Label(message.text());
         bubble.setWrapText(true);
         bubble.setMaxWidth(560);
         bubble.getStyleClass().add(message.user() ? "user-bubble" : "bot-bubble");
+        return bubble;
+    }
 
+    private static Region createMessageSpacer() {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
+        return spacer;
+    }
 
-        if (message.user()) {
+    private static void arrangeMessage(HBox row, Label bubble, Region spacer, boolean user) {
+        if (user) {
             row.getChildren().addAll(spacer, bubble);
         } else {
             row.getChildren().addAll(bubble, spacer);
         }
-
-        messagesBox.getChildren().add(row);
     }
 
     private void scrollToBottom() {
