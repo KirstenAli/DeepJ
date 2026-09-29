@@ -67,7 +67,7 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
         if (batchSize < 1) throw new IllegalArgumentException("batchSize must be positive");
         int required = Math.addExact(Math.multiplyExact(batchSize, sequenceLength), 1);
         int[] sampled = nextTokens(required);
-        return batch(sampled, batchSize);
+        return CausalBatches.from(sampled, batchSize, sequenceLength);
     }
 
     private int[] nextTokens(int required) {
@@ -82,17 +82,6 @@ public final class SequentialTextDataset implements StatefulTrainingDataset {
         }
         cursor--;
         return sampled;
-    }
-
-    private Batch batch(int[] sampled, int batchSize) {
-        int[][] inputs = new int[batchSize][sequenceLength];
-        int[][] targets = new int[batchSize][sequenceLength];
-        for (int row = 0; row < batchSize; row++) {
-            int offset = row * sequenceLength;
-            System.arraycopy(sampled, offset, inputs[row], 0, sequenceLength);
-            System.arraycopy(sampled, offset + 1, targets[row], 0, sequenceLength);
-        }
-        return new Batch(inputs, targets);
     }
 
     private void loadNextBlock() {

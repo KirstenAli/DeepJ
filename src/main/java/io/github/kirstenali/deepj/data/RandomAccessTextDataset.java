@@ -48,7 +48,8 @@ public final class RandomAccessTextDataset implements StatefulTrainingDataset {
     public synchronized Batch nextBatch(int batchSize) {
         if (batchSize < 1) throw new IllegalArgumentException("batchSize must be >= 1");
         try {
-            return batchFrom(sampleTokens(requiredTokens(batchSize)), batchSize);
+            int[] tokens = sampleTokens(requiredTokens(batchSize));
+            return CausalBatches.from(tokens, batchSize, seqLen);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not sample training text", e);
         }
@@ -103,17 +104,6 @@ public final class RandomAccessTextDataset implements StatefulTrainingDataset {
 
     private int requiredTokens(int batchSize) {
         return Math.addExact(Math.multiplyExact(batchSize, seqLen), 1);
-    }
-
-    private Batch batchFrom(int[] tokens, int batchSize) {
-        int[][] inputs = new int[batchSize][seqLen];
-        int[][] targets = new int[batchSize][seqLen];
-        for (int row = 0; row < batchSize; row++) {
-            int offset = row * seqLen;
-            System.arraycopy(tokens, offset, inputs[row], 0, seqLen);
-            System.arraycopy(tokens, offset + 1, targets[row], 0, seqLen);
-        }
-        return new Batch(inputs, targets);
     }
 
     private static int indexAfterFirstNewline(byte[] bytes) {
