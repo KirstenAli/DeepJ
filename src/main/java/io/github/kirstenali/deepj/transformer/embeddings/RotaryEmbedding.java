@@ -10,22 +10,29 @@ public final class RotaryEmbedding {
     private final Tensor sinTable;
 
     public RotaryEmbedding(int headDim, int maxSeqLen) {
+        validateDimensions(headDim, maxSeqLen);
+        this.headDim = headDim;
+        this.halfDim = headDim / 2;
+        this.cosTable = Tensor.zeros(maxSeqLen, halfDim).retainDeviceBuffer();
+        this.sinTable = Tensor.zeros(maxSeqLen, halfDim).retainDeviceBuffer();
+        populateTables(maxSeqLen);
+    }
+
+    private static void validateDimensions(int headDim, int maxSeqLen) {
         if (headDim <= 0 || headDim % 2 != 0) {
             throw new IllegalArgumentException("headDim must be a positive even number, got " + headDim);
         }
         if (maxSeqLen <= 0) {
             throw new IllegalArgumentException("maxSeqLen must be > 0");
         }
+    }
 
-        this.headDim = headDim;
-        this.halfDim  = headDim / 2;
-        this.cosTable = Tensor.zeros(maxSeqLen, halfDim).retainDeviceBuffer();
-        this.sinTable = Tensor.zeros(maxSeqLen, halfDim).retainDeviceBuffer();
-
-        for (int pos = 0; pos < maxSeqLen; pos++) {
-            for (int i = 0; i < this.halfDim; i++) {
-                float theta = (float) (pos / Math.pow(10_000.0f, (2.0f * i) / headDim));
-                int index = pos * halfDim + i;
+    private void populateTables(int maxSeqLen) {
+        for (int position = 0; position < maxSeqLen; position++) {
+            for (int dimension = 0; dimension < halfDim; dimension++) {
+                float theta = (float) (position
+                        / Math.pow(10_000.0f, (2.0f * dimension) / headDim));
+                int index = position * halfDim + dimension;
                 cosTable.data[index] = (float) Math.cos(theta);
                 sinTable.data[index] = (float) Math.sin(theta);
             }
