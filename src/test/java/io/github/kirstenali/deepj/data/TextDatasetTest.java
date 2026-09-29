@@ -11,6 +11,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Random;
 
 public class TextDatasetTest {
 
@@ -46,6 +47,16 @@ public class TextDatasetTest {
 
         Assertions.assertArrayEquals(new int[]{10, 11, 12, 13}, b.x()[0]);
         Assertions.assertArrayEquals(new int[]{11, 12, 13, 14}, b.y()[0]);
+    }
+
+    @Test
+    void nextBatch_usesSeededRowStartsInOrder() throws IOException {
+        int[] tokens = new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+        Batch batch = fromTokens(tokens, 2, 23L).nextBatch(3);
+        Random expected = new Random(23L);
+        for (int row = 0; row < batch.x().length; row++) {
+            Assertions.assertEquals(expected.nextLong(8L), batch.x()[row][0]);
+        }
     }
 
     @Test

@@ -24,22 +24,35 @@ public final class TextDataset implements BatchSource {
 
         static ChunkedIntBuffer map(Path file, long chunkBytes) throws IOException {
             validateChunkBytes(chunkBytes);
-            try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
-                long fileSize    = ch.size();
+            try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
+                long fileSize = channel.size();
                 long intsPerChunk = chunkBytes / Integer.BYTES;
-                long chunkCount = divideRoundingUp(fileSize, chunkBytes);
-                if (chunkCount > Integer.MAX_VALUE) {
-                    throw new IOException("Token file requires too many mapped segments");
-                }
-                int numChunks = (int) chunkCount;
-                IntBuffer[] bufs = new IntBuffer[numChunks];
-                for (int i = 0; i < numChunks; i++) {
-                    long pos = i * chunkBytes;
-                    long len = Math.min(chunkBytes, fileSize - pos);
-                    bufs[i] = ch.map(FileChannel.MapMode.READ_ONLY, pos, len).asIntBuffer();
-                }
-                return new ChunkedIntBuffer(bufs, intsPerChunk);
+                return new ChunkedIntBuffer(mapChunks(channel, fileSize, chunkBytes), intsPerChunk);
             }
+        }
+
+        private static IntBuffer[] mapChunks(FileChannel channel, long fileSize,
+                                             long chunkBytes) throws IOException {
+            IntBuffer[] chunks = new IntBuffer[chunkCount(fileSize, chunkBytes)];
+            for (int index = 0; index < chunks.length; index++) {
+                chunks[index] = mapChunk(channel, fileSize, chunkBytes, index);
+            }
+            return chunks;
+        }
+
+        private static IntBuffer mapChunk(FileChannel channel, long fileSize,
+                                          long chunkBytes, int index) throws IOException {
+            long position = index * chunkBytes;
+            long length = Math.min(chunkBytes, fileSize - position);
+            return channel.map(FileChannel.MapMode.READ_ONLY, position, length).asIntBuffer();
+        }
+
+        private static int chunkCount(long fileSize, long chunkBytes) throws IOException {
+            long count = divideRoundingUp(fileSize, chunkBytes);
+            if (count > Integer.MAX_VALUE) {
+                throw new IOException("Token file requires too many mapped segments");
+            }
+            return (int) count;
         }
 
         private static void validateChunkBytes(long chunkBytes) {
@@ -159,19 +172,21 @@ public final class TextDataset implements BatchSource {
 
     public Batch nextBatch(int batchSize) {
         if (batchSize < 1) throw new IllegalArgumentException("batchSize must be >= 1");
-        int[][] x = new int[batchSize][seqLen];
-        int[][] y = new int[batchSize][seqLen];
-
+        int[][] inputs = new int[batchSize][seqLen];
+        int[][] targets = new int[batchSize][seqLen];
         long maxStart = tokenCount - (seqLen + 1L);
-
-        for (int b = 0; b < batchSize; b++) {
-            long start = rnd.nextLong(maxStart + 1L);
-            for (int t = 0; t < seqLen; t++) {
-                x[b][t] = tokens.get(start + t);
-                y[b][t] = tokens.get(start + t + 1);
-            }
+        for (int row = 0; row < batchSize; row++) {
+            sampleRow(inputs[row], targets[row], maxStart);
         }
-        return new Batch(x, y);
+        return new Batch(inputs, targets);
+    }
+
+    private void sampleRow(int[] inputs, int[] targets, long maxStart) {
+        long start = rnd.nextLong(maxStart + 1L);
+        for (int token = 0; token < seqLen; token++) {
+            inputs[token] = tokens.get(start + token);
+            targets[token] = tokens.get(start + token + 1);
+        }
     }
 
     public int seqLen() {
