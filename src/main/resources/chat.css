@@ -46,13 +46,13 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 #conversation { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 #welcome { display: none; text-align: center; padding: 0 20px; }
 #welcome h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.7px; }
-#welcome p { margin: 13px 0 0; color: var(--muted); font-size: 14px; }
+#welcome p { margin: 13px 0 28px; color: var(--muted); font-size: 14px; }
 #app.empty #workspace { justify-content: center; }
 #app.empty #conversation { flex: none; min-height: auto; overflow: visible; }
 #app.empty #welcome { display: block; }
 #app.empty #messages { display: none; }
-#messages { max-width: 820px; margin: 0 auto; padding: 25px 28px 54px; }
-.message { margin: 0 0 30px; line-height: 1.55; font-size: 15px; }
+#messages { max-width: 760px; margin: 0 auto; padding: 25px 28px 54px; }
+.message { margin: 0 0 30px; line-height: 1.65; font-size: 16px; }
 .message.user { display: flex; justify-content: flex-end; }
 .message.user .message-content { max-width: min(78%, 630px); padding: 10px 16px; background: var(--bubble); border-radius: 18px; }
 .message.assistant .message-content { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
@@ -98,7 +98,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
 .settings-grid label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; }
 .settings-grid input { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--text); }
-.done-button { display: block; margin: 24px 0 0 auto; padding: 9px 18px; border: 0; border-radius: 9px; background: var(--text); color: var(--surface); font-weight: 600; }
+.done-button { display: block; margin: 24px 0 0 auto; padding: 9px 18px; border: 1px solid var(--line); border-radius: 9px; background: var(--bubble); color: var(--text); font-weight: 500; }
+.done-button:hover { background: var(--hover); }
 #toast { position: fixed; z-index: 30; bottom: 96px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 30px); padding: 9px 14px; border-radius: 9px; background: var(--text); color: var(--surface); box-shadow: 0 8px 25px rgba(0,0,0,.18); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
 #toast.visible { opacity: 1; }
 

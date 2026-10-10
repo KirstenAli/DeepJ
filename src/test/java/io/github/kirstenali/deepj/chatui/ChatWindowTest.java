@@ -2,7 +2,10 @@ package io.github.kirstenali.deepj.chatui;
 
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
+import javafx.event.Event;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,18 +63,37 @@ class ChatWindowTest {
     }
 
     @Test
+    void welcomeAndMessageTextHaveReadableSpacing() throws Exception {
+        Fixture fixture = open();
+        verify(fixture, view -> {
+            assertTrue(styleNumber(view, "#welcome p", "marginBottom") >= 24);
+            script(view, "startResponse('Hello', 3)");
+            assertTrue(styleNumber(view, ".message", "fontSize") >= 16);
+        });
+    }
+
+    @Test
     void desktopBridgeStreamsIntoConversation() throws Exception {
         Fixture fixture = open();
         verifyWithoutClosing(fixture, view -> {
             script(view, "setModel('stub.dj')");
             script(view, "document.getElementById('prompt').value = 'Hello'");
-            script(view, "submitPrompt()");
+            script(view, "document.getElementById('prompt').focus()");
+            pressEnter(view, true);
+            assertEquals(0, ((Number) script(view, "document.querySelectorAll('.user').length")).intValue());
+            pressEnter(view, false);
             assertEquals("Hello", script(view, "document.querySelector('.user .message-content').textContent"));
+            assertEquals("", script(view, "document.getElementById('prompt').value"));
         });
         assertTrue(fixture.service.generated.await(10, TimeUnit.SECONDS));
         Thread.sleep(200);
         verify(fixture, view -> assertEquals("A short answer",
                 script(view, "document.querySelector('.assistant .message-content').textContent")));
+    }
+
+    private static void pressEnter(WebView view, boolean shift) {
+        Event.fireEvent(view, new KeyEvent(KeyEvent.KEY_PRESSED, "\r", "\r", KeyCode.ENTER,
+                shift, false, false, false));
     }
 
     private static void assertSelection(WebView view) {
@@ -111,6 +133,11 @@ class ChatWindowTest {
 
     private static Object script(WebView view, String source) {
         return view.getEngine().executeScript(source);
+    }
+
+    private static double styleNumber(WebView view, String selector, String property) {
+        return ((Number) script(view, "parseFloat(getComputedStyle(document.querySelector('"
+                + selector + "'))." + property + ")")).doubleValue();
     }
 
     private interface Check { void run(WebView view); }

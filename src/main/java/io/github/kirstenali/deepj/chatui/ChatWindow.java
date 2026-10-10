@@ -4,6 +4,8 @@ import javafx.concurrent.Task;
 import javafx.concurrent.Worker;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -28,10 +30,23 @@ public final class ChatWindow {
 
     void open() {
         view.setContextMenuEnabled(false);
+        stage.getScene().addEventFilter(KeyEvent.KEY_PRESSED, this::handleEnter);
         view.getEngine().getLoadWorker().stateProperty().addListener((ob, old, state) -> {
             if (state == Worker.State.SUCCEEDED) connect();
         });
         view.getEngine().load(Objects.requireNonNull(getClass().getResource("/chat.html")).toExternalForm());
+    }
+
+    private void handleEnter(KeyEvent event) {
+        if (event.getCode() != KeyCode.ENTER || event.isShiftDown() || !promptFocused()) return;
+        call("submitPrompt");
+        event.consume();
+    }
+
+    private boolean promptFocused() {
+        if (view.getEngine().getLoadWorker().getState() != Worker.State.SUCCEEDED) return false;
+        return Boolean.TRUE.equals(view.getEngine().executeScript(
+                "document.activeElement === document.getElementById('prompt')"));
     }
 
     private void connect() {
