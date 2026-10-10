@@ -11,6 +11,7 @@ public abstract class BaseChatApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        ChatBackend.configure();
         WebView view = new WebView();
         chatWindow = new ChatWindow(stage, view, createChatService());
         stage.setScene(new Scene(view, 1100, 760));

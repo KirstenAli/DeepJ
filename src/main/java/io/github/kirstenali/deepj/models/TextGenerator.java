@@ -9,6 +9,7 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.util.Arrays;
 import java.util.Random;
+import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -99,6 +100,7 @@ public final class TextGenerator {
                                              Random rnd, Consumer<String> listener) {
         if (hasTrailingEndToken(tok, ids, length)) return length;
         for (int i = 0; i < maxNewTokens; i++) {
+            if (Thread.currentThread().isInterrupted()) throw new CancellationException("Generation stopped");
             int token = nextToken(forwarder, maxSeqLen, ids, length, temperature, topK, rnd);
             if (tok.isEndOfSequence(token)) break;
             ids[length++] = token;
@@ -119,6 +121,7 @@ public final class TextGenerator {
 
         float[] lastLogits = Arrays.copyOfRange(logits.data,
                 (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
+        Tensor.backend().releaseTemporaryResources();
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
     }
 

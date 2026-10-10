@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CancellationException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -94,6 +95,21 @@ public class TextGeneratorTest {
 
         assertEquals("pxxx", result);
         assertEquals(List.of("px", "pxx", "pxxx"), updates);
+    }
+
+    @Test
+    void streamStopsBeforeAnotherForwardAfterInterruption() {
+        AtomicInteger forwards = new AtomicInteger();
+        try {
+            assertThrows(CancellationException.class, () -> TextGenerator.stream(ids -> {
+                forwards.incrementAndGet();
+                return continuingLogits();
+            }, 8, new StopTokenizer(), "p", 5, 1.0f, 1, 1L,
+                    text -> Thread.currentThread().interrupt()));
+            assertEquals(1, forwards.get());
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     @Test

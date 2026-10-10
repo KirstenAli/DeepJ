@@ -90,10 +90,49 @@ class ChatWindowTest {
             assertEquals("Hello", script(view, "document.querySelector('.user .message-content').textContent"));
             assertEquals("", script(view, "document.getElementById('prompt').value"));
         });
-        assertTrue(fixture.service.generated.await(10, TimeUnit.SECONDS));
+        assertTrue(((TestService) fixture.service).generated.await(10, TimeUnit.SECONDS));
         Thread.sleep(200);
         verify(fixture, view -> assertEquals("A short answer",
                 script(view, "document.querySelector('.assistant .message-content').textContent")));
+    }
+
+    @Test
+    void newChatStopsGenerationAndAcceptsAnotherPrompt() throws Exception {
+        BlockingService service = new BlockingService();
+        Fixture fixture = open(service);
+        verifyWithoutClosing(fixture, view -> script(view, "setModel('stub.dj'); chatBridge.send('old', 10, 1, 1, 1)"));
+        assertTrue(service.started.await(10, TimeUnit.SECONDS));
+        verifyWithoutClosing(fixture, view -> {
+            assertEquals("Stop generating", script(view, "document.getElementById('send').title"));
+            script(view, "document.getElementById('newChat').click()");
+            assertEquals(false, script(view, "document.getElementById('prompt').disabled"));
+            script(view, "chatBridge.send('new', 10, 1, 1, 1)");
+        });
+        assertTrue(service.stopped.await(10, TimeUnit.SECONDS));
+        assertTrue(service.finished.await(10, TimeUnit.SECONDS));
+        Thread.sleep(200);
+        verify(fixture, ChatWindowTest::assertNewChat);
+    }
+
+    private static void assertNewChat(WebView view) {
+        assertEquals("new", script(view, "document.querySelector('.user .message-content').textContent"));
+        assertEquals("new response", script(view,
+                "document.querySelector('.assistant .message-content').textContent"));
+        assertEquals(1, ((Number) script(view, "document.querySelectorAll('.user').length")).intValue());
+    }
+
+    @Test
+    void stopButtonCancelsGeneration() throws Exception {
+        BlockingService service = new BlockingService();
+        Fixture fixture = open(service);
+        verifyWithoutClosing(fixture, view -> script(view, "setModel('stub.dj'); chatBridge.send('old', 10, 1, 1, 1)"));
+        assertTrue(service.started.await(10, TimeUnit.SECONDS));
+        verify(fixture, view -> {
+            script(view, "document.getElementById('send').click()");
+            assertEquals("Send message", script(view, "document.getElementById('send').title"));
+            assertEquals(false, script(view, "document.getElementById('prompt').disabled"));
+        });
+        assertTrue(service.stopped.await(10, TimeUnit.SECONDS));
     }
 
     private static void pressEnter(WebView view, boolean shift) {
@@ -114,7 +153,11 @@ class ChatWindowTest {
     }
 
     private static Fixture open() throws Exception {
-        Fixture fixture = new Fixture();
+        return open(new TestService());
+    }
+
+    private static Fixture open(ChatService service) throws Exception {
+        Fixture fixture = new Fixture(service);
         Platform.runLater(fixture::show);
         assertTrue(fixture.loaded.await(10, TimeUnit.SECONDS));
         return fixture;
@@ -149,9 +192,11 @@ class ChatWindowTest {
 
     private static final class Fixture {
         private final CountDownLatch loaded = new CountDownLatch(1);
-        private final TestService service = new TestService();
+        private final ChatService service;
         private WebView view;
         private Stage stage;
+
+        private Fixture(ChatService service) { this.service = service; }
 
         private void show() {
             view = new WebView();
@@ -190,6 +235,32 @@ class ChatWindowTest {
             listener.accept("A short");
             generated.countDown();
             return "A short answer";
+        }
+    }
+
+    private static final class BlockingService implements ChatService {
+        private final CountDownLatch started = new CountDownLatch(1);
+        private final CountDownLatch stopped = new CountDownLatch(1);
+        private final CountDownLatch finished = new CountDownLatch(1);
+
+        @Override public void loadModel(Path modelPath) {}
+        @Override public boolean isModelLoaded() { return true; }
+        @Override public String getLoadedModelName() { return "stub.dj"; }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, Consumer<String> listener) {
+            if (prompt.equals("new")) {
+                finished.countDown();
+                return "new response";
+            }
+            started.countDown();
+            try {
+                Thread.sleep(30000);
+            } catch (InterruptedException ignored) {
+                stopped.countDown();
+            }
+            return "stale response";
         }
     }
 }

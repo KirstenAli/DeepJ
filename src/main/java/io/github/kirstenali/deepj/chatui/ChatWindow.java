@@ -13,12 +13,21 @@ import netscape.javascript.JSObject;
 
 import java.io.File;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class ChatWindow {
 
     private final Stage stage;
     private final WebView view;
     private final ChatService service;
+    private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "deepj-chat-worker");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private Task<String> activeGeneration;
+    private int activeResponse;
     private boolean busy;
     private int nextResponse;
 
@@ -30,6 +39,7 @@ public final class ChatWindow {
 
     void open() {
         view.setContextMenuEnabled(false);
+        stage.setOnHidden(event -> worker.shutdownNow());
         stage.getScene().addEventFilter(KeyEvent.KEY_PRESSED, this::handleEnter);
         view.getEngine().getLoadWorker().stateProperty().addListener((ob, old, state) -> {
             if (state == Worker.State.SUCCEEDED) connect();
@@ -83,7 +93,7 @@ public final class ChatWindow {
 
     private void modelLoaded() {
         call("setModel", service.getLoadedModelName());
-        call("setStatus", "Ready on CPU");
+        call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
     }
 
@@ -105,11 +115,14 @@ public final class ChatWindow {
     private void startGeneration(String prompt, Settings settings) {
         int response = nextResponse++;
         call("startResponse", prompt, response);
+        call("setGenerating", true);
         setBusy(true);
         Task<String> task = generation(prompt, settings);
-        task.valueProperty().addListener((ob, old, text) -> partial(response, text));
-        task.setOnSucceeded(event -> complete(response, task.getValue()));
-        task.setOnFailed(event -> failed(response, task.getException()));
+        activeGeneration = task;
+        activeResponse = response;
+        task.valueProperty().addListener((ob, old, text) -> partial(task, response, text));
+        task.setOnSucceeded(event -> complete(task, response));
+        task.setOnFailed(event -> failed(task, response));
         start(task);
     }
 
@@ -122,18 +135,38 @@ public final class ChatWindow {
         };
     }
 
-    private void partial(int response, String text) {
-        if (text != null && !text.isEmpty()) call("updateResponse", response, text);
+    private void partial(Task<String> task, int response, String text) {
+        if (task == activeGeneration && text != null && !text.isEmpty()) {
+            call("updateResponse", response, text);
+        }
     }
 
-    private void complete(int response, String text) {
-        call("finishResponse", response, text == null ? "" : text);
-        call("setStatus", "Ready on CPU");
-        setBusy(false);
+    private void complete(Task<String> task, int response) {
+        if (task != activeGeneration) return;
+        call("finishResponse", response, task.getValue());
+        finishGeneration();
     }
 
-    private void failed(int response, Throwable error) {
-        call("failResponse", response, "Generation failed: " + message(error));
+    private void failed(Task<String> task, int response) {
+        if (task != activeGeneration) return;
+        call("failResponse", response, "Generation failed: " + message(task.getException()));
+        finishGeneration();
+    }
+
+    public void stop() {
+        if (activeGeneration == null) return;
+        Task<String> task = activeGeneration;
+        int response = activeResponse;
+        activeGeneration = null;
+        task.cancel(true);
+        call("stopResponse", response);
+        finishGeneration();
+    }
+
+    private void finishGeneration() {
+        activeGeneration = null;
+        call("setGenerating", false);
+        call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
     }
 
@@ -160,10 +193,8 @@ public final class ChatWindow {
         return error == null || error.getMessage() == null ? "Unknown error" : error.getMessage();
     }
 
-    private static void start(Task<?> task) {
-        Thread thread = new Thread(task, "deepj-chat-worker");
-        thread.setDaemon(true);
-        thread.start();
+    private void start(Task<?> task) {
+        worker.execute(task);
     }
 
     private record Settings(int maxTokens, double temperature, int topK, long seed) {
