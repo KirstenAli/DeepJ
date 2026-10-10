@@ -7,12 +7,14 @@
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
 
 <BorderPane fx:id="rootPane"
             xmlns:fx="http://javafx.com/fxml"
@@ -33,10 +35,15 @@
             </HBox>
 
             <Button fx:id="newChatButton"
-                    text="+  New chat"
+                    text="New chat"
                     maxWidth="Infinity"
                     onAction="#onNewChat"
-                    styleClass="new-chat-button"/>
+                    styleClass="new-chat-button">
+                <graphic>
+                    <SVGPath content="M3 12.5V16h3.5L16 6.5 12.5 3 3 12.5z M11.5 4l3.5 3.5"
+                             styleClass="button-icon"/>
+                </graphic>
+            </Button>
 
             <VBox spacing="8">
                 <Label text="MODEL" styleClass="section-label"/>
@@ -55,10 +62,14 @@
                         </VBox>
                     </HBox>
                     <Button fx:id="modelButton"
-                            text="Load checkpoint"
-                            maxWidth="Infinity"
+                            text="Choose file"
                             onAction="#onBrowseModel"
-                            styleClass="load-model-button"/>
+                            styleClass="load-model-button">
+                        <graphic>
+                            <SVGPath content="M2 5h5l2 2h7v8H2z"
+                                     styleClass="button-icon"/>
+                        </graphic>
+                    </Button>
                 </VBox>
             </VBox>
 
@@ -68,7 +79,12 @@
                     text="Settings"
                     maxWidth="Infinity"
                     onAction="#onToggleSettings"
-                    styleClass="sidebar-button"/>
+                    styleClass="sidebar-button">
+                <graphic>
+                    <SVGPath content="M2 4h14 M2 9h14 M2 14h14 M6 2v4 M12 7v4 M8 12v4"
+                             styleClass="button-icon"/>
+                </graphic>
+            </Button>
             <Label fx:id="statusLabel" wrapText="true" styleClass="status-label"/>
         </VBox>
     </left>
@@ -144,9 +160,17 @@
                                        styleClass="settings-caption"/>
                             </VBox>
                             <Region HBox.hgrow="ALWAYS"/>
-                            <Button text="Close"
+                            <Button accessibleText="Close settings"
                                     onAction="#onToggleSettings"
-                                    styleClass="close-settings-button"/>
+                                    styleClass="close-settings-button">
+                                <graphic>
+                                    <SVGPath content="M4 4l10 10 M14 4L4 14"
+                                             styleClass="button-icon"/>
+                                </graphic>
+                                <tooltip>
+                                    <Tooltip text="Close settings"/>
+                                </tooltip>
+                            </Button>
                         </HBox>
 
                         <Separator/>

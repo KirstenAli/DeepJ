@@ -43,7 +43,6 @@
 
 .new-chat-button,
 .sidebar-button,
-.load-model-button,
 .close-settings-button,
 .theme-button,
 .settings-field {
@@ -53,13 +52,35 @@
 }
 
 .new-chat-button,
-.sidebar-button,
-.load-model-button {
+.sidebar-button {
     -fx-alignment: center-left;
     -fx-background-radius: 10px;
     -fx-border-radius: 10px;
+    -fx-content-display: left;
     -fx-font-weight: 600;
+    -fx-graphic-text-gap: 10px;
     -fx-padding: 10px 12px;
+}
+
+.button-icon {
+    -fx-fill: transparent;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+    -fx-stroke-width: 1.5px;
+}
+
+.load-model-button {
+    -fx-alignment: center;
+    -fx-background-insets: 0;
+    -fx-background-radius: 9px;
+    -fx-border-insets: 0;
+    -fx-border-radius: 9px;
+    -fx-content-display: left;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-graphic-text-gap: 8px;
+    -fx-padding: 8px 11px;
 }
 
 .model-card {
@@ -181,10 +202,15 @@
 }
 
 .close-settings-button {
+    -fx-alignment: center;
     -fx-background-color: transparent;
-    -fx-background-radius: 9px;
+    -fx-background-radius: 999px;
     -fx-border-color: transparent;
-    -fx-padding: 7px 9px;
+    -fx-min-height: 32px;
+    -fx-min-width: 32px;
+    -fx-padding: 0;
+    -fx-pref-height: 32px;
+    -fx-pref-width: 32px;
 }
 
 .theme-selector {
@@ -324,9 +350,23 @@
 }
 
 .theme-light .load-model-button {
-    -fx-background-color: #171717;
-    -fx-border-color: #171717;
-    -fx-text-fill: #ffffff;
+    -fx-background-color: #f1f1f1;
+    -fx-border-color: #dddddd;
+    -fx-text-fill: #272727;
+}
+
+.theme-light .button-icon {
+    -fx-stroke: #454545;
+}
+
+.theme-light .load-model-button:hover,
+.theme-light .close-settings-button:hover {
+    -fx-background-color: #e7e7e7;
+}
+
+.theme-light .new-chat-button:hover,
+.theme-light .sidebar-button:hover {
+    -fx-background-color: #ededed;
 }
 
 .theme-light .local-badge,
@@ -437,9 +477,23 @@
 }
 
 .theme-dark .load-model-button {
-    -fx-background-color: #f4f4f4;
-    -fx-border-color: #f4f4f4;
-    -fx-text-fill: #171717;
+    -fx-background-color: #303030;
+    -fx-border-color: #474747;
+    -fx-text-fill: #f2f2f2;
+}
+
+.theme-dark .button-icon {
+    -fx-stroke: #d4d4d4;
+}
+
+.theme-dark .load-model-button:hover,
+.theme-dark .close-settings-button:hover {
+    -fx-background-color: #3a3a3a;
+}
+
+.theme-dark .new-chat-button:hover,
+.theme-dark .sidebar-button:hover {
+    -fx-background-color: #292929;
 }
 
 .theme-dark .local-badge,
@@ -549,9 +603,23 @@
 }
 
 .theme-midnight .load-model-button {
-    -fx-background-color: #38bdf8;
-    -fx-border-color: #38bdf8;
-    -fx-text-fill: #082f49;
+    -fx-background-color: #1e293b;
+    -fx-border-color: #334155;
+    -fx-text-fill: #e7eef8;
+}
+
+.theme-midnight .button-icon {
+    -fx-stroke: #b8c7da;
+}
+
+.theme-midnight .load-model-button:hover,
+.theme-midnight .close-settings-button:hover {
+    -fx-background-color: #27364c;
+}
+
+.theme-midnight .new-chat-button:hover,
+.theme-midnight .sidebar-button:hover {
+    -fx-background-color: #1e293b;
 }
 
 .theme-midnight .local-badge,
