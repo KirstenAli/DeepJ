@@ -83,6 +83,20 @@
     -fx-padding: 8px 11px;
 }
 
+.sidebar-toggle-button {
+    -fx-alignment: center;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 9px;
+    -fx-border-color: transparent;
+    -fx-cursor: hand;
+    -fx-min-height: 32px;
+    -fx-min-width: 32px;
+    -fx-padding: 0;
+    -fx-pref-height: 32px;
+    -fx-pref-width: 32px;
+}
+
 .model-card {
     -fx-background-radius: 14px;
     -fx-border-radius: 14px;
@@ -360,7 +374,8 @@
 }
 
 .theme-light .load-model-button:hover,
-.theme-light .close-settings-button:hover {
+.theme-light .close-settings-button:hover,
+.theme-light .sidebar-toggle-button:hover {
     -fx-background-color: #e7e7e7;
 }
 
@@ -487,7 +502,8 @@
 }
 
 .theme-dark .load-model-button:hover,
-.theme-dark .close-settings-button:hover {
+.theme-dark .close-settings-button:hover,
+.theme-dark .sidebar-toggle-button:hover {
     -fx-background-color: #3a3a3a;
 }
 
@@ -613,7 +629,8 @@
 }
 
 .theme-midnight .load-model-button:hover,
-.theme-midnight .close-settings-button:hover {
+.theme-midnight .close-settings-button:hover,
+.theme-midnight .sidebar-toggle-button:hover {
     -fx-background-color: #27364c;
 }
 

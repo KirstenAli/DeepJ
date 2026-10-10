@@ -88,6 +88,11 @@ public class ChatController {
     }
 
     @FXML
+    private void onToggleSidebar() {
+        appearance.toggleSidebar();
+    }
+
+    @FXML
     private void onTheme(ActionEvent event) {
         Button button = (Button) event.getSource();
         appearance.apply(ChatTheme.valueOf(button.getUserData().toString()));
@@ -120,7 +125,7 @@ public class ChatController {
         setStatus("Loading model…");
         Task<Void> task = modelTask(path);
         configureModelTask(task);
-        start(task, "deepj-model-loader");
+        ChatRuntime.start(task, "deepj-model-loader");
     }
 
     private Task<Void> modelTask(Path path) {
@@ -140,8 +145,8 @@ public class ChatController {
 
     private void modelLoaded() {
         String name = chatService.getLoadedModelName();
-        showModelState(name, "Ready on " + backendName(), "model-ready");
-        setStatus("Ready on " + backendName());
+        showModelState(name, "Ready on " + ChatRuntime.backendName(), "model-ready");
+        setStatus("Ready on " + ChatRuntime.backendName());
         setBusy(false);
         inputArea.requestFocus();
     }
@@ -151,7 +156,8 @@ public class ChatController {
         showModelState("Model unavailable", "Choose another checkpoint", "model-error");
         setStatus("Could not load model");
         showWelcome(false);
-        addMessage(new ChatMessage("Model loading failed: " + safeMessage(error), false));
+        addMessage(new ChatMessage("Model loading failed: "
+                + ChatRuntime.errorMessage(error), false));
     }
 
     private GenerationSettings settings(String prompt) {
@@ -184,7 +190,7 @@ public class ChatController {
         prepareComposer();
         Task<String> task = generationTask(prompt, settings, response);
         configureGenerationTask(task, response);
-        start(task, "deepj-generation");
+        ChatRuntime.start(task, "deepj-generation");
     }
 
     private void prepareComposer() {
@@ -225,13 +231,13 @@ public class ChatController {
         hideTypingIndicator();
         response.setText(text.isBlank() ? "The model returned no text." : text);
         setBusy(false);
-        setStatus("Ready on " + backendName());
+        setStatus("Ready on " + ChatRuntime.backendName());
         inputArea.requestFocus();
     }
 
     private void generationFailed(Label response, Throwable error) {
         hideTypingIndicator();
-        response.setText("Generation failed: " + safeMessage(error));
+        response.setText("Generation failed: " + ChatRuntime.errorMessage(error));
         setBusy(false);
         setStatus("Generation failed");
     }
@@ -302,20 +308,4 @@ public class ChatController {
         statusLabel.setText(text);
     }
 
-    private static String backendName() {
-        return io.github.kirstenali.deepj.tensor.Tensor.backend().getClass().getSimpleName();
-    }
-
-    private static String safeMessage(Throwable error) {
-        if (error == null || error.getMessage() == null || error.getMessage().isBlank()) {
-            return "Unknown error";
-        }
-        return error.getMessage();
-    }
-
-    private static void start(Task<?> task, String name) {
-        Thread thread = new Thread(task, name);
-        thread.setDaemon(true);
-        thread.start();
-    }
 }

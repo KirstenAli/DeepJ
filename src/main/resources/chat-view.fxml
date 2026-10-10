@@ -21,7 +21,7 @@
             fx:controller="io.github.kirstenali.deepj.chatui.ChatController"
             styleClass="app-root, theme-light">
     <left>
-        <VBox styleClass="sidebar" spacing="16">
+        <VBox fx:id="sidebarPane" id="sidebarPane" styleClass="sidebar" spacing="16">
             <padding>
                 <Insets top="20" right="16" bottom="18" left="16"/>
             </padding>
@@ -32,6 +32,18 @@
                     <Label text="DeepJ" styleClass="brand-title"/>
                     <Label text="Local model chat" styleClass="brand-caption"/>
                 </VBox>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button accessibleText="Hide sidebar"
+                        onAction="#onToggleSidebar"
+                        styleClass="sidebar-toggle-button">
+                    <graphic>
+                        <SVGPath content="M2 3h14v12H2z M6 3v12"
+                                 styleClass="button-icon"/>
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Hide sidebar"/>
+                    </tooltip>
+                </Button>
             </HBox>
 
             <Button fx:id="newChatButton"
@@ -92,10 +104,25 @@
     <center>
         <BorderPane styleClass="conversation-pane">
             <top>
-                <HBox alignment="CENTER_LEFT" styleClass="top-bar">
+                <HBox alignment="CENTER_LEFT" spacing="12" styleClass="top-bar">
                     <padding>
                         <Insets top="14" right="22" bottom="14" left="22"/>
                     </padding>
+                    <Button fx:id="sidebarOpenButton"
+                            id="sidebarOpenButton"
+                            accessibleText="Show sidebar"
+                            managed="false"
+                            onAction="#onToggleSidebar"
+                            styleClass="sidebar-toggle-button"
+                            visible="false">
+                        <graphic>
+                            <SVGPath content="M2 3h14v12H2z M6 3v12"
+                                     styleClass="button-icon"/>
+                        </graphic>
+                        <tooltip>
+                            <Tooltip text="Show sidebar"/>
+                        </tooltip>
+                    </Button>
                     <VBox spacing="1">
                         <Label text="DeepJ Chat" styleClass="top-title"/>
                         <Label text="Private and on-device" styleClass="top-caption"/>

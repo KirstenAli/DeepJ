@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.layout.Region;
@@ -36,11 +37,22 @@ final class ChatAppearance {
         setVisible(false);
     }
 
+    void toggleSidebar() {
+        Node sidebar = root.lookup("#sidebarPane");
+        Node openButton = root.lookup("#sidebarOpenButton");
+        boolean expanded = sidebar.isVisible();
+        show(sidebar, !expanded);
+        show(openButton, expanded);
+    }
+
     private void setVisible(boolean visible) {
-        panel.setManaged(visible);
-        panel.setVisible(visible);
-        backdrop.setManaged(visible);
-        backdrop.setVisible(visible);
+        show(panel, visible);
+        show(backdrop, visible);
+    }
+
+    private static void show(Node node, boolean visible) {
+        node.setManaged(visible);
+        node.setVisible(visible);
     }
 
     private static void select(Button button, boolean selected) {
