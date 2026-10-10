@@ -33,7 +33,6 @@ function setStatus(message) {
 function setModel(name) {
   modelLoaded = true;
   element('modelName').textContent = name;
-  element('modelBadge').textContent = name;
   element('composerHint').textContent = name;
   element('welcome').querySelector('p').textContent = 'Your local model is ready.';
   updateSend();
@@ -42,7 +41,7 @@ function setModel(name) {
 function setBusy(value) {
   busy = value;
   promptBox.disabled = value;
-  ['sidebarModel', 'composerModel', 'menuLoad'].forEach(id => element(id).disabled = value);
+  ['composerModel', 'menuLoad'].forEach(id => element(id).disabled = value);
   updateSend();
 }
 
@@ -175,7 +174,6 @@ function bridgeReady() { setStatus('Choose a model to begin'); }
 element('collapseSidebar').onclick = () => app.classList.add('collapsed');
 element('reopenSidebar').onclick = () => app.classList.remove('collapsed');
 element('newChat').onclick = newChat;
-element('sidebarModel').onclick = chooseModel;
 element('composerModel').onclick = chooseModel;
 element('menuLoad').onclick = chooseModel;
 element('modelPicker').onclick = toggleModelMenu;

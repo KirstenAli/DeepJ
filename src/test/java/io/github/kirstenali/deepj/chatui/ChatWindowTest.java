@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnabledIfSystemProperty(named = "deepj.uiTests", matches = "true")
@@ -67,6 +68,10 @@ class ChatWindowTest {
         Fixture fixture = open();
         verify(fixture, view -> {
             assertTrue(styleNumber(view, "#welcome p", "marginBottom") >= 24);
+            assertTrue(styleNumber(view, ".disclaimer", "marginTop") >= 15);
+            assertNull(script(view, "document.getElementById('sidebarModel')"));
+            assertNull(script(view, "document.getElementById('modelBadge')"));
+            assertEquals(true, script(view, "!!document.getElementById('composerModel')"));
             script(view, "startResponse('Hello', 3)");
             assertTrue(styleNumber(view, ".message", "fontSize") >= 16);
         });
