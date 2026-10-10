@@ -8,6 +8,7 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 public final class DeepJOriginChatService implements ChatService {
 
@@ -49,10 +50,13 @@ public final class DeepJOriginChatService implements ChatService {
     }
 
     @Override
-    public String generate(String prompt, int maxTokens, float temperature, int topK, long seed) {
+    public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
+                           Consumer<String> listener) {
         validateRequest(prompt, maxTokens, temperature, topK);
-        return TextGenerator.generate(loadedModel, tokenizer, config, prompt,
-                maxTokens, temperature, topK, seed);
+        String prefix = tokenizer.decode(tokenizer.encode(prompt));
+        return GeneratedText.continuation(prefix, TextGenerator.stream(loadedModel, tokenizer,
+                config, prompt, maxTokens, temperature, topK, seed,
+                text -> listener.accept(GeneratedText.continuation(prefix, text))));
     }
 
     private void validateRequest(String prompt, int maxTokens, float temperature, int topK) {

@@ -3,201 +3,268 @@ package io.github.kirstenali.deepj.chatui;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 public class ChatController {
 
     private ChatService chatService;
+    private boolean busy;
 
+    @FXML private BorderPane rootPane;
     @FXML private VBox messagesBox;
+    @FXML private VBox welcomeBox;
     @FXML private ScrollPane scrollPane;
     @FXML private TextArea inputArea;
     @FXML private Button sendButton;
+    @FXML private Button newChatButton;
+    @FXML private Button modelButton;
     @FXML private HBox typingIndicator;
-
     @FXML private TextField modelPathField;
     @FXML private TextField temperatureField;
     @FXML private TextField topKField;
     @FXML private TextField maxTokensField;
     @FXML private TextField seedField;
+    @FXML private ComboBox<ChatTheme> themeField;
+    @FXML private Label modelNameLabel;
     @FXML private Label statusLabel;
 
-    public ChatController() {
-    }
-
-    public void setChatService(ChatService chatService) {
-        this.chatService = chatService;
+    public void setChatService(ChatService service) {
+        chatService = service;
+        updateSendState();
     }
 
     @FXML
     public void initialize() {
         setDefaultSettings();
-        hideTypingIndicator();
+        configureThemes();
         configureAutoScroll();
-
-        showBotMessage("Load a model file to begin.");
-        setStatus("No model loaded");
+        hideTypingIndicator();
+        setStatus("Choose a DeepJ Prism checkpoint to begin");
+        updateSendState();
     }
 
     @FXML
     private void onBrowseModel() {
-        if (!hasChatService()) return;
         File file = chooseModelFile();
-        if (file == null) return;
-        loadModel(file);
+        if (file != null && chatService != null) loadModel(file.toPath());
     }
 
-    private File chooseModelFile() {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Select Model File");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Model Files", "*.bin"));
-        return chooser.showOpenDialog(getWindowOwner());
+    @FXML
+    private void onNewChat() {
+        messagesBox.getChildren().clear();
+        showWelcome(true);
+        inputArea.clear();
+        inputArea.requestFocus();
     }
 
-    private void loadModel(File file) {
-        try {
-            chatService.loadModel(file.toPath());
-            modelPathField.setText(file.getAbsolutePath());
-            setStatus("Loaded: " + chatService.getLoadedModelName());
-            showBotMessage("Model loaded: " + chatService.getLoadedModelName());
-        } catch (Exception e) {
-            setStatus("Failed to load model");
-            showBotMessage("Error loading model: " + safeMessage(e));
-        }
+    @FXML
+    private void onThemeChanged() {
+        ChatTheme theme = themeField.getValue();
+        if (theme != null) theme.apply(rootPane);
     }
 
     @FXML
     private void onSend() {
-        if (!hasChatService()) return;
         String prompt = inputArea.getText().trim();
-        if (prompt.isEmpty() || !hasLoadedModel()) return;
-        GenerationSettings settings = readSettings();
-        if (settings == null) return;
-        prepareGeneration(prompt);
-        Task<String> task = generationTask(prompt, settings);
-        configureTaskHandlers(task);
-        startBackgroundTask(task, "origin-generate-thread");
-    }
-
-    private GenerationSettings readSettings() {
-        try {
-            return new GenerationSettings(
-                    parseInt(maxTokensField.getText(), "Max tokens"),
-                    parseFloat(temperatureField.getText(), "Temperature"),
-                    parseInt(topKField.getText(), "Top-k"),
-                    parseLong(seedField.getText(), "Seed"));
-        } catch (IllegalArgumentException e) {
-            setStatus("Invalid settings");
-            showBotMessage(e.getMessage());
-            return null;
-        }
-    }
-
-    private void prepareGeneration(String prompt) {
-        showUserMessage(prompt);
-        inputArea.clear();
-        setBusy(true);
-        showTypingIndicator();
-        setStatus("Generating...");
-    }
-
-    private Task<String> generationTask(String prompt, GenerationSettings settings) {
-        return new Task<>() {
-            @Override
-            protected String call() {
-                return chatService.generate(prompt, settings.maxTokens(), settings.temperature(),
-                        settings.topK(), settings.seed());
-            }
-        };
-    }
-
-    private void configureTaskHandlers(Task<String> task) {
-        task.setOnSucceeded(event -> {
-            hideTypingIndicator();
-            setBusy(false);
-            showBotMessage(task.getValue());
-            setStatus("Ready");
-        });
-
-        task.setOnFailed(event -> {
-            hideTypingIndicator();
-            setBusy(false);
-
-            Throwable error = task.getException();
-            showBotMessage("Generation failed: " + safeMessage(error));
-            setStatus("Generation failed");
-        });
-    }
-
-    private boolean hasChatService() {
-        if (chatService != null) return true;
-        showBotMessage("Chat service is not configured.");
-        setStatus("Chat service not configured");
-        return false;
-    }
-
-    private boolean hasLoadedModel() {
-        if (chatService.isModelLoaded()) return true;
-        setStatus("Load a model first");
-        showBotMessage("Please load a model first.");
-        return false;
+        GenerationSettings settings = settings(prompt);
+        if (settings != null) startGeneration(prompt, settings);
     }
 
     @FXML
     private void onInputKeyPressed(KeyEvent event) {
-        if (event.getCode() == KeyCode.ENTER && !event.isShiftDown()) {
-            event.consume();
-            onSend();
+        if (event.getCode() != KeyCode.ENTER || event.isShiftDown()) return;
+        event.consume();
+        onSend();
+    }
+
+    private File chooseModelFile() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Choose a DeepJ model");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("DeepJ model", "*.dj"));
+        return chooser.showOpenDialog(inputArea.getScene().getWindow());
+    }
+
+    private void loadModel(Path path) {
+        setBusy(true);
+        setStatus("Loading model…");
+        Task<Path> task = modelTask(path);
+        configureModelTask(task);
+        start(task, "deepj-model-loader");
+    }
+
+    private Task<Path> modelTask(Path path) {
+        return new Task<>() {
+            @Override
+            protected Path call() throws Exception {
+                chatService.loadModel(path);
+                return path;
+            }
+        };
+    }
+
+    private void configureModelTask(Task<Path> task) {
+        task.setOnSucceeded(event -> modelLoaded(task.getValue()));
+        task.setOnFailed(event -> modelLoadFailed(task.getException()));
+    }
+
+    private void modelLoaded(Path path) {
+        modelPathField.setText(path.toAbsolutePath().toString());
+        modelNameLabel.setText(chatService.getLoadedModelName());
+        setStatus("Ready on " + backendName());
+        setBusy(false);
+        inputArea.requestFocus();
+    }
+
+    private void modelLoadFailed(Throwable error) {
+        setBusy(false);
+        setStatus("Could not load model");
+        showWelcome(false);
+        addMessage(new ChatMessage("Model loading failed: " + safeMessage(error), false));
+    }
+
+    private GenerationSettings settings(String prompt) {
+        if (!canGenerate(prompt)) return null;
+        try {
+            return parsedSettings();
+        } catch (IllegalArgumentException error) {
+            setStatus(error.getMessage());
+            return null;
         }
     }
 
-    private void startBackgroundTask(Task<?> task, String threadName) {
-        Thread thread = new Thread(task, threadName);
-        thread.setDaemon(true);
-        thread.start();
+    private boolean canGenerate(String prompt) {
+        if (busy || prompt.isEmpty()) return false;
+        if (chatService != null && chatService.isModelLoaded()) return true;
+        setStatus("Choose a model first");
+        return false;
     }
 
-    private void setDefaultSettings() {
-        temperatureField.setText("0.1");
-        topKField.setText("20");
-        maxTokensField.setText("200");
-        seedField.setText("1234");
+    private GenerationSettings parsedSettings() {
+        return GenerationSettings.parse(maxTokensField.getText(), temperatureField.getText(),
+                topKField.getText(), seedField.getText());
+    }
+
+    private void startGeneration(String prompt, GenerationSettings settings) {
+        showWelcome(false);
+        addMessage(new ChatMessage(prompt, true));
+        Label response = addMessage(new ChatMessage("", false));
+        prepareComposer();
+        Task<String> task = generationTask(prompt, settings, response);
+        configureGenerationTask(task, response);
+        start(task, "deepj-generation");
+    }
+
+    private void prepareComposer() {
+        inputArea.clear();
+        setBusy(true);
+        showTypingIndicator();
+        setStatus("Generating…");
+    }
+
+    private Task<String> generationTask(String prompt, GenerationSettings settings, Label response) {
+        Consumer<String> listener = streamTo(response);
+        return new Task<>() {
+            @Override
+            protected String call() {
+                return chatService.generate(prompt, settings.maxTokens(), settings.temperature(),
+                        settings.topK(), settings.seed(), listener);
+            }
+        };
+    }
+
+    private Consumer<String> streamTo(Label response) {
+        AtomicBoolean started = new AtomicBoolean();
+        return text -> Platform.runLater(() -> updateStream(response, text, started));
+    }
+
+    private void updateStream(Label response, String text, AtomicBoolean started) {
+        if (started.compareAndSet(false, true)) hideTypingIndicator();
+        response.setText(text);
+        scrollToBottom();
+    }
+
+    private void configureGenerationTask(Task<String> task, Label response) {
+        task.setOnSucceeded(event -> generationFinished(response, task.getValue()));
+        task.setOnFailed(event -> generationFailed(response, task.getException()));
+    }
+
+    private void generationFinished(Label response, String text) {
+        hideTypingIndicator();
+        response.setText(text.isBlank() ? "The model returned no text." : text);
+        setBusy(false);
+        setStatus("Ready on " + backendName());
+        inputArea.requestFocus();
+    }
+
+    private void generationFailed(Label response, Throwable error) {
+        hideTypingIndicator();
+        response.setText("Generation failed: " + safeMessage(error));
+        setBusy(false);
+        setStatus("Generation failed");
+    }
+
+    private Label addMessage(ChatMessage message) {
+        ChatMessageView view = ChatMessageView.create(message);
+        messagesBox.getChildren().add(view.row());
+        scrollToBottom();
+        return view.content();
+    }
+
+    private void configureThemes() {
+        themeField.getItems().setAll(ChatTheme.values());
+        themeField.setValue(ChatTheme.LIGHT);
+        onThemeChanged();
     }
 
     private void configureAutoScroll() {
-        messagesBox.heightProperty().addListener((obs, oldVal, newVal) ->
-                Platform.runLater(this::scrollToBottom)
-        );
+        messagesBox.heightProperty().addListener((value, oldHeight, newHeight) ->
+                Platform.runLater(this::scrollToBottom));
     }
 
-    private void setBusy(boolean busy) {
-        sendButton.setDisable(busy);
-        inputArea.setDisable(busy);
+    private void setDefaultSettings() {
+        temperatureField.setText("0.7");
+        topKField.setText("20");
+        maxTokensField.setText("120");
+        seedField.setText("2026");
     }
 
-    private void setStatus(String text) {
-        statusLabel.setText(text);
+    private void setBusy(boolean value) {
+        busy = value;
+        inputArea.setDisable(value);
+        newChatButton.setDisable(value);
+        modelButton.setDisable(value);
+        updateSendState();
+    }
+
+    private void updateSendState() {
+        boolean unloaded = chatService == null || !chatService.isModelLoaded();
+        sendButton.setDisable(busy || unloaded);
+    }
+
+    private void showWelcome(boolean visible) {
+        welcomeBox.setManaged(visible);
+        welcomeBox.setVisible(visible);
     }
 
     private void showTypingIndicator() {
         typingIndicator.setManaged(true);
         typingIndicator.setVisible(true);
-        scrollToBottom();
     }
 
     private void hideTypingIndicator() {
@@ -205,91 +272,28 @@ public class ChatController {
         typingIndicator.setVisible(false);
     }
 
-    private void showUserMessage(String text) {
-        addMessage(new ChatMessage(text, true));
-    }
-
-    private void showBotMessage(String text) {
-        addMessage(new ChatMessage(text, false));
-    }
-
-    private void addMessage(ChatMessage message) {
-        HBox row = createMessageRow(message.user());
-        Label bubble = createMessageBubble(message);
-        Region spacer = createMessageSpacer();
-        arrangeMessage(row, bubble, spacer, message.user());
-        messagesBox.getChildren().add(row);
-    }
-
-    private static HBox createMessageRow(boolean user) {
-        HBox row = new HBox();
-        row.setAlignment(user ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-        row.setPadding(new Insets(4, 0, 4, 0));
-        row.getStyleClass().add("message-row");
-        return row;
-    }
-
-    private static Label createMessageBubble(ChatMessage message) {
-        Label bubble = new Label(message.text());
-        bubble.setWrapText(true);
-        bubble.setMaxWidth(560);
-        bubble.getStyleClass().add(message.user() ? "user-bubble" : "bot-bubble");
-        return bubble;
-    }
-
-    private static Region createMessageSpacer() {
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        return spacer;
-    }
-
-    private static void arrangeMessage(HBox row, Label bubble, Region spacer, boolean user) {
-        if (user) {
-            row.getChildren().addAll(spacer, bubble);
-        } else {
-            row.getChildren().addAll(bubble, spacer);
-        }
-    }
-
     private void scrollToBottom() {
-        scrollPane.layout();
         scrollPane.setVvalue(1.0);
     }
 
-    private int parseInt(String value, String name) {
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException(name + " must be a valid integer.");
-        }
+    private void setStatus(String text) {
+        statusLabel.setText(text);
     }
 
-    private long parseLong(String value, String name) {
-        try {
-            return Long.parseLong(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException(name + " must be a valid integer.");
-        }
+    private static String backendName() {
+        return io.github.kirstenali.deepj.tensor.Tensor.backend().getClass().getSimpleName();
     }
 
-    private float parseFloat(String value, String name) {
-        try {
-            return Float.parseFloat(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException(name + " must be a valid number.");
-        }
-    }
-
-    private String safeMessage(Throwable error) {
+    private static String safeMessage(Throwable error) {
         if (error == null || error.getMessage() == null || error.getMessage().isBlank()) {
             return "Unknown error";
         }
         return error.getMessage();
     }
 
-    private javafx.stage.Window getWindowOwner() {
-        return inputArea.getScene().getWindow();
+    private static void start(Task<?> task, String name) {
+        Thread thread = new Thread(task, name);
+        thread.setDaemon(true);
+        thread.start();
     }
-
-    private record GenerationSettings(int maxTokens, float temperature, int topK, long seed) {}
 }

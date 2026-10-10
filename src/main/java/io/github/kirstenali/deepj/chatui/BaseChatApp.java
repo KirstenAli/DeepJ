@@ -27,7 +27,7 @@ public abstract class BaseChatApp extends Application {
     }
 
     private Scene loadScene(FXMLLoader loader, URL css) throws IOException {
-        Scene scene = new Scene(loader.load(), 1000, 720);
+        Scene scene = new Scene(loader.load(), 1180, 780);
         scene.getStylesheets().add(css.toExternalForm());
         return scene;
     }
@@ -40,8 +40,8 @@ public abstract class BaseChatApp extends Application {
     private void showStage(Stage stage, Scene scene) {
         stage.setTitle(getAppTitle());
         stage.setScene(scene);
-        stage.setMinWidth(860);
-        stage.setMinHeight(620);
+        stage.setMinWidth(920);
+        stage.setMinHeight(680);
         stage.show();
     }
 

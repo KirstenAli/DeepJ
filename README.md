@@ -43,23 +43,6 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ## Quick start
 
-Tensor operations use the CPU backend by default:
-
-```java
-import io.github.kirstenali.deepj.tensor.Tensor;
-
-Tensor inputs = Tensor.from2D(new float[][]{
-        {1.0f, 2.0f},
-        {3.0f, 4.0f}
-});
-Tensor weights = Tensor.from2D(new float[][]{
-        {0.5f, 1.0f},
-        {-1.0f, 2.0f}
-});
-
-Tensor output = inputs.matmul(weights).reluActivation();
-```
-
 Load a DeepJ Prism checkpoint with its BPE tokenizer:
 
 ```java
@@ -85,6 +68,16 @@ String text = TextGenerator.generate(
 ```
 
 The model configuration must match the saved checkpoint.
+
+## Chat UI
+
+DeepJ includes a local JavaFX chat interface with streamed generation and light, dark, and midnight themes.
+Choose a DeepJ Prism `.dj` checkpoint whose folder also contains `tokenizer.bpe` and either
+`training.properties` or `config.json`.
+
+```bash
+mvn javafx:run
+```
 
 ## Models
 

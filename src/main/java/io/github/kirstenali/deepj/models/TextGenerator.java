@@ -9,6 +9,7 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.util.Arrays;
 import java.util.Random;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class TextGenerator {
@@ -59,28 +60,58 @@ public final class TextGenerator {
             int topK,
             long seed
     ) {
-        validateArgs(maxNewTokens, temperature, topK);
+        return stream(forwarder, maxSeqLen, tok, prompt, maxNewTokens,
+                temperature, topK, seed, text -> {});
+    }
 
-        Random rnd = new Random(seed);
-        int[] promptIds = tok.encode(prompt);
+    public static String stream(
+            CausalLM model, Tokenizer tok, TransformerConfig cfg,
+            String prompt, int maxNewTokens, float temperature, int topK, long seed,
+            Consumer<String> listener
+    ) {
+        return stream(model::forward, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
+                temperature, topK, seed, listener);
+    }
+
+    public static String stream(
+            Function<int[], Tensor> forwarder, int maxSeqLen, Tokenizer tok,
+            String prompt, int maxNewTokens, float temperature, int topK, long seed,
+            Consumer<String> listener
+    ) {
+        validateArgs(maxNewTokens, temperature, topK);
+        Generation generation = generation(tok, prompt, maxNewTokens, seed, listener);
+        int length = appendGeneratedTokens(forwarder, maxSeqLen, tok, generation,
+                maxNewTokens, temperature, topK);
+        return tok.decode(Arrays.copyOf(generation.ids(), length));
+    }
+
+    private static Generation generation(Tokenizer tokenizer, String prompt,
+                                         int maxNewTokens, long seed,
+                                         Consumer<String> listener) {
+        int[] promptIds = tokenizer.encode(prompt);
         requirePrompt(promptIds, maxNewTokens);
         int[] ids = Arrays.copyOf(promptIds, promptIds.length + maxNewTokens);
-        int length = appendGeneratedTokens(forwarder, maxSeqLen, tok, ids,
-                promptIds.length, maxNewTokens, temperature, topK, rnd);
-        return tok.decode(Arrays.copyOf(ids, length));
+        return new Generation(ids, promptIds.length, new Random(seed), listener);
     }
 
     private static int appendGeneratedTokens(Function<int[], Tensor> forwarder, int maxSeqLen,
-                                             Tokenizer tok, int[] ids, int length,
-                                             int maxNewTokens, float temperature, int topK,
-                                             Random rnd) {
-        if (hasTrailingEndToken(tok, ids, length)) return length;
+                                             Tokenizer tok, Generation generation,
+                                             int maxNewTokens, float temperature, int topK) {
+        if (hasTrailingEndToken(tok, generation.ids(), generation.length())) return generation.length();
+        int length = generation.length();
         for (int i = 0; i < maxNewTokens; i++) {
-            int token = nextToken(forwarder, maxSeqLen, ids, length, temperature, topK, rnd);
+            int token = nextToken(forwarder, maxSeqLen, generation.ids(), length,
+                    temperature, topK, generation.random());
             if (tok.isEndOfSequence(token)) break;
-            ids[length++] = token;
+            generation.ids()[length++] = token;
+            publish(tok, generation, length);
         }
         return length;
+    }
+
+    private static void publish(Tokenizer tokenizer, Generation generation, int length) {
+        int[] tokens = Arrays.copyOf(generation.ids(), length);
+        generation.listener().accept(tokenizer.decode(tokens));
     }
 
     private static boolean hasTrailingEndToken(Tokenizer tokenizer, int[] ids, int length) {
@@ -245,5 +276,12 @@ public final class TextGenerator {
     private static int[] context(int[] ids, int length, int maxSeqLen) {
         int start = Math.max(0, length - maxSeqLen);
         return Arrays.copyOfRange(ids, start, length);
+    }
+
+    private record Generation(int[] ids, int length, Random random, Consumer<String> listener) {
+
+        private Generation {
+            if (listener == null) throw new IllegalArgumentException("listener cannot be null");
+        }
     }
 }

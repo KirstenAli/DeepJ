@@ -8,6 +8,8 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -141,6 +143,22 @@ public class TextGeneratorTest {
     void negativeTopKThrows() {
         assertThrows(IllegalArgumentException.class,
                 () -> TextGenerator.generate(model, tok, cfg, "x", 5, 1.0f, -1, 1L));
+    }
+
+    @Test
+    void streamPublishesEveryGeneratedToken() {
+        List<String> updates = new ArrayList<>();
+        String output = TextGenerator.stream(model, tok, cfg, "hi", 4,
+                1.0f, 1, 2L, updates::add);
+
+        assertEquals(4, updates.size());
+        assertEquals(output, updates.get(updates.size() - 1));
+    }
+
+    @Test
+    void streamRejectsMissingListener() {
+        assertThrows(IllegalArgumentException.class,
+                () -> TextGenerator.stream(model, tok, cfg, "hi", 4, 1.0f, 1, 2L, null));
     }
 
     private static Tensor endTokenLogits(AtomicInteger calls) {
