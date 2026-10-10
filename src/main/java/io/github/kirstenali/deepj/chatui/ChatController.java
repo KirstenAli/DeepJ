@@ -186,7 +186,7 @@ public class ChatController {
         appearance.hide();
         showWelcome(false);
         addMessage(new ChatMessage(prompt, true));
-        Label response = addMessage(new ChatMessage("", false));
+        TextArea response = addMessage(new ChatMessage("", false));
         prepareComposer();
         Task<String> task = generationTask(prompt, settings, response);
         configureGenerationTask(task, response);
@@ -200,7 +200,8 @@ public class ChatController {
         setStatus("Generating…");
     }
 
-    private Task<String> generationTask(String prompt, GenerationSettings settings, Label response) {
+    private Task<String> generationTask(String prompt, GenerationSettings settings,
+                                        TextArea response) {
         Consumer<String> listener = streamTo(response);
         return new Task<>() {
             @Override
@@ -211,23 +212,23 @@ public class ChatController {
         };
     }
 
-    private Consumer<String> streamTo(Label response) {
+    private Consumer<String> streamTo(TextArea response) {
         AtomicBoolean started = new AtomicBoolean();
         return text -> Platform.runLater(() -> updateStream(response, text, started));
     }
 
-    private void updateStream(Label response, String text, AtomicBoolean started) {
+    private void updateStream(TextArea response, String text, AtomicBoolean started) {
         if (started.compareAndSet(false, true)) hideTypingIndicator();
         response.setText(text);
         scrollToBottom();
     }
 
-    private void configureGenerationTask(Task<String> task, Label response) {
+    private void configureGenerationTask(Task<String> task, TextArea response) {
         task.setOnSucceeded(event -> generationFinished(response, task.getValue()));
         task.setOnFailed(event -> generationFailed(response, task.getException()));
     }
 
-    private void generationFinished(Label response, String text) {
+    private void generationFinished(TextArea response, String text) {
         hideTypingIndicator();
         response.setText(text.isBlank() ? "The model returned no text." : text);
         setBusy(false);
@@ -235,14 +236,14 @@ public class ChatController {
         inputArea.requestFocus();
     }
 
-    private void generationFailed(Label response, Throwable error) {
+    private void generationFailed(TextArea response, Throwable error) {
         hideTypingIndicator();
         response.setText("Generation failed: " + ChatRuntime.errorMessage(error));
         setBusy(false);
         setStatus("Generation failed");
     }
 
-    private Label addMessage(ChatMessage message) {
+    private TextArea addMessage(ChatMessage message) {
         ChatMessageView view = ChatMessageView.create(message);
         messagesBox.getChildren().add(view.row());
         scrollToBottom();

@@ -185,9 +185,7 @@
 }
 
 .user-message {
-    -fx-background-radius: 18px 18px 4px 18px;
     -fx-font-size: 14px;
-    -fx-padding: 11px 15px;
 }
 
 .assistant-avatar {
@@ -202,7 +200,36 @@
 
 .assistant-message {
     -fx-font-size: 14px;
-    -fx-line-spacing: 3px;
+}
+
+.chat-text,
+.chat-text:focused,
+.chat-text .scroll-pane,
+.chat-text .scroll-pane .viewport,
+.chat-text .content {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-insets: 0;
+}
+
+.chat-text {
+    -fx-padding: 0;
+}
+
+.chat-text .scroll-bar {
+    -fx-opacity: 0;
+    -fx-pref-height: 0;
+    -fx-pref-width: 0;
+}
+
+.user-message .content {
+    -fx-background-radius: 18px 18px 4px 18px;
+    -fx-padding: 11px 15px;
+}
+
+.assistant-message .content {
+    -fx-padding: 0;
 }
 
 .copy-message-button {
@@ -405,7 +432,7 @@
 
 .theme-light .local-badge,
 .theme-light .theme-selector,
-.theme-light .user-message {
+.theme-light .user-message .content {
     -fx-background-color: #f1f1f1;
     -fx-text-fill: #171717;
 }
@@ -534,7 +561,7 @@
 
 .theme-dark .local-badge,
 .theme-dark .theme-selector,
-.theme-dark .user-message {
+.theme-dark .user-message .content {
     -fx-background-color: #303030;
     -fx-text-fill: #f2f2f2;
 }
@@ -662,7 +689,7 @@
 
 .theme-midnight .local-badge,
 .theme-midnight .theme-selector,
-.theme-midnight .user-message {
+.theme-midnight .user-message .content {
     -fx-background-color: #1e293b;
     -fx-text-fill: #e7eef8;
 }
