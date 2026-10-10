@@ -143,7 +143,7 @@
                             <VBox fx:id="messagesBox"
                                   alignment="TOP_CENTER"
                                   maxWidth="820"
-                                  spacing="28"
+                                  spacing="22"
                                   styleClass="messages-box">
                                 <padding>
                                     <Insets top="34" right="28" bottom="34" left="28"/>

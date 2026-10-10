@@ -13,9 +13,9 @@ final class ChatTextArea extends TextArea {
     private static final double MIN_WIDTH = 72;
     private static final double USER_PADDING = 30;
     private static final double USER_HEIGHT = 22;
-    private static final double ASSISTANT_HEIGHT = 8;
+    private static final double ASSISTANT_HEIGHT = 4;
     private static final double WRAP_GUTTER = 14;
-    private static final double HEIGHT_SAFETY = 6;
+    private static final double HEIGHT_SAFETY = 4;
 
     private final boolean user;
     private boolean resizePending;

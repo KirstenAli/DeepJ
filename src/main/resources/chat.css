@@ -139,6 +139,10 @@
     -fx-font-weight: 700;
 }
 
+.top-caption {
+    -fx-font-weight: 500;
+}
+
 .local-badge {
     -fx-background-radius: 999px;
     -fx-border-radius: 999px;
@@ -238,12 +242,12 @@
     -fx-background-radius: 8px;
     -fx-border-color: transparent;
     -fx-cursor: hand;
-    -fx-min-height: 30px;
-    -fx-min-width: 30px;
+    -fx-min-height: 26px;
+    -fx-min-width: 26px;
     -fx-opacity: 0.72;
     -fx-padding: 0;
-    -fx-pref-height: 30px;
-    -fx-pref-width: 30px;
+    -fx-pref-height: 26px;
+    -fx-pref-width: 26px;
 }
 
 .copy-message-button:hover {
@@ -399,6 +403,10 @@
     -fx-text-fill: #686868;
 }
 
+.theme-light .top-caption {
+    -fx-text-fill: #555555;
+}
+
 .theme-light .new-chat-button,
 .theme-light .sidebar-button,
 .theme-light .model-card,
@@ -528,6 +536,10 @@
     -fx-text-fill: #aaaaaa;
 }
 
+.theme-dark .top-caption {
+    -fx-text-fill: #b8b8b8;
+}
+
 .theme-dark .new-chat-button,
 .theme-dark .sidebar-button,
 .theme-dark .model-card,
@@ -654,6 +666,10 @@
 .theme-midnight .typing-text,
 .theme-midnight .section-label {
     -fx-text-fill: #9babc2;
+}
+
+.theme-midnight .top-caption {
+    -fx-text-fill: #afbdd0;
 }
 
 .theme-midnight .new-chat-button,

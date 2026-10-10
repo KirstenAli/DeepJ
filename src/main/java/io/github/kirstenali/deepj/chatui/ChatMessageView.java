@@ -45,7 +45,7 @@ record ChatMessageView(HBox row, TextArea content) {
     private static VBox assistantBody(TextArea content) {
         Label name = new Label("DeepJ");
         name.getStyleClass().add("assistant-name");
-        VBox body = new VBox(5, name, content, copyButton(content));
+        VBox body = new VBox(2, name, content, copyButton(content));
         HBox.setHgrow(body, Priority.ALWAYS);
         return body;
     }
