@@ -167,10 +167,17 @@ The CPU backend remains the portable default. Rebuild the bundled native library
 
 ## Verify the project
 
-Run the complete test and style suite with JDK 20:
+Run the standard tests and code checks with JDK 20:
 
 ```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean test
+JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean verify
+```
+
+Maven installs a local Node runtime and checks the chat HTML, CSS, and JavaScript for formatting, errors, short functions, and duplicate code. JavaFX window tests need a desktop session and can be run separately:
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 20) \
+  mvn test -Dtest=ChatWindowTest -Ddeepj.uiTests=true
 ```
 
 The numerical tests compare gradients calculated by the model layers with estimates from small input changes. On supported Apple hardware, `MetalBackendDifferentialTest` also compares CPU and Metal forward passes, backward passes, and parameter gradients:

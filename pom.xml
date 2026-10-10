@@ -123,6 +123,35 @@
             </plugin>
 
             <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>2.0.1</version>
+                <configuration>
+                    <nodeVersion>v22.18.0</nodeVersion>
+                    <installDirectory>${project.build.directory}</installDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install-ui-node</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>install-node-and-npm</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>install-ui-linters</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>npm</goal></goals>
+                        <configuration><arguments>ci --ignore-scripts --no-audit --no-fund</arguments></configuration>
+                    </execution>
+                    <execution>
+                        <id>check-ui-code</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>npm</goal></goals>
+                        <configuration><arguments>run check:ui</arguments></configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>

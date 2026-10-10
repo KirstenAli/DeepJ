@@ -9,7 +9,9 @@ let busy = false;
 let generating = false;
 let toastTimer;
 
-function element(id) { return document.getElementById(id); }
+function element(id) {
+  return document.getElementById(id);
+}
 function icon(name) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
@@ -42,7 +44,7 @@ function setModel(name) {
 function setBusy(value) {
   busy = value;
   promptBox.disabled = value;
-  ['composerModel', 'menuLoad'].forEach(id => element(id).disabled = value);
+  ['composerModel', 'menuLoad'].forEach((id) => (element(id).disabled = value));
   updateSend();
 }
 
@@ -146,13 +148,20 @@ function stopResponse(id) {
   toast('Generation stopped.');
 }
 
-function generationValue(id) { return Number(element(id).value); }
+function generationValue(id) {
+  return Number(element(id).value);
+}
 function submitPrompt() {
   const prompt = promptBox.value.trim();
   if (!prompt || busy) return;
   if (!modelLoaded) return chooseModel();
-  chatBridge.send(prompt, generationValue('maxTokens'), generationValue('temperature'),
-      generationValue('topK'), generationValue('seed'));
+  chatBridge.send(
+    prompt,
+    generationValue('maxTokens'),
+    generationValue('temperature'),
+    generationValue('topK'),
+    generationValue('seed'),
+  );
 }
 
 function chooseModel() {
@@ -187,12 +196,17 @@ function submitOrStop() {
 
 function setTheme(name) {
   document.body.className = 'theme-' + name;
-  document.querySelectorAll('.theme-choice').forEach(button =>
-      button.classList.toggle('selected', button.dataset.theme === name));
+  document
+    .querySelectorAll('.theme-choice')
+    .forEach((button) => button.classList.toggle('selected', button.dataset.theme === name));
 }
 
-function closeSettings() { settings.hidden = true; }
-function bridgeReady() { setStatus('Choose a model to begin'); }
+function closeSettings() {
+  settings.hidden = true;
+}
+function bridgeReady() {
+  setStatus('Choose a model to begin');
+}
 
 element('collapseSidebar').onclick = () => app.classList.add('collapsed');
 element('reopenSidebar').onclick = () => app.classList.remove('collapsed');
@@ -200,24 +214,27 @@ element('newChat').onclick = newChat;
 element('composerModel').onclick = chooseModel;
 element('menuLoad').onclick = chooseModel;
 element('modelPicker').onclick = toggleModelMenu;
-element('openSettings').onclick = () => settings.hidden = false;
+element('openSettings').onclick = () => (settings.hidden = false);
 element('closeSettings').onclick = closeSettings;
 element('doneSettings').onclick = closeSettings;
 element('send').onclick = submitOrStop;
 promptBox.oninput = updateSend;
-promptBox.onkeydown = event => {
+promptBox.onkeydown = (event) => {
   if (event.key !== 'Enter' || event.shiftKey) return;
   event.preventDefault();
   submitPrompt();
 };
-settings.onclick = event => { if (event.target === settings) closeSettings(); };
-document.querySelectorAll('.theme-choice').forEach(button =>
-    button.onclick = () => setTheme(button.dataset.theme));
-document.addEventListener('keydown', event => {
+settings.onclick = (event) => {
+  if (event.target === settings) closeSettings();
+};
+document
+  .querySelectorAll('.theme-choice')
+  .forEach((button) => (button.onclick = () => setTheme(button.dataset.theme)));
+document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   closeSettings();
   closeModelMenu();
 });
-document.addEventListener('click', event => {
+document.addEventListener('click', (event) => {
   if (!event.target.closest('.model-control')) closeModelMenu();
 });

@@ -1,6 +1,7 @@
 /.idea/
 /DeepJ.iml
 /target/
+/node_modules/
 /sample_data/
 /checkpoints/
 /dist/
