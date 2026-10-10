@@ -12,7 +12,10 @@ final class ChatTextArea extends TextArea {
     private static final double MAX_WIDTH = 680;
     private static final double MIN_WIDTH = 72;
     private static final double USER_PADDING = 30;
+    private static final double USER_HEIGHT = 22;
+    private static final double ASSISTANT_HEIGHT = 8;
     private static final double WRAP_GUTTER = 14;
+    private static final double HEIGHT_SAFETY = 6;
 
     private final boolean user;
     private boolean resizePending;
@@ -47,8 +50,8 @@ final class ChatTextArea extends TextArea {
         resizePending = false;
         double width = preferredWidth();
         setPrefWidth(width);
-        setPrefRowCount(rowCount(layoutWidth(width)));
-        setPrefHeight(USE_COMPUTED_SIZE);
+        setPrefHeight(textHeight(layoutWidth(width)));
+        disableInternalScroll();
         resetScroll();
     }
 
@@ -67,10 +70,10 @@ final class ChatTextArea extends TextArea {
         return Math.min(preferred, getWidth());
     }
 
-    private int rowCount(double width) {
+    private double textHeight(double width) {
         Text measure = measure();
         measure.setWrappingWidth(Math.max(MIN_WIDTH, width - horizontalPadding() - WRAP_GUTTER));
-        return Math.max(1, (int) Math.ceil(measure.getLayoutBounds().getHeight() / lineHeight()));
+        return Math.ceil(measure.getLayoutBounds().getHeight()) + verticalPadding() + HEIGHT_SAFETY;
     }
 
     private Text measure() {
@@ -84,14 +87,19 @@ final class ChatTextArea extends TextArea {
         return getText().endsWith("\n") ? getText() + " " : getText();
     }
 
-    private double lineHeight() {
-        Text line = new Text("Ay");
-        line.setFont(getFont());
-        return line.getLayoutBounds().getHeight();
-    }
-
     private double horizontalPadding() {
         return user ? USER_PADDING : 0;
+    }
+
+    private double verticalPadding() {
+        return user ? USER_HEIGHT : ASSISTANT_HEIGHT;
+    }
+
+    private void disableInternalScroll() {
+        if (!(lookup(".scroll-pane") instanceof ScrollPane scroll)) return;
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setPannable(false);
     }
 
     private void resetScroll() {
