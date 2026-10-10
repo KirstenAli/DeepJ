@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.8.0-alpha</version>
+    <version>0.9.0-alpha</version>
 </dependency>
 ```
 
@@ -40,6 +40,21 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - Bounded-memory sequential, random-access, and response-only datasets.
 - Versioned model bundles for sharing DeepJ checkpoints on Hugging Face.
 - A small optional JavaFX chat UI.
+
+## Desktop chat
+
+The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and keeps generation settings tucked away.
+
+![DeepJ Chat desktop interface](docs/chat-ui.png)
+
+Run it from this repository with JDK 20 or newer:
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 20) \
+  mvn org.openjfx:javafx-maven-plugin:0.0.8:run
+```
+
+Choose a `.dj` model file in the app. The screenshot shows the initial screen before a model is loaded.
 
 ## Quick start
 
