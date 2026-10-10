@@ -1,295 +1,224 @@
 package io.github.kirstenali.deepj.chatui;
 
-import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
 import java.io.File;
 
-public class ChatController {
+public final class ChatController {
 
     private ChatService chatService;
+    private boolean busy;
 
-    @FXML private VBox messagesBox;
-    @FXML private ScrollPane scrollPane;
+    @FXML private BorderPane rootPane;
+    @FXML private VBox sidebar;
+    @FXML private VBox settingsPane;
+    @FXML private ChatTranscript transcript;
     @FXML private TextArea inputArea;
     @FXML private Button sendButton;
-    @FXML private HBox typingIndicator;
-
-    @FXML private TextField modelPathField;
+    @FXML private Button modelButton;
+    @FXML private ComboBox<String> themeSelector;
     @FXML private TextField temperatureField;
     @FXML private TextField topKField;
     @FXML private TextField maxTokensField;
     @FXML private TextField seedField;
+    @FXML private Label modelNameLabel;
     @FXML private Label statusLabel;
 
-    public ChatController() {
-    }
-
-    public void setChatService(ChatService chatService) {
-        this.chatService = chatService;
+    public void setChatService(ChatService service) {
+        chatService = service;
     }
 
     @FXML
-    public void initialize() {
-        setDefaultSettings();
-        hideTypingIndicator();
-        configureAutoScroll();
-
-        showBotMessage("Load a model file to begin.");
-        setStatus("No model loaded");
+    private void initialize() {
+        temperatureField.setText("0.8");
+        topKField.setText("40");
+        maxTokensField.setText("80");
+        seedField.setText("1234");
+        themeSelector.getItems().addAll("Light", "Dark", "Warm", "Ocean");
+        themeSelector.getSelectionModel().select("Light");
+        themeSelector.valueProperty().addListener((ob, old, name) -> applyTheme(name));
     }
 
     @FXML
     private void onBrowseModel() {
-        if (!hasChatService()) return;
-        File file = chooseModelFile();
-        if (file == null) return;
-        loadModel(file);
+        if (busy || chatService == null) return;
+        File file = chooseModel();
+        if (file != null) loadModel(file);
     }
 
-    private File chooseModelFile() {
+    private File chooseModel() {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("Select Model File");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Model Files", "*.bin"));
-        return chooser.showOpenDialog(getWindowOwner());
+        chooser.setTitle("Choose a DeepJ model");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("DeepJ models", "*.dj", "*.bin"));
+        return chooser.showOpenDialog(rootPane.getScene().getWindow());
     }
 
     private void loadModel(File file) {
-        try {
-            chatService.loadModel(file.toPath());
-            modelPathField.setText(file.getAbsolutePath());
-            setStatus("Loaded: " + chatService.getLoadedModelName());
-            showBotMessage("Model loaded: " + chatService.getLoadedModelName());
-        } catch (Exception e) {
-            setStatus("Failed to load model");
-            showBotMessage("Error loading model: " + safeMessage(e));
-        }
+        setBusy(true);
+        setStatus("Loading " + file.getName() + "…");
+        Task<Void> task = new Task<>() {
+            @Override protected Void call() throws Exception {
+                chatService.loadModel(file.toPath());
+                return null;
+            }
+        };
+        task.setOnSucceeded(event -> modelLoaded());
+        task.setOnFailed(event -> showFailure("Could not load model", task.getException()));
+        start(task);
+    }
+
+    private void modelLoaded() {
+        modelNameLabel.setText(chatService.getLoadedModelName());
+        transcript.clear();
+        setBusy(false);
+        setStatus("Ready on CPU");
     }
 
     @FXML
     private void onSend() {
-        if (!hasChatService()) return;
+        if (busy || !hasModel()) return;
         String prompt = inputArea.getText().trim();
-        if (prompt.isEmpty() || !hasLoadedModel()) return;
-        GenerationSettings settings = readSettings();
+        if (prompt.isEmpty()) return;
+        Settings settings = readSettings();
         if (settings == null) return;
-        prepareGeneration(prompt);
-        Task<String> task = generationTask(prompt, settings);
-        configureTaskHandlers(task);
-        startBackgroundTask(task, "origin-generate-thread");
+        startGeneration(prompt, settings);
     }
 
-    private GenerationSettings readSettings() {
-        try {
-            return new GenerationSettings(
-                    parseInt(maxTokensField.getText(), "Max tokens"),
-                    parseFloat(temperatureField.getText(), "Temperature"),
-                    parseInt(topKField.getText(), "Top-k"),
-                    parseLong(seedField.getText(), "Seed"));
-        } catch (IllegalArgumentException e) {
-            setStatus("Invalid settings");
-            showBotMessage(e.getMessage());
-            return null;
-        }
-    }
-
-    private void prepareGeneration(String prompt) {
-        showUserMessage(prompt);
+    private void startGeneration(String prompt, Settings settings) {
+        transcript.add(true, prompt);
+        int response = transcript.add(false, "Generating…");
         inputArea.clear();
         setBusy(true);
-        showTypingIndicator();
-        setStatus("Generating...");
+        setStatus("Generating…");
+        Task<String> task = generation(prompt, settings);
+        task.valueProperty().addListener((ob, old, text) -> showPartial(response, text));
+        task.setOnSucceeded(event -> showComplete(response, task.getValue()));
+        task.setOnFailed(event -> showFailure(response, task.getException()));
+        start(task);
     }
 
-    private Task<String> generationTask(String prompt, GenerationSettings settings) {
+    private Task<String> generation(String prompt, Settings settings) {
         return new Task<>() {
-            @Override
-            protected String call() {
+            @Override protected String call() {
                 return chatService.generate(prompt, settings.maxTokens(), settings.temperature(),
-                        settings.topK(), settings.seed());
+                        settings.topK(), settings.seed(), this::updateValue);
             }
         };
     }
 
-    private void configureTaskHandlers(Task<String> task) {
-        task.setOnSucceeded(event -> {
-            hideTypingIndicator();
-            setBusy(false);
-            showBotMessage(task.getValue());
-            setStatus("Ready");
-        });
-
-        task.setOnFailed(event -> {
-            hideTypingIndicator();
-            setBusy(false);
-
-            Throwable error = task.getException();
-            showBotMessage("Generation failed: " + safeMessage(error));
-            setStatus("Generation failed");
-        });
+    private void showPartial(int response, String text) {
+        if (text != null && !text.isEmpty()) transcript.update(response, text);
     }
 
-    private boolean hasChatService() {
-        if (chatService != null) return true;
-        showBotMessage("Chat service is not configured.");
-        setStatus("Chat service not configured");
+    private void showComplete(int response, String text) {
+        transcript.update(response, text == null || text.isBlank()
+                ? "No new text was generated. Try a different prompt." : text);
+        setBusy(false);
+        setStatus("Ready on CPU");
+    }
+
+    private void showFailure(int response, Throwable error) {
+        transcript.update(response, "Generation failed: " + message(error));
+        setBusy(false);
+        setStatus("Generation failed");
+    }
+
+    private void showFailure(String label, Throwable error) {
+        setBusy(false);
+        setStatus(label + ": " + message(error));
+    }
+
+    private static String message(Throwable error) {
+        return error == null || error.getMessage() == null ? "Unknown error" : error.getMessage();
+    }
+
+    private boolean hasModel() {
+        if (chatService != null && chatService.isModelLoaded()) return true;
+        setStatus("Choose a model first");
         return false;
     }
 
-    private boolean hasLoadedModel() {
-        if (chatService.isModelLoaded()) return true;
-        setStatus("Load a model first");
-        showBotMessage("Please load a model first.");
-        return false;
+    private Settings readSettings() {
+        try {
+            return new Settings(Integer.parseInt(maxTokensField.getText().trim()),
+                    Float.parseFloat(temperatureField.getText().trim()),
+                    Integer.parseInt(topKField.getText().trim()),
+                    Long.parseLong(seedField.getText().trim()));
+        } catch (IllegalArgumentException error) {
+            setStatus("Check generation settings for valid values");
+            return null;
+        }
     }
 
     @FXML
     private void onInputKeyPressed(KeyEvent event) {
-        if (event.getCode() == KeyCode.ENTER && !event.isShiftDown()) {
-            event.consume();
-            onSend();
-        }
+        if (event.getCode() != KeyCode.ENTER || event.isShiftDown()) return;
+        event.consume();
+        onSend();
     }
 
-    private void startBackgroundTask(Task<?> task, String threadName) {
-        Thread thread = new Thread(task, threadName);
-        thread.setDaemon(true);
-        thread.start();
+    @FXML
+    private void onNewChat() {
+        if (busy) return;
+        transcript.clear();
+        inputArea.clear();
+        setStatus(hasModel() ? "Ready on CPU" : "Choose a model to begin");
     }
 
-    private void setDefaultSettings() {
-        temperatureField.setText("0.1");
-        topKField.setText("20");
-        maxTokensField.setText("200");
-        seedField.setText("1234");
+    @FXML
+    private void onToggleSidebar() {
+        boolean show = !sidebar.isVisible();
+        sidebar.setVisible(show);
+        sidebar.setManaged(show);
     }
 
-    private void configureAutoScroll() {
-        messagesBox.heightProperty().addListener((obs, oldVal, newVal) ->
-                Platform.runLater(this::scrollToBottom)
-        );
+    @FXML
+    private void onToggleSettings() {
+        boolean show = !settingsPane.isVisible();
+        settingsPane.setVisible(show);
+        settingsPane.setManaged(show);
     }
 
-    private void setBusy(boolean busy) {
-        sendButton.setDisable(busy);
-        inputArea.setDisable(busy);
+    private void applyTheme(String name) {
+        if (name == null) return;
+        rootPane.getStyleClass().removeIf(style -> style.startsWith("theme-"));
+        rootPane.getStyleClass().add("theme-" + name.toLowerCase());
+        transcript.setTheme(name.toLowerCase());
+    }
+
+    private void setBusy(boolean value) {
+        busy = value;
+        inputArea.setDisable(value);
+        sendButton.setDisable(value);
+        modelButton.setDisable(value);
     }
 
     private void setStatus(String text) {
         statusLabel.setText(text);
     }
 
-    private void showTypingIndicator() {
-        typingIndicator.setManaged(true);
-        typingIndicator.setVisible(true);
-        scrollToBottom();
+    private static void start(Task<?> task) {
+        Thread thread = new Thread(task, "deepj-chat-worker");
+        thread.setDaemon(true);
+        thread.start();
     }
 
-    private void hideTypingIndicator() {
-        typingIndicator.setManaged(false);
-        typingIndicator.setVisible(false);
-    }
-
-    private void showUserMessage(String text) {
-        addMessage(new ChatMessage(text, true));
-    }
-
-    private void showBotMessage(String text) {
-        addMessage(new ChatMessage(text, false));
-    }
-
-    private void addMessage(ChatMessage message) {
-        HBox row = createMessageRow(message.user());
-        Label bubble = createMessageBubble(message);
-        Region spacer = createMessageSpacer();
-        arrangeMessage(row, bubble, spacer, message.user());
-        messagesBox.getChildren().add(row);
-    }
-
-    private static HBox createMessageRow(boolean user) {
-        HBox row = new HBox();
-        row.setAlignment(user ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-        row.setPadding(new Insets(4, 0, 4, 0));
-        row.getStyleClass().add("message-row");
-        return row;
-    }
-
-    private static Label createMessageBubble(ChatMessage message) {
-        Label bubble = new Label(message.text());
-        bubble.setWrapText(true);
-        bubble.setMaxWidth(560);
-        bubble.getStyleClass().add(message.user() ? "user-bubble" : "bot-bubble");
-        return bubble;
-    }
-
-    private static Region createMessageSpacer() {
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        return spacer;
-    }
-
-    private static void arrangeMessage(HBox row, Label bubble, Region spacer, boolean user) {
-        if (user) {
-            row.getChildren().addAll(spacer, bubble);
-        } else {
-            row.getChildren().addAll(bubble, spacer);
+    private record Settings(int maxTokens, float temperature, int topK, long seed) {
+        private Settings {
+            if (maxTokens < 1) throw new IllegalArgumentException("maxTokens");
+            if (!Float.isFinite(temperature) || temperature <= 0) throw new IllegalArgumentException("temperature");
+            if (topK < 0) throw new IllegalArgumentException("topK");
         }
     }
-
-    private void scrollToBottom() {
-        scrollPane.layout();
-        scrollPane.setVvalue(1.0);
-    }
-
-    private int parseInt(String value, String name) {
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException(name + " must be a valid integer.");
-        }
-    }
-
-    private long parseLong(String value, String name) {
-        try {
-            return Long.parseLong(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException(name + " must be a valid integer.");
-        }
-    }
-
-    private float parseFloat(String value, String name) {
-        try {
-            return Float.parseFloat(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException(name + " must be a valid number.");
-        }
-    }
-
-    private String safeMessage(Throwable error) {
-        if (error == null || error.getMessage() == null || error.getMessage().isBlank()) {
-            return "Unknown error";
-        }
-        return error.getMessage();
-    }
-
-    private javafx.stage.Window getWindowOwner() {
-        return inputArea.getScene().getWindow();
-    }
-
-    private record GenerationSettings(int maxTokens, float temperature, int topK, long seed) {}
 }

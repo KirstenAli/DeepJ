@@ -9,6 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -84,6 +86,17 @@ public class TextGeneratorTest {
     }
 
     @Test
+    void streamPublishesEachDecodedStepAndMatchesGenerate() {
+        List<String> updates = new ArrayList<>();
+        Tokenizer tokenizer = new StopTokenizer();
+        String result = TextGenerator.stream(ids -> continuingLogits(), 8, tokenizer,
+                "p", 3, 1.0f, 1, 1L, updates::add);
+
+        assertEquals("pxxx", result);
+        assertEquals(List.of("px", "pxx", "pxxx"), updates);
+    }
+
+    @Test
     void outputGrowsWithMoreTokens() {
         String short_ = TextGenerator.generate(model, tok, cfg, "x", 2, 1.0f, 0, 5L);
         String long_  = TextGenerator.generate(model, tok, cfg, "x", 20, 1.0f, 0, 5L);
@@ -149,6 +162,12 @@ public class TextGeneratorTest {
         logits.data[0] = 0.0f;
         logits.data[1] = 10.0f;
         logits.data[2] = -1.0f;
+        return logits;
+    }
+
+    private static Tensor continuingLogits() {
+        Tensor logits = new Tensor(1, 3);
+        logits.data[2] = 10.0f;
         return logits;
     }
 

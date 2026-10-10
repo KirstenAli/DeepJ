@@ -1,130 +1,130 @@
-.root-pane {
-    -fx-background-color: #f5f7fb;
-    -fx-font-family: "Inter", "Segoe UI", "Arial";
+.app-root {
+    -surface: #ffffff;
+    -sidebar: #f8f8f8;
+    -text: #1b1b1b;
+    -muted: #6f6f6f;
+    -line: #e5e5e5;
+    -field: #ffffff;
+    -hover: #ececec;
+    -fx-background-color: -surface;
+    -fx-font-family: "Helvetica Neue", "Arial";
+}
+
+.theme-dark {
+    -surface: #212121;
+    -sidebar: #181818;
+    -text: #f3f3f3;
+    -muted: #b0b0b0;
+    -line: #383838;
+    -field: #2e2e2e;
+    -hover: #353535;
+}
+
+.theme-warm {
+    -surface: #faf7f0;
+    -sidebar: #f1ebe0;
+    -text: #312b24;
+    -muted: #766f64;
+    -line: #dfd5c6;
+    -field: #fffdf8;
+    -hover: #e8dfd2;
+}
+
+.theme-ocean {
+    -surface: #edf5f7;
+    -sidebar: #e0edf1;
+    -text: #173039;
+    -muted: #607983;
+    -line: #c9dfe5;
+    -field: #f8fcfd;
+    -hover: #cde3ea;
 }
 
 .sidebar {
-    -fx-background-color: white;
-    -fx-pref-width: 280;
-    -fx-border-color: transparent #e5e7eb transparent transparent;
-    -fx-border-width: 0 1 0 0;
+    -fx-pref-width: 272px;
+    -fx-padding: 22px 16px 18px;
+    -fx-background-color: -sidebar;
+    -fx-border-color: transparent -line transparent transparent;
 }
 
-.sidebar-title {
-    -fx-font-size: 20px;
-    -fx-font-weight: 700;
-    -fx-text-fill: #111827;
+.brand-row { -fx-padding: 0 2px 2px; }
+.brand-icon {
+    -fx-min-width: 42px;
+    -fx-min-height: 42px;
+    -fx-alignment: center;
+    -fx-background-color: #171717;
+    -fx-background-radius: 12px;
+    -fx-text-fill: white;
+    -fx-font-size: 19px;
+    -fx-font-weight: bold;
 }
 
-.field-label {
-    -fx-font-size: 12px;
-    -fx-font-weight: 600;
-    -fx-text-fill: #4b5563;
-}
+.brand-title, .header-title { -fx-text-fill: -text; -fx-font-size: 19px; -fx-font-weight: bold; }
+.muted, .hint { -fx-text-fill: -muted; -fx-font-size: 12px; }
+.eyebrow { -fx-text-fill: -muted; -fx-font-size: 11px; -fx-font-weight: bold; }
+.model-name { -fx-text-fill: -text; -fx-font-size: 14px; }
+.field-label { -fx-text-fill: -muted; -fx-font-size: 12px; }
 
-.settings-field {
-    -fx-background-color: #f9fafb;
-    -fx-background-radius: 12;
-    -fx-border-color: #d1d5db;
-    -fx-border-radius: 12;
-    -fx-padding: 10 12 10 12;
-    -fx-font-size: 13px;
-}
-
-.secondary-button {
-    -fx-background-color: #eef2f7;
-    -fx-text-fill: #111827;
-    -fx-font-weight: 600;
-    -fx-background-radius: 12;
-    -fx-padding: 10 14 10 14;
+.sidebar-button, .quiet-button, .icon-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -text;
+    -fx-background-radius: 10px;
     -fx-cursor: hand;
 }
+.sidebar-button { -fx-alignment: center-left; -fx-padding: 12px 14px; -fx-font-size: 14px; }
+.sidebar-button:hover, .quiet-button:hover, .icon-button:hover { -fx-background-color: -hover; }
+.quiet-button { -fx-border-color: -line; -fx-border-radius: 9px; -fx-padding: 8px 12px; }
+.icon-button { -fx-font-size: 17px; -fx-min-width: 34px; -fx-min-height: 34px; }
 
-.status-label {
-    -fx-font-size: 12px;
-    -fx-text-fill: #6b7280;
+.model-card {
+    -fx-padding: 16px;
+    -fx-background-color: -surface;
+    -fx-background-radius: 14px;
+    -fx-border-color: -line;
+    -fx-border-radius: 14px;
+}
+.settings-pane { -fx-padding: 0 4px 8px; }
+.settings-field {
+    -fx-background-color: -field;
+    -fx-text-fill: -text;
+    -fx-prompt-text-fill: -muted;
+    -fx-background-radius: 9px;
+    -fx-border-color: -line;
+    -fx-border-radius: 9px;
 }
 
 .top-bar {
-    -fx-background-color: white;
-    -fx-border-color: transparent transparent #e5e7eb transparent;
-    -fx-border-width: 0 0 1 0;
+    -fx-padding: 17px 24px;
+    -fx-background-color: -surface;
+    -fx-border-color: transparent transparent -line transparent;
 }
+.theme-picker { -fx-background-color: -field; -fx-border-color: -line; -fx-border-radius: 9px; }
+.theme-picker .list-cell { -fx-text-fill: -text; -fx-background-color: -field; }
+.theme-picker .arrow { -fx-background-color: -muted; }
 
-.top-title {
-    -fx-font-size: 18px;
-    -fx-font-weight: 700;
-    -fx-text-fill: #111827;
+.composer-wrap { -fx-background-color: -surface; -fx-padding: 8px 26px 14px; }
+.composer {
+    -fx-padding: 7px 9px 7px 14px;
+    -fx-background-color: -field;
+    -fx-background-radius: 20px;
+    -fx-border-color: -line;
+    -fx-border-radius: 20px;
 }
-
-.chat-scroll {
+.chat-input, .chat-input .content {
     -fx-background-color: transparent;
-    -fx-border-color: transparent;
-}
-
-.chat-scroll > .viewport {
-    -fx-background-color: transparent;
-}
-
-.messages-box {
-    -fx-background-color: transparent;
-}
-
-.bottom-panel {
-    -fx-background-color: white;
-    -fx-border-color: #e5e7eb transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
-}
-
-.typing-box {
-    -fx-background-color: #eef2f7;
-    -fx-background-radius: 12;
-    -fx-padding: 8 12 8 12;
-}
-
-.typing-text {
-    -fx-font-size: 12px;
-    -fx-text-fill: #4b5563;
-}
-
-.typing-dots {
-    -fx-font-size: 12px;
-    -fx-text-fill: #6b7280;
-}
-
-.chat-input {
-    -fx-background-color: #f9fafb;
-    -fx-background-radius: 14;
-    -fx-border-color: #d1d5db;
-    -fx-border-radius: 14;
+    -fx-text-fill: -text;
+    -fx-prompt-text-fill: -muted;
     -fx-font-size: 14px;
-    -fx-padding: 10 12 10 12;
 }
-
+.chat-input { -fx-border-color: transparent; -fx-padding: 3px 0; }
+.chat-input .scroll-pane, .chat-input .scroll-pane .viewport { -fx-background-color: transparent; }
 .send-button {
-    -fx-background-color: #111827;
-    -fx-text-fill: white;
-    -fx-font-weight: 700;
-    -fx-background-radius: 14;
-    -fx-padding: 12 20 12 20;
+    -fx-min-width: 36px;
+    -fx-min-height: 36px;
+    -fx-background-color: -text;
+    -fx-text-fill: -surface;
+    -fx-background-radius: 18px;
+    -fx-font-size: 19px;
     -fx-cursor: hand;
 }
-
-.bot-bubble {
-    -fx-background-color: white;
-    -fx-background-radius: 18;
-    -fx-border-color: #e5e7eb;
-    -fx-border-radius: 18;
-    -fx-border-width: 1;
-    -fx-padding: 12 14 12 14;
-    -fx-text-fill: #111827;
-    -fx-font-size: 14px;
-}
-
-.user-bubble {
-    -fx-background-color: #111827;
-    -fx-background-radius: 18;
-    -fx-padding: 12 14 12 14;
-    -fx-text-fill: white;
-    -fx-font-size: 14px;
-}
+.send-button:disabled { -fx-opacity: 0.5; }
