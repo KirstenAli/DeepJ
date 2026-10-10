@@ -24,8 +24,12 @@ import java.util.function.Consumer;
 
 public class ChatController {
 
+    private static final String EMPTY_RESPONSE =
+            "No response was generated. Try again or use a different seed in Settings.";
+
     private ChatService chatService;
     private ChatAppearance appearance;
+    private ChatScroller scroller;
     private boolean busy;
 
     @FXML private BorderPane rootPane;
@@ -60,7 +64,7 @@ public class ChatController {
     public void initialize() {
         setDefaultSettings();
         configureAppearance();
-        configureAutoScroll();
+        scroller = new ChatScroller(scrollPane);
         hideTypingIndicator();
         setStatus("Choose a DeepJ Prism checkpoint to begin");
         updateSendState();
@@ -184,6 +188,7 @@ public class ChatController {
 
     private void startGeneration(String prompt, GenerationSettings settings) {
         appearance.hide();
+        scroller.followLatest();
         showWelcome(false);
         addMessage(new ChatMessage(prompt, true));
         TextArea response = addMessage(new ChatMessage("", false));
@@ -220,7 +225,7 @@ public class ChatController {
     private void updateStream(TextArea response, String text, AtomicBoolean started) {
         if (started.compareAndSet(false, true)) hideTypingIndicator();
         response.setText(text);
-        scrollToBottom();
+        scroller.requestBottom();
     }
 
     private void configureGenerationTask(Task<String> task, TextArea response) {
@@ -230,7 +235,7 @@ public class ChatController {
 
     private void generationFinished(TextArea response, String text) {
         hideTypingIndicator();
-        response.setText(text.isBlank() ? "The model returned no text." : text);
+        response.setText(text.isBlank() ? EMPTY_RESPONSE : text);
         setBusy(false);
         setStatus("Ready on " + ChatRuntime.backendName());
         inputArea.requestFocus();
@@ -246,7 +251,7 @@ public class ChatController {
     private TextArea addMessage(ChatMessage message) {
         ChatMessageView view = ChatMessageView.create(message);
         messagesBox.getChildren().add(view.row());
-        scrollToBottom();
+        scroller.requestBottom();
         return view.content();
     }
 
@@ -254,11 +259,6 @@ public class ChatController {
         appearance = new ChatAppearance(rootPane, settingsPanel, settingsBackdrop,
                 lightThemeButton, darkThemeButton, midnightThemeButton);
         appearance.apply(ChatTheme.LIGHT);
-    }
-
-    private void configureAutoScroll() {
-        messagesBox.heightProperty().addListener((value, oldHeight, newHeight) ->
-                Platform.runLater(this::scrollToBottom));
     }
 
     private void setDefaultSettings() {
@@ -299,10 +299,6 @@ public class ChatController {
     private void hideTypingIndicator() {
         typingIndicator.setManaged(false);
         typingIndicator.setVisible(false);
-    }
-
-    private void scrollToBottom() {
-        scrollPane.setVvalue(1.0);
     }
 
     private void setStatus(String text) {

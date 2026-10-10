@@ -21,8 +21,9 @@
 }
 
 .brand-title {
+    -fx-font-family: "Arial Black";
     -fx-font-size: 15px;
-    -fx-font-weight: 700;
+    -fx-font-weight: 900;
 }
 
 .brand-caption,
@@ -136,13 +137,13 @@
 .top-title,
 .settings-title {
     -fx-font-size: 16px;
-    -fx-font-weight: 800;
+    -fx-font-weight: bold;
 }
 
 .top-title {
-    -fx-min-height: 23px;
-    -fx-padding: 0 0 2px 0;
-    -fx-pref-height: 23px;
+    -fx-font-family: "Arial Black";
+    -fx-font-size: 16px;
+    -fx-font-weight: 900;
 }
 
 .top-caption {
@@ -205,8 +206,9 @@
 }
 
 .assistant-name {
-    -fx-font-size: 12px;
-    -fx-font-weight: 700;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 3px 0 0;
 }
 
 .assistant-message {
@@ -386,8 +388,6 @@
     -fx-text-fill: #ffffff;
 }
 
-.theme-light .brand-title,
-.theme-light .top-title,
 .theme-light .welcome-title,
 .theme-light .model-name,
 .theme-light .settings-title,
@@ -395,6 +395,14 @@
 .theme-light .assistant-name,
 .theme-light .assistant-message {
     -fx-text-fill: #171717;
+}
+
+.theme-light .top-title {
+    -fx-fill: #171717;
+}
+
+.theme-light .brand-title {
+    -fx-fill: #171717;
 }
 
 .theme-light .brand-caption,
@@ -519,8 +527,6 @@
     -fx-text-fill: #171717;
 }
 
-.theme-dark .brand-title,
-.theme-dark .top-title,
 .theme-dark .welcome-title,
 .theme-dark .model-name,
 .theme-dark .settings-title,
@@ -528,6 +534,14 @@
 .theme-dark .assistant-name,
 .theme-dark .assistant-message {
     -fx-text-fill: #f2f2f2;
+}
+
+.theme-dark .top-title {
+    -fx-fill: #f2f2f2;
+}
+
+.theme-dark .brand-title {
+    -fx-fill: #f2f2f2;
 }
 
 .theme-dark .brand-caption,
@@ -651,8 +665,6 @@
     -fx-text-fill: #082f49;
 }
 
-.theme-midnight .brand-title,
-.theme-midnight .top-title,
 .theme-midnight .welcome-title,
 .theme-midnight .model-name,
 .theme-midnight .settings-title,
@@ -660,6 +672,14 @@
 .theme-midnight .assistant-name,
 .theme-midnight .assistant-message {
     -fx-text-fill: #e7eef8;
+}
+
+.theme-midnight .top-title {
+    -fx-fill: #e7eef8;
+}
+
+.theme-midnight .brand-title {
+    -fx-fill: #e7eef8;
 }
 
 .theme-midnight .brand-caption,

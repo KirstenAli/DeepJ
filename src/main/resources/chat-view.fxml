@@ -15,6 +15,7 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.shape.SVGPath?>
+<?import javafx.scene.text.Text?>
 
 <BorderPane fx:id="rootPane"
             xmlns:fx="http://javafx.com/fxml"
@@ -29,7 +30,7 @@
             <HBox alignment="CENTER_LEFT" spacing="10" styleClass="brand-row">
                 <Label text="D" styleClass="brand-mark"/>
                 <VBox spacing="1">
-                    <Label text="DeepJ" styleClass="brand-title"/>
+                    <Text text="DeepJ" styleClass="brand-title"/>
                     <Label text="Local model chat" styleClass="brand-caption"/>
                 </VBox>
                 <Region HBox.hgrow="ALWAYS"/>
@@ -124,7 +125,7 @@
                         </tooltip>
                     </Button>
                     <VBox spacing="1">
-                        <Label text="DeepJ Chat" styleClass="top-title"/>
+                        <Text text="DeepJ Chat" styleClass="top-title"/>
                         <Label text="Private and on-device" styleClass="top-caption"/>
                     </VBox>
                     <Region HBox.hgrow="ALWAYS"/>
@@ -135,13 +136,13 @@
             <center>
                 <StackPane styleClass="conversation-stage">
                     <ScrollPane fx:id="scrollPane"
-                                fitToHeight="true"
+                                fitToHeight="false"
                                 fitToWidth="true"
                                 hbarPolicy="NEVER"
                                 vbarPolicy="AS_NEEDED"
                                 styleClass="chat-scroll">
                         <content>
-                            <StackPane alignment="BOTTOM_CENTER" styleClass="message-stage">
+                            <StackPane alignment="TOP_CENTER" styleClass="message-stage">
                                 <VBox fx:id="messagesBox"
                                       alignment="TOP_CENTER"
                                       maxWidth="820"

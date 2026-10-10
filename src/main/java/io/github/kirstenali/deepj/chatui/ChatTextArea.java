@@ -5,6 +5,7 @@ import javafx.scene.Parent;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.Region;
 import javafx.scene.text.Text;
 
 final class ChatTextArea extends TextArea {
@@ -12,13 +13,14 @@ final class ChatTextArea extends TextArea {
     private static final double MAX_WIDTH = 680;
     private static final double MIN_WIDTH = 72;
     private static final double USER_PADDING = 30;
-    private static final double USER_HEIGHT = 22;
-    private static final double ASSISTANT_HEIGHT = 0;
-    private static final double WRAP_GUTTER = 14;
-    private static final double HEIGHT_SAFETY = 2;
+    private static final double MIN_TEXT_WIDTH = 24;
+    private static final double WIDTH_GUTTER = 14;
+    private static final double HEIGHT_GUTTER = 2;
 
     private final boolean user;
+    private Text observedText;
     private boolean resizePending;
+    private boolean settlePending;
 
     ChatTextArea(String text, boolean user) {
         super(text);
@@ -40,6 +42,13 @@ final class ChatTextArea extends TextArea {
         addEventFilter(ScrollEvent.SCROLL, this::scrollConversation);
     }
 
+    @Override
+    protected void layoutChildren() {
+        super.layoutChildren();
+        fitRenderedText();
+        resetScroll();
+    }
+
     private void requestResize() {
         if (resizePending) return;
         resizePending = true;
@@ -50,14 +59,55 @@ final class ChatTextArea extends TextArea {
         resizePending = false;
         double width = preferredWidth();
         setPrefWidth(width);
-        setPrefHeight(textHeight(layoutWidth(width)));
+        setPrefRowCount(1);
+        setPrefHeight(USE_COMPUTED_SIZE);
+        applyCss();
+        layout();
+        observeRenderedText();
+        setPrefHeight(renderedHeight());
+        fitRenderedText();
         disableInternalScroll();
         resetScroll();
     }
 
+    private void fitRenderedText() {
+        if (!(lookup(".text") instanceof Text text)) return;
+        if (!(lookup(".viewport") instanceof Region viewport)) return;
+        if (getHeight() <= 0 || viewport.getHeight() <= 0) return;
+        double required = requiredHeight(text, viewport);
+        if (required > getPrefHeight() + 1) setPrefHeight(required);
+        else if (getPrefHeight() - required > 3) requestSettle();
+    }
+
+    private double requiredHeight(Text text, Region viewport) {
+        double chrome = getHeight() - viewport.getHeight();
+        return Math.ceil(text.getLayoutBounds().getHeight() + contentPadding() + chrome + 2);
+    }
+
+    private void requestSettle() {
+        if (settlePending) return;
+        settlePending = true;
+        Platform.runLater(this::settleHeight);
+    }
+
+    private void observeRenderedText() {
+        if (!(lookup(".text") instanceof Text text) || text == observedText) return;
+        observedText = text;
+        text.layoutBoundsProperty().addListener((value, oldBounds, newBounds) -> requestSettle());
+    }
+
+    private void settleHeight() {
+        settlePending = false;
+        if (!(lookup(".text") instanceof Text text)) return;
+        if (!(lookup(".viewport") instanceof Region viewport)) return;
+        if (getHeight() <= 0 || viewport.getHeight() <= 0) return;
+        double required = requiredHeight(text, viewport);
+        if (Math.abs(getPrefHeight() - required) > 1) setPrefHeight(required);
+    }
+
     private double preferredWidth() {
         if (!user) return MAX_WIDTH;
-        return clamp(unwrappedWidth() + USER_PADDING, MIN_WIDTH, MAX_WIDTH);
+        return clamp(unwrappedWidth() + USER_PADDING + WIDTH_GUTTER, MIN_WIDTH, MAX_WIDTH);
     }
 
     private double unwrappedWidth() {
@@ -65,15 +115,32 @@ final class ChatTextArea extends TextArea {
         return measure.getLayoutBounds().getWidth();
     }
 
-    private double layoutWidth(double preferred) {
-        if (getWidth() <= 0) return preferred;
-        return Math.min(preferred, getWidth());
+    private double renderedHeight() {
+        Text rendered = measure();
+        rendered.setWrappingWidth(contentWidth());
+        double height = Math.max(lineHeight(), rendered.getLayoutBounds().getHeight());
+        return height + contentPadding() + HEIGHT_GUTTER;
     }
 
-    private double textHeight(double width) {
-        Text measure = measure();
-        measure.setWrappingWidth(Math.max(MIN_WIDTH, width - horizontalPadding() - WRAP_GUTTER));
-        return Math.ceil(measure.getLayoutBounds().getHeight()) + verticalPadding() + HEIGHT_SAFETY;
+    private double contentWidth() {
+        if (!(lookup(".viewport") instanceof Region viewport)) return MIN_TEXT_WIDTH;
+        return Math.max(MIN_TEXT_WIDTH, viewport.getWidth() - horizontalContentPadding());
+    }
+
+    private double contentPadding() {
+        if (!(lookup(".content") instanceof Region content)) return 0;
+        return content.getInsets().getTop() + content.getInsets().getBottom();
+    }
+
+    private double horizontalContentPadding() {
+        if (!(lookup(".content") instanceof Region content)) return 0;
+        return content.getInsets().getLeft() + content.getInsets().getRight();
+    }
+
+    private double lineHeight() {
+        Text line = new Text("Ay");
+        line.setFont(getFont());
+        return line.getLayoutBounds().getHeight();
     }
 
     private Text measure() {
@@ -85,14 +152,6 @@ final class ChatTextArea extends TextArea {
     private String measuredText() {
         if (getText().isEmpty()) return " ";
         return getText().endsWith("\n") ? getText() + " " : getText();
-    }
-
-    private double horizontalPadding() {
-        return user ? USER_PADDING : 0;
-    }
-
-    private double verticalPadding() {
-        return user ? USER_HEIGHT : ASSISTANT_HEIGHT;
     }
 
     private void disableInternalScroll() {
