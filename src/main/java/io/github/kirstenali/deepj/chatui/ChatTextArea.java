@@ -13,9 +13,9 @@ final class ChatTextArea extends TextArea {
     private static final double MIN_WIDTH = 72;
     private static final double USER_PADDING = 30;
     private static final double USER_HEIGHT = 22;
-    private static final double ASSISTANT_HEIGHT = 4;
+    private static final double ASSISTANT_HEIGHT = 0;
     private static final double WRAP_GUTTER = 14;
-    private static final double HEIGHT_SAFETY = 4;
+    private static final double HEIGHT_SAFETY = 2;
 
     private final boolean user;
     private boolean resizePending;
@@ -109,9 +109,13 @@ final class ChatTextArea extends TextArea {
 
     private void scrollConversation(ScrollEvent event) {
         ScrollPane scroll = conversationScroll();
-        if (scroll == null || scrollOverflow(scroll) <= 0) return;
-        scroll.setVvalue(clamp(scroll.getVvalue() - event.getDeltaY() / scrollOverflow(scroll), 0, 1));
+        if (scroll != null && scrollOverflow(scroll) > 0) scrollOuter(scroll, event);
         event.consume();
+    }
+
+    private void scrollOuter(ScrollPane scroll, ScrollEvent event) {
+        double value = scroll.getVvalue() - event.getDeltaY() / scrollOverflow(scroll);
+        scroll.setVvalue(clamp(value, 0, 1));
     }
 
     private ScrollPane conversationScroll() {

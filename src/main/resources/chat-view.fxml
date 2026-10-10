@@ -135,20 +135,23 @@
             <center>
                 <StackPane styleClass="conversation-stage">
                     <ScrollPane fx:id="scrollPane"
+                                fitToHeight="true"
                                 fitToWidth="true"
                                 hbarPolicy="NEVER"
                                 vbarPolicy="AS_NEEDED"
                                 styleClass="chat-scroll">
                         <content>
-                            <VBox fx:id="messagesBox"
-                                  alignment="TOP_CENTER"
-                                  maxWidth="820"
-                                  spacing="22"
-                                  styleClass="messages-box">
-                                <padding>
-                                    <Insets top="34" right="28" bottom="34" left="28"/>
-                                </padding>
-                            </VBox>
+                            <StackPane alignment="BOTTOM_CENTER" styleClass="message-stage">
+                                <VBox fx:id="messagesBox"
+                                      alignment="TOP_CENTER"
+                                      maxWidth="820"
+                                      spacing="22"
+                                      styleClass="messages-box">
+                                    <padding>
+                                        <Insets top="34" right="28" bottom="12" left="28"/>
+                                    </padding>
+                                </VBox>
+                            </StackPane>
                         </content>
                     </ScrollPane>
 
