@@ -44,6 +44,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 ## Desktop chat
 
 The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and keeps generation settings tucked away.
+It automatically uses Metal on supported Apple GPUs and falls back to the CPU elsewhere.
 
 ![DeepJ Chat desktop interface](docs/chat-ui.png)
 

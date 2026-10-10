@@ -6,6 +6,7 @@ const modelMenu = document.getElementById('modelMenu');
 const settings = document.getElementById('settingsBackdrop');
 let modelLoaded = false;
 let busy = false;
+let generating = false;
 let toastTimer;
 
 function element(id) { return document.getElementById(id); }
@@ -45,8 +46,17 @@ function setBusy(value) {
   updateSend();
 }
 
+function setGenerating(value) {
+  generating = value;
+  updateSend();
+}
+
 function updateSend() {
-  element('send').disabled = busy || !promptBox.value.trim();
+  const button = element('send');
+  button.disabled = !generating && (busy || !promptBox.value.trim());
+  button.replaceChildren(icon(generating ? 'stop' : 'send'));
+  button.setAttribute('aria-label', generating ? 'Stop generating' : 'Send message');
+  button.title = generating ? 'Stop generating' : 'Send message';
 }
 
 function followLatest() {
@@ -123,10 +133,17 @@ function finishResponse(id, text) {
 
 function failResponse(id, message) {
   const response = element('response-' + id);
+  if (!response) return;
   response.classList.remove('pending');
   response.classList.add('error');
   response.querySelector('.message-content').textContent = message;
   followLatest();
+}
+
+function stopResponse(id) {
+  const response = element('response-' + id);
+  if (response?.classList.contains('pending')) response.remove();
+  toast('Generation stopped.');
 }
 
 function generationValue(id) { return Number(element(id).value); }
@@ -155,11 +172,17 @@ function closeModelMenu() {
 }
 
 function newChat() {
+  if (window.chatBridge) chatBridge.stop();
   messages.replaceChildren();
   app.classList.add('empty');
   promptBox.value = '';
   updateSend();
   promptBox.focus();
+}
+
+function submitOrStop() {
+  if (generating) return chatBridge.stop();
+  submitPrompt();
 }
 
 function setTheme(name) {
@@ -180,7 +203,7 @@ element('modelPicker').onclick = toggleModelMenu;
 element('openSettings').onclick = () => settings.hidden = false;
 element('closeSettings').onclick = closeSettings;
 element('doneSettings').onclick = closeSettings;
-element('send').onclick = submitPrompt;
+element('send').onclick = submitOrStop;
 promptBox.oninput = updateSend;
 promptBox.onkeydown = event => {
   if (event.key !== 'Enter' || event.shiftKey) return;
