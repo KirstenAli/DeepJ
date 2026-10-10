@@ -2,7 +2,6 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
@@ -20,9 +19,9 @@
             fx:controller="io.github.kirstenali.deepj.chatui.ChatController"
             styleClass="app-root, theme-light">
     <left>
-        <VBox styleClass="sidebar" spacing="18">
+        <VBox styleClass="sidebar" spacing="16">
             <padding>
-                <Insets top="18" right="14" bottom="18" left="14"/>
+                <Insets top="20" right="16" bottom="18" left="16"/>
             </padding>
 
             <HBox alignment="CENTER_LEFT" spacing="10" styleClass="brand-row">
@@ -34,60 +33,42 @@
             </HBox>
 
             <Button fx:id="newChatButton"
-                    text="＋  New chat"
+                    text="+  New chat"
                     maxWidth="Infinity"
                     onAction="#onNewChat"
                     styleClass="new-chat-button"/>
 
             <VBox spacing="8">
                 <Label text="MODEL" styleClass="section-label"/>
-                <Label fx:id="modelNameLabel" text="No model selected" styleClass="model-name"/>
-                <TextField fx:id="modelPathField"
-                           editable="false"
-                           promptText="model-final.dj"
-                           styleClass="settings-field"/>
-                <Button fx:id="modelButton"
-                        text="Choose checkpoint"
-                        maxWidth="Infinity"
-                        onAction="#onBrowseModel"
-                        styleClass="sidebar-button"/>
-            </VBox>
-
-            <Separator/>
-
-            <VBox spacing="8">
-                <Label text="APPEARANCE" styleClass="section-label"/>
-                <ComboBox fx:id="themeField"
-                          maxWidth="Infinity"
-                          onAction="#onThemeChanged"
-                          styleClass="theme-picker"/>
-            </VBox>
-
-            <VBox spacing="8">
-                <Label text="GENERATION" styleClass="section-label"/>
-                <HBox spacing="8">
-                    <VBox spacing="4" HBox.hgrow="ALWAYS">
-                        <Label text="Temperature" styleClass="field-label"/>
-                        <TextField fx:id="temperatureField" styleClass="settings-field"/>
-                    </VBox>
-                    <VBox spacing="4" HBox.hgrow="ALWAYS">
-                        <Label text="Top-k" styleClass="field-label"/>
-                        <TextField fx:id="topKField" styleClass="settings-field"/>
-                    </VBox>
-                </HBox>
-                <HBox spacing="8">
-                    <VBox spacing="4" HBox.hgrow="ALWAYS">
-                        <Label text="Max tokens" styleClass="field-label"/>
-                        <TextField fx:id="maxTokensField" styleClass="settings-field"/>
-                    </VBox>
-                    <VBox spacing="4" HBox.hgrow="ALWAYS">
-                        <Label text="Seed" styleClass="field-label"/>
-                        <TextField fx:id="seedField" styleClass="settings-field"/>
-                    </VBox>
-                </HBox>
+                <VBox spacing="12" styleClass="model-card">
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Label fx:id="modelStatusDot" text="" styleClass="model-status, model-idle"/>
+                        <VBox spacing="3" HBox.hgrow="ALWAYS">
+                            <Label fx:id="modelNameLabel"
+                                   text="No model loaded"
+                                   wrapText="true"
+                                   styleClass="model-name"/>
+                            <Label fx:id="modelDetailsLabel"
+                                   text="Choose a DeepJ .dj checkpoint"
+                                   wrapText="true"
+                                   styleClass="model-details"/>
+                        </VBox>
+                    </HBox>
+                    <Button fx:id="modelButton"
+                            text="Load checkpoint"
+                            maxWidth="Infinity"
+                            onAction="#onBrowseModel"
+                            styleClass="load-model-button"/>
+                </VBox>
             </VBox>
 
             <Region VBox.vgrow="ALWAYS"/>
+
+            <Button fx:id="settingsButton"
+                    text="Settings"
+                    maxWidth="Infinity"
+                    onAction="#onToggleSettings"
+                    styleClass="sidebar-button"/>
             <Label fx:id="statusLabel" wrapText="true" styleClass="status-label"/>
         </VBox>
     </left>
@@ -99,9 +80,12 @@
                     <padding>
                         <Insets top="14" right="22" bottom="14" left="22"/>
                     </padding>
-                    <Label text="DeepJ Chat" styleClass="top-title"/>
+                    <VBox spacing="1">
+                        <Label text="DeepJ Chat" styleClass="top-title"/>
+                        <Label text="Private and on-device" styleClass="top-caption"/>
+                    </VBox>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label text="Runs locally" styleClass="local-badge"/>
+                    <Label text="Local" styleClass="local-badge"/>
                 </HBox>
             </top>
 
@@ -133,10 +117,94 @@
                           styleClass="welcome-box">
                         <Label text="D" styleClass="welcome-mark"/>
                         <Label text="How can DeepJ help?" styleClass="welcome-title"/>
-                        <Label text="Choose a Prism checkpoint, then start a conversation."
+                        <Label text="Load a Prism checkpoint, then start a conversation."
                                textAlignment="CENTER"
                                wrapText="true"
                                styleClass="welcome-copy"/>
+                    </VBox>
+
+                    <Region fx:id="settingsBackdrop"
+                            managed="false"
+                            visible="false"
+                            styleClass="settings-backdrop"/>
+
+                    <VBox fx:id="settingsPanel"
+                          alignment="TOP_LEFT"
+                          managed="false"
+                          maxWidth="360"
+                          minWidth="360"
+                          spacing="20"
+                          visible="false"
+                          StackPane.alignment="TOP_RIGHT"
+                          styleClass="settings-panel">
+                        <HBox alignment="CENTER_LEFT">
+                            <VBox spacing="3">
+                                <Label text="Settings" styleClass="settings-title"/>
+                                <Label text="Personalise chat and generation"
+                                       styleClass="settings-caption"/>
+                            </VBox>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button text="Close"
+                                    onAction="#onToggleSettings"
+                                    styleClass="close-settings-button"/>
+                        </HBox>
+
+                        <Separator/>
+
+                        <VBox spacing="10">
+                            <Label text="APPEARANCE" styleClass="section-label"/>
+                            <HBox spacing="6" styleClass="theme-selector">
+                                <Button fx:id="lightThemeButton"
+                                        text="Light"
+                                        onAction="#onTheme"
+                                        userData="LIGHT"
+                                        HBox.hgrow="ALWAYS"
+                                        maxWidth="Infinity"
+                                        styleClass="theme-button"/>
+                                <Button fx:id="darkThemeButton"
+                                        text="Dark"
+                                        onAction="#onTheme"
+                                        userData="DARK"
+                                        HBox.hgrow="ALWAYS"
+                                        maxWidth="Infinity"
+                                        styleClass="theme-button"/>
+                                <Button fx:id="midnightThemeButton"
+                                        text="Midnight"
+                                        onAction="#onTheme"
+                                        userData="MIDNIGHT"
+                                        HBox.hgrow="ALWAYS"
+                                        maxWidth="Infinity"
+                                        styleClass="theme-button"/>
+                            </HBox>
+                        </VBox>
+
+                        <VBox spacing="12">
+                            <VBox spacing="3">
+                                <Label text="GENERATION" styleClass="section-label"/>
+                                <Label text="Advanced controls for the next response"
+                                       styleClass="settings-caption"/>
+                            </VBox>
+                            <HBox spacing="10">
+                                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                    <Label text="Temperature" styleClass="field-label"/>
+                                    <TextField fx:id="temperatureField" styleClass="settings-field"/>
+                                </VBox>
+                                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                    <Label text="Top-k" styleClass="field-label"/>
+                                    <TextField fx:id="topKField" styleClass="settings-field"/>
+                                </VBox>
+                            </HBox>
+                            <HBox spacing="10">
+                                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                    <Label text="Max tokens" styleClass="field-label"/>
+                                    <TextField fx:id="maxTokensField" styleClass="settings-field"/>
+                                </VBox>
+                                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                    <Label text="Seed" styleClass="field-label"/>
+                                    <TextField fx:id="seedField" styleClass="settings-field"/>
+                                </VBox>
+                            </HBox>
+                        </VBox>
                     </VBox>
                 </StackPane>
             </center>
@@ -148,7 +216,7 @@
                           maxWidth="820"
                           spacing="8"
                           styleClass="typing-indicator">
-                        <Label text="●" styleClass="typing-dot"/>
+                        <Label text="" styleClass="typing-dot"/>
                         <Label text="DeepJ is thinking" styleClass="typing-text"/>
                     </HBox>
 

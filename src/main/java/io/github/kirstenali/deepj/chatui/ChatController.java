@@ -2,9 +2,9 @@ package io.github.kirstenali.deepj.chatui;
 
 import javafx.application.Platform;
 import javafx.concurrent.Task;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
@@ -13,6 +13,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
@@ -24,24 +25,30 @@ import java.util.function.Consumer;
 public class ChatController {
 
     private ChatService chatService;
+    private ChatAppearance appearance;
     private boolean busy;
 
     @FXML private BorderPane rootPane;
     @FXML private VBox messagesBox;
     @FXML private VBox welcomeBox;
+    @FXML private VBox settingsPanel;
+    @FXML private Region settingsBackdrop;
     @FXML private ScrollPane scrollPane;
     @FXML private TextArea inputArea;
     @FXML private Button sendButton;
     @FXML private Button newChatButton;
     @FXML private Button modelButton;
+    @FXML private Button lightThemeButton;
+    @FXML private Button darkThemeButton;
+    @FXML private Button midnightThemeButton;
     @FXML private HBox typingIndicator;
-    @FXML private TextField modelPathField;
     @FXML private TextField temperatureField;
     @FXML private TextField topKField;
     @FXML private TextField maxTokensField;
     @FXML private TextField seedField;
-    @FXML private ComboBox<ChatTheme> themeField;
     @FXML private Label modelNameLabel;
+    @FXML private Label modelDetailsLabel;
+    @FXML private Label modelStatusDot;
     @FXML private Label statusLabel;
 
     public void setChatService(ChatService service) {
@@ -52,7 +59,7 @@ public class ChatController {
     @FXML
     public void initialize() {
         setDefaultSettings();
-        configureThemes();
+        configureAppearance();
         configureAutoScroll();
         hideTypingIndicator();
         setStatus("Choose a DeepJ Prism checkpoint to begin");
@@ -61,6 +68,7 @@ public class ChatController {
 
     @FXML
     private void onBrowseModel() {
+        appearance.hide();
         File file = chooseModelFile();
         if (file != null && chatService != null) loadModel(file.toPath());
     }
@@ -69,14 +77,20 @@ public class ChatController {
     private void onNewChat() {
         messagesBox.getChildren().clear();
         showWelcome(true);
+        appearance.hide();
         inputArea.clear();
         inputArea.requestFocus();
     }
 
     @FXML
-    private void onThemeChanged() {
-        ChatTheme theme = themeField.getValue();
-        if (theme != null) theme.apply(rootPane);
+    private void onToggleSettings() {
+        appearance.toggle();
+    }
+
+    @FXML
+    private void onTheme(ActionEvent event) {
+        Button button = (Button) event.getSource();
+        appearance.apply(ChatTheme.valueOf(button.getUserData().toString()));
     }
 
     @FXML
@@ -102,30 +116,31 @@ public class ChatController {
 
     private void loadModel(Path path) {
         setBusy(true);
+        showModelState("Loading model…", path.getFileName().toString(), "model-loading");
         setStatus("Loading model…");
-        Task<Path> task = modelTask(path);
+        Task<Void> task = modelTask(path);
         configureModelTask(task);
         start(task, "deepj-model-loader");
     }
 
-    private Task<Path> modelTask(Path path) {
+    private Task<Void> modelTask(Path path) {
         return new Task<>() {
             @Override
-            protected Path call() throws Exception {
+            protected Void call() throws Exception {
                 chatService.loadModel(path);
-                return path;
+                return null;
             }
         };
     }
 
-    private void configureModelTask(Task<Path> task) {
-        task.setOnSucceeded(event -> modelLoaded(task.getValue()));
+    private void configureModelTask(Task<Void> task) {
+        task.setOnSucceeded(event -> modelLoaded());
         task.setOnFailed(event -> modelLoadFailed(task.getException()));
     }
 
-    private void modelLoaded(Path path) {
-        modelPathField.setText(path.toAbsolutePath().toString());
-        modelNameLabel.setText(chatService.getLoadedModelName());
+    private void modelLoaded() {
+        String name = chatService.getLoadedModelName();
+        showModelState(name, "Ready on " + backendName(), "model-ready");
         setStatus("Ready on " + backendName());
         setBusy(false);
         inputArea.requestFocus();
@@ -133,6 +148,7 @@ public class ChatController {
 
     private void modelLoadFailed(Throwable error) {
         setBusy(false);
+        showModelState("Model unavailable", "Choose another checkpoint", "model-error");
         setStatus("Could not load model");
         showWelcome(false);
         addMessage(new ChatMessage("Model loading failed: " + safeMessage(error), false));
@@ -161,6 +177,7 @@ public class ChatController {
     }
 
     private void startGeneration(String prompt, GenerationSettings settings) {
+        appearance.hide();
         showWelcome(false);
         addMessage(new ChatMessage(prompt, true));
         Label response = addMessage(new ChatMessage("", false));
@@ -226,10 +243,10 @@ public class ChatController {
         return view.content();
     }
 
-    private void configureThemes() {
-        themeField.getItems().setAll(ChatTheme.values());
-        themeField.setValue(ChatTheme.LIGHT);
-        onThemeChanged();
+    private void configureAppearance() {
+        appearance = new ChatAppearance(rootPane, settingsPanel, settingsBackdrop,
+                lightThemeButton, darkThemeButton, midnightThemeButton);
+        appearance.apply(ChatTheme.LIGHT);
     }
 
     private void configureAutoScroll() {
@@ -260,6 +277,11 @@ public class ChatController {
     private void showWelcome(boolean visible) {
         welcomeBox.setManaged(visible);
         welcomeBox.setVisible(visible);
+    }
+
+    private void showModelState(String name, String details, String style) {
+        ModelCardState.show(modelNameLabel, modelDetailsLabel, modelStatusDot,
+                name, details, style);
     }
 
     private void showTypingIndicator() {

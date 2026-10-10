@@ -1,5 +1,5 @@
 .app-root {
-    -fx-font-family: "SF Pro Text", "Inter", "Segoe UI", "Arial";
+    -fx-font-family: "System";
     -fx-font-size: 14px;
 }
 
@@ -11,8 +11,8 @@
 .welcome-mark,
 .assistant-avatar {
     -fx-alignment: center;
-    -fx-background-radius: 12px;
-    -fx-font-weight: 800;
+    -fx-background-radius: 11px;
+    -fx-font-weight: 700;
 }
 
 .brand-mark {
@@ -28,8 +28,11 @@
 .brand-caption,
 .field-label,
 .status-label,
+.top-caption,
 .composer-caption,
-.welcome-copy {
+.welcome-copy,
+.settings-caption,
+.model-details {
     -fx-font-size: 12px;
 }
 
@@ -38,39 +41,72 @@
     -fx-font-weight: 700;
 }
 
+.new-chat-button,
+.sidebar-button,
+.load-model-button,
+.close-settings-button,
+.theme-button,
+.settings-field {
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-cursor: hand;
+}
+
+.new-chat-button,
+.sidebar-button,
+.load-model-button {
+    -fx-alignment: center-left;
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+    -fx-font-weight: 600;
+    -fx-padding: 10px 12px;
+}
+
+.model-card {
+    -fx-background-radius: 14px;
+    -fx-border-radius: 14px;
+    -fx-padding: 14px;
+}
+
 .model-name {
     -fx-font-size: 13px;
     -fx-font-weight: 600;
 }
 
-.new-chat-button,
-.sidebar-button,
-.settings-field,
-.theme-picker {
-    -fx-background-radius: 10px;
-    -fx-border-radius: 10px;
+.model-status,
+.typing-dot {
+    -fx-background-radius: 999px;
+    -fx-min-height: 9px;
+    -fx-min-width: 9px;
+    -fx-pref-height: 9px;
+    -fx-pref-width: 9px;
 }
 
-.new-chat-button,
-.sidebar-button {
-    -fx-alignment: center-left;
-    -fx-cursor: hand;
-    -fx-font-weight: 600;
-    -fx-padding: 10px 12px;
+.model-idle {
+    -fx-background-color: #9a9a9a;
 }
 
-.settings-field,
-.theme-picker {
-    -fx-padding: 8px 10px;
+.model-loading {
+    -fx-background-color: #e5a62b;
 }
 
-.top-title {
+.model-ready {
+    -fx-background-color: #22a06b;
+}
+
+.model-error {
+    -fx-background-color: #d14343;
+}
+
+.top-title,
+.settings-title {
     -fx-font-size: 16px;
     -fx-font-weight: 700;
 }
 
 .local-badge {
     -fx-background-radius: 999px;
+    -fx-border-radius: 999px;
     -fx-font-size: 11px;
     -fx-font-weight: 600;
     -fx-padding: 5px 10px;
@@ -82,6 +118,16 @@
 .conversation-stage {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
+}
+
+.chat-scroll .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8px;
+}
+
+.chat-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(120, 120, 120, 0.35);
+    -fx-background-radius: 999px;
 }
 
 .welcome-box {
@@ -124,24 +170,64 @@
     -fx-line-spacing: 3px;
 }
 
+.settings-panel {
+    -fx-background-radius: 16px 0 0 16px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.18), 24, 0.12, -4, 5);
+    -fx-padding: 22px;
+}
+
+.settings-backdrop {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+}
+
+.close-settings-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 9px;
+    -fx-border-color: transparent;
+    -fx-padding: 7px 9px;
+}
+
+.theme-selector {
+    -fx-background-radius: 12px;
+    -fx-padding: 3px;
+}
+
+.theme-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 9px;
+    -fx-border-color: transparent;
+    -fx-font-weight: 600;
+    -fx-padding: 8px 10px;
+}
+
+.settings-field {
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+    -fx-padding: 9px 10px;
+}
+
 .composer-panel {
     -fx-padding: 8px 26px 18px 26px;
 }
 
 .composer-shell {
+    -fx-background-insets: 0;
     -fx-background-radius: 24px;
+    -fx-border-insets: 0;
     -fx-border-radius: 24px;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.10), 18, 0.10, 0, 4);
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.10), 16, 0.08, 0, 3);
     -fx-padding: 8px 10px 8px 16px;
 }
 
 .chat-input,
-.chat-input .content,
 .chat-input:focused,
-.chat-input:focused .content {
+.chat-input .scroll-pane,
+.chat-input .scroll-pane .viewport,
+.chat-input .content {
     -fx-background-color: transparent;
-    -fx-border-color: transparent;
     -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-insets: 0;
 }
 
 .chat-input {
@@ -150,10 +236,12 @@
 }
 
 .send-button {
+    -fx-background-insets: 0;
     -fx-background-radius: 999px;
+    -fx-border-color: transparent;
     -fx-cursor: hand;
     -fx-font-size: 19px;
-    -fx-font-weight: 800;
+    -fx-font-weight: 700;
     -fx-min-height: 38px;
     -fx-min-width: 38px;
     -fx-padding: 0;
@@ -167,10 +255,6 @@
     -fx-padding: 0 14px;
 }
 
-.typing-dot {
-    -fx-font-size: 10px;
-}
-
 .typing-text {
     -fx-font-size: 12px;
 }
@@ -181,7 +265,7 @@
 
 .theme-light .sidebar {
     -fx-background-color: #f7f7f8;
-    -fx-border-color: transparent #e5e5e5 transparent transparent;
+    -fx-border-color: transparent #e3e3e3 transparent transparent;
 }
 
 .theme-light .conversation-pane,
@@ -194,11 +278,15 @@
     -fx-border-color: transparent transparent #ececec transparent;
 }
 
+.theme-light .settings-panel {
+    -fx-background-color: #ffffff;
+}
+
 .theme-light .brand-mark,
 .theme-light .welcome-mark,
 .theme-light .assistant-avatar,
 .theme-light .send-button {
-    -fx-background-color: #111111;
+    -fx-background-color: #171717;
     -fx-text-fill: #ffffff;
 }
 
@@ -206,6 +294,8 @@
 .theme-light .top-title,
 .theme-light .welcome-title,
 .theme-light .model-name,
+.theme-light .settings-title,
+.theme-light .close-settings-button,
 .theme-light .assistant-name,
 .theme-light .assistant-message {
     -fx-text-fill: #171717;
@@ -214,36 +304,68 @@
 .theme-light .brand-caption,
 .theme-light .field-label,
 .theme-light .status-label,
+.theme-light .top-caption,
 .theme-light .composer-caption,
 .theme-light .welcome-copy,
+.theme-light .settings-caption,
+.theme-light .model-details,
 .theme-light .typing-text,
 .theme-light .section-label {
-    -fx-text-fill: #6b6b6b;
+    -fx-text-fill: #686868;
 }
 
 .theme-light .new-chat-button,
 .theme-light .sidebar-button,
-.theme-light .settings-field,
-.theme-light .theme-picker {
+.theme-light .model-card,
+.theme-light .settings-field {
     -fx-background-color: #ffffff;
     -fx-border-color: #dedede;
     -fx-text-fill: #171717;
 }
 
-.theme-light .new-chat-button:hover,
-.theme-light .sidebar-button:hover {
-    -fx-background-color: #ececec;
+.theme-light .load-model-button {
+    -fx-background-color: #171717;
+    -fx-border-color: #171717;
+    -fx-text-fill: #ffffff;
 }
 
-.theme-light .user-message,
-.theme-light .local-badge {
+.theme-light .local-badge,
+.theme-light .theme-selector,
+.theme-light .user-message {
     -fx-background-color: #f1f1f1;
+    -fx-text-fill: #171717;
+}
+
+.theme-light .local-badge {
+    -fx-border-color: #e1e1e1;
+}
+
+.theme-light .theme-button {
+    -fx-text-fill: #5f5f5f;
+}
+
+.theme-light .theme-button.selected {
+    -fx-background-color: #ffffff;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.11), 7, 0.08, 0, 1);
     -fx-text-fill: #171717;
 }
 
 .theme-light .composer-shell {
     -fx-background-color: #ffffff;
-    -fx-border-color: #d9d9d9;
+    -fx-border-color: #d7d7d7;
+}
+
+.theme-light .text-input {
+    -fx-prompt-text-fill: #858585;
+    -fx-text-fill: #171717;
+}
+
+.theme-light .text-input .text {
+    -fx-fill: #171717;
+}
+
+.theme-light .typing-dot {
+    -fx-background-color: #171717;
 }
 
 .theme-dark {
@@ -252,7 +374,7 @@
 
 .theme-dark .sidebar {
     -fx-background-color: #171717;
-    -fx-border-color: transparent #303030 transparent transparent;
+    -fx-border-color: transparent #333333 transparent transparent;
 }
 
 .theme-dark .conversation-pane,
@@ -262,7 +384,15 @@
 }
 
 .theme-dark .top-bar {
-    -fx-border-color: transparent transparent #323232 transparent;
+    -fx-border-color: transparent transparent #343434 transparent;
+}
+
+.theme-dark .settings-panel {
+    -fx-background-color: #292929;
+}
+
+.theme-dark .settings-backdrop {
+    -fx-background-color: rgba(0, 0, 0, 0.22);
 }
 
 .theme-dark .brand-mark,
@@ -277,49 +407,77 @@
 .theme-dark .top-title,
 .theme-dark .welcome-title,
 .theme-dark .model-name,
+.theme-dark .settings-title,
+.theme-dark .close-settings-button,
 .theme-dark .assistant-name,
 .theme-dark .assistant-message {
-    -fx-text-fill: #ececec;
+    -fx-text-fill: #f2f2f2;
 }
 
 .theme-dark .brand-caption,
 .theme-dark .field-label,
 .theme-dark .status-label,
+.theme-dark .top-caption,
 .theme-dark .composer-caption,
 .theme-dark .welcome-copy,
+.theme-dark .settings-caption,
+.theme-dark .model-details,
 .theme-dark .typing-text,
 .theme-dark .section-label {
-    -fx-text-fill: #a8a8a8;
+    -fx-text-fill: #aaaaaa;
 }
 
 .theme-dark .new-chat-button,
 .theme-dark .sidebar-button,
-.theme-dark .settings-field,
-.theme-dark .theme-picker {
-    -fx-background-color: #212121;
-    -fx-border-color: #3b3b3b;
-    -fx-text-fill: #ececec;
+.theme-dark .model-card,
+.theme-dark .settings-field {
+    -fx-background-color: #222222;
+    -fx-border-color: #3d3d3d;
+    -fx-text-fill: #f2f2f2;
 }
 
-.theme-dark .new-chat-button:hover,
-.theme-dark .sidebar-button:hover {
-    -fx-background-color: #2f2f2f;
+.theme-dark .load-model-button {
+    -fx-background-color: #f4f4f4;
+    -fx-border-color: #f4f4f4;
+    -fx-text-fill: #171717;
 }
 
-.theme-dark .user-message,
-.theme-dark .local-badge {
+.theme-dark .local-badge,
+.theme-dark .theme-selector,
+.theme-dark .user-message {
     -fx-background-color: #303030;
-    -fx-text-fill: #ececec;
+    -fx-text-fill: #f2f2f2;
+}
+
+.theme-dark .local-badge {
+    -fx-border-color: #424242;
+}
+
+.theme-dark .theme-button {
+    -fx-text-fill: #b8b8b8;
+}
+
+.theme-dark .theme-button.selected {
+    -fx-background-color: #484848;
+    -fx-text-fill: #ffffff;
 }
 
 .theme-dark .composer-shell {
     -fx-background-color: #2f2f2f;
-    -fx-border-color: #424242;
+    -fx-border-color: #484848;
 }
 
-.theme-dark .chat-input {
-    -fx-text-fill: #ececec;
-    -fx-prompt-text-fill: #929292;
+.theme-dark .text-input {
+    -fx-prompt-text-fill: #a2a2a2;
+    -fx-text-fill: #f4f4f4;
+}
+
+.theme-dark .text-input .text {
+    -fx-fill: #f4f4f4;
+}
+
+.theme-dark .typing-dot {
+    -fx-background-color: #f4f4f4;
 }
 
 .theme-midnight {
@@ -328,7 +486,7 @@
 
 .theme-midnight .sidebar {
     -fx-background-color: #0f172a;
-    -fx-border-color: transparent #243047 transparent transparent;
+    -fx-border-color: transparent #27354d transparent transparent;
 }
 
 .theme-midnight .conversation-pane,
@@ -339,6 +497,14 @@
 
 .theme-midnight .top-bar {
     -fx-border-color: transparent transparent #243047 transparent;
+}
+
+.theme-midnight .settings-panel {
+    -fx-background-color: #111c2f;
+}
+
+.theme-midnight .settings-backdrop {
+    -fx-background-color: rgba(0, 0, 0, 0.22);
 }
 
 .theme-midnight .brand-mark,
@@ -353,47 +519,87 @@
 .theme-midnight .top-title,
 .theme-midnight .welcome-title,
 .theme-midnight .model-name,
+.theme-midnight .settings-title,
+.theme-midnight .close-settings-button,
 .theme-midnight .assistant-name,
 .theme-midnight .assistant-message {
-    -fx-text-fill: #e2e8f0;
+    -fx-text-fill: #e7eef8;
 }
 
 .theme-midnight .brand-caption,
 .theme-midnight .field-label,
 .theme-midnight .status-label,
+.theme-midnight .top-caption,
 .theme-midnight .composer-caption,
 .theme-midnight .welcome-copy,
+.theme-midnight .settings-caption,
+.theme-midnight .model-details,
 .theme-midnight .typing-text,
 .theme-midnight .section-label {
-    -fx-text-fill: #94a3b8;
+    -fx-text-fill: #9babc2;
 }
 
 .theme-midnight .new-chat-button,
 .theme-midnight .sidebar-button,
-.theme-midnight .settings-field,
-.theme-midnight .theme-picker {
+.theme-midnight .model-card,
+.theme-midnight .settings-field {
     -fx-background-color: #162033;
     -fx-border-color: #2d3a52;
-    -fx-text-fill: #e2e8f0;
+    -fx-text-fill: #e7eef8;
 }
 
-.theme-midnight .new-chat-button:hover,
-.theme-midnight .sidebar-button:hover {
+.theme-midnight .load-model-button {
+    -fx-background-color: #38bdf8;
+    -fx-border-color: #38bdf8;
+    -fx-text-fill: #082f49;
+}
+
+.theme-midnight .local-badge,
+.theme-midnight .theme-selector,
+.theme-midnight .user-message {
     -fx-background-color: #1e293b;
+    -fx-text-fill: #e7eef8;
 }
 
-.theme-midnight .user-message,
 .theme-midnight .local-badge {
-    -fx-background-color: #1e293b;
-    -fx-text-fill: #e2e8f0;
+    -fx-border-color: #334155;
+}
+
+.theme-midnight .theme-button {
+    -fx-text-fill: #a9b7ca;
+}
+
+.theme-midnight .theme-button.selected {
+    -fx-background-color: #2b3a52;
+    -fx-text-fill: #ffffff;
 }
 
 .theme-midnight .composer-shell {
     -fx-background-color: #111c2f;
-    -fx-border-color: #2d3a52;
+    -fx-border-color: #334155;
 }
 
-.theme-midnight .chat-input {
-    -fx-text-fill: #e2e8f0;
-    -fx-prompt-text-fill: #7890ac;
+.theme-midnight .text-input {
+    -fx-prompt-text-fill: #91a2ba;
+    -fx-text-fill: #edf4ff;
+}
+
+.theme-midnight .text-input .text {
+    -fx-fill: #edf4ff;
+}
+
+.theme-midnight .typing-dot {
+    -fx-background-color: #38bdf8;
+}
+
+.theme-light .separator .line {
+    -fx-border-color: #e5e5e5;
+}
+
+.theme-dark .separator .line {
+    -fx-border-color: #404040;
+}
+
+.theme-midnight .separator .line {
+    -fx-border-color: #2d3a52;
 }
