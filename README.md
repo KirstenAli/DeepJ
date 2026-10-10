@@ -43,23 +43,6 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ## Quick start
 
-Tensor operations use the CPU backend by default:
-
-```java
-import io.github.kirstenali.deepj.tensor.Tensor;
-
-Tensor inputs = Tensor.from2D(new float[][]{
-        {1.0f, 2.0f},
-        {3.0f, 4.0f}
-});
-Tensor weights = Tensor.from2D(new float[][]{
-        {0.5f, 1.0f},
-        {-1.0f, 2.0f}
-});
-
-Tensor output = inputs.matmul(weights).reluActivation();
-```
-
 Load a DeepJ Prism checkpoint with its BPE tokenizer:
 
 ```java

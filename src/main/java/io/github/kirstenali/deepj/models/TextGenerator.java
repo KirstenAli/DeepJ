@@ -9,6 +9,7 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.util.Arrays;
 import java.util.Random;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class TextGenerator {
@@ -59,26 +60,49 @@ public final class TextGenerator {
             int topK,
             long seed
     ) {
-        validateArgs(maxNewTokens, temperature, topK);
+        return generateTokens(forwarder, maxSeqLen, tok, prompt, maxNewTokens,
+                temperature, topK, seed, null);
+    }
 
+    public static String stream(CausalLM model, Tokenizer tok, TransformerConfig cfg,
+                                String prompt, int maxNewTokens, float temperature, int topK,
+                                long seed, Consumer<String> listener) {
+        return stream(model::forward, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
+                temperature, topK, seed, listener);
+    }
+
+    public static String stream(Function<int[], Tensor> forwarder, int maxSeqLen, Tokenizer tok,
+                                String prompt, int maxNewTokens, float temperature, int topK,
+                                long seed, Consumer<String> listener) {
+        if (listener == null) throw new IllegalArgumentException("listener cannot be null");
+        return generateTokens(forwarder, maxSeqLen, tok, prompt, maxNewTokens,
+                temperature, topK, seed, listener);
+    }
+
+    private static String generateTokens(Function<int[], Tensor> forwarder, int maxSeqLen,
+                                         Tokenizer tok, String prompt, int maxNewTokens,
+                                         float temperature, int topK, long seed,
+                                         Consumer<String> listener) {
+        validateArgs(maxNewTokens, temperature, topK);
         Random rnd = new Random(seed);
         int[] promptIds = tok.encode(prompt);
         requirePrompt(promptIds, maxNewTokens);
         int[] ids = Arrays.copyOf(promptIds, promptIds.length + maxNewTokens);
         int length = appendGeneratedTokens(forwarder, maxSeqLen, tok, ids,
-                promptIds.length, maxNewTokens, temperature, topK, rnd);
+                promptIds.length, maxNewTokens, temperature, topK, rnd, listener);
         return tok.decode(Arrays.copyOf(ids, length));
     }
 
     private static int appendGeneratedTokens(Function<int[], Tensor> forwarder, int maxSeqLen,
                                              Tokenizer tok, int[] ids, int length,
                                              int maxNewTokens, float temperature, int topK,
-                                             Random rnd) {
+                                             Random rnd, Consumer<String> listener) {
         if (hasTrailingEndToken(tok, ids, length)) return length;
         for (int i = 0; i < maxNewTokens; i++) {
             int token = nextToken(forwarder, maxSeqLen, ids, length, temperature, topK, rnd);
             if (tok.isEndOfSequence(token)) break;
             ids[length++] = token;
+            if (listener != null) listener.accept(tok.decode(Arrays.copyOf(ids, length)));
         }
         return length;
     }
