@@ -205,6 +205,24 @@
     -fx-line-spacing: 3px;
 }
 
+.copy-message-button {
+    -fx-alignment: center;
+    -fx-background-color: transparent;
+    -fx-background-radius: 8px;
+    -fx-border-color: transparent;
+    -fx-cursor: hand;
+    -fx-min-height: 30px;
+    -fx-min-width: 30px;
+    -fx-opacity: 0.72;
+    -fx-padding: 0;
+    -fx-pref-height: 30px;
+    -fx-pref-width: 30px;
+}
+
+.copy-message-button:hover {
+    -fx-opacity: 1;
+}
+
 .settings-panel {
     -fx-background-radius: 16px 0 0 16px;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.18), 24, 0.12, -4, 5);
@@ -375,6 +393,7 @@
 
 .theme-light .load-model-button:hover,
 .theme-light .close-settings-button:hover,
+.theme-light .copy-message-button:hover,
 .theme-light .sidebar-toggle-button:hover {
     -fx-background-color: #e7e7e7;
 }
@@ -503,6 +522,7 @@
 
 .theme-dark .load-model-button:hover,
 .theme-dark .close-settings-button:hover,
+.theme-dark .copy-message-button:hover,
 .theme-dark .sidebar-toggle-button:hover {
     -fx-background-color: #3a3a3a;
 }
@@ -630,6 +650,7 @@
 
 .theme-midnight .load-model-button:hover,
 .theme-midnight .close-settings-button:hover,
+.theme-midnight .copy-message-button:hover,
 .theme-midnight .sidebar-toggle-button:hover {
     -fx-background-color: #27364c;
 }

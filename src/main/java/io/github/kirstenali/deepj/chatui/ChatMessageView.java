@@ -1,11 +1,14 @@
 package io.github.kirstenali.deepj.chatui;
 
 import javafx.geometry.Pos;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.SVGPath;
 
 record ChatMessageView(HBox row, Label content) {
 
@@ -45,9 +48,26 @@ record ChatMessageView(HBox row, Label content) {
     private static VBox assistantBody(Label content) {
         Label name = new Label("DeepJ");
         name.getStyleClass().add("assistant-name");
-        VBox body = new VBox(5, name, content);
+        VBox body = new VBox(5, name, content, copyButton(content));
         HBox.setHgrow(body, Priority.ALWAYS);
         return body;
+    }
+
+    private static Button copyButton(Label content) {
+        Button button = new Button();
+        button.setAccessibleText("Copy response");
+        button.setGraphic(copyIcon());
+        button.setTooltip(new Tooltip("Copy response"));
+        button.setOnAction(event -> ChatClipboard.copy(content.getText()));
+        button.getStyleClass().add("copy-message-button");
+        return button;
+    }
+
+    private static SVGPath copyIcon() {
+        SVGPath icon = new SVGPath();
+        icon.setContent("M6 5h8v10H6z M3 12V2h8");
+        icon.getStyleClass().add("button-icon");
+        return icon;
     }
 
     private static Label avatar() {

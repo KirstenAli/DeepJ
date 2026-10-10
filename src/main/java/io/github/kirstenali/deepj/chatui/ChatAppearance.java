@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import javafx.animation.Animation;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
@@ -14,6 +15,10 @@ final class ChatAppearance {
     private final VBox panel;
     private final Region backdrop;
     private final Map<ChatTheme, Button> buttons;
+    private Animation drawerAnimation;
+    private Animation sidebarAnimation;
+    private boolean settingsOpen;
+    private boolean sidebarOpen = true;
 
     ChatAppearance(Parent root, VBox panel, Region backdrop,
                    Button light, Button dark, Button midnight) {
@@ -30,7 +35,7 @@ final class ChatAppearance {
     }
 
     void toggle() {
-        setVisible(!panel.isVisible());
+        setVisible(!settingsOpen);
     }
 
     void hide() {
@@ -38,16 +43,23 @@ final class ChatAppearance {
     }
 
     void toggleSidebar() {
-        Node sidebar = root.lookup("#sidebarPane");
+        sidebarOpen = !sidebarOpen;
+        Region sidebar = (Region) root.lookup("#sidebarPane");
         Node openButton = root.lookup("#sidebarOpenButton");
-        boolean expanded = sidebar.isVisible();
-        show(sidebar, !expanded);
-        show(openButton, expanded);
+        show(openButton, !sidebarOpen);
+        sidebarAnimation = play(sidebarAnimation, ChatAnimations.sidebar(sidebar, sidebarOpen));
     }
 
     private void setVisible(boolean visible) {
-        show(panel, visible);
-        show(backdrop, visible);
+        if (settingsOpen == visible) return;
+        settingsOpen = visible;
+        drawerAnimation = play(drawerAnimation, ChatAnimations.drawer(panel, backdrop, visible));
+    }
+
+    private static Animation play(Animation current, Animation next) {
+        if (current != null) current.stop();
+        next.play();
+        return next;
     }
 
     private static void show(Node node, boolean visible) {
