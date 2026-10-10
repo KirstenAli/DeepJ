@@ -1,7 +1,10 @@
 package io.github.kirstenali.deepj.chatui;
 
 import javafx.application.Platform;
+import javafx.scene.Parent;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.text.Text;
 
 final class ChatTextArea extends TextArea {
@@ -9,8 +12,7 @@ final class ChatTextArea extends TextArea {
     private static final double MAX_WIDTH = 680;
     private static final double MIN_WIDTH = 72;
     private static final double USER_PADDING = 30;
-    private static final double USER_HEIGHT = 22;
-    private static final double TEXT_HEIGHT = 8;
+    private static final double WRAP_GUTTER = 14;
 
     private final boolean user;
     private boolean resizePending;
@@ -32,6 +34,7 @@ final class ChatTextArea extends TextArea {
         textProperty().addListener((value, oldText, newText) -> requestResize());
         fontProperty().addListener((value, oldFont, newFont) -> requestResize());
         widthProperty().addListener((value, oldWidth, newWidth) -> requestResize());
+        addEventFilter(ScrollEvent.SCROLL, this::scrollConversation);
     }
 
     private void requestResize() {
@@ -44,7 +47,9 @@ final class ChatTextArea extends TextArea {
         resizePending = false;
         double width = preferredWidth();
         setPrefWidth(width);
-        setPrefHeight(textHeight(layoutWidth(width)));
+        setPrefRowCount(rowCount(layoutWidth(width)));
+        setPrefHeight(USE_COMPUTED_SIZE);
+        resetScroll();
     }
 
     private double preferredWidth() {
@@ -62,24 +67,56 @@ final class ChatTextArea extends TextArea {
         return Math.min(preferred, getWidth());
     }
 
-    private double textHeight(double width) {
+    private int rowCount(double width) {
         Text measure = measure();
-        measure.setWrappingWidth(Math.max(MIN_WIDTH, width - horizontalPadding()));
-        return Math.ceil(measure.getLayoutBounds().getHeight()) + verticalPadding();
+        measure.setWrappingWidth(Math.max(MIN_WIDTH, width - horizontalPadding() - WRAP_GUTTER));
+        return Math.max(1, (int) Math.ceil(measure.getLayoutBounds().getHeight() / lineHeight()));
     }
 
     private Text measure() {
-        Text measure = new Text(getText().isEmpty() ? " " : getText());
+        Text measure = new Text(measuredText());
         measure.setFont(getFont());
         return measure;
+    }
+
+    private String measuredText() {
+        if (getText().isEmpty()) return " ";
+        return getText().endsWith("\n") ? getText() + " " : getText();
+    }
+
+    private double lineHeight() {
+        Text line = new Text("Ay");
+        line.setFont(getFont());
+        return line.getLayoutBounds().getHeight();
     }
 
     private double horizontalPadding() {
         return user ? USER_PADDING : 0;
     }
 
-    private double verticalPadding() {
-        return user ? USER_HEIGHT : TEXT_HEIGHT;
+    private void resetScroll() {
+        setScrollLeft(0);
+        setScrollTop(0);
+    }
+
+    private void scrollConversation(ScrollEvent event) {
+        ScrollPane scroll = conversationScroll();
+        if (scroll == null || scrollOverflow(scroll) <= 0) return;
+        scroll.setVvalue(clamp(scroll.getVvalue() - event.getDeltaY() / scrollOverflow(scroll), 0, 1));
+        event.consume();
+    }
+
+    private ScrollPane conversationScroll() {
+        Parent parent = getParent();
+        while (parent != null && !(parent instanceof ScrollPane)) {
+            parent = parent.getParent();
+        }
+        return parent instanceof ScrollPane scroll ? scroll : null;
+    }
+
+    private double scrollOverflow(ScrollPane scroll) {
+        double content = scroll.getContent().getBoundsInLocal().getHeight();
+        return content - scroll.getViewportBounds().getHeight();
     }
 
     private static double clamp(double value, double minimum, double maximum) {
