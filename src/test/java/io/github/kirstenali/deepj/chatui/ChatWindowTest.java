@@ -53,14 +53,49 @@ class ChatWindowTest {
             assertEquals(true, script(view, "document.getElementById('settingsBackdrop').hidden"));
             script(view, "document.getElementById('openSettings').click()");
             assertEquals(false, script(view, "document.getElementById('settingsBackdrop').hidden"));
+            assertEquals("closeSettings", script(view, "document.activeElement.id"));
             script(view, "document.querySelector('[data-theme=dark]').click()");
             assertEquals("theme-dark", script(view, "document.body.className"));
             script(view, "document.getElementById('closeSettings').click()");
+            assertEquals("openSettings", script(view, "document.activeElement.id"));
             script(view, "startResponse('Hello', 2)");
             script(view, "finishResponse(2, '')");
             assertEquals(0, ((Number) script(view, "document.querySelectorAll('.assistant').length")).intValue());
             assertEquals(true, script(view, "document.getElementById('toast').classList.contains('visible')"));
         });
+    }
+
+    @Test
+    void copyAppearsOnlyForGeneratedText() throws Exception {
+        Fixture fixture = open();
+        verify(fixture, view -> {
+            script(view, "startResponse('Hello', 4)");
+            assertEquals(0, copyCount(view));
+            script(view, "updateResponse(4, 'Answer')");
+            assertEquals(1, copyCount(view));
+            script(view, "failResponse(4, 'Failure')");
+            assertEquals(0, copyCount(view));
+        });
+    }
+
+    @Test
+    void composerGrowsAndInvalidSettingsDoNotSend() throws Exception {
+        Fixture fixture = open();
+        verify(fixture, view -> {
+            script(view, "setModel('stub.dj')");
+            script(view, "document.getElementById('prompt').value = 'one\\ntwo\\nthree'; resizePrompt()");
+            assertTrue(styleNumber(view, "#prompt", "height") > 50);
+            script(view, "document.getElementById('maxTokens').value = '0'; submitPrompt()");
+            assertEquals(0, ((Number) script(view, "document.querySelectorAll('.user').length")).intValue());
+            assertEquals(false, script(view, "document.getElementById('settingsBackdrop').hidden"));
+            assertEquals(true, script(view, "document.getElementById('generationOptions').open"));
+            script(view, "newChat()");
+            assertTrue(styleNumber(view, "#prompt", "height") <= 31);
+        });
+    }
+
+    private static int copyCount(WebView view) {
+        return ((Number) script(view, "document.querySelectorAll('.copy-button').length")).intValue();
     }
 
     @Test

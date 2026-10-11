@@ -61,6 +61,12 @@ function updateSend() {
   button.title = generating ? 'Stop generating' : 'Send message';
 }
 
+function resizePrompt() {
+  promptBox.style.height = 'auto';
+  promptBox.style.height = Math.min(promptBox.scrollHeight, 138) + 'px';
+  updateSend();
+}
+
 function followLatest() {
   conversation.scrollTop = conversation.scrollHeight;
 }
@@ -113,8 +119,8 @@ function startResponse(prompt, id) {
   addMessage('user', prompt);
   const response = addMessage('assistant pending', 'Thinking…');
   response.id = 'response-' + id;
-  addCopy(response);
   promptBox.value = '';
+  resizePrompt();
   followLatest();
 }
 
@@ -124,6 +130,7 @@ function updateResponse(id, text) {
   const follow = nearLatest();
   response.classList.remove('pending');
   response.querySelector('.message-content').textContent = text;
+  if (!response.querySelector('.message-actions')) addCopy(response);
   if (follow) followLatest();
 }
 
@@ -139,6 +146,7 @@ function failResponse(id, message) {
   response.classList.remove('pending');
   response.classList.add('error');
   response.querySelector('.message-content').textContent = message;
+  response.querySelector('.message-actions')?.remove();
   followLatest();
 }
 
@@ -151,10 +159,24 @@ function stopResponse(id) {
 function generationValue(id) {
   return Number(element(id).value);
 }
+
+function validGenerationSettings() {
+  const invalid = ['temperature', 'topK', 'maxTokens', 'seed']
+    .map(element)
+    .find((input) => !input.value.trim() || !input.checkValidity());
+  if (!invalid) return true;
+  settings.hidden = false;
+  element('generationOptions').open = true;
+  invalid.focus();
+  toast('Check the generation settings before sending.');
+  return false;
+}
+
 function submitPrompt() {
   const prompt = promptBox.value.trim();
   if (!prompt || busy) return;
   if (!modelLoaded) return chooseModel();
+  if (!validGenerationSettings()) return;
   chatBridge.send(
     prompt,
     generationValue('maxTokens'),
@@ -185,7 +207,7 @@ function newChat() {
   messages.replaceChildren();
   app.classList.add('empty');
   promptBox.value = '';
-  updateSend();
+  resizePrompt();
   promptBox.focus();
 }
 
@@ -201,8 +223,28 @@ function setTheme(name) {
     .forEach((button) => button.classList.toggle('selected', button.dataset.theme === name));
 }
 
+function openSettings() {
+  settings.hidden = false;
+  element('closeSettings').focus();
+}
+
 function closeSettings() {
+  if (settings.hidden) return;
   settings.hidden = true;
+  element('openSettings').focus();
+}
+
+function trapSettingsTab(event) {
+  if (event.key !== 'Tab') return;
+  const controls = [...settings.querySelectorAll('button, input, summary')].filter(
+    (control) => control.offsetParent !== null,
+  );
+  const last = controls[controls.length - 1];
+  const target = event.shiftKey ? last : controls[0];
+  const boundary = event.shiftKey ? controls[0] : last;
+  if (document.activeElement !== boundary) return;
+  target.focus();
+  event.preventDefault();
 }
 function bridgeReady() {
   setStatus('Choose a model to begin');
@@ -214,11 +256,12 @@ element('newChat').onclick = newChat;
 element('composerModel').onclick = chooseModel;
 element('menuLoad').onclick = chooseModel;
 element('modelPicker').onclick = toggleModelMenu;
-element('openSettings').onclick = () => (settings.hidden = false);
+element('openSettings').onclick = openSettings;
 element('closeSettings').onclick = closeSettings;
 element('doneSettings').onclick = closeSettings;
 element('send').onclick = submitOrStop;
-promptBox.oninput = updateSend;
+promptBox.oninput = resizePrompt;
+window.addEventListener('resize', resizePrompt);
 promptBox.onkeydown = (event) => {
   if (event.key !== 'Enter' || event.shiftKey) return;
   event.preventDefault();
@@ -227,6 +270,7 @@ promptBox.onkeydown = (event) => {
 settings.onclick = (event) => {
   if (event.target === settings) closeSettings();
 };
+settings.addEventListener('keydown', trapSettingsTab);
 document
   .querySelectorAll('.theme-choice')
   .forEach((button) => (button.onclick = () => setTheme(button.dataset.theme)));
