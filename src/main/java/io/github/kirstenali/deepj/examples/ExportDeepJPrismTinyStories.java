@@ -10,7 +10,7 @@ import io.github.kirstenali.deepj.training.CausalLMEvaluation;
 import io.github.kirstenali.deepj.training.EvaluationResult;
 
 import java.nio.file.Path;
-import java.util.Properties;
+import java.util.Map;
 
 public final class ExportDeepJPrismTinyStories {
 
@@ -46,7 +46,7 @@ public final class ExportDeepJPrismTinyStories {
         if (tokenizer.vocabSize() != artifacts.config().vocabSize()) {
             throw new IllegalStateException("Exported tokenizer vocabulary does not match the model");
         }
-        long seed = DeepJPrismTinyStoriesArtifacts.longValue(artifacts.properties(), "seed");
+        long seed = Long.parseLong(artifacts.metadata().getOrDefault("seed", "42"));
         DeepJPrism reloaded = new DeepJPrism(artifacts.config(), seed);
         reloaded.load(bundle.resolve(DeepJModelBundle.MODEL_FILE));
     }
@@ -67,7 +67,7 @@ public final class ExportDeepJPrismTinyStories {
         String summary = summary(parameters, result, batches);
         String license = System.getProperty("deepj.modelLicense", "mit");
         return new ModelCard(name, summary, license, "en",
-                trainingData(artifacts.properties()), limitations());
+                trainingData(artifacts.metadata()), limitations());
     }
 
     private static String summary(long parameters, EvaluationResult result, int batches) {
@@ -78,10 +78,11 @@ public final class ExportDeepJPrismTinyStories {
                 + "and perplexity was %.3f.".formatted(result.perplexity());
     }
 
-    private static String trainingData(Properties properties) {
+    private static String trainingData(Map<String, String> metadata) {
         return "Trained for %s steps with batch size %s and %s-token sequences on "
-                .formatted(properties.getProperty("steps"), properties.getProperty("batchSize"),
-                        properties.getProperty("sequenceLength"))
+                .formatted(metadata.getOrDefault("steps", "unspecified"),
+                        metadata.getOrDefault("batchSize", "unspecified"),
+                        metadata.getOrDefault("sequenceLength", "unspecified"))
                 + "[TinyStories](%s), a synthetic English dataset licensed CDLA-Sharing-1.0. "
                 .formatted(DATASET_URL)
                 + "The BPE vocabulary was trained from a bounded sample of the training split.";

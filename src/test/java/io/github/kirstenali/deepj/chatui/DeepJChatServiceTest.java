@@ -10,7 +10,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.io.IOException;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DeepJChatServiceTest {
@@ -29,15 +31,14 @@ class DeepJChatServiceTest {
     }
 
     @Test
-    void loadsLegacyOriginCheckpointUsingItsSidecar() throws Exception {
+    void rejectsLegacyOriginCheckpointEvenWithSidecar() throws Exception {
         var config = new DeepJOriginConfig(256, 16, 8, 2, 1, 16);
         var model = new DeepJOrigin(config, 1L);
         Path checkpoint = directory.resolve("legacy.dj");
         ModelSerializer.save(model.parameters(), checkpoint);
         Files.writeString(directory.resolve("config.json"), legacyConfig());
         var service = new DeepJChatService();
-        service.loadModel(checkpoint);
-        assertTrue(service.isModelLoaded());
+        assertThrows(IOException.class, () -> service.loadModel(checkpoint));
     }
 
     private static String legacyConfig() {

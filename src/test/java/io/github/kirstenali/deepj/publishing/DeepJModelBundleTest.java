@@ -71,14 +71,14 @@ class DeepJModelBundleTest {
     }
 
     @Test
-    void olderExportLoadsFromItsConfigJson() throws Exception {
+    void olderExportRequiresExplicitConfiguration() throws Exception {
         BPEModel tokenizer = tokenizer();
         DeepJOriginConfig config = config(tokenizer.vocabSize());
         DeepJOrigin model = new DeepJOrigin(config, 42L);
         Path bundle = DeepJModelBundle.export(temporaryDirectory.resolve("legacy"), model, tokenizer, card());
         Path checkpoint = bundle.resolve(DeepJModelBundle.MODEL_FILE);
         ModelSerializer.save(model.parameters(), checkpoint);
-        assertEquals(config, ModelLoader.load(checkpoint).config());
+        assertThrows(java.io.IOException.class, () -> ModelLoader.load(checkpoint));
     }
 
     private static void assertDeepJPrismConfig(String json) {
@@ -93,7 +93,7 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("vocabulary.\n\nDeepJ Prism uses low-rank Q/KV attention"));
         assertTrue(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("## Usage"));
-        assertTrue(modelCard.contains("checkpoint format 2"));
+        assertTrue(modelCard.contains("checkpoint format 3"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("ModelLoader.load(directory.resolve(\"model.dj\"))"));
         assertTrue(modelCard.contains("model.promptFormat().apply(\"Once upon a time\")"));

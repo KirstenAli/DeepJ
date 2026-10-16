@@ -18,11 +18,9 @@ public final class ModelLoader {
 
     public static DecoderOnlyModel load(Path path) throws IOException {
         ModelSettings settings = ModelSerializer.settings(path);
-        boolean legacy = settings == null;
-        if (legacy) settings = LegacyModelSettings.read(path);
+        if (settings == null) throw new IOException("Model has no embedded settings: " + path);
         DecoderOnlyModel model = create(settings.config());
         model.load(path);
-        if (legacy) model.setPromptFormat(settings.promptFormat());
         return model;
     }
 

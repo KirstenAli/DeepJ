@@ -83,7 +83,7 @@ public record DeepJPrismTinyStoriesConfig(
 
     public record Training(int steps, int batchSize, float peakLearningRate,
                            float minimumLearningRate, int warmupSteps, int logEvery,
-                           int checkpointEvery, int releaseEvery) implements TrainingProperties.Settings {
+                           int checkpointEvery, int releaseEvery) implements TrainingMetadata.Settings {
 
         public Training {
             if (steps <= 0 || batchSize <= 0 || logEvery <= 0) {

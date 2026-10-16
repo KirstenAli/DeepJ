@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.data.ResponseOnlyTextDataset;
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.models.PromptFormat;
+import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.persistence.TrainingCheckpoint;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
@@ -14,11 +15,11 @@ import io.github.kirstenali.deepj.training.TrainingProgress;
 import io.github.kirstenali.deepj.training.TrainingResult;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Properties;
+import java.util.HashMap;
+import java.util.Map;
 
 final class ResponseOnlyFineTuner {
 
@@ -98,15 +99,9 @@ final class ResponseOnlyFineTuner {
             throws IOException {
         Files.createDirectories(config.files().output());
         ensureCheckpointSpace(config.files().output(), model);
-        copyBaseArtifacts(config.files());
-        writeConfiguration(config);
-    }
-
-    private static void copyBaseArtifacts(ResponseFineTuningConfig.FilesConfig files)
-            throws IOException {
-        copy(files.base().resolve("tokenizer.bpe"), files.output().resolve("tokenizer.bpe"));
-        copy(files.base().resolve("training.properties"),
-                files.output().resolve("training.properties"));
+        copy(config.files().base().resolve("tokenizer.bpe"),
+                config.files().output().resolve("tokenizer.bpe"));
+        model.setMetadata(metadata(config, model));
     }
 
     private static void copy(Path source, Path target) throws IOException {
@@ -122,40 +117,26 @@ final class ResponseOnlyFineTuner {
         }
     }
 
-    private static void writeConfiguration(ResponseFineTuningConfig config) throws IOException {
-        Properties properties = properties(config);
-        try (OutputStream stream = Files.newOutputStream(
-                config.files().output().resolve("fine-tuning.properties"))) {
-            properties.store(stream, "DeepJ response-only fine-tuning configuration");
-        }
+    private static Map<String, String> metadata(ResponseFineTuningConfig config,
+                                                DecoderOnlyModel model) {
+        Map<String, String> values = new HashMap<>(model.metadata());
+        Map<String, String> fineTuning = new HashMap<>();
+        addSourceMetadata(fineTuning, config);
+        TrainingMetadata.add(fineTuning, config.training());
+        fineTuning.put("base", absolute(config.files().base()));
+        fineTuning.put("initialModel", absolute(config.files().initialModel()));
+        fineTuning.put("seed", Long.toString(config.seed()));
+        fineTuning.forEach((key, value) -> values.put("fineTuning." + key, value));
+        return values;
     }
 
-    private static Properties properties(ResponseFineTuningConfig config) {
-        Properties properties = fileProperties(config);
-        addTrainingProperties(properties, config.training());
-        addSourceProperties(properties, config);
-        return properties;
-    }
-
-    private static Properties fileProperties(ResponseFineTuningConfig config) {
-        Properties properties = new Properties();
-        properties.setProperty("base", absolute(config.files().base()));
-        properties.setProperty("initialModel", absolute(config.files().initialModel()));
-        properties.setProperty("seed", Long.toString(config.seed()));
-        return properties;
-    }
-
-    private static void addTrainingProperties(Properties target,
-                                              ResponseFineTuningConfig.Training training) {
-        TrainingProperties.add(target, training);
-    }
-
-    private static void addSourceProperties(Properties target, ResponseFineTuningConfig config) {
-        target.setProperty("sourceCount", Integer.toString(config.sources().size()));
+    private static void addSourceMetadata(Map<String, String> target,
+                                          ResponseFineTuningConfig config) {
+        target.put("sourceCount", Integer.toString(config.sources().size()));
         for (int index = 0; index < config.sources().size(); index++) {
             var source = config.sources().get(index);
-            target.setProperty("source." + index + ".path", absolute(source.path()));
-            target.setProperty("source." + index + ".weight", Integer.toString(source.weight()));
+            target.put("source." + index + ".path", absolute(source.path()));
+            target.put("source." + index + ".weight", Integer.toString(source.weight()));
         }
     }
 

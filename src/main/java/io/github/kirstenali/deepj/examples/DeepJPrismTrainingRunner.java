@@ -19,11 +19,11 @@ import io.github.kirstenali.deepj.training.TrainingProgress;
 import io.github.kirstenali.deepj.training.TrainingResult;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Properties;
+import java.util.Map;
 
 final class DeepJPrismTrainingRunner {
 
@@ -59,7 +59,7 @@ final class DeepJPrismTrainingRunner {
         DeepJPrismConfig modelConfig = runConfig.modelConfig(tokenizer.vocabSize());
         DeepJPrism model = new DeepJPrism(modelConfig, runConfig.seed());
         ensureCheckpointSpace(output, model);
-        writeConfiguration(output, runConfig, tokenizer.model(), order);
+        model.setMetadata(metadata(runConfig, order));
         try (StatefulTrainingDataset dataset = dataset(runConfig, tokenizer, order)) {
             return train(model, dataset, runConfig);
         }
@@ -204,51 +204,44 @@ final class DeepJPrismTrainingRunner {
         if (available < required) throw new IOException("Not enough disk space for rolling checkpoints");
     }
 
-    private static void writeConfiguration(Path output, DeepJPrismTinyStoriesConfig config,
-                                           BPEModel tokenizer, DatasetOrder order)
-            throws IOException {
-        Properties properties = new Properties();
-        addFileProperties(properties, config);
-        addModelProperties(properties, config, tokenizer);
-        addTrainingProperties(properties, config);
-        properties.setProperty("datasetOrder", order.sequential() ? "sequential" : "random");
-        addRangeProperties(properties, order.range());
-        try (OutputStream stream = Files.newOutputStream(output.resolve("training.properties"))) {
-            properties.store(stream, "DeepJ training configuration");
-        }
+    private static Map<String, String> metadata(DeepJPrismTinyStoriesConfig config,
+                                                DatasetOrder order) {
+        Map<String, String> values = new HashMap<>();
+        addFileMetadata(values, config);
+        addModelMetadata(values, config);
+        TrainingMetadata.add(values, config.training());
+        values.put("datasetOrder", order.sequential() ? "sequential" : "random");
+        addRangeMetadata(values, order.range());
+        return values;
     }
 
-    private static void addRangeProperties(Properties target, TextFileRange range) {
+    private static void addRangeMetadata(Map<String, String> target, TextFileRange range) {
         if (range == null) return;
-        target.setProperty("corpusStartByte", Long.toString(range.startInclusive()));
-        target.setProperty("corpusEndByte", Long.toString(range.endExclusive()));
+        target.put("corpusStartByte", Long.toString(range.startInclusive()));
+        target.put("corpusEndByte", Long.toString(range.endExclusive()));
     }
 
-    private static void addFileProperties(Properties target, DeepJPrismTinyStoriesConfig config) {
-        target.setProperty("corpus", config.files().corpus().toAbsolutePath().toString());
-        target.setProperty("output", config.files().outputDirectory().toAbsolutePath().toString());
-        target.setProperty("seed", Long.toString(config.seed()));
+    private static void addFileMetadata(Map<String, String> target,
+                                        DeepJPrismTinyStoriesConfig config) {
+        target.put("corpus", config.files().corpus().toAbsolutePath().toString());
+        target.put("output", config.files().outputDirectory().toAbsolutePath().toString());
+        target.put("seed", Long.toString(config.seed()));
     }
 
-    private static void addModelProperties(Properties target, DeepJPrismTinyStoriesConfig config,
-                                           BPEModel tokenizer) {
+    private static void addModelMetadata(Map<String, String> target,
+                                         DeepJPrismTinyStoriesConfig config) {
         DeepJPrismTinyStoriesConfig.Architecture model = config.architecture();
-        target.setProperty("vocabSize", Integer.toString(tokenizer.vocabSize()));
-        target.setProperty("sequenceLength", Integer.toString(model.sequenceLength()));
-        target.setProperty("dModel", Integer.toString(model.dModel()));
-        target.setProperty("heads", Integer.toString(model.heads()));
-        target.setProperty("layers", Integer.toString(model.layers()));
-        target.setProperty("dFF", Integer.toString(model.dFF()));
-        target.setProperty("qRank", Integer.toString(model.qRank()));
-        target.setProperty("kvRank", Integer.toString(model.kvRank()));
-        target.setProperty("initScale", Float.toString(model.initScale()));
-        target.setProperty("gradClipNorm", Float.toString(model.gradClipNorm()));
-    }
-
-    private static void addTrainingProperties(Properties target, DeepJPrismTinyStoriesConfig config) {
-        DeepJPrismTinyStoriesConfig.Training training = config.training();
-        TrainingProperties.add(target, training);
-        target.setProperty("tokenizerSampleMiB", Integer.toString(config.tokenizer().sampleMiB()));
+        target.put("vocabSize", Integer.toString(config.tokenizer().vocabSize()));
+        target.put("sequenceLength", Integer.toString(model.sequenceLength()));
+        target.put("dModel", Integer.toString(model.dModel()));
+        target.put("heads", Integer.toString(model.heads()));
+        target.put("layers", Integer.toString(model.layers()));
+        target.put("dFF", Integer.toString(model.dFF()));
+        target.put("qRank", Integer.toString(model.qRank()));
+        target.put("kvRank", Integer.toString(model.kvRank()));
+        target.put("initScale", Float.toString(model.initScale()));
+        target.put("gradClipNorm", Float.toString(model.gradClipNorm()));
+        target.put("tokenizerSampleMiB", Integer.toString(config.tokenizer().sampleMiB()));
     }
 
     private static void printResult(TrainingResult result) {

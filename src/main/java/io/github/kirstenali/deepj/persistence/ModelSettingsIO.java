@@ -9,6 +9,9 @@ import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
 
 final class ModelSettingsIO {
 
@@ -23,6 +26,16 @@ final class ModelSettingsIO {
             output.writeInt(prism.kvRank());
         }
         output.writeByte(settings.promptFormat() == PromptFormat.PLAIN ? 0 : 1);
+        writeMetadata(output, settings.metadata());
+    }
+
+    private static void writeMetadata(DataOutputStream output, Map<String, String> metadata)
+            throws IOException {
+        output.writeInt(metadata.size());
+        for (var entry : new TreeMap<>(metadata).entrySet()) {
+            output.writeUTF(entry.getKey());
+            output.writeUTF(entry.getValue());
+        }
     }
 
     private static int type(TransformerConfig config) {
@@ -44,15 +57,28 @@ final class ModelSettingsIO {
         output.writeFloat(config.gradClipNorm());
     }
 
-    static ModelSettings read(DataInputStream input) throws IOException {
+    static ModelSettings read(DataInputStream input, int version) throws IOException {
         int type = input.readUnsignedByte();
         Common common = readCommon(input);
         try {
             TransformerConfig config = config(input, type, common);
-            return new ModelSettings(config, promptFormat(input.readUnsignedByte()));
+            PromptFormat prompt = promptFormat(input.readUnsignedByte());
+            return new ModelSettings(config, prompt, version == 2 ? Map.of() : readMetadata(input));
         } catch (IllegalArgumentException error) {
             throw new IOException("Invalid model configuration", error);
         }
+    }
+
+    private static Map<String, String> readMetadata(DataInputStream input) throws IOException {
+        int count = input.readInt();
+        if (count < 0 || count > 1024) throw new IOException("Invalid metadata count: " + count);
+        Map<String, String> metadata = new HashMap<>();
+        for (int i = 0; i < count; i++) {
+            if (metadata.putIfAbsent(input.readUTF(), input.readUTF()) != null) {
+                throw new IOException("Duplicate model metadata key");
+            }
+        }
+        return metadata;
     }
 
     private static Common readCommon(DataInputStream input) throws IOException {
