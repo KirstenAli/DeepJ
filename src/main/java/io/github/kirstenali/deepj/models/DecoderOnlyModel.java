@@ -3,6 +3,8 @@ package io.github.kirstenali.deepj.models;
 import io.github.kirstenali.deepj.layers.Projection;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.persistence.Persistable;
+import io.github.kirstenali.deepj.persistence.ModelSerializer;
+import io.github.kirstenali.deepj.persistence.ModelSettings;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.transformer.TransformerStack;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
@@ -10,6 +12,9 @@ import io.github.kirstenali.deepj.layers.transformer.norm.NormLayer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Objects;
 
 public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
@@ -17,12 +22,34 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     protected final TransformerStack stack;
     protected final NormLayer        normF;
     protected final Projection       lmHead;
+    private PromptFormat promptFormat = PromptFormat.PLAIN;
 
     protected DecoderOnlyModel(Embedding tokEmb, TransformerStack stack, NormLayer normF, Projection lmHead) {
         this.tokEmb = tokEmb;
         this.stack  = stack;
         this.normF  = normF;
         this.lmHead = lmHead;
+    }
+
+    public abstract TransformerConfig config();
+
+    public final PromptFormat promptFormat() {
+        return promptFormat;
+    }
+
+    public final void setPromptFormat(PromptFormat format) {
+        promptFormat = Objects.requireNonNull(format, "format");
+    }
+
+    @Override
+    public final void save(Path path) throws IOException {
+        ModelSerializer.save(parameters(), path, new ModelSettings(config(), promptFormat));
+    }
+
+    @Override
+    public final void load(Path path) throws IOException {
+        ModelSettings settings = ModelSerializer.load(parameters(), path, config());
+        if (settings != null) promptFormat = settings.promptFormat();
     }
 
     protected Tensor embed(int[] inputIds) {

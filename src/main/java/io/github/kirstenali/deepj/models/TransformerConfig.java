@@ -7,6 +7,7 @@ public interface TransformerConfig {
     int nHeads();
     int nLayers();
     int dFF();
+    float initScale();
     float gradClipNorm();
 
     static void validateCommon(int vocabSize, int maxSeqLen, int dModel,

@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
@@ -13,11 +14,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 
 public final class DeepJModelBundle {
 
-    private static final String DEEPJ_VERSION = "0.9.0-alpha";
     public static final String MODEL_FILE = "model.dj";
     public static final String TOKENIZER_FILE = "tokenizer.bpe";
     public static final String CONFIG_FILE = "config.json";
@@ -26,6 +27,7 @@ public final class DeepJModelBundle {
             {
               "library_name": "deepj",
               "model_type": "deepj-origin",
+              "prompt_format": "%s",
               "checkpoint_format_version": %d,
               "tokenizer_format_version": %d,
               "vocab_size": %d,
@@ -42,6 +44,7 @@ public final class DeepJModelBundle {
             {
               "library_name": "deepj",
               "model_type": "deepj-prism",
+              "prompt_format": "%s",
               "checkpoint_format_version": %d,
               "tokenizer_format_version": %d,
               "vocab_size": %d,
@@ -97,7 +100,8 @@ public final class DeepJModelBundle {
         Objects.requireNonNull(model, "model");
         DeepJOriginConfig config = model.config();
         validate(directory, tokenizer, card, config.vocabSize());
-        return writeBundle(directory, model, tokenizer, configJson(config), modelCard(card, config));
+        return writeBundle(directory, model, tokenizer,
+                configJson(config, model.promptFormat()), modelCard(card, config));
     }
 
     public static Path export(Path directory, DeepJPrism model, BPEModel tokenizer,
@@ -105,7 +109,8 @@ public final class DeepJModelBundle {
         Objects.requireNonNull(model, "model");
         DeepJPrismConfig config = model.config();
         validate(directory, tokenizer, card, config.vocabSize());
-        return writeBundle(directory, model, tokenizer, configJson(config), modelCard(card, config));
+        return writeBundle(directory, model, tokenizer,
+                configJson(config, model.promptFormat()), modelCard(card, config));
     }
 
     private static Path writeBundle(Path directory, Persistable model, BPEModel tokenizer,
@@ -132,15 +137,17 @@ public final class DeepJModelBundle {
         Files.writeString(path, content, StandardCharsets.UTF_8);
     }
 
-    private static String configJson(DeepJOriginConfig config) {
-        return ORIGIN_CONFIG_TEMPLATE.formatted(ModelSerializer.CURRENT_FORMAT_VERSION,
+    private static String configJson(DeepJOriginConfig config, PromptFormat format) {
+        return ORIGIN_CONFIG_TEMPLATE.formatted(format.name().toLowerCase(Locale.ROOT),
+                ModelSerializer.CURRENT_FORMAT_VERSION,
                 BPEModel.CURRENT_FORMAT_VERSION,
                 config.vocabSize(), config.maxSeqLen(), config.dModel(), config.nHeads(),
                 config.nLayers(), config.dFF(), config.initScale(), config.gradClipNorm());
     }
 
-    private static String configJson(DeepJPrismConfig config) {
-        return PRISM_CONFIG_TEMPLATE.formatted(ModelSerializer.CURRENT_FORMAT_VERSION,
+    private static String configJson(DeepJPrismConfig config, PromptFormat format) {
+        return PRISM_CONFIG_TEMPLATE.formatted(format.name().toLowerCase(Locale.ROOT),
+                ModelSerializer.CURRENT_FORMAT_VERSION,
                 BPEModel.CURRENT_FORMAT_VERSION, config.vocabSize(), config.maxSeqLen(),
                 config.dModel(), config.nHeads(), config.nLayers(), config.dFF(),
                 config.qRank(), config.kvRank(), config.initScale(), config.gradClipNorm());
@@ -151,7 +158,7 @@ public final class DeepJModelBundle {
                 .formatted(config.nLayers(), config.dModel())
                 + "%d attention heads and a %,d-token vocabulary."
                 .formatted(config.nHeads(), config.vocabSize());
-        return formatModelCard(card, details, usage(config));
+        return formatModelCard(card, details, usage("DeepJOrigin"));
     }
 
     private static String modelCard(ModelCard card, DeepJPrismConfig config) {
@@ -163,7 +170,7 @@ public final class DeepJModelBundle {
                 .formatted(config.nHeads(), config.qRank(), config.kvRank(), config.vocabSize())
                 + "\n\nDeepJ Prism uses low-rank Q/KV attention with rotary embeddings, "
                 + "RMSNorm and SwiGLU. It recalculates the full context for every generated token.";
-        return formatModelCard(card, details, usage(config));
+        return formatModelCard(card, details, usage("DeepJPrism"));
     }
 
     private static String formatModelCard(ModelCard card, String details, String usage) {
@@ -171,56 +178,27 @@ public final class DeepJModelBundle {
                 details, usage, card.trainingData(), card.limitations());
     }
 
-    private static String usage(DeepJOriginConfig config) {
+    private static String usage(String modelType) {
         return usageHeader() + """
                 ```java
                 Path directory = Path.of("downloaded-model");
                 BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
                 BPETokenizer tokenizer = new BPETokenizer(bpe);
-                DeepJOriginConfig config = new DeepJOriginConfig(%d, %d, %d, %d, %d, %d, %sf, %sf);
-                DeepJOrigin model = new DeepJOrigin(config, 42L);
-                model.load(directory.resolve("model.dj"));
-                String text = TextGenerator.generate(model, tokenizer, config,
-                        "Once upon a time", 80, 0.8f, 40, 2026L);
+                %s model = (%s) ModelLoader.load(directory.resolve("model.dj"));
+                String prompt = model.promptFormat().apply("Once upon a time");
+                String text = TextGenerator.generate(model, tokenizer, model.config(),
+                        prompt, 80, 0.8f, 40, 2026L);
                 ```
-                """.formatted(config.vocabSize(), config.maxSeqLen(), config.dModel(),
-                config.nHeads(), config.nLayers(), config.dFF(), config.initScale(),
-                config.gradClipNorm());
-    }
-
-    private static String usage(DeepJPrismConfig config) {
-        return usageHeader() + """
-                ```java
-                Path directory = Path.of("downloaded-model");
-                BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
-                BPETokenizer tokenizer = new BPETokenizer(bpe);
-                DeepJPrismConfig config = new DeepJPrismConfig(
-                        %d, %d, %d, %d, %d, %d, %d, %d, %sf, %sf);
-                DeepJPrism model = new DeepJPrism(config, 42L);
-                model.load(directory.resolve("model.dj"));
-                String text = TextGenerator.generate(model, tokenizer, config,
-                        "Once upon a time", 80, 0.8f, 40, 2026L);
-                ```
-                """.formatted(config.vocabSize(), config.maxSeqLen(), config.dModel(),
-                config.nHeads(), config.nLayers(), config.dFF(), config.qRank(), config.kvRank(),
-                config.initScale(), config.gradClipNorm());
+                """.formatted(modelType, modelType);
     }
 
     private static String usageHeader() {
         return """
-                Use [DeepJ %s from Maven Central](https://central.sonatype.com/artifact/io.github.kirstenali/deepj/%s), or a later format-compatible release.
-
-                ```xml
-                <dependency>
-                    <groupId>io.github.kirstenali</groupId>
-                    <artifactId>deepj</artifactId>
-                    <version>%s</version>
-                </dependency>
-                ```
+                Use a DeepJ release that supports checkpoint format %d, or build the current source.
 
                 Download this repository's `model.dj` and `tokenizer.bpe` into `downloaded-model`.
                 Imports are omitted below.
 
-                """.formatted(DEEPJ_VERSION, DEEPJ_VERSION, DEEPJ_VERSION);
+                """.formatted(ModelSerializer.CURRENT_FORMAT_VERSION);
     }
 }
