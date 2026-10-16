@@ -20,7 +20,7 @@ import java.util.Objects;
 public final class ModelSerializer {
 
     private static final int MAGIC = 0x444A4D44;
-    public static final int CURRENT_FORMAT_VERSION = 2;
+    public static final int CURRENT_FORMAT_VERSION = 3;
 
     private ModelSerializer() {}
 
@@ -177,8 +177,8 @@ public final class ModelSerializer {
         if (marker != MAGIC) return new Format(marker, true, null);
         int version = in.readInt();
         if (version == 1) return new Format(in.readInt(), false, null);
-        if (version == CURRENT_FORMAT_VERSION) {
-            ModelSettings settings = ModelSettingsIO.read(in);
+        if (version == 2 || version == CURRENT_FORMAT_VERSION) {
+            ModelSettings settings = ModelSettingsIO.read(in, version);
             return new Format(in.readInt(), false, settings);
         }
         throw new IOException("Unsupported model format version: " + version);

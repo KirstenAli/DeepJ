@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.models.ModelLoader;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.training.TrainingResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +43,9 @@ class TrainDeepJPrismTinyStoriesTest {
         assertTrue(Files.isRegularFile(output.resolve("model-latest.dj")));
         assertTrue(Files.isRegularFile(output.resolve("training-latest.dj")));
         assertTrue(Files.isRegularFile(output.resolve("model-final.dj")));
-        assertTrue(Files.isRegularFile(output.resolve("training.properties")));
+        assertEquals(corpus.toAbsolutePath().toString(),
+                ModelLoader.load(output.resolve("model-final.dj")).metadata().get("corpus"));
+        assertFalse(Files.exists(output.resolve("training.properties")));
         assertResumeIsExact(corpus, output);
         assertExportIsReloadable(corpus, output);
     }

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,8 +40,10 @@ class ModelLoaderTest {
         var config = new DeepJPrismConfig(16, 8, 8, 2, 1, 16, 4, 2);
         var original = new DeepJPrism(config, 1L);
         original.setPromptFormat(PromptFormat.INSTRUCTION_RESPONSE);
+        original.setMetadata(Map.of("steps", "22500", "source", "Frisky SFT"));
         var loaded = assertInstanceOf(DeepJPrism.class, roundTrip(original));
         assertEquals(PromptFormat.INSTRUCTION_RESPONSE, loaded.promptFormat());
+        assertEquals(original.metadata(), loaded.metadata());
     }
 
     @Test

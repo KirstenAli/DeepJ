@@ -15,6 +15,7 @@ import java.util.List;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Map;
 
 public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
@@ -23,6 +24,7 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     protected final NormLayer        normF;
     protected final Projection       lmHead;
     private PromptFormat promptFormat = PromptFormat.PLAIN;
+    private Map<String, String> metadata = Map.of();
 
     protected DecoderOnlyModel(Embedding tokEmb, TransformerStack stack, NormLayer normF, Projection lmHead) {
         this.tokEmb = tokEmb;
@@ -41,15 +43,26 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
         promptFormat = Objects.requireNonNull(format, "format");
     }
 
+    public final Map<String, String> metadata() {
+        return metadata;
+    }
+
+    public final void setMetadata(Map<String, String> values) {
+        metadata = Map.copyOf(values);
+    }
+
     @Override
     public final void save(Path path) throws IOException {
-        ModelSerializer.save(parameters(), path, new ModelSettings(config(), promptFormat));
+        ModelSerializer.save(parameters(), path, new ModelSettings(config(), promptFormat, metadata));
     }
 
     @Override
     public final void load(Path path) throws IOException {
         ModelSettings settings = ModelSerializer.load(parameters(), path, config());
-        if (settings != null) promptFormat = settings.promptFormat();
+        if (settings != null) {
+            promptFormat = settings.promptFormat();
+            metadata = settings.metadata();
+        }
     }
 
     protected Tensor embed(int[] inputIds) {

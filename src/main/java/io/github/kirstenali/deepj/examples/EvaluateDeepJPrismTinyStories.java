@@ -7,7 +7,7 @@ import io.github.kirstenali.deepj.training.CausalLMEvaluation;
 import io.github.kirstenali.deepj.training.EvaluationResult;
 
 import java.nio.file.Path;
-import java.util.Properties;
+import java.util.Map;
 
 public final class EvaluateDeepJPrismTinyStories {
 
@@ -24,10 +24,10 @@ public final class EvaluateDeepJPrismTinyStories {
 
     private static EvaluationResult evaluate(DeepJPrismTinyStoriesArtifacts.Loaded artifacts)
             throws Exception {
-        Properties properties = artifacts.properties();
-        Path corpus = evaluationCorpus(properties);
+        Map<String, String> metadata = artifacts.metadata();
+        Path corpus = evaluationCorpus(metadata);
         long seed = Long.getLong("deepj.evalSeed",
-                DeepJPrismTinyStoriesArtifacts.longValue(properties, "seed") + 1_000_003L);
+                Long.parseLong(metadata.getOrDefault("seed", "42")) + 1_000_003L);
         int batches = Integer.getInteger("deepj.evalBatches", 100);
         int batchSize = Integer.getInteger("deepj.evalBatchSize", 1);
         try (RandomAccessTextDataset source =
@@ -37,9 +37,10 @@ public final class EvaluateDeepJPrismTinyStories {
         }
     }
 
-    private static Path evaluationCorpus(Properties properties) {
-        String fallback = properties.getProperty("corpus");
-        return Path.of(System.getProperty("deepj.evalCorpus", fallback));
+    private static Path evaluationCorpus(Map<String, String> metadata) {
+        String corpus = System.getProperty("deepj.evalCorpus", metadata.get("corpus"));
+        if (corpus == null) throw new IllegalArgumentException("Set deepj.evalCorpus");
+        return Path.of(corpus);
     }
 
     private static void generate(DeepJPrismTinyStoriesArtifacts.Loaded artifacts) {

@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.ResponseOnlyTextDataset;
+import io.github.kirstenali.deepj.models.ModelLoader;
+import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +14,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResponseOnlyFineTunerTest {
@@ -35,7 +38,11 @@ class ResponseOnlyFineTunerTest {
         assertEquals(1, result.steps());
         assertTrue(Files.isRegularFile(output.resolve("model-final.dj")));
         assertTrue(Files.isRegularFile(output.resolve("training-latest.dj")));
-        assertTrue(Files.isRegularFile(output.resolve("fine-tuning.properties")));
+        var model = ModelLoader.load(output.resolve("model-final.dj"));
+        assertEquals(PromptFormat.INSTRUCTION_RESPONSE, model.promptFormat());
+        assertEquals(corpus.toAbsolutePath().toString(),
+                model.metadata().get("fineTuning.source.0.path"));
+        assertFalse(Files.exists(output.resolve("fine-tuning.properties")));
     }
 
     private Path trainBaseModel() throws Exception {
