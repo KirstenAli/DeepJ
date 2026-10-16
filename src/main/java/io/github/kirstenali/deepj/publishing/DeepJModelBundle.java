@@ -104,7 +104,7 @@ public final class DeepJModelBundle {
         DeepJOriginConfig config = model.config();
         validate(directory, tokenizer, card, config.vocabSize());
         return writeBundle(directory, model, tokenizer,
-                configJson(config, model.promptFormat()), modelCard(card, config));
+                configJson(config, model.promptFormat()), modelCard(card, config, model.promptFormat()));
     }
 
     public static Path export(Path directory, DeepJPrism model, BPEModel tokenizer,
@@ -113,7 +113,7 @@ public final class DeepJModelBundle {
         DeepJPrismConfig config = model.config();
         validate(directory, tokenizer, card, config.vocabSize());
         return writeBundle(directory, model, tokenizer,
-                configJson(config, model.promptFormat()), modelCard(card, config));
+                configJson(config, model.promptFormat()), modelCard(card, config, model.promptFormat()));
     }
 
     private static Path writeBundle(Path directory, DecoderOnlyModel model, BPEModel tokenizer,
@@ -169,15 +169,15 @@ public final class DeepJModelBundle {
                 config.qRank(), config.kvRank(), config.initScale(), config.gradClipNorm());
     }
 
-    private static String modelCard(ModelCard card, DeepJOriginConfig config) {
+    private static String modelCard(ModelCard card, DeepJOriginConfig config, PromptFormat format) {
         String details = "This DeepJ Origin model has %d layers, a hidden size of %d, "
                 .formatted(config.nLayers(), config.dModel())
                 + "%d attention heads and a %,d-token vocabulary."
                 .formatted(config.nHeads(), config.vocabSize());
-        return formatModelCard(card, details, usage("DeepJOrigin"));
+        return formatModelCard(card, details, usage("DeepJOrigin", format));
     }
 
-    private static String modelCard(ModelCard card, DeepJPrismConfig config) {
+    private static String modelCard(ModelCard card, DeepJPrismConfig config, PromptFormat format) {
         String details = "This compact language model was created with "
                 + "[DeepJ](https://github.com/KirstenAli/DeepJ) and uses the DeepJ Prism "
                 + "Transformer architecture with %d layers, a hidden size of %d, "
@@ -186,7 +186,7 @@ public final class DeepJModelBundle {
                 .formatted(config.nHeads(), config.qRank(), config.kvRank(), config.vocabSize())
                 + "\n\nDeepJ Prism uses low-rank Q/KV attention with rotary embeddings, "
                 + "RMSNorm and SwiGLU. It recalculates the full context for every generated token.";
-        return formatModelCard(card, details, usage("DeepJPrism"));
+        return formatModelCard(card, details, usage("DeepJPrism", format));
     }
 
     private static String formatModelCard(ModelCard card, String details, String usage) {
@@ -194,18 +194,20 @@ public final class DeepJModelBundle {
                 details, usage, card.trainingData(), card.limitations());
     }
 
-    private static String usage(String modelType) {
+    private static String usage(String modelType, PromptFormat format) {
+        String prompt = format == PromptFormat.INSTRUCTION_RESPONSE
+                ? "What is a computer?" : "Once upon a time";
         return usageHeader() + """
                 ```java
                 Path directory = Path.of("downloaded-model");
                 BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
                 BPETokenizer tokenizer = new BPETokenizer(bpe);
                 %s model = (%s) ModelLoader.load(directory.resolve("model.dj"));
-                String prompt = model.promptFormat().apply("Once upon a time");
+                String prompt = model.promptFormat().apply("%s");
                 String text = TextGenerator.generate(model, tokenizer, model.config(),
                         prompt, 80, 0.8f, 40, 2026L);
                 ```
-                """.formatted(modelType, modelType);
+                """.formatted(modelType, modelType, prompt);
     }
 
     private static String usageHeader() {

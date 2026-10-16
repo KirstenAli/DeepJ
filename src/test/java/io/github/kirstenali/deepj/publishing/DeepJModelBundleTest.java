@@ -106,7 +106,7 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("checkpoint format 3"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("ModelLoader.load(directory.resolve(\"model.dj\"))"));
-        assertTrue(modelCard.contains("model.promptFormat().apply(\"Once upon a time\")"));
+        assertTrue(modelCard.contains("model.promptFormat().apply(\"What is a computer?\")"));
     }
 
     private static BPEModel tokenizer() {

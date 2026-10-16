@@ -24,11 +24,11 @@ public final class MidTrainDeepJ90M {
         DeepJPrismTrainingRunner.run(config);
     }
 
-    static DeepJPrismTinyStoriesConfig configuration() {
+    static DeepJPrismTrainingConfig configuration() {
         Path output = path("deepj.output", "checkpoints/deepj-90m/midtrain");
-        var files = new DeepJPrismTinyStoriesConfig.FilesConfig(
+        var files = new DeepJPrismTrainingConfig.FilesConfig(
                 path("deepj.corpus", "sample_data/deepj-90m/midtrain-train.txt"), output, resume());
-        return new DeepJPrismTinyStoriesConfig(files, TrainDeepJ90M.architecture(), training(),
+        return new DeepJPrismTrainingConfig(files, TrainDeepJ90M.architecture(), training(),
                 tokenizer(), Long.getLong("deepj.seed", 91L));
     }
 
@@ -36,16 +36,16 @@ public final class MidTrainDeepJ90M {
         return path("deepj.resume", "checkpoints/deepj-90m/pretrain/model-final.dj");
     }
 
-    private static DeepJPrismTinyStoriesConfig.Training training() {
-        return new DeepJPrismTinyStoriesConfig.Training(
+    private static DeepJPrismTrainingConfig.Training training() {
+        return new DeepJPrismTrainingConfig.Training(
                 integer("deepj.steps", MID_TRAINING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 5e-5f), decimal("deepj.minLearningRate", 5e-6f),
                 integer("deepj.warmupSteps", 500), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
     }
 
-    private static DeepJPrismTinyStoriesConfig.TokenizerConfig tokenizer() {
-        return new DeepJPrismTinyStoriesConfig.TokenizerConfig(TrainDeepJ90M.VOCAB_SIZE, 50);
+    private static DeepJPrismTrainingConfig.TokenizerConfig tokenizer() {
+        return new DeepJPrismTrainingConfig.TokenizerConfig(TrainDeepJ90M.VOCAB_SIZE, 50);
     }
 
     private static void prepareTokenizer(Path output) throws Exception {

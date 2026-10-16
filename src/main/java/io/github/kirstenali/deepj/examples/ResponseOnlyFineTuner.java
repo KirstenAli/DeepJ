@@ -31,7 +31,7 @@ final class ResponseOnlyFineTuner {
     private ResponseOnlyFineTuner() {}
 
     static TrainingResult run(ResponseFineTuningConfig config) throws Exception {
-        var artifacts = DeepJPrismTinyStoriesArtifacts.load(
+        var artifacts = DeepJPrismArtifacts.load(
                 config.files().base(), config.files().initialModel());
         printInitialModel(config);
         prepareOutput(config, artifacts.model());
@@ -160,7 +160,7 @@ final class ResponseOnlyFineTuner {
                              AutoCloseable closeable) implements AutoCloseable {
 
         private Resources(ResponseFineTuningConfig config,
-                          DeepJPrismTinyStoriesArtifacts.Loaded artifacts) throws IOException {
+                          DeepJPrismArtifacts.Loaded artifacts) throws IOException {
             this(dataset(config, artifacts), optimizer(config), schedule(config));
         }
 
@@ -171,7 +171,7 @@ final class ResponseOnlyFineTuner {
         }
 
         private static DatasetHandle dataset(ResponseFineTuningConfig config,
-                                             DeepJPrismTinyStoriesArtifacts.Loaded artifacts)
+                                             DeepJPrismArtifacts.Loaded artifacts)
                 throws IOException {
             long bytes = sourceBytes(config);
             if (bytes >= INDEXED_DATASET_THRESHOLD) return indexed(config, artifacts);
@@ -189,7 +189,7 @@ final class ResponseOnlyFineTuner {
         }
 
         private static DatasetHandle indexed(ResponseFineTuningConfig config,
-                                             DeepJPrismTinyStoriesArtifacts.Loaded artifacts)
+                                             DeepJPrismArtifacts.Loaded artifacts)
                 throws IOException {
             var dataset = new IndexedResponseTextDataset(config.sources(), artifacts.tokenizer(),
                     artifacts.config().maxSeqLen(), config.seed());

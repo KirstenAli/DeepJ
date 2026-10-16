@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.nullablePath;
 import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.path;
 
 public final class PrepareKnowledgeCorpus {
@@ -21,17 +22,17 @@ public final class PrepareKnowledgeCorpus {
         Path output = path("deepj.output", "checkpoints/knowledge-prism");
         PreparationResult result = prepare(
                 path("deepj.alpacaInput", "sample_data/Alpaca.txt"),
-                path("deepj.storyInput", "sample_data/TinyStories-train.txt"), output,
-                Integer.getInteger("deepj.storyMiB", 32),
+                nullablePath("deepj.supplementInput"), output,
+                Integer.getInteger("deepj.supplementMiB", 32),
                 Integer.getInteger("deepj.factMaximum", 100),
                 Integer.getInteger("deepj.factRepeats", 4));
         printResult(result, output);
     }
 
-    public static PreparationResult prepare(Path alpaca, Path stories, Path output,
-                                            int storyMiB, int factMaximum, int factRepeats)
+    public static PreparationResult prepare(Path alpaca, Path supplement, Path output,
+                                            int supplementMiB, int factMaximum, int factRepeats)
             throws IOException {
-        validateInputs(alpaca, stories, storyMiB, factRepeats);
+        validateInputs(alpaca, supplement, supplementMiB, factRepeats);
         Files.createDirectories(output);
         Paths paths = new Paths(output);
         var formatted = FormatAlpacaText.format(alpaca, paths.formatted());
@@ -40,12 +41,12 @@ public final class PrepareKnowledgeCorpus {
                 paths.alpacaValidation(), VALIDATION_EVERY);
         SplitResult factSplit = splitRecords(paths.facts(), paths.factTrain(),
                 paths.factValidation(), VALIDATION_EVERY);
-        long bytes = buildTrainingCorpus(paths, stories, storyMiB * MEBIBYTE, factRepeats);
+        long bytes = buildTrainingCorpus(paths, supplement, supplementMiB * MEBIBYTE, factRepeats);
         buildValidationCorpus(paths);
         return new PreparationResult(formatted, facts, alpacaSplit, factSplit, bytes);
     }
 
-    private static long buildTrainingCorpus(Paths paths, Path stories, long storyBytes,
+    private static long buildTrainingCorpus(Paths paths, Path supplement, long supplementBytes,
                                             int factRepeats) throws IOException {
         try (BufferedWriter writer = Files.newBufferedWriter(paths.training())) {
             long bytes = copyAll(paths.factTrain(), writer);
@@ -53,7 +54,7 @@ public final class PrepareKnowledgeCorpus {
             for (int repeat = 1; repeat < factRepeats; repeat++) {
                 bytes += copyAll(paths.factTrain(), writer);
             }
-            bytes += copyRecords(stories, writer, storyBytes);
+            bytes += copyRecords(supplement, writer, supplementBytes);
             return bytes;
         }
     }
@@ -118,10 +119,12 @@ public final class PrepareKnowledgeCorpus {
         return bytes;
     }
 
-    private static void validateInputs(Path alpaca, Path stories, int storyMiB, int factRepeats) {
+    private static void validateInputs(Path alpaca, Path supplement, int supplementMiB, int factRepeats) {
         if (!Files.isRegularFile(alpaca)) throw new IllegalArgumentException("Alpaca file not found");
-        if (!Files.isRegularFile(stories)) throw new IllegalArgumentException("TinyStories file not found");
-        if (storyMiB < 1) throw new IllegalArgumentException("storyMiB must be positive");
+        if (supplement == null || !Files.isRegularFile(supplement)) {
+            throw new IllegalArgumentException("Set deepj.supplementInput to an existing text file");
+        }
+        if (supplementMiB < 1) throw new IllegalArgumentException("supplementMiB must be positive");
         if (factRepeats < 1) throw new IllegalArgumentException("factRepeats must be positive");
     }
 
