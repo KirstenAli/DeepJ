@@ -174,7 +174,7 @@ public final class DeepJModelBundle {
                 .formatted(config.nLayers(), config.dModel())
                 + "%d attention heads and a %,d-token vocabulary."
                 .formatted(config.nHeads(), config.vocabSize());
-        return formatModelCard(card, details, usage("DeepJOrigin", format));
+        return formatModelCard(card, details, usage(format));
     }
 
     private static String modelCard(ModelCard card, DeepJPrismConfig config, PromptFormat format) {
@@ -186,7 +186,7 @@ public final class DeepJModelBundle {
                 .formatted(config.nHeads(), config.qRank(), config.kvRank(), config.vocabSize())
                 + "\n\nDeepJ Prism uses low-rank Q/KV attention with rotary embeddings, "
                 + "RMSNorm and SwiGLU. It recalculates the full context for every generated token.";
-        return formatModelCard(card, details, usage("DeepJPrism", format));
+        return formatModelCard(card, details, usage(format));
     }
 
     private static String formatModelCard(ModelCard card, String details, String usage) {
@@ -194,25 +194,20 @@ public final class DeepJModelBundle {
                 details, usage, card.trainingData(), card.limitations());
     }
 
-    private static String usage(String modelType, PromptFormat format) {
+    private static String usage(PromptFormat format) {
         String prompt = format == PromptFormat.INSTRUCTION_RESPONSE
                 ? "What is a computer?" : "Once upon a time";
         return usageHeader() + """
                 ```java
-                Path directory = Path.of("downloaded-model");
-                BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
-                BPETokenizer tokenizer = new BPETokenizer(bpe);
-                %s model = (%s) ModelLoader.load(directory.resolve("model.dj"));
-                String prompt = model.promptFormat().apply("%s");
-                String text = TextGenerator.generate(model, tokenizer, model.config(),
-                        prompt, 80, 0.8f, 40, 2026L);
+                DeepJChat chat = DeepJChat.load(Path.of("downloaded-model"));
+                String answer = chat.generate("%s");
                 ```
-                """.formatted(modelType, modelType, prompt) + desktopUsage().stripTrailing();
+                """.formatted(prompt) + desktopUsage().stripTrailing();
     }
 
     private static String usageHeader() {
-        return "Use [DeepJ 0.9.4-alpha](https://central.sonatype.com/artifact/"
-                + "io.github.kirstenali/deepj/0.9.4-alpha) or newer:\n\n"
+        return "Use [DeepJ 0.9.5-alpha](https://central.sonatype.com/artifact/"
+                + "io.github.kirstenali/deepj/0.9.5-alpha) or newer:\n\n"
                 + dependency() + "Download this repository's `model.dj` and `tokenizer.bpe` "
                 + "into `downloaded-model`. Imports are omitted below.\n\n";
     }
@@ -223,7 +218,7 @@ public final class DeepJModelBundle {
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.9.4-alpha</version>
+                    <version>0.9.5-alpha</version>
                 </dependency>
                 ```
 

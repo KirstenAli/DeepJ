@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.9.4-alpha</version>
+    <version>0.9.5-alpha</version>
 </dependency>
 ```
 
@@ -59,29 +59,22 @@ Choose a `.dj` model file in the app. The screenshot shows the initial screen be
 
 ## Quick start
 
-Load a DeepJ Prism checkpoint with its BPE tokenizer:
+Download a DeepJ model bundle containing `model.dj` and `tokenizer.bpe`, then load it from one directory:
 
 ```java
-import io.github.kirstenali.deepj.models.TextGenerator;
-import io.github.kirstenali.deepj.models.ModelLoader;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
-import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
-import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
-import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
+import io.github.kirstenali.deepj.models.DeepJChat;
 
 import java.nio.file.Path;
 
-Path directory = Path.of("downloaded-model");
-BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
-BPETokenizer tokenizer = new BPETokenizer(bpe);
-DeepJPrism model = (DeepJPrism) ModelLoader.load(directory.resolve("model.dj"));
-String prompt = model.promptFormat().apply("What is a computer?");
-String text = TextGenerator.generate(
-        model, tokenizer, model.config(), prompt, 80, 0.8f, 40, 2026L);
+DeepJChat chat = DeepJChat.load(Path.of("downloaded-model"));
+String answer = chat.generate("What is a computer?");
 ```
 
-Current model checkpoints include their architecture and prompt format. Older checkpoints
-require an explicitly constructed model.
+The loader reads the tokenizer and checkpoint settings, applies the saved prompt format,
+and returns only the generated answer. `chat.stream(prompt, listener)` delivers partial
+answers as they are generated. Each call is independent; conversation history is not
+retained. Existing `ModelLoader` and `TextGenerator` APIs remain available for advanced
+use. Older checkpoints still require an explicitly constructed model.
 
 ## Models
 
