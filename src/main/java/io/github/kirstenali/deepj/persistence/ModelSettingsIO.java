@@ -57,13 +57,13 @@ final class ModelSettingsIO {
         output.writeFloat(config.gradClipNorm());
     }
 
-    static ModelSettings read(DataInputStream input, int version) throws IOException {
+    static ModelSettings read(DataInputStream input) throws IOException {
         int type = input.readUnsignedByte();
         Common common = readCommon(input);
         try {
             TransformerConfig config = config(input, type, common);
             PromptFormat prompt = promptFormat(input.readUnsignedByte());
-            return new ModelSettings(config, prompt, version == 2 ? Map.of() : readMetadata(input));
+            return new ModelSettings(config, prompt, readMetadata(input));
         } catch (IllegalArgumentException error) {
             throw new IOException("Invalid model configuration", error);
         }
