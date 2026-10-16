@@ -1,7 +1,5 @@
 package io.github.kirstenali.deepj.persistence;
 
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorAdapters;
@@ -120,24 +118,14 @@ public class ModelSerializerTest {
     }
 
     @Test
-    void readsVersionTwoSettingsWithoutMetadata() throws IOException {
+    void rejectsVersionTwoCheckpoints() throws IOException {
         Path file = tempDir.resolve("version-two.dj");
         try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(file))) {
             out.writeInt(0x444A4D44);
             out.writeInt(2);
-            out.writeByte(1);
-            for (int value : new int[]{16, 8, 8, 2, 1, 16}) {
-                out.writeInt(value);
-            }
-            out.writeFloat(0.2f);
-            out.writeFloat(1.0f);
-            out.writeByte(0);
-            out.writeInt(0);
         }
-        var settings = ModelSerializer.settings(file);
-        assertEquals(new DeepJOriginConfig(16, 8, 8, 2, 1, 16), settings.config());
-        assertEquals(PromptFormat.PLAIN, settings.promptFormat());
-        assertTrue(settings.metadata().isEmpty());
+        IOException error = assertThrows(IOException.class, () -> ModelSerializer.settings(file));
+        assertEquals("Unsupported model format version: 2", error.getMessage());
     }
 
     private static void assertTensorEquals(Tensor expected, Tensor actual, double tol) {
