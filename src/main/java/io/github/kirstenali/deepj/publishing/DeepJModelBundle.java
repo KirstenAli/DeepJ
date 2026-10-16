@@ -207,16 +207,42 @@ public final class DeepJModelBundle {
                 String text = TextGenerator.generate(model, tokenizer, model.config(),
                         prompt, 80, 0.8f, 40, 2026L);
                 ```
-                """.formatted(modelType, modelType, prompt);
+                """.formatted(modelType, modelType, prompt) + desktopUsage().stripTrailing();
     }
 
     private static String usageHeader() {
+        return "Use [DeepJ 0.9.4-alpha](https://central.sonatype.com/artifact/"
+                + "io.github.kirstenali/deepj/0.9.4-alpha) or newer:\n\n"
+                + dependency() + "Download this repository's `model.dj` and `tokenizer.bpe` "
+                + "into `downloaded-model`. Imports are omitted below.\n\n";
+    }
+
+    private static String dependency() {
         return """
-                Use a DeepJ release that supports checkpoint format %d, or build the current source.
+                ```xml
+                <dependency>
+                    <groupId>io.github.kirstenali</groupId>
+                    <artifactId>deepj</artifactId>
+                    <version>0.9.4-alpha</version>
+                </dependency>
+                ```
 
-                Download this repository's `model.dj` and `tokenizer.bpe` into `downloaded-model`.
-                Imports are omitted below.
+                """;
+    }
 
-                """.formatted(ModelSerializer.CURRENT_FORMAT_VERSION);
+    private static String desktopUsage() {
+        return """
+
+                You can also use [DeepJ's desktop chat UI](https://github.com/KirstenAli/DeepJ#desktop-chat).
+                Run it from the DeepJ repository with JDK 20 or newer:
+
+                ```bash
+                mvn org.openjfx:javafx-maven-plugin:0.0.8:run
+                ```
+
+                Then choose `model.dj`.
+                Keep `tokenizer.bpe` in the same directory. The UI applies the checkpoint's saved
+                prompt format automatically and streams the generated text.
+                """;
     }
 }
