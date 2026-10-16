@@ -1,0 +1,76 @@
+package io.github.kirstenali.deepj.models;
+
+import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
+import io.github.kirstenali.deepj.tokenizers.Tokenizer;
+import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
+import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Objects;
+import java.util.function.Consumer;
+
+public final class DeepJChat {
+
+    private static final int DEFAULT_MAX_TOKENS = 80;
+    private static final float DEFAULT_TEMPERATURE = 0.8f;
+    private static final int DEFAULT_TOP_K = 40;
+    private static final long DEFAULT_SEED = 1234L;
+
+    private final DecoderOnlyModel model;
+    private final Tokenizer tokenizer;
+
+    private DeepJChat(DecoderOnlyModel model, Tokenizer tokenizer) {
+        this.model = model;
+        this.tokenizer = tokenizer;
+    }
+
+    public static DeepJChat load(Path directory) throws IOException {
+        Objects.requireNonNull(directory, "directory");
+        DecoderOnlyModel model = ModelLoader.load(directory.resolve("model.dj"));
+        Tokenizer tokenizer = tokenizer(directory.resolve("tokenizer.bpe"), model.config().vocabSize());
+        if (model.config().vocabSize() != tokenizer.vocabSize()) {
+            throw new IOException("Tokenizer vocabulary does not match model");
+        }
+        return new DeepJChat(model, tokenizer);
+    }
+
+    private static Tokenizer tokenizer(Path path, int vocabSize) throws IOException {
+        if (Files.isRegularFile(path)) return new BPETokenizer(BPEModelIO.load(path));
+        if (vocabSize == ByteTokenizer.VOCAB_SIZE) return new ByteTokenizer();
+        throw new IOException("Missing tokenizer.bpe: " + path);
+    }
+
+    public String generate(String prompt) {
+        return generate(prompt, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_TOP_K, DEFAULT_SEED);
+    }
+
+    public String generate(String prompt, int maxTokens, float temperature, int topK, long seed) {
+        String formatted = model.promptFormat().apply(prompt);
+        String prefix = tokenizer.decode(tokenizer.encode(formatted));
+        String result = TextGenerator.generate(model::forward, model.config(), tokenizer,
+                formatted, maxTokens, temperature, topK, seed);
+        return continuation(prefix, result);
+    }
+
+    public String stream(String prompt, Consumer<String> listener) {
+        return stream(prompt, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_TOP_K,
+                DEFAULT_SEED, listener);
+    }
+
+    public String stream(String prompt, int maxTokens, float temperature, int topK,
+                         long seed, Consumer<String> listener) {
+        Objects.requireNonNull(listener, "listener");
+        String formatted = model.promptFormat().apply(prompt);
+        String prefix = tokenizer.decode(tokenizer.encode(formatted));
+        String result = TextGenerator.stream(model, tokenizer, model.config(), formatted,
+                maxTokens, temperature, topK, seed,
+                text -> listener.accept(continuation(prefix, text)));
+        return continuation(prefix, result);
+    }
+
+    private static String continuation(String prefix, String result) {
+        return result.startsWith(prefix) ? result.substring(prefix.length()) : result;
+    }
+}
