@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.9.3-alpha</version>
+    <version>0.9.4-alpha</version>
 </dependency>
 ```
 
@@ -75,13 +75,13 @@ Path directory = Path.of("downloaded-model");
 BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
 BPETokenizer tokenizer = new BPETokenizer(bpe);
 DeepJPrism model = (DeepJPrism) ModelLoader.load(directory.resolve("model.dj"));
-String prompt = model.promptFormat().apply("Once upon a time");
+String prompt = model.promptFormat().apply("What is a computer?");
 String text = TextGenerator.generate(
         model, tokenizer, model.config(), prompt, 80, 0.8f, 40, 2026L);
 ```
 
-New model checkpoints include their architecture and prompt format. Older checkpoints still load
-with an explicitly constructed model or their existing sidecar configuration files.
+Current model checkpoints include their architecture and prompt format. Older checkpoints
+require an explicitly constructed model.
 
 ## Models
 
@@ -93,46 +93,18 @@ with an explicitly constructed model or their existing sidecar configuration fil
 
 All three models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
 
-## Train on TinyStories
+## Frisky 90M
 
-The repository contains a bounded-memory training example for `sample_data/TinyStories-train.txt`. It trains a BPE tokenizer, writes rolling checkpoints, and saves final weights.
+[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90,128,896-parameter DeepJ Prism model trained from scratch with DeepJ. Download its `model.dj` and `tokenizer.bpe` files together, then use the quick-start example above. The checkpoint stores its architecture and instruction-response prompt format, so neither needs to be entered manually. Its files use DeepJ formats, not PyTorch or Python Transformers formats.
+
+The repository includes the three staged training examples: `TrainDeepJ90M`, `MidTrainDeepJ90M`, and `FineTuneDeepJ90M`. Base pretraining used FineWeb-Edu; the later stages used a mixture derived from SmolTalk, MMLU, GSM8K, and ARC. Training requires those separately prepared datasets, which are not included in this repository. The pipeline uses bounded-memory datasets and complete checkpoints preserving weights, Adam state, progress, and dataset position.
 
 ```bash
 export DEEPJ_JDK=$(/usr/libexec/java_home -v 20)
 JAVA_HOME="$DEEPJ_JDK" mvn compile
-
-"$DEEPJ_JDK/bin/java" \
-  -Ddeepj.steps=10000 \
-  -cp target/classes \
-  io.github.kirstenali.deepj.examples.TrainDeepJPrismTinyStories
 ```
-
-Useful overrides include `deepj.batchSize`, `deepj.seqLen`, `deepj.dModel`, `deepj.layers`, `deepj.vocabSize`, `deepj.learningRate`, `deepj.output`, and `deepj.checkpointEvery`.
 
 `deepj.batchSize` is the number of sequences averaged before each optimizer update. DeepJ processes those sequences one at a time, accumulates their gradients, then averages and clips the result.
-
-Evaluate the saved model on the validation split:
-
-```bash
-"$DEEPJ_JDK/bin/java" \
-  -Ddeepj.evalCorpus=sample_data/TinyStories-valid.txt \
-  -cp target/classes \
-  io.github.kirstenali.deepj.examples.EvaluateDeepJPrismTinyStories
-```
-
-Export a Hugging Face-ready DeepJ bundle:
-
-```bash
-"$DEEPJ_JDK/bin/java" \
-  -cp target/classes \
-  io.github.kirstenali.deepj.examples.ExportDeepJPrismTinyStories
-```
-
-The published demonstration model is [netsrik/deepj-tinystories](https://huggingface.co/netsrik/deepj-tinystories). Its `model.dj` and `tokenizer.bpe` files use DeepJ formats; they are not PyTorch or Transformers checkpoints.
-
-## Train the 90M example
-
-DeepJ also includes a staged 90M-parameter training pipeline using FineWeb-Edu, SmolTalk, MMLU, GSM8K, and ARC. It uses bounded-memory datasets and complete checkpoints that preserve model weights, Adam state, training progress, and dataset position.
 
 Measure pretraining progress against the same held-out FineWeb-Edu examples after each checkpoint:
 
@@ -143,6 +115,17 @@ Measure pretraining progress against the same held-out FineWeb-Edu examples afte
   -cp target/classes \
   io.github.kirstenali.deepj.examples.EvaluateDeepJ90MPretraining
 ```
+
+Export the final instruction-tuned checkpoint as a Hugging Face-ready bundle:
+
+```bash
+"$DEEPJ_JDK/bin/java" \
+  -Xmx6g \
+  -cp target/classes \
+  io.github.kirstenali.deepj.examples.ExportFrisky90M
+```
+
+The exporter removes local training paths from the public checkpoint. Set `deepj.checkpoint` and `deepj.bundle` to override its default input and output paths.
 
 ## Metal acceleration
 

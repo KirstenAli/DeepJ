@@ -24,7 +24,7 @@ public final class EvaluateDeepJ90MPretraining {
     }
 
     private static void run(Settings settings) throws Exception {
-        var artifacts = DeepJPrismTinyStoriesArtifacts.load(
+        var artifacts = DeepJPrismArtifacts.load(
                 settings.base(), settings.checkpoint());
         var split = DeepJ90MDataSplit.fromSystemProperties(settings.corpus());
         var validation = validationSettings(artifacts.config().maxSeqLen(), settings);

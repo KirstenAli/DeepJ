@@ -36,21 +36,21 @@ final class DeepJPrismTrainingRunner {
 
     private DeepJPrismTrainingRunner() {}
 
-    static TrainingResult run(DeepJPrismTinyStoriesConfig runConfig) throws Exception {
+    static TrainingResult run(DeepJPrismTrainingConfig runConfig) throws Exception {
         return run(runConfig, DatasetOrder.random());
     }
 
-    static TrainingResult runSequential(DeepJPrismTinyStoriesConfig runConfig)
+    static TrainingResult runSequential(DeepJPrismTrainingConfig runConfig)
             throws Exception {
         return run(runConfig, DatasetOrder.sequential(null));
     }
 
-    static TrainingResult runSequential(DeepJPrismTinyStoriesConfig runConfig,
+    static TrainingResult runSequential(DeepJPrismTrainingConfig runConfig,
                                         TextFileRange range) throws Exception {
         return run(runConfig, DatasetOrder.sequential(range));
     }
 
-    private static TrainingResult run(DeepJPrismTinyStoriesConfig runConfig,
+    private static TrainingResult run(DeepJPrismTrainingConfig runConfig,
                                       DatasetOrder order) throws Exception {
         Path output = runConfig.files().outputDirectory();
         validateCorpus(runConfig.files().corpus());
@@ -65,7 +65,7 @@ final class DeepJPrismTrainingRunner {
         }
     }
 
-    private static StatefulTrainingDataset dataset(DeepJPrismTinyStoriesConfig config,
+    private static StatefulTrainingDataset dataset(DeepJPrismTrainingConfig config,
                                                     BPETokenizer tokenizer,
                                                     DatasetOrder order) throws IOException {
         int length = config.architecture().sequenceLength();
@@ -74,13 +74,13 @@ final class DeepJPrismTrainingRunner {
     }
 
     private static StatefulTrainingDataset sequentialDataset(
-            DeepJPrismTinyStoriesConfig config, BPETokenizer tokenizer,
+            DeepJPrismTrainingConfig config, BPETokenizer tokenizer,
             int length, TextFileRange range) throws IOException {
         if (range == null) return new SequentialTextDataset(config.files().corpus(), tokenizer, length);
         return new SequentialTextDataset(config.files().corpus(), tokenizer, length, range);
     }
 
-    static BPETokenizer prepareTokenizer(DeepJPrismTinyStoriesConfig config)
+    static BPETokenizer prepareTokenizer(DeepJPrismTrainingConfig config)
             throws IOException {
         Path path = config.files().outputDirectory().resolve(TOKENIZER_FILE);
         Files.createDirectories(path.getParent());
@@ -89,7 +89,7 @@ final class DeepJPrismTrainingRunner {
         return new BPETokenizer(model);
     }
 
-    private static BPEModel trainTokenizer(DeepJPrismTinyStoriesConfig config, Path path)
+    private static BPEModel trainTokenizer(DeepJPrismTrainingConfig config, Path path)
             throws IOException {
         System.out.printf("Training BPE tokenizer: vocab=%d sample=%d MiB%n",
                 config.tokenizer().vocabSize(), config.tokenizer().sampleMiB());
@@ -111,8 +111,8 @@ final class DeepJPrismTrainingRunner {
     }
 
     private static TrainingResult train(DeepJPrism model, StatefulTrainingDataset dataset,
-                                        DeepJPrismTinyStoriesConfig config) throws IOException {
-        DeepJPrismTinyStoriesConfig.Training options = config.training();
+                                        DeepJPrismTrainingConfig config) throws IOException {
+        DeepJPrismTrainingConfig.Training options = config.training();
         printBatchConfiguration(config);
         CosineLearningRateSchedule schedule = schedule(options);
         AdamW optimizer = AdamW.defaultAdamW(schedule.learningRate(0));
@@ -127,7 +127,7 @@ final class DeepJPrismTrainingRunner {
         return result;
     }
 
-    private static void printBatchConfiguration(DeepJPrismTinyStoriesConfig config) {
+    private static void printBatchConfiguration(DeepJPrismTrainingConfig config) {
         int sequences = config.training().batchSize();
         long tokens = Math.multiplyExact((long) sequences, config.architecture().sequenceLength());
         String unit = sequences == 1 ? "sequence" : "sequences";
@@ -135,7 +135,7 @@ final class DeepJPrismTrainingRunner {
                 sequences, unit, tokens);
     }
 
-    private static CosineLearningRateSchedule schedule(DeepJPrismTinyStoriesConfig.Training options) {
+    private static CosineLearningRateSchedule schedule(DeepJPrismTrainingConfig.Training options) {
         return new CosineLearningRateSchedule(options.peakLearningRate(), options.minimumLearningRate(),
                 options.warmupSteps(), options.steps());
     }
@@ -143,7 +143,7 @@ final class DeepJPrismTrainingRunner {
     private static Trainer.StepHook checkpointHook(DeepJPrism model, AdamW optimizer,
                                                     StatefulTrainingDataset dataset,
                                                     CosineLearningRateSchedule schedule,
-                                                    DeepJPrismTinyStoriesConfig config) {
+                                                    DeepJPrismTrainingConfig config) {
         return (step, loss, ema) -> {
             int completed = step + 1;
             optimizer.setLr(schedule.learningRate(completed));
@@ -158,7 +158,7 @@ final class DeepJPrismTrainingRunner {
     private static void saveCheckpoint(DeepJPrism model, AdamW optimizer,
                                        StatefulTrainingDataset dataset,
                                        CosineLearningRateSchedule schedule,
-                                       DeepJPrismTinyStoriesConfig config,
+                                       DeepJPrismTrainingConfig config,
                                        TrainingProgress progress) throws IOException {
         Path output = config.files().outputDirectory();
         TrainingCheckpoint.save(model.parameters(), optimizer, dataset, progress,
@@ -204,7 +204,7 @@ final class DeepJPrismTrainingRunner {
         if (available < required) throw new IOException("Not enough disk space for rolling checkpoints");
     }
 
-    private static Map<String, String> metadata(DeepJPrismTinyStoriesConfig config,
+    private static Map<String, String> metadata(DeepJPrismTrainingConfig config,
                                                 DatasetOrder order) {
         Map<String, String> values = new HashMap<>();
         addFileMetadata(values, config);
@@ -222,15 +222,15 @@ final class DeepJPrismTrainingRunner {
     }
 
     private static void addFileMetadata(Map<String, String> target,
-                                        DeepJPrismTinyStoriesConfig config) {
+                                        DeepJPrismTrainingConfig config) {
         target.put("corpus", config.files().corpus().toAbsolutePath().toString());
         target.put("output", config.files().outputDirectory().toAbsolutePath().toString());
         target.put("seed", Long.toString(config.seed()));
     }
 
     private static void addModelMetadata(Map<String, String> target,
-                                         DeepJPrismTinyStoriesConfig config) {
-        DeepJPrismTinyStoriesConfig.Architecture model = config.architecture();
+                                         DeepJPrismTrainingConfig config) {
+        DeepJPrismTrainingConfig.Architecture model = config.architecture();
         target.put("vocabSize", Integer.toString(config.tokenizer().vocabSize()));
         target.put("sequenceLength", Integer.toString(model.sequenceLength()));
         target.put("dModel", Integer.toString(model.dModel()));

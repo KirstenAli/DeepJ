@@ -29,20 +29,20 @@ public final class TrainDeepJPrismKnowledge {
         DeepJPrismTrainingRunner.run(configuration());
     }
 
-    static DeepJPrismTinyStoriesConfig configuration() {
+    static DeepJPrismTrainingConfig configuration() {
         Path output = path("deepj.output", "checkpoints/knowledge-prism");
-        return new DeepJPrismTinyStoriesConfig(
+        return new DeepJPrismTrainingConfig(
                 files(output), architecture(), training(), tokenizer(),
                 Long.getLong("deepj.seed", 42L));
     }
 
-    private static DeepJPrismTinyStoriesConfig.FilesConfig files(Path output) {
+    private static DeepJPrismTrainingConfig.FilesConfig files(Path output) {
         Path corpus = path("deepj.corpus", output.resolve("knowledge-train.txt").toString());
-        return new DeepJPrismTinyStoriesConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
+        return new DeepJPrismTrainingConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
     }
 
-    private static DeepJPrismTinyStoriesConfig.Architecture architecture() {
-        return new DeepJPrismTinyStoriesConfig.Architecture(
+    private static DeepJPrismTrainingConfig.Architecture architecture() {
+        return new DeepJPrismTrainingConfig.Architecture(
                 integer("deepj.seqLen", SEQUENCE_LENGTH), integer("deepj.dModel", D_MODEL),
                 integer("deepj.heads", HEADS), integer("deepj.layers", LAYERS),
                 integer("deepj.dFF", D_FF), integer("deepj.qRank", Q_RANK),
@@ -50,8 +50,8 @@ public final class TrainDeepJPrismKnowledge {
                 decimal("deepj.gradClipNorm", 1.0f));
     }
 
-    private static DeepJPrismTinyStoriesConfig.Training training() {
-        return new DeepJPrismTinyStoriesConfig.Training(
+    private static DeepJPrismTrainingConfig.Training training() {
+        return new DeepJPrismTrainingConfig.Training(
                 integer("deepj.steps", 100_000), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 2e-4f),
                 decimal("deepj.minLearningRate", 2e-5f),
@@ -60,8 +60,8 @@ public final class TrainDeepJPrismKnowledge {
                 integer("deepj.releaseEvery", RELEASE_EVERY));
     }
 
-    private static DeepJPrismTinyStoriesConfig.TokenizerConfig tokenizer() {
-        return new DeepJPrismTinyStoriesConfig.TokenizerConfig(
+    private static DeepJPrismTrainingConfig.TokenizerConfig tokenizer() {
+        return new DeepJPrismTrainingConfig.TokenizerConfig(
                 integer("deepj.vocabSize", VOCAB_SIZE),
                 integer("deepj.tokenizerSampleMiB", 16));
     }

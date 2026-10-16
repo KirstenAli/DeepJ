@@ -27,14 +27,14 @@ public final class EvaluateDeepJPrismKnowledge {
     public static void main(String[] args) throws Exception {
         TrainingExampleSupport.configureBackend();
         Settings settings = Settings.fromSystemProperties();
-        var artifacts = DeepJPrismTinyStoriesArtifacts.load(settings.base(), settings.checkpoint());
+        var artifacts = DeepJPrismArtifacts.load(settings.base(), settings.checkpoint());
         System.out.println("Backend: " + Tensor.backend().getClass().getSimpleName());
         evaluate(settings, artifacts);
         Tensor.backend().releaseResources();
     }
 
     private static void evaluate(Settings settings,
-                                 DeepJPrismTinyStoriesArtifacts.Loaded artifacts) throws Exception {
+                                 DeepJPrismArtifacts.Loaded artifacts) throws Exception {
         var alpaca = dataset(settings.alpaca(), artifacts, settings.seed());
         var facts = dataset(settings.facts(), artifacts, settings.seed() + 1);
         print("Alpaca", evaluate(artifacts, alpaca, settings.batches()));
@@ -44,18 +44,18 @@ public final class EvaluateDeepJPrismKnowledge {
     }
 
     private static ResponseOnlyTextDataset dataset(
-            Path path, DeepJPrismTinyStoriesArtifacts.Loaded artifacts, long seed) throws Exception {
+            Path path, DeepJPrismArtifacts.Loaded artifacts, long seed) throws Exception {
         var source = new ResponseOnlyTextDataset.Source(path, 1);
         return new ResponseOnlyTextDataset(List.of(source), artifacts.tokenizer(),
                 artifacts.config().maxSeqLen(), seed);
     }
 
-    private static EvaluationResult evaluate(DeepJPrismTinyStoriesArtifacts.Loaded artifacts,
+    private static EvaluationResult evaluate(DeepJPrismArtifacts.Loaded artifacts,
                                              ResponseOnlyTextDataset dataset, int batches) {
         return CausalLMEvaluation.evaluate(artifacts.model(), dataset, batches, 1);
     }
 
-    private static AccuracyResult exactAccuracy(DeepJPrismTinyStoriesArtifacts.Loaded artifacts,
+    private static AccuracyResult exactAccuracy(DeepJPrismArtifacts.Loaded artifacts,
                                                 ResponseOnlyTextDataset dataset, int requested) {
         List<ResponseOnlyTextDataset.Example> facts = arithmetic(dataset.examples());
         int samples = Math.min(requested, facts.size());
@@ -75,14 +75,14 @@ public final class EvaluateDeepJPrismKnowledge {
         return examples.stream().filter(example -> example.response().matches("[0-9]+\\.")).toList();
     }
 
-    private static String greedyAnswer(DeepJPrismTinyStoriesArtifacts.Loaded artifacts,
+    private static String greedyAnswer(DeepJPrismArtifacts.Loaded artifacts,
                                        String prompt) {
         String generated = TextGenerator.generate(artifacts.model(), artifacts.tokenizer(),
                 artifacts.config(), prompt, 12, 1.0f, 1, 2026L);
         return generated.substring(prompt.length()).trim();
     }
 
-    private static void generateSamples(DeepJPrismTinyStoriesArtifacts.Loaded artifacts,
+    private static void generateSamples(DeepJPrismArtifacts.Loaded artifacts,
                                         Settings settings) {
         for (String instruction : SAMPLE_PROMPTS) {
             String prompt = prompt(instruction);

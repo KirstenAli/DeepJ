@@ -37,14 +37,14 @@ public final class TrainDeepJ90M {
         DeepJPrismTrainingRunner.runSequential(config, split.training());
     }
 
-    static DeepJPrismTinyStoriesConfig configuration() {
+    static DeepJPrismTrainingConfig configuration() {
         Path output = path("deepj.output", "checkpoints/deepj-90m/pretrain");
-        return new DeepJPrismTinyStoriesConfig(files(output), architecture(), training(),
+        return new DeepJPrismTrainingConfig(files(output), architecture(), training(),
                 tokenizer(), Long.getLong("deepj.seed", 90L));
     }
 
-    static DeepJPrismTinyStoriesConfig.Architecture architecture() {
-        return new DeepJPrismTinyStoriesConfig.Architecture(
+    static DeepJPrismTrainingConfig.Architecture architecture() {
+        return new DeepJPrismTrainingConfig.Architecture(
                 integer("deepj.seqLen", SEQUENCE_LENGTH), integer("deepj.dModel", D_MODEL),
                 integer("deepj.heads", HEADS), integer("deepj.layers", LAYERS),
                 integer("deepj.dFF", D_FF), integer("deepj.qRank", Q_RANK),
@@ -52,26 +52,26 @@ public final class TrainDeepJ90M {
                 decimal("deepj.gradClipNorm", 1.0f));
     }
 
-    private static DeepJPrismTinyStoriesConfig.FilesConfig files(Path output) {
+    private static DeepJPrismTrainingConfig.FilesConfig files(Path output) {
         Path corpus = path("deepj.corpus", "sample_data/deepj-90m/fineweb-edu.txt");
-        return new DeepJPrismTinyStoriesConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
+        return new DeepJPrismTrainingConfig.FilesConfig(corpus, output, nullablePath("deepj.resume"));
     }
 
-    private static DeepJPrismTinyStoriesConfig.Training training() {
-        return new DeepJPrismTinyStoriesConfig.Training(
+    private static DeepJPrismTrainingConfig.Training training() {
+        return new DeepJPrismTrainingConfig.Training(
                 integer("deepj.steps", PRETRAINING_STEPS), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", 1e-4f), decimal("deepj.minLearningRate", 1e-5f),
                 integer("deepj.warmupSteps", 2_000), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
     }
 
-    private static DeepJPrismTinyStoriesConfig.TokenizerConfig tokenizer() {
-        return new DeepJPrismTinyStoriesConfig.TokenizerConfig(
+    private static DeepJPrismTrainingConfig.TokenizerConfig tokenizer() {
+        return new DeepJPrismTrainingConfig.TokenizerConfig(
                 integer("deepj.vocabSize", VOCAB_SIZE),
                 integer("deepj.tokenizerSampleMiB", 50));
     }
 
-    private static void printRun(DeepJPrismTinyStoriesConfig config) {
+    private static void printRun(DeepJPrismTrainingConfig config) {
         long parameters = DeepJPrismParameterCount.count(config.modelConfig(config.tokenizer().vocabSize()));
         System.out.printf("Backend: %s%nParameters: %,d%n", Tensor.backend().getClass().getSimpleName(),
                 parameters);

@@ -43,23 +43,34 @@ class ResponseOnlyFineTunerTest {
         assertEquals(corpus.toAbsolutePath().toString(),
                 model.metadata().get("fineTuning.source.0.path"));
         assertFalse(Files.exists(output.resolve("fine-tuning.properties")));
+        assertFriskyBundle(output);
+    }
+
+    private void assertFriskyBundle(Path output) throws Exception {
+        Path bundle = ExportFrisky90M.export(output.resolve("model-final.dj"),
+                temporaryDirectory.resolve("bundle"));
+        assertTrue(Files.isRegularFile(bundle.resolve("tokenizer.bpe")));
+        assertEquals(PromptFormat.INSTRUCTION_RESPONSE,
+                ModelLoader.load(bundle.resolve("model.dj")).promptFormat());
+        assertTrue(Files.readString(bundle.resolve("README.md")).contains("# Frisky 90M"));
+        assertTrue(Files.readString(bundle.resolve("README.md")).contains("What is a computer?"));
     }
 
     private Path trainBaseModel() throws Exception {
         Path corpus = Files.writeString(temporaryDirectory.resolve("base.txt"), baseText());
         Path output = temporaryDirectory.resolve("base");
-        TrainDeepJPrismTinyStories.run(baseConfig(corpus, output));
+        DeepJPrismTrainingRunner.runSequential(baseConfig(corpus, output));
         return output;
     }
 
-    private DeepJPrismTinyStoriesConfig baseConfig(Path corpus, Path output) {
-        var files = new DeepJPrismTinyStoriesConfig.FilesConfig(corpus, output, null);
-        var architecture = new DeepJPrismTinyStoriesConfig.Architecture(
+    private DeepJPrismTrainingConfig baseConfig(Path corpus, Path output) {
+        var files = new DeepJPrismTrainingConfig.FilesConfig(corpus, output, null);
+        var architecture = new DeepJPrismTrainingConfig.Architecture(
                 64, 8, 2, 1, 16, 4, 2, 0.2f, 1.0f);
-        var training = new DeepJPrismTinyStoriesConfig.Training(
+        var training = new DeepJPrismTrainingConfig.Training(
                 1, 1, 1e-2f, 1e-3f, 0, 1, 1, 0);
-        return new DeepJPrismTinyStoriesConfig(files, architecture,
-                training, new DeepJPrismTinyStoriesConfig.TokenizerConfig(280, 1), 42L);
+        return new DeepJPrismTrainingConfig(files, architecture,
+                training, new DeepJPrismTrainingConfig.TokenizerConfig(280, 1), 42L);
     }
 
     private ResponseFineTuningConfig config(Path base, Path output, Path corpus) {

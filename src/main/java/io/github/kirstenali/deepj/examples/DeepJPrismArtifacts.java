@@ -10,9 +10,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 
-final class DeepJPrismTinyStoriesArtifacts {
+final class DeepJPrismArtifacts {
 
-    private DeepJPrismTinyStoriesArtifacts() {}
+    private DeepJPrismArtifacts() {}
 
     static Loaded load(Path output, Path checkpoint) throws IOException {
         if (!(ModelLoader.load(checkpoint) instanceof DeepJPrism model)) {
