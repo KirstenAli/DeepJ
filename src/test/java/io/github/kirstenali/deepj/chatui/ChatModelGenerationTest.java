@@ -17,7 +17,7 @@ class ChatModelGenerationTest {
         var tokenizer = new CapturingTokenizer();
         String response = ChatModelGeneration.stream(model, tokenizer, "Hello", 0, 0.8f,
                 20, 1L, text -> {});
-        assertEquals("Instruction:\nHello\nResponse:\n", tokenizer.prompt);
+        assertEquals("Instruction:\nHello\nResponse:", tokenizer.prompt);
         assertEquals("", response);
     }
 

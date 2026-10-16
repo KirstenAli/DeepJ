@@ -6,7 +6,7 @@ public enum PromptFormat {
 
     public String apply(String prompt) {
         if (this == PLAIN || alreadyFormatted(prompt)) return prompt;
-        return "Instruction:\n" + prompt.strip() + "\nResponse:\n";
+        return "Instruction:\n" + prompt.strip() + "\nResponse:";
     }
 
     private static boolean alreadyFormatted(String prompt) {
