@@ -5,8 +5,9 @@ import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.models.PromptFormat;
+import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
-import io.github.kirstenali.deepj.persistence.Persistable;
+import io.github.kirstenali.deepj.persistence.ModelSettings;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 
@@ -16,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
 
 public final class DeepJModelBundle {
 
@@ -113,14 +116,27 @@ public final class DeepJModelBundle {
                 configJson(config, model.promptFormat()), modelCard(card, config));
     }
 
-    private static Path writeBundle(Path directory, Persistable model, BPEModel tokenizer,
+    private static Path writeBundle(Path directory, DecoderOnlyModel model, BPEModel tokenizer,
                                     String configJson, String modelCard) throws IOException {
         Files.createDirectories(directory);
-        model.save(directory.resolve(MODEL_FILE));
+        ModelSerializer.save(model.parameters(), directory.resolve(MODEL_FILE),
+                new ModelSettings(model.config(), model.promptFormat(), publicMetadata(model)));
         BPEModelIO.save(directory.resolve(TOKENIZER_FILE), tokenizer);
         writeText(directory.resolve(CONFIG_FILE), configJson);
         writeText(directory.resolve(MODEL_CARD_FILE), modelCard);
         return directory;
+    }
+
+    private static Map<String, String> publicMetadata(DecoderOnlyModel model) {
+        Map<String, String> values = new HashMap<>(model.metadata());
+        values.keySet().removeIf(DeepJModelBundle::isLocalPathKey);
+        return values;
+    }
+
+    private static boolean isLocalPathKey(String key) {
+        return key.equals("corpus") || key.equals("output") || key.equals("initialModel")
+                || key.equals("fineTuning.base") || key.equals("fineTuning.initialModel")
+                || key.endsWith(".path");
     }
 
     private static void validate(Path directory, BPEModel tokenizer, ModelCard card,

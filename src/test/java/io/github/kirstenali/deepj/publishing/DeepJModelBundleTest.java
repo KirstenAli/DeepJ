@@ -15,6 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,6 +58,8 @@ class DeepJModelBundleTest {
         DeepJPrismConfig config = new DeepJPrismConfig(tokenizer.vocabSize(), 16, 8, 2, 1, 16, 4, 2);
         DeepJPrism model = new DeepJPrism(config, 42L);
         model.setPromptFormat(PromptFormat.INSTRUCTION_RESPONSE);
+        model.setMetadata(Map.of("steps", "22500", "corpus", "/Users/private/data.txt",
+                "fineTuning.source.0.path", "/Users/private/sft.txt"));
         Path bundle = DeepJModelBundle.export(temporaryDirectory.resolve("prism-bundle"),
                 model, tokenizer, card());
         String json = Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE));
@@ -68,6 +71,7 @@ class DeepJModelBundleTest {
                 .load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
         assertEquals(PromptFormat.INSTRUCTION_RESPONSE,
                 ModelLoader.load(bundle.resolve(DeepJModelBundle.MODEL_FILE)).promptFormat());
+        assertRedactedMetadata(bundle, model);
     }
 
     @Test
@@ -84,6 +88,12 @@ class DeepJModelBundleTest {
     private static void assertDeepJPrismConfig(String json) {
         assertTrue(json.contains("\"deepj-prism\""));
         assertTrue(json.contains("\"q_rank\": 4"));
+    }
+
+    private static void assertRedactedMetadata(Path bundle, DeepJPrism original) throws Exception {
+        var exported = ModelLoader.load(bundle.resolve(DeepJModelBundle.MODEL_FILE));
+        assertEquals(Map.of("steps", "22500"), exported.metadata());
+        assertEquals(3, original.metadata().size());
     }
 
     private static void assertDeepJPrismCard(String modelCard) {
