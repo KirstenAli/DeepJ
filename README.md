@@ -63,7 +63,7 @@ Load a DeepJ Prism checkpoint with its BPE tokenizer:
 
 ```java
 import io.github.kirstenali.deepj.models.TextGenerator;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.models.ModelLoader;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
@@ -74,16 +74,14 @@ import java.nio.file.Path;
 Path directory = Path.of("downloaded-model");
 BPEModel bpe = BPEModelIO.load(directory.resolve("tokenizer.bpe"));
 BPETokenizer tokenizer = new BPETokenizer(bpe);
-DeepJPrismConfig config = new DeepJPrismConfig(
-        tokenizer.vocabSize(), 128, 128, 4, 4, 384, 64, 32);
-DeepJPrism model = new DeepJPrism(config, 42L);
-
-model.load(directory.resolve("model.dj"));
+DeepJPrism model = (DeepJPrism) ModelLoader.load(directory.resolve("model.dj"));
+String prompt = model.promptFormat().apply("Once upon a time");
 String text = TextGenerator.generate(
-        model, tokenizer, config, "Once upon a time", 80, 0.8f, 40, 2026L);
+        model, tokenizer, model.config(), prompt, 80, 0.8f, 40, 2026L);
 ```
 
-The model configuration must match the saved checkpoint.
+New model checkpoints include their architecture and prompt format. Older checkpoints still load
+with an explicitly constructed model or their existing sidecar configuration files.
 
 ## Models
 

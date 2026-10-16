@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.models.TransformerConfig;
 import io.github.kirstenali.deepj.tensor.GpuBuffer;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
@@ -14,20 +15,26 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Objects;
 
 public final class ModelSerializer {
 
     private static final int MAGIC = 0x444A4D44;
-    public static final int CURRENT_FORMAT_VERSION = 1;
+    public static final int CURRENT_FORMAT_VERSION = 2;
 
     private ModelSerializer() {}
 
     public static void save(List<Parameter> params, Path path) throws IOException {
+        save(params, path, null);
+    }
+
+    public static void save(List<Parameter> params, Path path, ModelSettings settings)
+            throws IOException {
         validateParams(params);
         ensureParentDirectory(path);
         Path temporary = temporaryPath(path);
         try {
-            writeModel(params, temporary);
+            writeModel(params, temporary, settings);
             replaceAtomically(temporary, path);
         } finally {
             Files.deleteIfExists(temporary);
@@ -48,9 +55,11 @@ public final class ModelSerializer {
         }
     }
 
-    private static void writeParameterCount(DataOutputStream out, int count) throws IOException {
+    private static void writeParameterCount(DataOutputStream out, int count,
+                                            ModelSettings settings) throws IOException {
         out.writeInt(MAGIC);
-        out.writeInt(CURRENT_FORMAT_VERSION);
+        out.writeInt(settings == null ? 1 : CURRENT_FORMAT_VERSION);
+        if (settings != null) ModelSettingsIO.write(out, settings);
         out.writeInt(count);
     }
 
@@ -76,10 +85,16 @@ public final class ModelSerializer {
     }
 
     public static void load(List<Parameter> params, Path path) throws IOException {
+        load(params, path, null);
+    }
+
+    public static ModelSettings load(List<Parameter> params, Path path,
+                                     TransformerConfig expected) throws IOException {
         validateParams(params);
         prepareForLoad();
         try (DataInputStream in = openInput(path)) {
             Format format = readFormat(in);
+            validateSettings(format.settings(), expected);
             int count = readAndValidateParameterCount(format.count(), params.size());
             for (int i = 0; i < count; i++) {
                 Tensor t = params.get(i).value;
@@ -88,6 +103,20 @@ public final class ModelSerializer {
                 markGpuBufferNeedsUpload(t);
             }
             if (in.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
+            return format.settings();
+        }
+    }
+
+    public static ModelSettings settings(Path path) throws IOException {
+        try (DataInputStream input = openInput(path)) {
+            return readFormat(input).settings();
+        }
+    }
+
+    private static void validateSettings(ModelSettings settings, TransformerConfig expected)
+            throws IOException {
+        if (settings != null && expected != null && !Objects.equals(settings.config(), expected)) {
+            throw new IOException("Model configuration does not match the checkpoint");
         }
     }
 
@@ -129,9 +158,10 @@ public final class ModelSerializer {
         }
     }
 
-    private static void writeModel(List<Parameter> params, Path path) throws IOException {
+    private static void writeModel(List<Parameter> params, Path path, ModelSettings settings)
+            throws IOException {
         try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path)))) {
-            writeParameterCount(out, params.size());
+            writeParameterCount(out, params.size(), settings);
             for (Parameter parameter : params) {
                 writeParameter(out, parameter);
             }
@@ -144,10 +174,14 @@ public final class ModelSerializer {
 
     private static Format readFormat(DataInputStream in) throws IOException {
         int marker = in.readInt();
-        if (marker != MAGIC) return new Format(marker, true);
+        if (marker != MAGIC) return new Format(marker, true, null);
         int version = in.readInt();
-        if (version != CURRENT_FORMAT_VERSION) throw new IOException("Unsupported model format version: " + version);
-        return new Format(in.readInt(), false);
+        if (version == 1) return new Format(in.readInt(), false, null);
+        if (version == CURRENT_FORMAT_VERSION) {
+            ModelSettings settings = ModelSettingsIO.read(in);
+            return new Format(in.readInt(), false, settings);
+        }
+        throw new IOException("Unsupported model format version: " + version);
     }
 
     private static Path temporaryPath(Path path) throws IOException {
@@ -163,5 +197,5 @@ public final class ModelSerializer {
         }
     }
 
-    private record Format(int count, boolean legacy) {}
+    private record Format(int count, boolean legacy, ModelSettings settings) {}
 }

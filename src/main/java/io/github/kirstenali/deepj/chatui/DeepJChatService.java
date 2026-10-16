@@ -9,10 +9,14 @@ public final class DeepJChatService implements ChatService {
 
     @Override
     public void loadModel(Path path) throws Exception {
-        ChatService candidate = path.toString().endsWith(".dj")
-                ? new DeepJPrismChatService() : new DeepJOriginChatService();
+        ChatService candidate = serviceFor(path);
         candidate.loadModel(path);
         model = candidate;
+    }
+
+    private static ChatService serviceFor(Path path) {
+        return path.toString().endsWith(".dj")
+                ? new EmbeddedModelChatService() : new DeepJOriginChatService();
     }
 
     @Override

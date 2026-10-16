@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 
@@ -21,6 +22,9 @@ final class DeepJPrismTinyStoriesArtifacts {
         DeepJPrismConfig config = config(properties, tokenizer.vocabSize());
         DeepJPrism model = new DeepJPrism(config, longValue(properties, "seed"));
         model.load(checkpoint);
+        if (Files.isRegularFile(output.resolve("fine-tuning.properties"))) {
+            model.setPromptFormat(PromptFormat.INSTRUCTION_RESPONSE);
+        }
         return new Loaded(properties, tokenizer, config, model);
     }
 

@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.data.IndexedResponseTextDataset;
 import io.github.kirstenali.deepj.data.ResponseOnlyTextDataset;
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.persistence.TrainingCheckpoint;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
@@ -42,6 +43,7 @@ final class ResponseOnlyFineTuner {
                                         Resources resources) throws Exception {
         var options = config.training();
         var progress = loadProgress(config, model, resources);
+        model.setPromptFormat(PromptFormat.INSTRUCTION_RESPONSE);
         Trainer trainer = CausalLMTraining.trainer(model, resources.dataset(), resources.optimizer());
         TrainingResult result = trainer.train(options.steps(), options.batchSize(), options.logEvery(),
                 0.98f, null, options.releaseEvery(), hook(config, model, resources), progress);

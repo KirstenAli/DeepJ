@@ -2,6 +2,9 @@ package io.github.kirstenali.deepj.publishing;
 
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.models.ModelLoader;
+import io.github.kirstenali.deepj.models.PromptFormat;
+import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
@@ -35,6 +38,7 @@ class DeepJModelBundleTest {
         BPEModel restoredTokenizer = BPEModelIO.load(bundle.resolve(DeepJModelBundle.TOKENIZER_FILE));
         assertEquals(tokenizer.vocabSize(), restoredTokenizer.vocabSize());
         assertDoesNotThrow(() -> new DeepJOrigin(config, 1L).load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
+        assertEquals(config, ModelLoader.load(bundle.resolve(DeepJModelBundle.MODEL_FILE)).config());
         assertTrue(Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE)).contains("\"deepj-origin\""));
         assertTrue(Files.readString(bundle.resolve(DeepJModelBundle.MODEL_CARD_FILE)).contains("library_name: deepj"));
     }
@@ -51,14 +55,30 @@ class DeepJModelBundleTest {
     void exportSupportsDeepJPrism() throws Exception {
         BPEModel tokenizer = tokenizer();
         DeepJPrismConfig config = new DeepJPrismConfig(tokenizer.vocabSize(), 16, 8, 2, 1, 16, 4, 2);
+        DeepJPrism model = new DeepJPrism(config, 42L);
+        model.setPromptFormat(PromptFormat.INSTRUCTION_RESPONSE);
         Path bundle = DeepJModelBundle.export(temporaryDirectory.resolve("prism-bundle"),
-                new DeepJPrism(config, 42L), tokenizer, card());
+                model, tokenizer, card());
         String json = Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE));
         String modelCard = Files.readString(bundle.resolve(DeepJModelBundle.MODEL_CARD_FILE));
         assertDeepJPrismConfig(json);
+        assertTrue(json.contains("\"prompt_format\": \"instruction_response\""));
         assertDeepJPrismCard(modelCard);
         assertDoesNotThrow(() -> new DeepJPrism(config, 1L)
                 .load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
+        assertEquals(PromptFormat.INSTRUCTION_RESPONSE,
+                ModelLoader.load(bundle.resolve(DeepJModelBundle.MODEL_FILE)).promptFormat());
+    }
+
+    @Test
+    void olderExportLoadsFromItsConfigJson() throws Exception {
+        BPEModel tokenizer = tokenizer();
+        DeepJOriginConfig config = config(tokenizer.vocabSize());
+        DeepJOrigin model = new DeepJOrigin(config, 42L);
+        Path bundle = DeepJModelBundle.export(temporaryDirectory.resolve("legacy"), model, tokenizer, card());
+        Path checkpoint = bundle.resolve(DeepJModelBundle.MODEL_FILE);
+        ModelSerializer.save(model.parameters(), checkpoint);
+        assertEquals(config, ModelLoader.load(checkpoint).config());
     }
 
     private static void assertDeepJPrismConfig(String json) {
@@ -73,11 +93,10 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("vocabulary.\n\nDeepJ Prism uses low-rank Q/KV attention"));
         assertTrue(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("## Usage"));
-        assertTrue(modelCard.contains("io.github.kirstenali"));
-        assertTrue(modelCard.contains("<version>0.9.0-alpha</version>"));
+        assertTrue(modelCard.contains("checkpoint format 2"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
-        assertTrue(modelCard.contains("model.load(directory.resolve(\"model.dj\"))"));
-        assertTrue(modelCard.contains("0.2f, 1.0f"));
+        assertTrue(modelCard.contains("ModelLoader.load(directory.resolve(\"model.dj\"))"));
+        assertTrue(modelCard.contains("model.promptFormat().apply(\"Once upon a time\")"));
     }
 
     private static BPEModel tokenizer() {
