@@ -32,4 +32,12 @@ public final class DeepJPrismChatService implements ChatService {
         return ChatModelGeneration.stream(loaded.model(), loaded.tokenizer(), prompt,
                 maxTokens, temperature, topK, seed, listener);
     }
+
+    @Override
+    public String generate(String prompt, int maxTokens, float temperature, int topK,
+                           long seed, float repetitionPenalty, Consumer<String> listener) {
+        if (loaded == null) throw new IllegalStateException("Load a model first");
+        return ChatModelGeneration.stream(loaded.model(), loaded.tokenizer(), prompt,
+                maxTokens, temperature, topK, seed, repetitionPenalty, listener);
+    }
 }

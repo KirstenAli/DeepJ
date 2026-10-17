@@ -15,6 +15,8 @@ import java.util.function.Function;
 
 public final class TextGenerator {
 
+    private static final int REPETITION_WINDOW = 64;
+
     private TextGenerator() {}
 
     public static String generate(
@@ -36,6 +38,13 @@ public final class TextGenerator {
             String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
         return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
+    }
+
+    public static String generate(CausalLM model, Tokenizer tok, TransformerConfig cfg,
+                                  String prompt, int maxNewTokens, float temperature, int topK,
+                                  long seed, float repetitionPenalty) {
+        return generate(model::forward, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
+                temperature, topK, seed, repetitionPenalty);
     }
 
     public static String generate(
@@ -61,47 +70,72 @@ public final class TextGenerator {
             int topK,
             long seed
     ) {
+        return generate(forwarder, maxSeqLen, tok, prompt, maxNewTokens,
+                temperature, topK, seed, 1.0f);
+    }
+
+    public static String generate(
+            Function<int[], Tensor> forwarder, int maxSeqLen, Tokenizer tok,
+            String prompt, int maxNewTokens, float temperature, int topK,
+            long seed, float repetitionPenalty
+    ) {
         return generateTokens(forwarder, maxSeqLen, tok, prompt, maxNewTokens,
-                temperature, topK, seed, null);
+                temperature, topK, seed, repetitionPenalty, null);
     }
 
     public static String stream(CausalLM model, Tokenizer tok, TransformerConfig cfg,
                                 String prompt, int maxNewTokens, float temperature, int topK,
                                 long seed, Consumer<String> listener) {
+        return stream(model, tok, cfg, prompt, maxNewTokens, temperature, topK,
+                seed, 1.0f, listener);
+    }
+
+    public static String stream(CausalLM model, Tokenizer tok, TransformerConfig cfg,
+                                String prompt, int maxNewTokens, float temperature, int topK,
+                                long seed, float repetitionPenalty, Consumer<String> listener) {
         return stream(model::forward, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
-                temperature, topK, seed, listener);
+                temperature, topK, seed, repetitionPenalty, listener);
     }
 
     public static String stream(Function<int[], Tensor> forwarder, int maxSeqLen, Tokenizer tok,
                                 String prompt, int maxNewTokens, float temperature, int topK,
                                 long seed, Consumer<String> listener) {
+        return stream(forwarder, maxSeqLen, tok, prompt, maxNewTokens,
+                temperature, topK, seed, 1.0f, listener);
+    }
+
+    public static String stream(Function<int[], Tensor> forwarder, int maxSeqLen, Tokenizer tok,
+                                String prompt, int maxNewTokens, float temperature, int topK,
+                                long seed, float repetitionPenalty, Consumer<String> listener) {
         if (listener == null) throw new IllegalArgumentException("listener cannot be null");
         return generateTokens(forwarder, maxSeqLen, tok, prompt, maxNewTokens,
-                temperature, topK, seed, listener);
+                temperature, topK, seed, repetitionPenalty, listener);
     }
 
     private static String generateTokens(Function<int[], Tensor> forwarder, int maxSeqLen,
                                          Tokenizer tok, String prompt, int maxNewTokens,
-                                         float temperature, int topK, long seed,
+                                         float temperature, int topK, long seed, float repetitionPenalty,
                                          Consumer<String> listener) {
-        validateArgs(maxNewTokens, temperature, topK);
+        validateArgs(maxNewTokens, temperature, topK, repetitionPenalty);
         Random rnd = new Random(seed);
         int[] promptIds = tok.encode(prompt);
         requirePrompt(promptIds, maxNewTokens);
         int[] ids = Arrays.copyOf(promptIds, promptIds.length + maxNewTokens);
         int length = appendGeneratedTokens(forwarder, maxSeqLen, tok, ids,
-                promptIds.length, maxNewTokens, temperature, topK, rnd, listener);
+                promptIds.length, maxNewTokens, temperature, topK, repetitionPenalty, rnd, listener);
         return tok.decode(Arrays.copyOf(ids, length));
     }
 
     private static int appendGeneratedTokens(Function<int[], Tensor> forwarder, int maxSeqLen,
                                              Tokenizer tok, int[] ids, int length,
                                              int maxNewTokens, float temperature, int topK,
-                                             Random rnd, Consumer<String> listener) {
+                                             float repetitionPenalty, Random rnd, Consumer<String> listener) {
         if (hasTrailingEndToken(tok, ids, length)) return length;
+        int generatedStart = length;
         for (int i = 0; i < maxNewTokens; i++) {
             if (Thread.currentThread().isInterrupted()) throw new CancellationException("Generation stopped");
-            int token = nextToken(forwarder, maxSeqLen, ids, length, temperature, topK, rnd);
+            int token = nextToken(forwarder, maxSeqLen, ids, generatedStart, length,
+                    temperature, topK, repetitionPenalty, rnd);
             if (tok.isEndOfSequence(token)) break;
             ids[length++] = token;
             if (listener != null) listener.accept(tok.decode(Arrays.copyOf(ids, length)));
@@ -114,7 +148,8 @@ public final class TextGenerator {
     }
 
     private static int nextToken(Function<int[], Tensor> forwarder, int maxSeqLen,
-                                 int[] ids, int length, float temperature, int topK, Random rnd) {
+                                 int[] ids, int generatedStart, int length,
+                                 float temperature, int topK, float repetitionPenalty, Random rnd) {
         int[] context = context(ids, length, maxSeqLen);
         Tensor logits = forwarder.apply(context);
         logits.materialize();
@@ -122,7 +157,20 @@ public final class TextGenerator {
         float[] lastLogits = Arrays.copyOfRange(logits.data,
                 (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
         Tensor.backend().releaseTemporaryResources();
+        penalizeRecentTokens(lastLogits, ids, generatedStart, length, repetitionPenalty);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
+    }
+
+    private static void penalizeRecentTokens(float[] logits, int[] ids, int start,
+                                             int length, float penalty) {
+        if (penalty == 1.0f) return;
+        boolean[] seen = new boolean[logits.length];
+        for (int i = Math.max(start, length - REPETITION_WINDOW); i < length; i++) {
+            int token = ids[i];
+            if (seen[token]) continue;
+            seen[token] = true;
+            logits[token] = logits[token] < 0.0f ? logits[token] * penalty : logits[token] / penalty;
+        }
     }
 
     private static int sampleFromLogits(float[] logits, float temperature, int topK, Random rnd) {
@@ -181,11 +229,14 @@ public final class TextGenerator {
         return indices[indices.length - 1];
     }
 
-    private static void validateArgs(int maxNewTokens, float temperature, int topK) {
+    private static void validateArgs(int maxNewTokens, float temperature, int topK,
+                                     float repetitionPenalty) {
         if (maxNewTokens < 0) throw new IllegalArgumentException("maxNewTokens must be >= 0");
         if (!Float.isFinite(temperature) || temperature <= 0.0f)
             throw new IllegalArgumentException("temperature must be finite and > 0");
         if (topK < 0)         throw new IllegalArgumentException("topK must be >= 0");
+        if (!Float.isFinite(repetitionPenalty) || repetitionPenalty < 1.0f)
+            throw new IllegalArgumentException("repetitionPenalty must be finite and >= 1");
     }
 
     private static void requirePrompt(int[] promptIds, int maxNewTokens) {

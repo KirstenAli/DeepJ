@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CancellationException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -134,6 +135,56 @@ public class TextGeneratorTest {
 
         String out = TextGenerator.generate(model, tok, cfg, "hi", 5, 1.0f, 0, 1L);
         assertNotNull(out);
+    }
+
+    @Test
+    void repetitionPenaltyChangesRepeatedTokenWithoutPenalizingPrompt() {
+        String plain = TextGenerator.generate(ids -> rankedLogits(2.0f, 1.5f), 8, tok,
+                "x", 2, 1.0f, 1, 1L);
+        String adjusted = TextGenerator.generate(ids -> rankedLogits(2.0f, 1.5f), 8, tok,
+                "x", 2, 1.0f, 1, 1L, 2.0f);
+        assertEquals("xxx", plain);
+        assertEquals("xxy", adjusted);
+    }
+
+    @Test
+    void repetitionPenaltyHandlesNegativeLogits() {
+        String adjusted = TextGenerator.generate(ids -> rankedLogits(-0.1f, -0.15f), 8, tok,
+                "p", 2, 1.0f, 1, 1L, 2.0f);
+        assertEquals("pxy", adjusted);
+    }
+
+    @Test
+    void repetitionPenaltyOnePreservesExistingSampling() {
+        String original = TextGenerator.generate(model, tok, cfg, "hello", 8, 0.8f, 5, 42L);
+        String optional = TextGenerator.generate(model::forward, cfg.maxSeqLen(), tok,
+                "hello", 8, 0.8f, 5, 42L, 1.0f);
+        assertEquals(original, optional);
+    }
+
+    @Test
+    void repetitionPenaltyStreamsAdjustedText() {
+        List<String> updates = new ArrayList<>();
+        String result = TextGenerator.stream(ids -> rankedLogits(2.0f, 1.5f), 8, tok,
+                "p", 2, 1.0f, 1, 1L, 2.0f, updates::add);
+        assertEquals("pxy", result);
+        assertEquals(List.of("px", "pxy"), updates);
+    }
+
+    @Test
+    void invalidRepetitionPenaltyThrows() {
+        assertThrows(IllegalArgumentException.class, () -> TextGenerator.generate(model::forward,
+                cfg.maxSeqLen(), tok, "x", 1, 1.0f, 1, 1L, 0.9f));
+        assertThrows(IllegalArgumentException.class, () -> TextGenerator.generate(model::forward,
+                cfg.maxSeqLen(), tok, "x", 1, 1.0f, 1, 1L, Float.NaN));
+    }
+
+    private static Tensor rankedLogits(float first, float second) {
+        Tensor logits = new Tensor(1, ByteTokenizer.VOCAB_SIZE);
+        Arrays.fill(logits.data, -1000.0f);
+        logits.data['x'] = first;
+        logits.data['y'] = second;
+        return logits;
     }
 
     @Test

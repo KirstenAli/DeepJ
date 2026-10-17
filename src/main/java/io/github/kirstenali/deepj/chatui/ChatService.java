@@ -13,6 +13,14 @@ public interface ChatService {
     String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
                     Consumer<String> listener);
 
+    default String generate(String prompt, int maxTokens, float temperature, int topK,
+                            long seed, float repetitionPenalty, Consumer<String> listener) {
+        if (repetitionPenalty != 1.0f) {
+            throw new UnsupportedOperationException("This chat service does not support repetition penalty");
+        }
+        return generate(prompt, maxTokens, temperature, topK, seed, listener);
+    }
+
     default String generate(String prompt, int maxTokens, float temperature, int topK, long seed) {
         return generate(prompt, maxTokens, temperature, topK, seed, text -> {});
     }

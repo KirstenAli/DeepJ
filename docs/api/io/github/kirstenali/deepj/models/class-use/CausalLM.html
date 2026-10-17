@@ -85,6 +85,29 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../TextGenerator.html#generate(io.github.kirstenali.deepj.models.CausalLM,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long,float)" class="member-name-link">generate</a><wbr>(<a href="../CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a>&nbsp;model,
+ <a href="../../tokenizers/Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
+ <a href="../TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
+ int&nbsp;maxNewTokens,
+ float&nbsp;temperature,
+ int&nbsp;topK,
+ long&nbsp;seed,
+ float&nbsp;repetitionPenalty)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../TextGenerator.html#stream(io.github.kirstenali.deepj.models.CausalLM,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long,float,java.util.function.Consumer)" class="member-name-link">stream</a><wbr>(<a href="../CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a>&nbsp;model,
+ <a href="../../tokenizers/Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
+ <a href="../TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
+ int&nbsp;maxNewTokens,
+ float&nbsp;temperature,
+ int&nbsp;topK,
+ long&nbsp;seed,
+ float&nbsp;repetitionPenalty,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Consumer.html" title="class or interface in java.util.function" class="external-link">Consumer</a>&lt;<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;listener)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../TextGenerator.html#stream(io.github.kirstenali.deepj.models.CausalLM,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long,java.util.function.Consumer)" class="member-name-link">stream</a><wbr>(<a href="../CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a>&nbsp;model,
  <a href="../../tokenizers/Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
  <a href="../TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,

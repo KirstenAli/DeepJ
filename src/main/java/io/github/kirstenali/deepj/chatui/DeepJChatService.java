@@ -32,7 +32,13 @@ public final class DeepJChatService implements ChatService {
     @Override
     public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
                            Consumer<String> listener) {
+        return generate(prompt, maxTokens, temperature, topK, seed, 1.0f, listener);
+    }
+
+    @Override
+    public String generate(String prompt, int maxTokens, float temperature, int topK,
+                           long seed, float repetitionPenalty, Consumer<String> listener) {
         if (model == null) throw new IllegalStateException("Load a model first");
-        return model.generate(prompt, maxTokens, temperature, topK, seed, listener);
+        return model.generate(prompt, maxTokens, temperature, topK, seed, repetitionPenalty, listener);
     }
 }

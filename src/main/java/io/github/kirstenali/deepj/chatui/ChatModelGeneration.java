@@ -13,10 +13,16 @@ final class ChatModelGeneration {
     static String stream(DecoderOnlyModel model, Tokenizer tokenizer, String prompt,
                          int maxTokens, float temperature, int topK, long seed,
                          Consumer<String> listener) {
+        return stream(model, tokenizer, prompt, maxTokens, temperature, topK, seed, 1.0f, listener);
+    }
+
+    static String stream(DecoderOnlyModel model, Tokenizer tokenizer, String prompt,
+                         int maxTokens, float temperature, int topK, long seed,
+                         float repetitionPenalty, Consumer<String> listener) {
         String formatted = model.promptFormat().apply(prompt);
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
         String result = TextGenerator.stream(model, tokenizer, model.config(), formatted,
-                maxTokens, temperature, topK, seed,
+                maxTokens, temperature, topK, seed, repetitionPenalty,
                 text -> listener.accept(GeneratedText.continuation(prefix, text)));
         return GeneratedText.continuation(prefix, result);
     }

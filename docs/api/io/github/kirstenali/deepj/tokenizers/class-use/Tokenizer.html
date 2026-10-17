@@ -135,19 +135,20 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(io.github.kirstenali.deepj.models.orbit.DeepJOrbit,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="../../models/orbit/DeepJOrbit.html" title="class in io.github.kirstenali.deepj.models.orbit">DeepJOrbit</a>&nbsp;model,
+<div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(io.github.kirstenali.deepj.models.CausalLM,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long,float)" class="member-name-link">generate</a><wbr>(<a href="../../models/CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a>&nbsp;model,
  <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
  <a href="../../models/TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
  int&nbsp;maxNewTokens,
  float&nbsp;temperature,
  int&nbsp;topK,
- long&nbsp;seed)</code></div>
+ long&nbsp;seed,
+ float&nbsp;repetitionPenalty)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-first odd-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(io.github.kirstenali.deepj.models.origin.DeepJOrigin,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.origin.DeepJOriginConfig,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="../../models/origin/DeepJOrigin.html" title="class in io.github.kirstenali.deepj.models.origin">DeepJOrigin</a>&nbsp;model,
+<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(io.github.kirstenali.deepj.models.orbit.DeepJOrbit,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="../../models/orbit/DeepJOrbit.html" title="class in io.github.kirstenali.deepj.models.orbit">DeepJOrbit</a>&nbsp;model,
  <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
- <a href="../../models/origin/DeepJOriginConfig.html" title="class in io.github.kirstenali.deepj.models.origin">DeepJOriginConfig</a>&nbsp;cfg,
+ <a href="../../models/TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
  int&nbsp;maxNewTokens,
  float&nbsp;temperature,
@@ -155,9 +156,9 @@ loadScripts(document, 'script');</script>
  long&nbsp;seed)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
 <div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(io.github.kirstenali.deepj.models.prism.DeepJPrism,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="../../models/prism/DeepJPrism.html" title="class in io.github.kirstenali.deepj.models.prism">DeepJPrism</a>&nbsp;model,
+<div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(io.github.kirstenali.deepj.models.origin.DeepJOrigin,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.origin.DeepJOriginConfig,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="../../models/origin/DeepJOrigin.html" title="class in io.github.kirstenali.deepj.models.origin">DeepJOrigin</a>&nbsp;model,
  <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
- <a href="../../models/TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
+ <a href="../../models/origin/DeepJOriginConfig.html" title="class in io.github.kirstenali.deepj.models.origin">DeepJOriginConfig</a>&nbsp;cfg,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
  int&nbsp;maxNewTokens,
  float&nbsp;temperature,
@@ -165,7 +166,17 @@ loadScripts(document, 'script');</script>
  long&nbsp;seed)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-first odd-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(java.util.function.Function,int,io.github.kirstenali.deepj.tokenizers.Tokenizer,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Function.html" title="class or interface in java.util.function" class="external-link">Function</a>&lt;int[],<wbr><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&gt;&nbsp;forwarder,
+<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(io.github.kirstenali.deepj.models.prism.DeepJPrism,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="../../models/prism/DeepJPrism.html" title="class in io.github.kirstenali.deepj.models.prism">DeepJPrism</a>&nbsp;model,
+ <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
+ <a href="../../models/TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
+ int&nbsp;maxNewTokens,
+ float&nbsp;temperature,
+ int&nbsp;topK,
+ long&nbsp;seed)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(java.util.function.Function,int,io.github.kirstenali.deepj.tokenizers.Tokenizer,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Function.html" title="class or interface in java.util.function" class="external-link">Function</a>&lt;int[],<wbr><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&gt;&nbsp;forwarder,
  int&nbsp;maxSeqLen,
  <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
@@ -173,6 +184,17 @@ loadScripts(document, 'script');</script>
  float&nbsp;temperature,
  int&nbsp;topK,
  long&nbsp;seed)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(java.util.function.Function,int,io.github.kirstenali.deepj.tokenizers.Tokenizer,java.lang.String,int,float,int,long,float)" class="member-name-link">generate</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Function.html" title="class or interface in java.util.function" class="external-link">Function</a>&lt;int[],<wbr><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&gt;&nbsp;forwarder,
+ int&nbsp;maxSeqLen,
+ <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
+ int&nbsp;maxNewTokens,
+ float&nbsp;temperature,
+ int&nbsp;topK,
+ long&nbsp;seed,
+ float&nbsp;repetitionPenalty)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
 <div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#generate(java.util.function.Function,io.github.kirstenali.deepj.models.TransformerConfig,io.github.kirstenali.deepj.tokenizers.Tokenizer,java.lang.String,int,float,int,long)" class="member-name-link">generate</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Function.html" title="class or interface in java.util.function" class="external-link">Function</a>&lt;int[],<wbr><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&gt;&nbsp;forwarder,
@@ -185,7 +207,7 @@ loadScripts(document, 'script');</script>
  long&nbsp;seed)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-first odd-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#stream(io.github.kirstenali.deepj.models.CausalLM,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long,java.util.function.Consumer)" class="member-name-link">stream</a><wbr>(<a href="../../models/CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a>&nbsp;model,
+<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#stream(io.github.kirstenali.deepj.models.CausalLM,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long,float,java.util.function.Consumer)" class="member-name-link">stream</a><wbr>(<a href="../../models/CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a>&nbsp;model,
  <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
  <a href="../../models/TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
@@ -193,6 +215,30 @@ loadScripts(document, 'script');</script>
  float&nbsp;temperature,
  int&nbsp;topK,
  long&nbsp;seed,
+ float&nbsp;repetitionPenalty,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Consumer.html" title="class or interface in java.util.function" class="external-link">Consumer</a>&lt;<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;listener)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#stream(io.github.kirstenali.deepj.models.CausalLM,io.github.kirstenali.deepj.tokenizers.Tokenizer,io.github.kirstenali.deepj.models.TransformerConfig,java.lang.String,int,float,int,long,java.util.function.Consumer)" class="member-name-link">stream</a><wbr>(<a href="../../models/CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a>&nbsp;model,
+ <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
+ <a href="../../models/TransformerConfig.html" title="interface in io.github.kirstenali.deepj.models">TransformerConfig</a>&nbsp;cfg,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
+ int&nbsp;maxNewTokens,
+ float&nbsp;temperature,
+ int&nbsp;topK,
+ long&nbsp;seed,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Consumer.html" title="class or interface in java.util.function" class="external-link">Consumer</a>&lt;<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;listener)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">TextGenerator.</span><code><a href="../../models/TextGenerator.html#stream(java.util.function.Function,int,io.github.kirstenali.deepj.tokenizers.Tokenizer,java.lang.String,int,float,int,long,float,java.util.function.Consumer)" class="member-name-link">stream</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Function.html" title="class or interface in java.util.function" class="external-link">Function</a>&lt;int[],<wbr><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&gt;&nbsp;forwarder,
+ int&nbsp;maxSeqLen,
+ <a href="../Tokenizer.html" title="interface in io.github.kirstenali.deepj.tokenizers">Tokenizer</a>&nbsp;tok,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;prompt,
+ int&nbsp;maxNewTokens,
+ float&nbsp;temperature,
+ int&nbsp;topK,
+ long&nbsp;seed,
+ float&nbsp;repetitionPenalty,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/function/Consumer.html" title="class or interface in java.util.function" class="external-link">Consumer</a>&lt;<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;listener)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
 <div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
