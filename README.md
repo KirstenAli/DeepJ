@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.9.5-alpha</version>
+    <version>0.9.6-alpha</version>
 </dependency>
 ```
 
@@ -45,7 +45,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and keeps generation settings tucked away.
 It automatically uses Metal on supported Apple GPUs and falls back to the CPU elsewhere.
-Its optional repetition penalty discourages recently generated tokens; `1.0` leaves sampling unchanged.
+Under Settings → Generation settings, the optional repetition penalty can reduce loops. `1.0` is off; try `1.1` if a response repeats itself.
 
 ![DeepJ Chat desktop interface](docs/chat-ui.png)
 

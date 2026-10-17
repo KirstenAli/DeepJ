@@ -206,8 +206,8 @@ public final class DeepJModelBundle {
     }
 
     private static String usageHeader() {
-        return "Use [DeepJ 0.9.5-alpha](https://central.sonatype.com/artifact/"
-                + "io.github.kirstenali/deepj/0.9.5-alpha) or newer:\n\n"
+        return "Use [DeepJ 0.9.6-alpha](https://central.sonatype.com/artifact/"
+                + "io.github.kirstenali/deepj/0.9.6-alpha) or newer:\n\n"
                 + dependency() + "Download this repository's `model.dj` and `tokenizer.bpe` "
                 + "into `downloaded-model`. Imports are omitted below.\n\n";
     }
@@ -218,7 +218,7 @@ public final class DeepJModelBundle {
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.9.5-alpha</version>
+                    <version>0.9.6-alpha</version>
                 </dependency>
                 ```
 
@@ -238,6 +238,7 @@ public final class DeepJModelBundle {
                 Then choose `model.dj`.
                 Keep `tokenizer.bpe` in the same directory. The UI applies the checkpoint's saved
                 prompt format automatically and streams the generated text.
+                Its optional repetition penalty can reduce loops: `1.0` is off; try `1.1` if text repeats.
                 """;
     }
 }
