@@ -103,8 +103,9 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("vocabulary.\n\nDeepJ Prism uses low-rank Q/KV attention"));
         assertTrue(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("## Usage"));
-        assertTrue(modelCard.contains("DeepJ 0.9.5-alpha"));
-        assertTrue(modelCard.contains("<version>0.9.5-alpha</version>"));
+        assertTrue(modelCard.contains("DeepJ 0.9.6-alpha"));
+        assertTrue(modelCard.contains("<version>0.9.6-alpha</version>"));
+        assertTrue(modelCard.contains("repetition penalty can reduce loops"));
         assertTrue(modelCard.contains("desktop chat UI"));
         assertFalse(modelCard.contains("Use a DeepJ release that supports checkpoint format"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
