@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.io.IOException;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,6 +29,7 @@ class DeepJChatServiceTest {
         var service = new DeepJChatService();
         service.loadModel(directory.resolve("model.dj"));
         assertTrue(service.isModelLoaded());
+        assertDoesNotThrow(() -> service.generate("Hello", 2, 0.8f, 40, 1L, 1.15f, text -> {}));
     }
 
     @Test

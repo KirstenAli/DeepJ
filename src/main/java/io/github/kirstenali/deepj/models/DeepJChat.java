@@ -47,10 +47,15 @@ public final class DeepJChat {
     }
 
     public String generate(String prompt, int maxTokens, float temperature, int topK, long seed) {
+        return generate(prompt, maxTokens, temperature, topK, seed, 1.0f);
+    }
+
+    public String generate(String prompt, int maxTokens, float temperature, int topK,
+                           long seed, float repetitionPenalty) {
         String formatted = model.promptFormat().apply(prompt);
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
-        String result = TextGenerator.generate(model::forward, model.config(), tokenizer,
-                formatted, maxTokens, temperature, topK, seed);
+        String result = TextGenerator.generate(model, tokenizer, model.config(),
+                formatted, maxTokens, temperature, topK, seed, repetitionPenalty);
         return continuation(prefix, result);
     }
 
@@ -61,11 +66,16 @@ public final class DeepJChat {
 
     public String stream(String prompt, int maxTokens, float temperature, int topK,
                          long seed, Consumer<String> listener) {
+        return stream(prompt, maxTokens, temperature, topK, seed, 1.0f, listener);
+    }
+
+    public String stream(String prompt, int maxTokens, float temperature, int topK,
+                         long seed, float repetitionPenalty, Consumer<String> listener) {
         Objects.requireNonNull(listener, "listener");
         String formatted = model.promptFormat().apply(prompt);
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
         String result = TextGenerator.stream(model, tokenizer, model.config(), formatted,
-                maxTokens, temperature, topK, seed,
+                maxTokens, temperature, topK, seed, repetitionPenalty,
                 text -> listener.accept(continuation(prefix, text)));
         return continuation(prefix, result);
     }

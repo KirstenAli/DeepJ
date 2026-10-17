@@ -161,7 +161,7 @@ function generationValue(id) {
 }
 
 function validGenerationSettings() {
-  const invalid = ['temperature', 'topK', 'maxTokens', 'seed']
+  const invalid = ['temperature', 'topK', 'maxTokens', 'seed', 'repetitionPenalty']
     .map(element)
     .find((input) => !input.value.trim() || !input.checkValidity());
   if (!invalid) return true;
@@ -183,6 +183,7 @@ function submitPrompt() {
     generationValue('temperature'),
     generationValue('topK'),
     generationValue('seed'),
+    generationValue('repetitionPenalty'),
   );
 }
 

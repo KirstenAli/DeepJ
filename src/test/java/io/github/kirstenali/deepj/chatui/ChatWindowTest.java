@@ -51,6 +51,7 @@ class ChatWindowTest {
         Fixture fixture = open();
         verify(fixture, view -> {
             assertEquals(true, script(view, "document.getElementById('settingsBackdrop').hidden"));
+            assertEquals("1", script(view, "document.getElementById('repetitionPenalty').value"));
             script(view, "document.getElementById('openSettings').click()");
             assertEquals(false, script(view, "document.getElementById('settingsBackdrop').hidden"));
             assertEquals("closeSettings", script(view, "document.activeElement.id"));
@@ -89,6 +90,9 @@ class ChatWindowTest {
             assertEquals(0, ((Number) script(view, "document.querySelectorAll('.user').length")).intValue());
             assertEquals(false, script(view, "document.getElementById('settingsBackdrop').hidden"));
             assertEquals(true, script(view, "document.getElementById('generationOptions').open"));
+            script(view, "document.getElementById('maxTokens').value = '80';"
+                    + "document.getElementById('repetitionPenalty').value = '0.9'; submitPrompt()");
+            assertEquals(0, ((Number) script(view, "document.querySelectorAll('.user').length")).intValue());
             script(view, "newChat()");
             assertTrue(styleNumber(view, "#prompt", "height") <= 31);
         });
@@ -117,6 +121,7 @@ class ChatWindowTest {
         Fixture fixture = open();
         verifyWithoutClosing(fixture, view -> {
             script(view, "setModel('stub.dj')");
+            script(view, "document.getElementById('repetitionPenalty').value = '1.2'");
             script(view, "document.getElementById('prompt').value = 'Hello'");
             script(view, "document.getElementById('prompt').focus()");
             pressEnter(view, true);
@@ -126,6 +131,7 @@ class ChatWindowTest {
             assertEquals("", script(view, "document.getElementById('prompt').value"));
         });
         assertTrue(((TestService) fixture.service).generated.await(10, TimeUnit.SECONDS));
+        assertEquals(1.2f, ((TestService) fixture.service).repetitionPenalty);
         Thread.sleep(200);
         verify(fixture, view -> assertEquals("A short answer",
                 script(view, "document.querySelector('.assistant .message-content').textContent")));
@@ -259,6 +265,7 @@ class ChatWindowTest {
 
     private static final class TestService implements ChatService {
         private final CountDownLatch generated = new CountDownLatch(1);
+        private volatile float repetitionPenalty;
 
         @Override public void loadModel(Path modelPath) {}
         @Override public boolean isModelLoaded() { return true; }
@@ -270,6 +277,13 @@ class ChatWindowTest {
             listener.accept("A short");
             generated.countDown();
             return "A short answer";
+        }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, float penalty, Consumer<String> listener) {
+            repetitionPenalty = penalty;
+            return generate(prompt, maxTokens, temperature, topK, seed, listener);
         }
     }
 

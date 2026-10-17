@@ -45,6 +45,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and keeps generation settings tucked away.
 It automatically uses Metal on supported Apple GPUs and falls back to the CPU elsewhere.
+Its optional repetition penalty discourages recently generated tokens; `1.0` leaves sampling unchanged.
 
 ![DeepJ Chat desktop interface](docs/chat-ui.png)
 
@@ -88,37 +89,9 @@ All three models share DeepJ's causal language-model API. They currently recalcu
 
 ## Frisky 90M
 
-[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90,128,896-parameter DeepJ Prism model trained from scratch with DeepJ. Download its `model.dj` and `tokenizer.bpe` files together, then use the quick-start example above. The checkpoint stores its architecture and instruction-response prompt format, so neither needs to be entered manually. Its files use DeepJ formats, not PyTorch or Python Transformers formats.
+[Meet Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning. It puts DeepJ's Java training pipeline and Apple Metal backend to work beyond small examples.
 
-The repository includes the three staged training examples: `TrainDeepJ90M`, `MidTrainDeepJ90M`, and `FineTuneDeepJ90M`. Base pretraining used FineWeb-Edu; the later stages used a mixture derived from SmolTalk, MMLU, GSM8K, and ARC. Training requires those separately prepared datasets, which are not included in this repository. The pipeline uses bounded-memory datasets and complete checkpoints preserving weights, Adam state, progress, and dataset position.
-
-```bash
-export DEEPJ_JDK=$(/usr/libexec/java_home -v 20)
-JAVA_HOME="$DEEPJ_JDK" mvn compile
-```
-
-`deepj.batchSize` is the number of sequences averaged before each optimizer update. DeepJ processes those sequences one at a time, accumulates their gradients, then averages and clips the result.
-
-Measure pretraining progress against the same held-out FineWeb-Edu examples after each checkpoint:
-
-```bash
-"$DEEPJ_JDK/bin/java" \
-  -Xmx6g \
-  --enable-native-access=ALL-UNNAMED \
-  -cp target/classes \
-  io.github.kirstenali.deepj.examples.EvaluateDeepJ90MPretraining
-```
-
-Export the final instruction-tuned checkpoint as a Hugging Face-ready bundle:
-
-```bash
-"$DEEPJ_JDK/bin/java" \
-  -Xmx6g \
-  -cp target/classes \
-  io.github.kirstenali.deepj.examples.ExportFrisky90M
-```
-
-The exporter removes local training paths from the public checkpoint. Set `deepj.checkpoint` and `deepj.bundle` to override its default input and output paths.
+Download its `model.dj` and `tokenizer.bpe` files to try the quick start above or chat with it in the desktop UI. Frisky is experimental and can repeat itself or make factual mistakes; its model card has details and limitations. The [training examples](src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
 
 ## Metal acceleration
 

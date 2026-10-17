@@ -103,10 +103,15 @@ public final class ChatWindow {
     }
 
     public void send(String prompt, int maxTokens, double temperature, int topK, long seed) {
+        send(prompt, maxTokens, temperature, topK, seed, 1.0);
+    }
+
+    public void send(String prompt, int maxTokens, double temperature, int topK,
+                     long seed, double repetitionPenalty) {
         if (busy || !service.isModelLoaded()) return;
         if (prompt == null || prompt.isBlank()) return;
         try {
-            startGeneration(prompt.trim(), new Settings(maxTokens, temperature, topK, seed));
+            startGeneration(prompt.trim(), new Settings(maxTokens, temperature, topK, seed, repetitionPenalty));
         } catch (IllegalArgumentException error) {
             call("setStatus", error.getMessage());
         }
@@ -130,7 +135,7 @@ public final class ChatWindow {
         return new Task<>() {
             @Override protected String call() {
                 return service.generate(prompt, settings.maxTokens(), (float) settings.temperature(),
-                        settings.topK(), settings.seed(), this::updateValue);
+                        settings.topK(), settings.seed(), (float) settings.repetitionPenalty(), this::updateValue);
             }
         };
     }
@@ -197,13 +202,17 @@ public final class ChatWindow {
         worker.execute(task);
     }
 
-    private record Settings(int maxTokens, double temperature, int topK, long seed) {
+    private record Settings(int maxTokens, double temperature, int topK, long seed,
+                            double repetitionPenalty) {
         private Settings {
             if (maxTokens < 1) throw new IllegalArgumentException("Maximum tokens must be positive");
             if (!Double.isFinite(temperature) || temperature <= 0) {
                 throw new IllegalArgumentException("Temperature must be positive");
             }
             if (topK < 0) throw new IllegalArgumentException("Top-k cannot be negative");
+            if (!Double.isFinite(repetitionPenalty) || repetitionPenalty < 1.0) {
+                throw new IllegalArgumentException("Repetition penalty must be at least 1");
+            }
         }
     }
 }

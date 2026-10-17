@@ -59,6 +59,22 @@ class DeepJChatTest {
     }
 
     @Test
+    void customRepetitionPenaltyMatchesLowLevelGeneration() throws IOException {
+        BPEModel bpe = tokenizer();
+        DeepJPrism model = savePrism(bpe.vocabSize());
+        BPEModelIO.save(directory.resolve("tokenizer.bpe"), bpe);
+        BPETokenizer tokenizer = new BPETokenizer(bpe);
+        String prompt = model.promptFormat().apply("Hello");
+        String prefix = tokenizer.decode(tokenizer.encode(prompt));
+        String full = TextGenerator.generate(model::forward, model.config().maxSeqLen(),
+                tokenizer, prompt, 3, 0.8f, 40, 1234L, 1.2f);
+        DeepJChat chat = DeepJChat.load(directory);
+        String expected = full.substring(prefix.length());
+        assertEquals(expected, chat.generate("Hello", 3, 0.8f, 40, 1234L, 1.2f));
+        assertEquals(expected, chat.stream("Hello", 3, 0.8f, 40, 1234L, 1.2f, text -> {}));
+    }
+
+    @Test
     void supportsByteTokenizerWhenNoBpeFileExists() throws IOException {
         savePrism(256);
         assertDoesNotThrow(() -> DeepJChat.load(directory));
