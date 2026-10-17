@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.9.6-alpha</version>
+    <version>0.9.7-alpha</version>
 </dependency>
 ```
 
@@ -45,7 +45,16 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and keeps generation settings tucked away.
 It automatically uses Metal on supported Apple GPUs and falls back to the CPU elsewhere.
-Under Settings → Generation settings, the optional repetition penalty can reduce loops. `1.0` is off; try `1.1` if a response repeats itself.
+
+Under Settings → Generation settings:
+
+| Setting | What it changes |
+|---|---|
+| Temperature | Lower is more focused; higher is more varied. |
+| Top-k | Samples from the top `k` token choices; `0` considers all. |
+| Max tokens | Limits how many new tokens are generated; they are not words. |
+| Seed | Controls sampling randomness; changing it can change the response. |
+| Repetition penalty | Above `1.0` discourages recent token repeats; `1.0` is off. |
 
 ![DeepJ Chat desktop interface](docs/chat-ui.png)
 
@@ -74,8 +83,7 @@ String answer = chat.generate("What is a computer?");
 The loader reads the tokenizer and checkpoint settings, applies the saved prompt format,
 and returns only the generated answer. `chat.stream(prompt, listener)` delivers partial
 answers as they are generated. Each call is independent; conversation history is not
-retained. Existing `ModelLoader` and `TextGenerator` APIs remain available for advanced
-use. Older checkpoints still require an explicitly constructed model.
+retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced use.
 
 ## Models
 
@@ -93,25 +101,6 @@ All three models share DeepJ's causal language-model API. They currently recalcu
 
 Download its `model.dj` and `tokenizer.bpe` files to try the quick start above or chat with it in the desktop UI. Frisky is experimental and can repeat itself or make factual mistakes; its model card has details and limitations. The [training examples](src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
 
-## Metal acceleration
-
-On Apple Silicon macOS, enable Metal when it is available:
-
-```java
-import io.github.kirstenali.deepj.tensor.Tensor;
-import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
-
-if (MetalBackend.isAvailable()) {
-    Tensor.setBackend(new MetalBackend());
-}
-```
-
-The CPU backend remains the portable default. Rebuild the bundled native library after editing Metal or JNI code:
-
-```bash
-./native/build-macos.sh
-```
-
 ## Verify the project
 
 Run the standard tests and code checks with JDK 20:
@@ -126,6 +115,8 @@ Maven installs a local Node runtime and checks the chat HTML, CSS, and JavaScrip
 JAVA_HOME=$(/usr/libexec/java_home -v 20) \
   mvn test -Dtest=ChatWindowTest -Ddeepj.uiTests=true
 ```
+
+After editing Metal or JNI code, rebuild the bundled native library with `./native/build-macos.sh`.
 
 The numerical tests compare gradients calculated by the model layers with estimates from small input changes. On supported Apple hardware, `MetalBackendDifferentialTest` also compares CPU and Metal forward passes, backward passes, and parameter gradients:
 
