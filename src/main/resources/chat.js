@@ -45,6 +45,7 @@ function setBusy(value) {
   busy = value;
   promptBox.disabled = value;
   ['composerModel', 'menuLoad'].forEach((id) => (element(id).disabled = value));
+  document.querySelectorAll('.alternatives-button').forEach((button) => (button.disabled = value));
   updateSend();
 }
 
@@ -114,6 +115,31 @@ function resetCopy(button) {
   button.setAttribute('aria-label', 'Copy response');
 }
 
+function addAlternativesButton(message, id) {
+  const button = document.createElement('button');
+  button.className = 'alternatives-button';
+  button.textContent = 'See alternative responses';
+  button.disabled = busy;
+  button.addEventListener('click', () => toggleAlternatives(message, button, id));
+  message.querySelector('.message-actions').append(button);
+}
+
+function toggleAlternatives(message, button, id) {
+  let panel = message.querySelector('.alternatives');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'alternatives';
+    panel.setAttribute('aria-label', 'Alternative responses');
+    message.append(panel);
+    chatBridge.alternatives(id);
+  } else panel.hidden = !panel.hidden;
+  button.textContent = panel.hidden ? 'See alternative responses' : 'Hide alternative responses';
+}
+
+function clearAlternativeActions() {
+  document.querySelectorAll('.alternatives-button').forEach((button) => button.remove());
+}
+
 function startResponse(prompt, id) {
   app.classList.remove('empty');
   addMessage('user', prompt);
@@ -125,7 +151,10 @@ function startResponse(prompt, id) {
 }
 
 function updateResponse(id, text) {
-  const response = element('response-' + id);
+  updateGenerated(element('response-' + id), text);
+}
+
+function updateGenerated(response, text) {
   if (!response) return;
   const follow = nearLatest();
   response.classList.remove('pending');
@@ -135,13 +164,59 @@ function updateResponse(id, text) {
 }
 
 function finishResponse(id, text) {
-  if (text && text.trim()) return updateResponse(id, text);
+  if (text && text.trim()) {
+    updateResponse(id, text);
+    addAlternativesButton(element('response-' + id), id);
+    return;
+  }
   element('response-' + id)?.remove();
   toast('No text generated. Try another prompt.');
 }
 
+function alternativeId(id, option) {
+  return 'response-' + id + '-alternative-' + option;
+}
+
+function startAlternative(id, option) {
+  const follow = nearLatest();
+  const alternative = document.createElement('div');
+  alternative.id = alternativeId(id, option);
+  alternative.className = 'alternative pending';
+  alternative.setAttribute('aria-label', 'Alternative response');
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  content.textContent = 'Thinking…';
+  alternative.append(content);
+  element('response-' + id)
+    .querySelector('.alternatives')
+    .append(alternative);
+  if (follow) followLatest();
+}
+
+function updateAlternative(id, option, text) {
+  updateGenerated(element(alternativeId(id, option)), text);
+}
+
+function finishAlternative(id, option, text) {
+  if (text && text.trim()) return updateAlternative(id, option, text);
+  failAlternative(id, option, 'No text generated.');
+}
+
+function failAlternative(id, option, message) {
+  showFailure(element(alternativeId(id, option)), message);
+}
+
+function stopAlternative(id, option) {
+  const alternative = element(alternativeId(id, option));
+  if (alternative?.classList.contains('pending')) alternative.remove();
+  toast('Generation stopped.');
+}
+
 function failResponse(id, message) {
-  const response = element('response-' + id);
+  showFailure(element('response-' + id), message);
+}
+
+function showFailure(response, message) {
   if (!response) return;
   response.classList.remove('pending');
   response.classList.add('error');
@@ -204,7 +279,7 @@ function closeModelMenu() {
 }
 
 function newChat() {
-  if (window.chatBridge) chatBridge.stop();
+  if (window.chatBridge) chatBridge.newChat();
   messages.replaceChildren();
   app.classList.add('empty');
   promptBox.value = '';

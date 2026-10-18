@@ -12,6 +12,8 @@ import javafx.stage.Stage;
 import netscape.javascript.JSObject;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,8 +30,10 @@ public final class ChatWindow {
     });
     private Task<String> activeGeneration;
     private int activeResponse;
+    private int activeAlternative = -1;
     private boolean busy;
     private int nextResponse;
+    private final Map<Integer, Request> requests = new HashMap<>();
 
     ChatWindow(Stage stage, WebView view, ChatService service) {
         this.stage = stage;
@@ -92,6 +96,8 @@ public final class ChatWindow {
     }
 
     private void modelLoaded() {
+        requests.clear();
+        call("clearAlternativeActions");
         call("setModel", service.getLoadedModelName());
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
@@ -119,6 +125,7 @@ public final class ChatWindow {
 
     private void startGeneration(String prompt, Settings settings) {
         int response = nextResponse++;
+        requests.put(response, new Request(prompt, settings));
         call("startResponse", prompt, response);
         call("setGenerating", true);
         setBusy(true);
@@ -158,18 +165,70 @@ public final class ChatWindow {
         finishGeneration();
     }
 
+    public void alternatives(int response) {
+        if (busy || !service.isModelLoaded()) return;
+        Request request = requests.remove(response);
+        if (request == null) return;
+        setBusy(true);
+        call("setGenerating", true);
+        startAlternative(response, 0, request);
+    }
+
+    private void startAlternative(int response, int option, Request request) {
+        Settings settings = option == 0 ? request.settings().withPenalty() : request.settings().withNewSeed();
+        call("startAlternative", response, option);
+        Task<String> task = generation(request.prompt(), settings);
+        activeGeneration = task;
+        activeResponse = response;
+        activeAlternative = option;
+        task.valueProperty().addListener((ob, old, text) -> partialAlternative(task, response, option, text));
+        task.setOnSucceeded(event -> completeAlternative(task, response, option, request));
+        task.setOnFailed(event -> failAlternative(task, response, option, request));
+        start(task);
+    }
+
+    private void partialAlternative(Task<String> task, int response, int option, String text) {
+        if (task == activeGeneration && text != null && !text.isEmpty()) {
+            call("updateAlternative", response, option, text);
+        }
+    }
+
+    private void completeAlternative(Task<String> task, int response, int option, Request request) {
+        if (task != activeGeneration) return;
+        call("finishAlternative", response, option, task.getValue());
+        nextAlternative(response, option, request);
+    }
+
+    private void failAlternative(Task<String> task, int response, int option, Request request) {
+        if (task != activeGeneration) return;
+        call("failAlternative", response, option, "Generation failed: " + message(task.getException()));
+        nextAlternative(response, option, request);
+    }
+
+    private void nextAlternative(int response, int option, Request request) {
+        if (option == 0) startAlternative(response, 1, request);
+        else finishGeneration();
+    }
+
     public void stop() {
         if (activeGeneration == null) return;
         Task<String> task = activeGeneration;
         int response = activeResponse;
         activeGeneration = null;
         task.cancel(true);
-        call("stopResponse", response);
+        if (activeAlternative < 0) call("stopResponse", response);
+        else call("stopAlternative", response, activeAlternative);
         finishGeneration();
+    }
+
+    public void newChat() {
+        stop();
+        requests.clear();
     }
 
     private void finishGeneration() {
         activeGeneration = null;
+        activeAlternative = -1;
         call("setGenerating", false);
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
@@ -214,5 +273,16 @@ public final class ChatWindow {
                 throw new IllegalArgumentException("Repetition penalty must be at least 1");
             }
         }
+
+        private Settings withPenalty() {
+            double penalty = repetitionPenalty == 2.0 ? 1.1 : Math.min(2.0, repetitionPenalty + 0.1);
+            return new Settings(maxTokens, temperature, topK, seed, penalty);
+        }
+
+        private Settings withNewSeed() {
+            return new Settings(maxTokens, temperature, topK, seed + 1, repetitionPenalty);
+        }
     }
+
+    private record Request(String prompt, Settings settings) {}
 }

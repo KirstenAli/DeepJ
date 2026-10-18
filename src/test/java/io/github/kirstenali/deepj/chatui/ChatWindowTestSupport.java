@@ -1,0 +1,68 @@
+package io.github.kirstenali.deepj.chatui;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.function.Consumer;
+
+final class ChatWindowTestSupport {
+
+    private ChatWindowTestSupport() {}
+
+    record Invocation(String prompt, int maxTokens, float temperature, int topK,
+                      long seed, float penalty) {}
+
+    static final class AlternativeService implements ChatService {
+        final CountDownLatch first = new CountDownLatch(1);
+        final CountDownLatch extra = new CountDownLatch(2);
+        final List<Invocation> calls = new CopyOnWriteArrayList<>();
+
+        @Override public void loadModel(Path modelPath) {}
+        @Override public boolean isModelLoaded() { return true; }
+        @Override public String getLoadedModelName() { return "stub.dj"; }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, Consumer<String> listener) {
+            return generate(prompt, maxTokens, temperature, topK, seed, 1.0f, listener);
+        }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, float penalty, Consumer<String> listener) {
+            calls.add(new Invocation(prompt, maxTokens, temperature, topK, seed, penalty));
+            String answer = "response-" + calls.size();
+            listener.accept(answer);
+            if (calls.size() == 1) first.countDown();
+            else extra.countDown();
+            return answer;
+        }
+    }
+
+    static final class BlockingService implements ChatService {
+        final CountDownLatch started = new CountDownLatch(1);
+        final CountDownLatch stopped = new CountDownLatch(1);
+        final CountDownLatch finished = new CountDownLatch(1);
+
+        @Override public void loadModel(Path modelPath) {}
+        @Override public boolean isModelLoaded() { return true; }
+        @Override public String getLoadedModelName() { return "stub.dj"; }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, Consumer<String> listener) {
+            if (prompt.equals("new")) {
+                finished.countDown();
+                return "new response";
+            }
+            started.countDown();
+            try {
+                Thread.sleep(30000);
+            } catch (InterruptedException ignored) {
+                stopped.countDown();
+            }
+            return "stale response";
+        }
+    }
+}

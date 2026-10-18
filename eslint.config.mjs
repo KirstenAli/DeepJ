@@ -8,6 +8,10 @@ const bridgeCallbacks = [
   'finishResponse',
   'failResponse',
   'stopResponse',
+  'clearAlternativeActions',
+  'startAlternative',
+  'finishAlternative',
+  'stopAlternative',
   'bridgeReady',
 ].join('|');
 
