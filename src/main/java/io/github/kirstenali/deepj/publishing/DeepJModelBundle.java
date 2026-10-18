@@ -206,8 +206,8 @@ public final class DeepJModelBundle {
     }
 
     private static String usageHeader() {
-        return "Use [DeepJ 0.9.7-alpha](https://central.sonatype.com/artifact/"
-                + "io.github.kirstenali/deepj/0.9.7-alpha) or newer:\n\n"
+        return "Use [DeepJ 0.9.8-alpha](https://central.sonatype.com/artifact/"
+                + "io.github.kirstenali/deepj/0.9.8-alpha) or newer:\n\n"
                 + dependency() + "Download this repository's `model.dj` and `tokenizer.bpe` "
                 + "into `downloaded-model`. Imports are omitted below.\n\n";
     }
@@ -218,7 +218,7 @@ public final class DeepJModelBundle {
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.9.7-alpha</version>
+                    <version>0.9.8-alpha</version>
                 </dependency>
                 ```
 
@@ -248,11 +248,12 @@ public final class DeepJModelBundle {
 
                 | Setting | What it changes |
                 |---|---|
-                | Temperature | Lower is more focused; higher is more varied. |
+                """ + "| Temperature | Lower values favor likely next tokens; "
+                + "higher values give other choices a better chance. |\n" + """
                 | Top-k | Samples from the top `k` token choices; `0` considers all. |
                 | Max tokens | Limits new tokens, not words. |
                 | Seed | Controls sampling randomness; changing it can change the response. |
-                | Repetition penalty | Above `1.0` discourages recent token repeats; `1.0` is off. |
-                """;
+                """ + "| Repetition penalty | Makes the model less likely to repeat itself. "
+                + "`1.0` turns it off; try `1.1` if responses loop. |\n";
     }
 }

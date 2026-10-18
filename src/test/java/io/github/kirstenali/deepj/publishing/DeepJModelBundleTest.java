@@ -103,15 +103,22 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("vocabulary.\n\nDeepJ Prism uses low-rank Q/KV attention"));
         assertTrue(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("## Usage"));
-        assertTrue(modelCard.contains("DeepJ 0.9.7-alpha"));
-        assertTrue(modelCard.contains("<version>0.9.7-alpha</version>"));
-        assertTrue(modelCard.contains("| Seed | Controls sampling randomness"));
-        assertTrue(modelCard.contains("| Repetition penalty | Above `1.0`"));
+        assertTrue(modelCard.contains("DeepJ 0.9.8-alpha"));
+        assertTrue(modelCard.contains("<version>0.9.8-alpha</version>"));
+        assertGenerationSettings(modelCard);
         assertTrue(modelCard.contains("desktop chat UI"));
         assertFalse(modelCard.contains("Use a DeepJ release that supports checkpoint format"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("DeepJChat.load(Path.of(\"downloaded-model\"))"));
         assertTrue(modelCard.contains("chat.generate(\"What is a computer?\")"));
+    }
+
+    private static void assertGenerationSettings(String modelCard) {
+        assertTrue(modelCard.contains("| Temperature | Lower values favor likely next tokens; "
+                + "higher values give other choices a better chance. |"));
+        assertTrue(modelCard.contains("| Seed | Controls sampling randomness"));
+        assertTrue(modelCard.contains("| Repetition penalty | Makes the model less likely to repeat itself. "
+                + "`1.0` turns it off; try `1.1` if responses loop. |"));
     }
 
     private static BPEModel tokenizer() {
