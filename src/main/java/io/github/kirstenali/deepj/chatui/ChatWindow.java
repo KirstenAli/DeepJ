@@ -117,13 +117,14 @@ public final class ChatWindow {
         if (busy || !service.isModelLoaded()) return;
         if (prompt == null || prompt.isBlank()) return;
         try {
-            startGeneration(prompt.trim(), new Settings(maxTokens, temperature, topK, seed, repetitionPenalty));
+            startGeneration(prompt.trim(),
+                    new ChatGenerationSettings(maxTokens, temperature, topK, seed, repetitionPenalty));
         } catch (IllegalArgumentException error) {
             call("setStatus", error.getMessage());
         }
     }
 
-    private void startGeneration(String prompt, Settings settings) {
+    private void startGeneration(String prompt, ChatGenerationSettings settings) {
         int response = nextResponse++;
         requests.put(response, new Request(prompt, settings));
         call("startResponse", prompt, response);
@@ -138,7 +139,7 @@ public final class ChatWindow {
         start(task);
     }
 
-    private Task<String> generation(String prompt, Settings settings) {
+    private Task<String> generation(String prompt, ChatGenerationSettings settings) {
         return new Task<>() {
             @Override protected String call() {
                 return service.generate(prompt, settings.maxTokens(), (float) settings.temperature(),
@@ -155,12 +156,14 @@ public final class ChatWindow {
 
     private void complete(Task<String> task, int response) {
         if (task != activeGeneration) return;
+        if (task.getValue() == null || task.getValue().isBlank()) requests.remove(response);
         call("finishResponse", response, task.getValue());
         finishGeneration();
     }
 
     private void failed(Task<String> task, int response) {
         if (task != activeGeneration) return;
+        requests.remove(response);
         call("failResponse", response, "Generation failed: " + message(task.getException()));
         finishGeneration();
     }
@@ -175,7 +178,8 @@ public final class ChatWindow {
     }
 
     private void startAlternative(int response, int option, Request request) {
-        Settings settings = option == 0 ? request.settings().withPenalty() : request.settings().withNewSeed();
+        ChatGenerationSettings settings = option == 0
+                ? request.settings().withPenalty() : request.settings().withNewSeed();
         call("startAlternative", response, option);
         Task<String> task = generation(request.prompt(), settings);
         activeGeneration = task;
@@ -216,8 +220,12 @@ public final class ChatWindow {
         int response = activeResponse;
         activeGeneration = null;
         task.cancel(true);
-        if (activeAlternative < 0) call("stopResponse", response);
-        else call("stopAlternative", response, activeAlternative);
+        if (activeAlternative < 0) {
+            requests.remove(response);
+            call("stopResponse", response);
+        } else {
+            call("stopAlternative", response, activeAlternative);
+        }
         finishGeneration();
     }
 
@@ -261,28 +269,5 @@ public final class ChatWindow {
         worker.execute(task);
     }
 
-    private record Settings(int maxTokens, double temperature, int topK, long seed,
-                            double repetitionPenalty) {
-        private Settings {
-            if (maxTokens < 1) throw new IllegalArgumentException("Maximum tokens must be positive");
-            if (!Double.isFinite(temperature) || temperature <= 0) {
-                throw new IllegalArgumentException("Temperature must be positive");
-            }
-            if (topK < 0) throw new IllegalArgumentException("Top-k cannot be negative");
-            if (!Double.isFinite(repetitionPenalty) || repetitionPenalty < 1.0) {
-                throw new IllegalArgumentException("Repetition penalty must be at least 1");
-            }
-        }
-
-        private Settings withPenalty() {
-            double penalty = repetitionPenalty == 2.0 ? 1.1 : Math.min(2.0, repetitionPenalty + 0.1);
-            return new Settings(maxTokens, temperature, topK, seed, penalty);
-        }
-
-        private Settings withNewSeed() {
-            return new Settings(maxTokens, temperature, topK, seed + 1, repetitionPenalty);
-        }
-    }
-
-    private record Request(String prompt, Settings settings) {}
+    private record Request(String prompt, ChatGenerationSettings settings) {}
 }
