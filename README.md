@@ -43,6 +43,8 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ## Desktop chat
 
+![DeepJ Chat desktop interface](docs/chat-ui.png)
+
 The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and keeps generation settings tucked away.
 It automatically uses Metal on supported Apple GPUs and falls back to the CPU elsewhere.
 
@@ -55,8 +57,6 @@ Under Settings → Generation settings:
 | Max tokens | Limits how many new tokens are generated; they are not words. |
 | Seed | Controls sampling randomness; changing it can change the response. |
 | Repetition penalty | Makes the model less likely to repeat itself. `1.0` turns it off; try `1.1` if responses loop. |
-
-![DeepJ Chat desktop interface](docs/chat-ui.png)
 
 Run it from this repository with JDK 20 or newer:
 
