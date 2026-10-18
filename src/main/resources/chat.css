@@ -372,10 +372,43 @@ svg {
   width: 17px;
   height: 17px;
 }
+.alternatives-button {
+  margin-left: 6px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+.alternatives-button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.alternatives-button:disabled {
+  opacity: 0.55;
+}
+.alternatives {
+  margin-top: 12px;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+.alternative {
+  padding: 12px 0;
+}
+.alternative + .alternative {
+  border-top: 1px solid var(--line);
+}
 .message.pending .message-content {
   color: var(--muted);
 }
+.alternative.pending .message-content {
+  color: var(--muted);
+}
 .message.error .message-content {
+  color: #b84646;
+}
+.alternative.error .message-content {
   color: #b84646;
 }
 ::selection {

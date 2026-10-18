@@ -12,6 +12,8 @@ import javafx.stage.Stage;
 import netscape.javascript.JSObject;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,8 +30,10 @@ public final class ChatWindow {
     });
     private Task<String> activeGeneration;
     private int activeResponse;
+    private int activeAlternative = -1;
     private boolean busy;
     private int nextResponse;
+    private final Map<Integer, Request> requests = new HashMap<>();
 
     ChatWindow(Stage stage, WebView view, ChatService service) {
         this.stage = stage;
@@ -92,6 +96,8 @@ public final class ChatWindow {
     }
 
     private void modelLoaded() {
+        requests.clear();
+        call("clearAlternativeActions");
         call("setModel", service.getLoadedModelName());
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
@@ -111,14 +117,16 @@ public final class ChatWindow {
         if (busy || !service.isModelLoaded()) return;
         if (prompt == null || prompt.isBlank()) return;
         try {
-            startGeneration(prompt.trim(), new Settings(maxTokens, temperature, topK, seed, repetitionPenalty));
+            startGeneration(prompt.trim(),
+                    new ChatGenerationSettings(maxTokens, temperature, topK, seed, repetitionPenalty));
         } catch (IllegalArgumentException error) {
             call("setStatus", error.getMessage());
         }
     }
 
-    private void startGeneration(String prompt, Settings settings) {
+    private void startGeneration(String prompt, ChatGenerationSettings settings) {
         int response = nextResponse++;
+        requests.put(response, new Request(prompt, settings));
         call("startResponse", prompt, response);
         call("setGenerating", true);
         setBusy(true);
@@ -131,7 +139,7 @@ public final class ChatWindow {
         start(task);
     }
 
-    private Task<String> generation(String prompt, Settings settings) {
+    private Task<String> generation(String prompt, ChatGenerationSettings settings) {
         return new Task<>() {
             @Override protected String call() {
                 return service.generate(prompt, settings.maxTokens(), (float) settings.temperature(),
@@ -148,14 +156,62 @@ public final class ChatWindow {
 
     private void complete(Task<String> task, int response) {
         if (task != activeGeneration) return;
+        if (task.getValue() == null || task.getValue().isBlank()) requests.remove(response);
         call("finishResponse", response, task.getValue());
         finishGeneration();
     }
 
     private void failed(Task<String> task, int response) {
         if (task != activeGeneration) return;
+        requests.remove(response);
         call("failResponse", response, "Generation failed: " + message(task.getException()));
         finishGeneration();
+    }
+
+    public void alternatives(int response) {
+        if (busy || !service.isModelLoaded()) return;
+        Request request = requests.remove(response);
+        if (request == null) return;
+        setBusy(true);
+        call("setGenerating", true);
+        startAlternative(response, 0, request);
+    }
+
+    private void startAlternative(int response, int option, Request request) {
+        ChatGenerationSettings settings = option == 0
+                ? request.settings().withPenalty() : request.settings().withNewSeed();
+        call("startAlternative", response, option);
+        Task<String> task = generation(request.prompt(), settings);
+        activeGeneration = task;
+        activeResponse = response;
+        activeAlternative = option;
+        task.valueProperty().addListener((ob, old, text) -> partialAlternative(task, response, option, text));
+        task.setOnSucceeded(event -> completeAlternative(task, response, option, request));
+        task.setOnFailed(event -> failAlternative(task, response, option, request));
+        start(task);
+    }
+
+    private void partialAlternative(Task<String> task, int response, int option, String text) {
+        if (task == activeGeneration && text != null && !text.isEmpty()) {
+            call("updateAlternative", response, option, text);
+        }
+    }
+
+    private void completeAlternative(Task<String> task, int response, int option, Request request) {
+        if (task != activeGeneration) return;
+        call("finishAlternative", response, option, task.getValue());
+        nextAlternative(response, option, request);
+    }
+
+    private void failAlternative(Task<String> task, int response, int option, Request request) {
+        if (task != activeGeneration) return;
+        call("failAlternative", response, option, "Generation failed: " + message(task.getException()));
+        nextAlternative(response, option, request);
+    }
+
+    private void nextAlternative(int response, int option, Request request) {
+        if (option == 0) startAlternative(response, 1, request);
+        else finishGeneration();
     }
 
     public void stop() {
@@ -164,12 +220,23 @@ public final class ChatWindow {
         int response = activeResponse;
         activeGeneration = null;
         task.cancel(true);
-        call("stopResponse", response);
+        if (activeAlternative < 0) {
+            requests.remove(response);
+            call("stopResponse", response);
+        } else {
+            call("stopAlternative", response, activeAlternative);
+        }
         finishGeneration();
+    }
+
+    public void newChat() {
+        stop();
+        requests.clear();
     }
 
     private void finishGeneration() {
         activeGeneration = null;
+        activeAlternative = -1;
         call("setGenerating", false);
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
@@ -202,17 +269,5 @@ public final class ChatWindow {
         worker.execute(task);
     }
 
-    private record Settings(int maxTokens, double temperature, int topK, long seed,
-                            double repetitionPenalty) {
-        private Settings {
-            if (maxTokens < 1) throw new IllegalArgumentException("Maximum tokens must be positive");
-            if (!Double.isFinite(temperature) || temperature <= 0) {
-                throw new IllegalArgumentException("Temperature must be positive");
-            }
-            if (topK < 0) throw new IllegalArgumentException("Top-k cannot be negative");
-            if (!Double.isFinite(repetitionPenalty) || repetitionPenalty < 1.0) {
-                throw new IllegalArgumentException("Repetition penalty must be at least 1");
-            }
-        }
-    }
+    private record Request(String prompt, ChatGenerationSettings settings) {}
 }

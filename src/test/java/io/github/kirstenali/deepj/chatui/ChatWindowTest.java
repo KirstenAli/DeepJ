@@ -1,5 +1,8 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.AlternativeService;
+import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.BlockingService;
+import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.Invocation;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.event.Event;
@@ -13,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -135,6 +139,39 @@ class ChatWindowTest {
         Thread.sleep(200);
         verify(fixture, view -> assertEquals("A short answer",
                 script(view, "document.querySelector('.assistant .message-content').textContent")));
+    }
+
+    @Test
+    void alternativesKeepTheOriginalAndChangeOneSettingAtATime() throws Exception {
+        AlternativeService service = new AlternativeService();
+        Fixture fixture = open(service);
+        verifyWithoutClosing(fixture, view -> script(view,
+                "setModel('stub.dj'); chatBridge.send('Hello', 80, 0.8, 40, 1234, 1)"));
+        assertTrue(service.first.await(10, TimeUnit.SECONDS));
+        Thread.sleep(200);
+        verifyWithoutClosing(fixture, view -> script(view,
+                "document.querySelector('.alternatives-button').click()"));
+        assertTrue(service.extra.await(10, TimeUnit.SECONDS));
+        Thread.sleep(200);
+        verify(fixture, ChatWindowTest::assertAlternativesVisible);
+        assertEquals(List.of(new Invocation("Hello", 80, 0.8f, 40, 1234, 1.0f),
+                new Invocation("Hello", 80, 0.8f, 40, 1234, 1.1f),
+                new Invocation("Hello", 80, 0.8f, 40, 1235, 1.0f)), service.calls);
+    }
+
+    private static void assertAlternativesVisible(WebView view) {
+        assertEquals("response-1", script(view,
+                "document.querySelector('.message.assistant > .message-content').textContent"));
+        assertEquals(2, ((Number) script(view, "document.querySelectorAll('.alternative').length")).intValue());
+        assertEquals("response-2,response-3", script(view,
+                "[...document.querySelectorAll('.alternative .message-content')]"
+                        + ".map(node => node.textContent).join(',')"));
+        assertEquals(1, ((Number) script(view, "document.querySelectorAll('.message.user').length")).intValue());
+        assertEquals(3, copyCount(view));
+        script(view, "document.querySelector('.alternatives-button').click()");
+        assertEquals(true, script(view, "document.querySelector('.alternatives').hidden"));
+        script(view, "document.querySelector('.alternatives-button').click()");
+        assertEquals(2, ((Number) script(view, "document.querySelectorAll('.alternative').length")).intValue());
     }
 
     @Test
@@ -287,29 +324,4 @@ class ChatWindowTest {
         }
     }
 
-    private static final class BlockingService implements ChatService {
-        private final CountDownLatch started = new CountDownLatch(1);
-        private final CountDownLatch stopped = new CountDownLatch(1);
-        private final CountDownLatch finished = new CountDownLatch(1);
-
-        @Override public void loadModel(Path modelPath) {}
-        @Override public boolean isModelLoaded() { return true; }
-        @Override public String getLoadedModelName() { return "stub.dj"; }
-
-        @Override
-        public String generate(String prompt, int maxTokens, float temperature, int topK,
-                               long seed, Consumer<String> listener) {
-            if (prompt.equals("new")) {
-                finished.countDown();
-                return "new response";
-            }
-            started.countDown();
-            try {
-                Thread.sleep(30000);
-            } catch (InterruptedException ignored) {
-                stopped.countDown();
-            }
-            return "stale response";
-        }
-    }
 }
