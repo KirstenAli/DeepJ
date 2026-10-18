@@ -52,7 +52,7 @@ Under Settings → Generation settings:
 
 | Setting | What it changes |
 |---|---|
-| Temperature | Lower is more focused; higher is more varied. |
+| Temperature | Controls the degree of randomness in token selection. |
 | Top-k | Samples from the top `k` token choices; `0` considers all. |
 | Max tokens | Limits how many new tokens are generated; they are not words. |
 | Seed | Controls sampling randomness; changing it can change the response. |

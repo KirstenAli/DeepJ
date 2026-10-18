@@ -105,14 +105,19 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("## Usage"));
         assertTrue(modelCard.contains("DeepJ 0.9.8-alpha"));
         assertTrue(modelCard.contains("<version>0.9.8-alpha</version>"));
-        assertTrue(modelCard.contains("| Seed | Controls sampling randomness"));
-        assertTrue(modelCard.contains("| Repetition penalty | Makes the model less likely to repeat itself. "
-                + "`1.0` turns it off; try `1.1` if responses loop. |"));
+        assertGenerationSettings(modelCard);
         assertTrue(modelCard.contains("desktop chat UI"));
         assertFalse(modelCard.contains("Use a DeepJ release that supports checkpoint format"));
         assertFalse(modelCard.contains("tree/deepj-0.6-tinystories-release"));
         assertTrue(modelCard.contains("DeepJChat.load(Path.of(\"downloaded-model\"))"));
         assertTrue(modelCard.contains("chat.generate(\"What is a computer?\")"));
+    }
+
+    private static void assertGenerationSettings(String modelCard) {
+        assertTrue(modelCard.contains("| Temperature | Controls the degree of randomness in token selection. |"));
+        assertTrue(modelCard.contains("| Seed | Controls sampling randomness"));
+        assertTrue(modelCard.contains("| Repetition penalty | Makes the model less likely to repeat itself. "
+                + "`1.0` turns it off; try `1.1` if responses loop. |"));
     }
 
     private static BPEModel tokenizer() {
