@@ -248,7 +248,8 @@ public final class DeepJModelBundle {
 
                 | Setting | What it changes |
                 |---|---|
-                | Temperature | Controls the degree of randomness in token selection. |
+                """ + "| Temperature | Lower values favor likely next tokens; "
+                + "higher values give other choices a better chance. |\n" + """
                 | Top-k | Samples from the top `k` token choices; `0` considers all. |
                 | Max tokens | Limits new tokens, not words. |
                 | Seed | Controls sampling randomness; changing it can change the response. |

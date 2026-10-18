@@ -114,7 +114,8 @@ class DeepJModelBundleTest {
     }
 
     private static void assertGenerationSettings(String modelCard) {
-        assertTrue(modelCard.contains("| Temperature | Controls the degree of randomness in token selection. |"));
+        assertTrue(modelCard.contains("| Temperature | Lower values favor likely next tokens; "
+                + "higher values give other choices a better chance. |"));
         assertTrue(modelCard.contains("| Seed | Controls sampling randomness"));
         assertTrue(modelCard.contains("| Repetition penalty | Makes the model less likely to repeat itself. "
                 + "`1.0` turns it off; try `1.1` if responses loop. |"));
