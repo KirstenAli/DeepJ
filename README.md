@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.9.7-alpha</version>
+    <version>0.9.8-alpha</version>
 </dependency>
 ```
 
@@ -54,7 +54,7 @@ Under Settings → Generation settings:
 | Top-k | Samples from the top `k` token choices; `0` considers all. |
 | Max tokens | Limits how many new tokens are generated; they are not words. |
 | Seed | Controls sampling randomness; changing it can change the response. |
-| Repetition penalty | Above `1.0` discourages recent token repeats; `1.0` is off. |
+| Repetition penalty | Makes the model less likely to repeat itself. `1.0` turns it off; try `1.1` if responses loop. |
 
 ![DeepJ Chat desktop interface](docs/chat-ui.png)
 
@@ -97,33 +97,9 @@ All three models share DeepJ's causal language-model API. They currently recalcu
 
 ## Frisky 90M
 
-[Meet Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning. It puts DeepJ's Java training pipeline and Apple Metal backend to work beyond small examples.
+Meet [Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning.
 
 Download its `model.dj` and `tokenizer.bpe` files to try the quick start above or chat with it in the desktop UI. Frisky is experimental and can repeat itself or make factual mistakes; its model card has details and limitations. The [training examples](src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
-
-## Verify the project
-
-Run the standard tests and code checks with JDK 20:
-
-```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean verify
-```
-
-Maven installs a local Node runtime and checks the chat HTML, CSS, and JavaScript for formatting, errors, short functions, and duplicate code. JavaFX window tests need a desktop session and can be run separately:
-
-```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 20) \
-  mvn test -Dtest=ChatWindowTest -Ddeepj.uiTests=true
-```
-
-After editing Metal or JNI code, rebuild the bundled native library with `./native/build-macos.sh`.
-
-The numerical tests compare gradients calculated by the model layers with estimates from small input changes. On supported Apple hardware, `MetalBackendDifferentialTest` also compares CPU and Metal forward passes, backward passes, and parameter gradients:
-
-```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 20) \
-  mvn test -Dtest=MetalBackendDifferentialTest
-```
 
 ## Current limitations
 
