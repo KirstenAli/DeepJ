@@ -3,7 +3,6 @@ package io.github.kirstenali.deepj.examples;
 import io.github.kirstenali.deepj.data.IndexedResponseTextDataset;
 import io.github.kirstenali.deepj.data.ResponseOnlyTextDataset;
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -31,7 +30,7 @@ final class ResponseOnlyFineTuner {
     private ResponseOnlyFineTuner() {}
 
     static TrainingResult run(ResponseFineTuningConfig config) throws Exception {
-        var artifacts = DeepJPrismArtifacts.load(
+        var artifacts = DecoderArtifacts.load(
                 config.files().base(), config.files().initialModel());
         printInitialModel(config);
         prepareOutput(config, artifacts.model());
@@ -40,7 +39,7 @@ final class ResponseOnlyFineTuner {
         }
     }
 
-    private static TrainingResult train(ResponseFineTuningConfig config, DeepJPrism model,
+    private static TrainingResult train(ResponseFineTuningConfig config, DecoderOnlyModel model,
                                         Resources resources) throws Exception {
         var options = config.training();
         var progress = loadProgress(config, model, resources);
@@ -54,7 +53,7 @@ final class ResponseOnlyFineTuner {
     }
 
     private static TrainingProgress loadProgress(ResponseFineTuningConfig config,
-                                                 DeepJPrism model, Resources resources)
+                                                 DecoderOnlyModel model, Resources resources)
             throws IOException {
         Path resume = config.files().resume();
         if (resume == null) return TrainingProgress.initial();
@@ -65,20 +64,20 @@ final class ResponseOnlyFineTuner {
         return progress;
     }
 
-    private static TrainingProgress loadWeights(DeepJPrism model, Path checkpoint)
+    private static TrainingProgress loadWeights(DecoderOnlyModel model, Path checkpoint)
             throws IOException {
         model.load(checkpoint);
         System.out.println("Loaded initial weights from " + checkpoint);
         return TrainingProgress.initial();
     }
 
-    private static Trainer.StepHook hook(ResponseFineTuningConfig config, DeepJPrism model,
+    private static Trainer.StepHook hook(ResponseFineTuningConfig config, DecoderOnlyModel model,
                                          Resources resources) {
         return (step, loss, ema) -> afterStep(config, model, resources,
                 new TrainingProgress(step + 1, loss, ema));
     }
 
-    private static void afterStep(ResponseFineTuningConfig config, DeepJPrism model,
+    private static void afterStep(ResponseFineTuningConfig config, DecoderOnlyModel model,
                                   Resources resources, TrainingProgress progress)
             throws IOException {
         resources.optimizer().setLr(resources.schedule().learningRate(progress.completedSteps()));
@@ -88,14 +87,14 @@ final class ResponseOnlyFineTuner {
         }
     }
 
-    private static void saveCheckpoint(Path output, DeepJPrism model, Resources resources,
+    private static void saveCheckpoint(Path output, DecoderOnlyModel model, Resources resources,
                                        TrainingProgress progress) throws IOException {
         TrainingCheckpoint.save(model.parameters(), resources.optimizer(), resources.dataset(),
                 progress, resources.schedule(), output.resolve(LATEST_TRAINING));
         model.save(output.resolve(LATEST_MODEL));
     }
 
-    private static void prepareOutput(ResponseFineTuningConfig config, DeepJPrism model)
+    private static void prepareOutput(ResponseFineTuningConfig config, DecoderOnlyModel model)
             throws IOException {
         Files.createDirectories(config.files().output());
         ensureCheckpointSpace(config.files().output(), model);
@@ -108,7 +107,7 @@ final class ResponseOnlyFineTuner {
         if (!source.equals(target)) Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
     }
 
-    private static void ensureCheckpointSpace(Path output, DeepJPrism model) throws IOException {
+    private static void ensureCheckpointSpace(Path output, DecoderOnlyModel model) throws IOException {
         long bytes = model.parameters().stream()
                 .mapToLong(parameter -> (long) parameter.value.data.length * Float.BYTES + 8L).sum();
         long required = bytes * 7L + 16L * 1024L * 1024L;
@@ -160,7 +159,7 @@ final class ResponseOnlyFineTuner {
                              AutoCloseable closeable) implements AutoCloseable {
 
         private Resources(ResponseFineTuningConfig config,
-                          DeepJPrismArtifacts.Loaded artifacts) throws IOException {
+                          DecoderArtifacts.Loaded artifacts) throws IOException {
             this(dataset(config, artifacts), optimizer(config), schedule(config));
         }
 
@@ -171,7 +170,7 @@ final class ResponseOnlyFineTuner {
         }
 
         private static DatasetHandle dataset(ResponseFineTuningConfig config,
-                                             DeepJPrismArtifacts.Loaded artifacts)
+                                             DecoderArtifacts.Loaded artifacts)
                 throws IOException {
             long bytes = sourceBytes(config);
             if (bytes >= INDEXED_DATASET_THRESHOLD) return indexed(config, artifacts);
@@ -189,7 +188,7 @@ final class ResponseOnlyFineTuner {
         }
 
         private static DatasetHandle indexed(ResponseFineTuningConfig config,
-                                             DeepJPrismArtifacts.Loaded artifacts)
+                                             DecoderArtifacts.Loaded artifacts)
                 throws IOException {
             var dataset = new IndexedResponseTextDataset(config.sources(), artifacts.tokenizer(),
                     artifacts.config().maxSeqLen(), config.seed());

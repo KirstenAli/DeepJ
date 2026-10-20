@@ -2,6 +2,8 @@ package io.github.kirstenali.deepj.layers.transformer;
 
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.Linear;
+import io.github.kirstenali.deepj.layers.BiasFreeLinear;
+import io.github.kirstenali.deepj.layers.Projection;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.SwiGluBackwardResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -12,20 +14,28 @@ import java.util.Random;
 
 public final class SwiGLULayer implements Layer {
 
-    private final Linear gateProj;
-    private final Linear upProj;
-    private final Linear downProj;
+    private final Projection gateProj;
+    private final Projection upProj;
+    private final Projection downProj;
 
     private Tensor gateOut;
     private Tensor upOut;
 
     public SwiGLULayer(int dModel, int dFF, Random rnd) {
+        this(dModel, dFF, rnd, true);
+    }
+
+    public SwiGLULayer(int dModel, int dFF, Random rnd, boolean bias) {
         if (dModel <= 0) throw new IllegalArgumentException("dModel must be > 0");
         if (dFF    <= 0) throw new IllegalArgumentException("dFF must be > 0");
 
-        this.gateProj = new Linear(dModel, dFF, rnd);
-        this.upProj   = new Linear(dModel, dFF, rnd);
-        this.downProj = new Linear(dFF, dModel, rnd);
+        this.gateProj = projection(dModel, dFF, rnd, bias);
+        this.upProj   = projection(dModel, dFF, rnd, bias);
+        this.downProj = projection(dFF, dModel, rnd, bias);
+    }
+
+    private static Projection projection(int input, int output, Random random, boolean bias) {
+        return bias ? new Linear(input, output, random) : new BiasFreeLinear(input, output, random);
     }
 
     @Override

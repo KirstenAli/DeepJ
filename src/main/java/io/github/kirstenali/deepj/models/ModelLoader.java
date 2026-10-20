@@ -6,6 +6,8 @@ import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.models.nova.DeepJNova;
+import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.persistence.ModelSettings;
 
@@ -28,6 +30,7 @@ public final class ModelLoader {
         if (config instanceof DeepJOriginConfig origin) return new DeepJOrigin(origin, 42L);
         if (config instanceof DeepJOrbitConfig orbit) return new DeepJOrbit(orbit, 42L);
         if (config instanceof DeepJPrismConfig prism) return new DeepJPrism(prism, 42L);
+        if (config instanceof DeepJNovaConfig nova) return new DeepJNova(nova, 42L);
         throw new IOException("Unsupported model configuration");
     }
 }

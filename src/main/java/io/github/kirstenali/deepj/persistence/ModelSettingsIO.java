@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.models.TransformerConfig;
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -25,6 +26,10 @@ final class ModelSettingsIO {
             output.writeInt(prism.qRank());
             output.writeInt(prism.kvRank());
         }
+        if (config instanceof DeepJNovaConfig nova) {
+            output.writeInt(nova.kvHeads());
+            output.writeBoolean(nova.qkNorm());
+        }
         output.writeByte(settings.promptFormat() == PromptFormat.PLAIN ? 0 : 1);
         writeMetadata(output, settings.metadata());
     }
@@ -42,6 +47,7 @@ final class ModelSettingsIO {
         if (config instanceof DeepJOriginConfig) return 1;
         if (config instanceof DeepJOrbitConfig) return 2;
         if (config instanceof DeepJPrismConfig) return 3;
+        if (config instanceof DeepJNovaConfig) return 4;
         throw new IllegalArgumentException("Unsupported model configuration");
     }
 
@@ -92,6 +98,7 @@ final class ModelSettingsIO {
             case 1 -> values.origin();
             case 2 -> values.orbit();
             case 3 -> values.prism(input.readInt(), input.readInt());
+            case 4 -> values.nova(input.readInt(), input.readBoolean());
             default -> throw new IOException("Unsupported model type: " + type);
         };
     }
@@ -118,6 +125,11 @@ final class ModelSettingsIO {
         DeepJPrismConfig prism(int qRank, int kvRank) {
             return new DeepJPrismConfig(vocab, sequence, width, heads, layers, feedForward,
                     qRank, kvRank, scale, clip);
+        }
+
+        DeepJNovaConfig nova(int kvHeads, boolean qkNorm) {
+            return new DeepJNovaConfig(vocab, sequence, width, heads, kvHeads, layers, feedForward,
+                    qkNorm, scale, clip);
         }
     }
 }
