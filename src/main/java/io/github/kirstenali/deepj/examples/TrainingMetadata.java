@@ -22,6 +22,7 @@ final class TrainingMetadata {
         float peakLearningRate();
         float minimumLearningRate();
         int warmupSteps();
+        int logEvery();
         int checkpointEvery();
         int releaseEvery();
     }

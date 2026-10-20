@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes built-in gradient calculations, three trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes built-in gradient calculations, four trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
 
 DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
@@ -35,6 +35,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - DeepJ Origin with learned positions, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
+- DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - Bounded-memory sequential, random-access, and response-only datasets.
@@ -92,8 +93,11 @@ retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced u
 | `DeepJOrigin` | Learned positions, causal multi-head attention, LayerNorm, GELU MLP |
 | `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
 | `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
+| `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |
 
-All three models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
+All four models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
+
+Nova's [100M training example](docs/nova.md) reuses Frisky's prepared datasets and tokenizer while saving separate checkpoints. The candidate has 99,711,552 parameters; its quality and Metal throughput must be evaluated before a full training run.
 
 ## Frisky 90M
 

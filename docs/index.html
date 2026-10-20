@@ -6,7 +6,7 @@
     <meta name="description" content="DeepJ is a compact Java tensor and Transformer library with built-in gradient calculations and optional Apple Metal acceleration.">
     <meta name="theme-color" content="#07111f">
     <meta property="og:title" content="DeepJ — tensors and Transformers in Java">
-    <meta property="og:description" content="Build, train, and inspect DeepJ Origin, Orbit, and Prism models on the JVM.">
+    <meta property="og:description" content="Build, train, and inspect DeepJ Origin, Orbit, Prism, and Nova models on the JVM.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://kirstenali.github.io/DeepJ/">
     <link rel="canonical" href="https://kirstenali.github.io/DeepJ/">
@@ -39,7 +39,7 @@
             <div class="hero-copy">
                 <p class="eyebrow"><span class="status-dot"></span> 0.9.9-alpha · Java 20+</p>
                 <h1>Tensors and compact Transformers, <span>built for Java.</span></h1>
-                <p class="hero-lede">Learn, train, and inspect DeepJ Origin, Orbit, and Prism decoder models without leaving the JVM. Run anywhere on CPU or opt into Metal on Apple Silicon.</p>
+                <p class="hero-lede">Learn, train, and inspect DeepJ Origin, Orbit, Prism, and Nova decoder models without leaving the JVM. Run anywhere on CPU or opt into Metal on Apple Silicon.</p>
                 <div class="hero-actions">
                     <a class="button button-primary" href="#install">Install DeepJ</a>
                     <a class="button button-secondary" href="api/">Browse the API</a>
@@ -89,8 +89,8 @@
                 </article>
                 <article class="feature-card">
                     <span class="feature-number">02</span>
-                    <h3>Three model families</h3>
-                    <p>DeepJ Origin, Orbit, and Prism decoder architectures behind a shared causal-LM API.</p>
+                    <h3>Four model families</h3>
+                    <p>DeepJ Origin, Orbit, Prism, and Nova decoder architectures behind a shared causal-LM API.</p>
                 </article>
                 <article class="feature-card">
                     <span class="feature-number">03</span>
@@ -137,7 +137,7 @@ String answer = chat.generate(
     <section class="section section-muted" id="models">
         <div class="shell">
             <p class="section-label">Architectures</p>
-            <h2>One learning-focused library, three approaches</h2>
+            <h2>One learning-focused library, four approaches</h2>
             <div class="model-grid">
                 <article class="model-card">
                     <p class="model-name">DeepJ Origin</p>
@@ -153,6 +153,11 @@ String answer = chat.generate(
                     <p class="model-name">DeepJ Prism</p>
                     <h3>Low-rank attention</h3>
                     <p>Low-rank query and key/value projections with RoPE, RMSNorm, and SwiGLU.</p>
+                </article>
+                <article class="model-card">
+                    <p class="model-name">DeepJ Nova</p>
+                    <h3>Grouped-query attention</h3>
+                    <p>Shared input/output embeddings, optional QK normalization, RoPE, RMSNorm, and bias-free SwiGLU.</p>
                 </article>
             </div>
             <p class="model-note">Each compact family offers a different Transformer design while using the same DeepJ training and generation APIs.</p>

@@ -9,6 +9,8 @@ import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
 import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
+import io.github.kirstenali.deepj.models.nova.DeepJNova;
+import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
 import io.github.kirstenali.deepj.tensor.RmsNormResult;
@@ -33,6 +35,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
+    @Test
+    void novaForwardBackwardAndSharedParameterGradientsMatchCpu() {
+        compareModel(() -> new DeepJNova(new DeepJNovaConfig(11, 4, 8, 4, 2, 2, 12), 26L));
+    }
+
+    @Test
+    void novaDoesNotDownloadAttentionOrNormalizationIntermediates() {
+        AtomicInteger downloads = new AtomicInteger();
+        DecoderOnlyModel model = new DeepJNova(new DeepJNovaConfig(11, 4, 8, 4, 2, 1, 12), 27L);
+        Tensor.setBackend(countingBackend(downloads));
+        model.backward(model.forward(new int[]{1, 3, 5}).multiplyScalar(0.25f));
+        assertEquals(0, downloads.get());
+    }
+
     @Test
     void originForwardBackwardAndParameterGradientsMatchCpu() {
         compareModel(() -> new DeepJOrigin(new DeepJOriginConfig(11, 4, 4, 2, 1, 6), 21L));

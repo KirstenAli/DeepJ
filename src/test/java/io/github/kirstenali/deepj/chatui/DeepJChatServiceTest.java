@@ -2,6 +2,9 @@ package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.models.nova.DeepJNova;
+import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETrainer;
@@ -30,6 +33,19 @@ class DeepJChatServiceTest {
         service.loadModel(directory.resolve("model.dj"));
         assertTrue(service.isModelLoaded());
         assertDoesNotThrow(() -> service.generate("Hello", 2, 0.8f, 40, 1L, 1.15f, text -> {}));
+    }
+
+    @Test
+    void loadsAndStreamsNovaUsingItsEmbeddedSettings() throws Exception {
+        var tokenizer = new BPETrainer().trainTokenizerWithDefaults("hello world deepj", 280).model();
+        BPEModelIO.save(directory.resolve("tokenizer.bpe"), tokenizer);
+        var model = new DeepJNova(new DeepJNovaConfig(tokenizer.vocabSize(), 64, 8, 4, 2, 1, 12), 2L);
+        model.setPromptFormat(PromptFormat.INSTRUCTION_RESPONSE);
+        model.save(directory.resolve("model.dj"));
+        var service = new DeepJChatService();
+        service.loadModel(directory.resolve("model.dj"));
+        assertTrue(service.isModelLoaded());
+        assertDoesNotThrow(() -> service.generate("Hello", 2, 0.8f, 40, 1L, 1.1f, text -> {}));
     }
 
     @Test
