@@ -83,6 +83,16 @@ class DeepJNovaTrainingRunnerTest {
         }
     }
 
+    @Test
+    void pretrainingBudgetScalesUpWithoutIncreasingPostTrainingBudgets() {
+        var config = DeepJ100MConfig.fromSystemProperties(DeepJ100MStage.PRETRAIN);
+        assertEquals(2_000_000, config.training().steps());
+        long tokensPerStep = (long) config.training().batchSize() * config.architecture().maxSeqLen();
+        assertEquals(2_048_000_000L, config.training().steps() * tokensPerStep);
+        assertEquals(256_000, DeepJ100MStage.MIDTRAIN.steps);
+        assertEquals(22_500, DeepJ100MStage.FINE_TUNE.steps);
+    }
+
     private DeepJ100MConfig config(DeepJ100MStage stage, Path base, Path output, Path resume) {
         var options = new TrainingOptions(3, 1, 1e-3f, 1e-4f, 1, 1, 2, 0);
         return new DeepJ100MConfig(stage, architecture(), options, corpus, base, output,

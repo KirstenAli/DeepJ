@@ -97,8 +97,6 @@ retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced u
 
 All four models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
 
-Nova's [100M training example](docs/nova.md) reuses Frisky's prepared datasets and tokenizer while saving separate checkpoints. The candidate has 99,711,552 parameters; its quality and Metal throughput must be evaluated before a full training run.
-
 ## Frisky 90M
 
 Meet [Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning.
