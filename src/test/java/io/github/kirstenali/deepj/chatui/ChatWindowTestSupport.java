@@ -13,6 +13,30 @@ final class ChatWindowTestSupport {
     record Invocation(String prompt, int maxTokens, float temperature, int topK,
                       long seed, float penalty) {}
 
+    static final class TestService implements ChatService {
+        final CountDownLatch generated = new CountDownLatch(1);
+        volatile float repetitionPenalty;
+
+        @Override public void loadModel(Path modelPath) {}
+        @Override public boolean isModelLoaded() { return true; }
+        @Override public String getLoadedModelName() { return "stub.dj"; }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, Consumer<String> listener) {
+            listener.accept("A short");
+            generated.countDown();
+            return "A short answer";
+        }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, float penalty, Consumer<String> listener) {
+            repetitionPenalty = penalty;
+            return generate(prompt, maxTokens, temperature, topK, seed, listener);
+        }
+    }
+
     static final class AlternativeService implements ChatService {
         final CountDownLatch first = new CountDownLatch(1);
         final CountDownLatch extra = new CountDownLatch(2);

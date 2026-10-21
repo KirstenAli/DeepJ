@@ -84,4 +84,6 @@ Fresh Java execution data and native profiles are required for each run. The bui
 
 GitHub Actions runs the portable checks on Linux and `mvn clean verify -Pfull-coverage` on the standard `macos-15` runner for pull requests and pushes to `master`. The Mac job requires an available Metal device, runs numerical GPU and desktop tests, and enforces native and Java coverage gates. Missing GPU access fails the job instead of silently passing with skipped Metal tests. Native static checks still run on the CPU; they do not need GPU access.
 
+The Linux job also verifies operation without Metal: chat must select the CPU backend, and benchmarks must reject an unavailable GPU unless CPU use is explicitly allowed. These platform-dependent paths are not exercised by the GPU-enabled Mac run.
+
 Standard GitHub-hosted runner time is free for public repositories such as DeepJ; no paid larger runner is selected. The verified Mac runner exposes an Apple Paravirtual Metal device. It is not the same hardware configuration as a user's physical Mac, so passing CI is not a performance benchmark or a substitute for testing hardware-specific changes locally. Report storage has separate GitHub quotas.
