@@ -22,7 +22,12 @@ jobs:
   performance:
     if: github.event_name == 'workflow_dispatch' && inputs.benchmark
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [prism, nova]
+        batch: [1, 2]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,23 +46,23 @@ jobs:
           mvn --batch-mode -f candidate/pom.xml test-compile
           mvn --batch-mode -f baseline/pom.xml compiler:compile resources:resources
       - name: Compare warmed-up training and process peak memory
+        env:
+          BENCHMARK_PROFILE: ${{ matrix.profile }}
+          BENCHMARK_BATCH: ${{ matrix.batch }}
         run: |
           set -o pipefail
           mkdir benchmark-results
-          for profile in prism nova; do
-            for batch in 1 2; do
-              for revision in baseline candidate; do
-                /usr/bin/time -l java -Xmx6g --enable-native-access=ALL-UNNAMED \
-                  -cp "$revision/target/classes:candidate/target/test-classes" \
-                  io.github.kirstenali.deepj.testing.AutogradTrainingBenchmark "$profile" "$batch" \
-                  2>&1 | tee "benchmark-results/$profile-$batch-$revision.txt"
-              done
-            done
+          for revision in baseline candidate; do
+            /usr/bin/time -l java -Xmx6g --enable-native-access=ALL-UNNAMED \
+              -cp "$revision/target/classes:candidate/target/test-classes" \
+              io.github.kirstenali.deepj.testing.AutogradTrainingBenchmark \
+              "$BENCHMARK_PROFILE" "$BENCHMARK_BATCH" \
+              2>&1 | tee "benchmark-results/$BENCHMARK_PROFILE-$BENCHMARK_BATCH-$revision.txt"
           done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: autograd-training-benchmarks
+          name: autograd-training-benchmarks-${{ matrix.profile }}-${{ matrix.batch }}
           path: benchmark-results/
 
   metal:
