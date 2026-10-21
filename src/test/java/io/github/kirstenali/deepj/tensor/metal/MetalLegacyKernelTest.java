@@ -38,4 +38,15 @@ class MetalLegacyKernelTest extends MetalDifferentialTestSupport {
             graph.releaseAll();
         }
     }
+
+    @Test
+    void nonCausalSoftmaxAndBackwardMatchCpuWithLargeLogits() {
+        Tensor logits = Tensor.from2D(new float[][]{{1000, 1001, 999}, {-1000, -1002, -1001}});
+        Tensor gradient = Tensor.from2D(new float[][]{{1, -2, 3}, {-4, 5, -6}});
+        Tensor expected = cpu.softmaxRows(logits);
+        Tensor actual = logits.softmaxRows();
+        assertTensorClose(expected, actual, 1e-5f, 1e-5f);
+        assertTensorClose(cpu.softmaxBackward(gradient, expected),
+                gradient.softmaxBackward(actual), 1e-5f, 1e-5f);
+    }
 }
