@@ -62,9 +62,23 @@ test('missing shader blocks fail closed', () => {
 });
 
 test('invalid limits or missing native metrics cannot pass the gate', () => {
-  assert.throws(() => nativeViolations([{ name: 'broken', cognitive: NaN, nesting: 0 }], limits));
-  assert.throws(() => nativeViolations(measured, { cognitive: -1, nesting: 3 }));
+  assert.throws(() =>
+    nativeViolations([{ name: 'broken', lines: 1, cognitive: NaN, nesting: 0 }], limits),
+  );
+  assert.throws(() => nativeViolations(measured, { lines: 20, cognitive: -1, nesting: 3 }));
 });
+
+for (const lines of [20, 21]) {
+  test('native header function line boundary: ' + lines, () => {
+    const body = ['int helper(int x) {', ...Array(lines - 3).fill('x++;'), 'return x;', '}'].join(
+      '\n',
+    );
+    const source = '// Unicode before the function: café\n' + body;
+    const metrics = nativeMetrics(clangAst(source, 'helper.h', 'deepj_header_lines_' + lines));
+    assert.equal(metrics[0].lines, lines);
+    assert.equal(nativeViolations(metrics, limits).length, Number(lines > 20));
+  });
+}
 
 test('analysis namespaces leave the control-flow body unchanged', () => {
   const body = 'int sample() { if (true) { return 1; } return 0; }';

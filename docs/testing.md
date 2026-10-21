@@ -8,6 +8,16 @@ mvn clean verify
 
 The build runs Java tests, frontend behavior tests, formatting, lint, short-function checks and duplication checks. It fails if coverage falls below the configured minimum. Coverage is collected only during tests, not during training or normal library use.
 
+## Rules also apply to tests
+
+Java production and test sources, including test-support classes and performance-test helpers, share the Checkstyle and PMD rules. These include method length, statement count, complexity, nesting and duplication. Tests have no blanket rule exemptions.
+
+Frontend JavaScript tests and helpers are discovered recursively under `src/test` for formatting, ESLint and duplication checks. HTML/CSS test files receive the same applicable formatting, markup and stylesheet checks as production assets. Frontend test execution also includes nested `.test.mjs` files.
+
+Native source and test directories are scanned recursively for `.h`, `.hpp`, `.c`, `.cc`, `.cpp`, `.m`, `.mm` and `.metal` files. Portable tests enforce the 20-nonblank-line function limit, 120-character line limit, loop braces, one statement per line and duplication rules, including copies across files. On macOS, compiler-based checks additionally enforce function length, cognitive complexity and nesting across all discovered native sources and headers. Declaration-only headers are parsed too, even when they define no executable functions.
+
+Deliberately invalid source samples used to test a checker are stored as string data, not exempted implementation files. Coverage percentages measure production code exercised by the tests, not the test code itself.
+
 ## Control-flow checks
 
 `mvn clean verify` also rejects methods with cognitive complexity above 15. PMD checks production and test Java, including the Java Metal backend; ESLint checks frontend JavaScript, its tests and build scripts.
@@ -18,7 +28,7 @@ The rules live in `config/pmd.xml`, `config/checkstyle.xml` and `eslint.config.m
 
 ### Native host and Metal shaders
 
-On macOS, `mvn clean verify` automatically activates `native-code-quality`. It enforces the same cognitive-complexity maximum of 15 and mixed control-flow nesting maximum of 3 on native host functions, extracted shader functions and native coverage-hook test helpers. No GPU work is executed. Xcode Command Line Tools provide the Clang parser and macOS headers. Missing tools, parse errors, missing kernel definitions or rule violations fail the build.
+On macOS, `mvn clean verify` automatically activates `native-code-quality`. It enforces a 20-nonblank-line function limit, cognitive-complexity maximum of 15 and mixed control-flow nesting maximum of 3 on native host functions, extracted shader functions and native test helpers. No GPU work is executed by these static checks. Xcode Command Line Tools provide the Clang parser and macOS headers. Missing tools, parse errors, missing kernel definitions or rule violations fail the build.
 
 Clang parses generated analysis-only copies under `target/quality/native`. Shader type declarations and address-space qualifiers are supplied by `src/test/native/metal-analysis-shim.h`, while the original function bodies are preserved. This checks C++-compatible control flow, not all Metal language or GPU numerical semantics. The production source, bundled library, training process and checkpoints are untouched.
 

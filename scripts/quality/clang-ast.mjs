@@ -19,11 +19,13 @@ export function clangAst(source, file, namespace, flags = []) {
   const directory = resolve('target/quality/native');
   mkdirSync(directory, { recursive: true });
   const generated = resolve(directory, namespace + '.mm');
-  writeFileSync(generated, analysisSource(source, file, namespace));
+  const prepared = analysisSource(source, file, namespace);
+  writeFileSync(generated, prepared);
   const args = [...compilerFlags, '-ast-dump-filter=' + namespace, ...flags, generated];
   const ast = JSON.parse(dumpAst(args));
   assert.equal(ast.kind, 'NamespaceDecl', 'Clang did not return the complete analysis namespace');
   assert.equal(ast.name, namespace, 'Unexpected native analysis scope');
+  ast.analysisSource = prepared;
   return ast;
 }
 

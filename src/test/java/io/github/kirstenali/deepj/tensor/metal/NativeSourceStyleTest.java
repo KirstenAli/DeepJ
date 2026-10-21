@@ -1,6 +1,9 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,17 +19,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NativeSourceStyleTest {
 
-    private static final Path SOURCE = Path.of("native/deepj_metal_jni.mm");
+    @TempDir Path directory;
 
-    @Test
-    void nativeSourceFollowsReadabilityRules() throws IOException {
-        List<String> violations = NativeSourceRules.validate(Files.readAllLines(SOURCE));
-        assertTrue(violations.isEmpty(), String.join(System.lineSeparator(), violations));
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sources")
+    void nativeSourceFollowsReadabilityRules(Path file) throws IOException {
+        List<String> violations = NativeSourceRules.validate(Files.readAllLines(file));
+        assertTrue(violations.isEmpty(), file + ": " + String.join("\n", violations));
+    }
+
+    private static List<Path> sources() throws IOException {
+        return NativeSourceFiles.all();
     }
 
     @Test
     void nativeSourceHasNoLargeDuplicateBlocks() throws IOException {
-        List<String> duplicates = NativeDuplicates.find(Files.readAllLines(SOURCE));
+        List<String> duplicates = NativeDuplicates.findSources(NativeSourceFiles.all());
         assertTrue(duplicates.isEmpty(), String.join(System.lineSeparator(), duplicates));
     }
 
@@ -36,6 +44,21 @@ class NativeSourceStyleTest {
         List<String> source = new ArrayList<>(block);
         source.addAll(block);
         assertFalse(NativeDuplicates.find(source).isEmpty());
+    }
+
+    @Test
+    void nativeDuplicateRuleDetectsCopiesAcrossTestHeaders() throws IOException {
+        List<String> block = IntStream.range(0, 16).mapToObj(index -> "line " + index).toList();
+        Path first = Files.write(directory.resolve("first.h"), block);
+        Path second = Files.write(directory.resolve("second.h"), block);
+        assertFalse(NativeDuplicates.findSources(List.of(first, second)).isEmpty());
+    }
+
+    @Test
+    void nativeStyleRulesRejectLongLinesUnbracedLoopsAndMultipleStatements() {
+        assertFalse(NativeSourceRules.validate(List.of("//" + "x".repeat(119))).isEmpty());
+        assertFalse(NativeSourceRules.validate(List.of("for (int i = 0; i < 2; i++) work();")).isEmpty());
+        assertFalse(NativeSourceRules.validate(List.of("first(); second();")).isEmpty());
     }
 
     private static final class NativeSourceRules {
@@ -78,22 +101,35 @@ class NativeSourceStyleTest {
         private static final int BLOCK_LINES = 16;
 
         private static List<String> find(List<String> source) {
-            List<SourceLine> lines = significantLines(source);
-            Map<List<String>, Integer> starts = new HashMap<>();
             List<String> duplicates = new ArrayList<>();
-            for (int index = 0; index + BLOCK_LINES <= lines.size(); index++) {
-                addDuplicate(lines, index, starts, duplicates);
+            addSource(source, "fixture", new HashMap<>(), duplicates);
+            return duplicates;
+        }
+
+        private static List<String> findSources(List<Path> files) throws IOException {
+            Map<List<String>, String> starts = new HashMap<>();
+            List<String> duplicates = new ArrayList<>();
+            for (Path file : files) {
+                addSource(Files.readAllLines(file), file.toString(), starts, duplicates);
             }
             return duplicates;
         }
 
-        private static void addDuplicate(List<SourceLine> lines, int index,
-                                         Map<List<String>, Integer> starts,
+        private static void addSource(List<String> source, String file,
+                                      Map<List<String>, String> starts, List<String> duplicates) {
+            List<SourceLine> lines = significantLines(source);
+            for (int index = 0; index + BLOCK_LINES <= lines.size(); index++) {
+                addDuplicate(lines, index, file, starts, duplicates);
+            }
+        }
+
+        private static void addDuplicate(List<SourceLine> lines, int index, String file,
+                                         Map<List<String>, String> starts,
                                          List<String> duplicates) {
             List<String> block = block(lines, index);
-            int current = lines.get(index).number();
-            Integer previous = starts.putIfAbsent(block, current);
-            if (previous != null) duplicates.add("duplicate native block at lines " + previous + " and " + current);
+            String current = file + ":" + lines.get(index).number();
+            String previous = starts.putIfAbsent(block, current);
+            if (previous != null) duplicates.add("duplicate native block at " + previous + " and " + current);
         }
 
         private static List<SourceLine> significantLines(List<String> source) {

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+import { nativeFunctionLines } from './native-length.mjs';
 
 const functions = new Set([
   'FunctionDecl',
@@ -33,23 +35,25 @@ function children(node) {
 
 export function nativeMetrics(ast) {
   const found = new Map();
-  collectFunctions(ast, found);
+  collectFunctions(ast, found, Buffer.from(ast.analysisSource, 'utf8'));
   return [...found.values()];
 }
 
-function collectFunctions(node, found) {
+function collectFunctions(node, found, source) {
   const body = children(node).find((child) => bodies.has(child.kind));
-  if (functions.has(node.kind) && body && !node.isImplicit) found.set(node.id, measure(node, body));
-  for (const child of children(node)) collectFunctions(child, found);
+  if (functions.has(node.kind) && body && !node.isImplicit)
+    found.set(node.id, measure(node, body, source));
+  for (const child of children(node)) collectFunctions(child, found, source);
 }
 
-function measure(fn, body) {
+function measure(fn, body, source) {
   const state = { cognitive: 0, nesting: 0, functionId: fn.id, recursive: false, seen: new Set() };
   visit(body, state, 0, 0);
   const location = fn.loc ?? fn.range?.begin ?? {};
   return {
     name: fn.name,
     line: location.presumedLine ?? location.line,
+    lines: nativeFunctionLines(fn, source),
     cognitive: state.cognitive,
     nesting: state.nesting,
   };
@@ -132,14 +136,14 @@ function references(node, id) {
 export function nativeViolations(metrics, limits) {
   validateMetrics(metrics, limits);
   return metrics.flatMap((fn) =>
-    ['cognitive', 'nesting']
+    ['lines', 'cognitive', 'nesting']
       .filter((metric) => fn[metric] > limits[metric])
       .map((metric) => `${fn.name}:${fn.line} ${metric} ${fn[metric]} exceeds ${limits[metric]}`),
   );
 }
 
 function validateMetrics(metrics, limits) {
-  for (const name of ['cognitive', 'nesting']) {
+  for (const name of ['lines', 'cognitive', 'nesting']) {
     assert.ok(
       Number.isSafeInteger(limits[name]) && limits[name] >= 0,
       'Invalid native limit: ' + name,
