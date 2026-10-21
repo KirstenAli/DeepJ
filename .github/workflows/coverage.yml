@@ -31,7 +31,8 @@ jobs:
             target/coverage/
             target/surefire-reports/
   native-quality:
-    runs-on: macos-14
+    # DeepJ's existing Metal compile options require a macOS 15 or newer SDK.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

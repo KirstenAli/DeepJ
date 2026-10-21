@@ -28,7 +28,7 @@ The rules live in `config/pmd.xml`, `config/checkstyle.xml` and `eslint.config.m
 
 ### Native host and Metal shaders
 
-On macOS, `mvn clean verify` automatically activates `native-code-quality`. It enforces a 20-nonblank-line function limit, cognitive-complexity maximum of 15 and mixed control-flow nesting maximum of 3 on native host functions, extracted shader functions and native test helpers. No GPU work is executed by these static checks. Xcode Command Line Tools provide the Clang parser and macOS headers. Missing tools, parse errors, missing kernel definitions or rule violations fail the build.
+On macOS, `mvn clean verify` automatically activates `native-code-quality`. It enforces a 20-nonblank-line function limit, cognitive-complexity maximum of 15 and mixed control-flow nesting maximum of 3 on native host functions, extracted shader functions and native test helpers. No GPU work is executed by these static checks. Xcode Command Line Tools provide the Clang parser and macOS headers; use a macOS 15 or newer SDK for DeepJ's existing Metal compile options. Missing tools, parse errors, missing kernel definitions or rule violations fail the build.
 
 Clang parses generated analysis-only copies under `target/quality/native`. Shader type declarations and address-space qualifiers are supplied by `src/test/native/metal-analysis-shim.h`, while the original function bodies are preserved. This checks C++-compatible control flow, not all Metal language or GPU numerical semantics. The production source, bundled library, training process and checkpoints are untouched.
 
