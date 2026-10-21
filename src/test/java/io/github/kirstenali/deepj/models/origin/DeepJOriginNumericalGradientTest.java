@@ -23,7 +23,7 @@ class DeepJOriginNumericalGradientTest {
         Tensor upstream = Tensor.random(3, 7, new Random(99L));
         model.zeroGrad();
         model.forward(inputIds);
-        model.backward(upstream);
+        model.forward(inputIds).backward(upstream);
         assertParameterGradients(model.parameters(), () -> model.forward(inputIds), upstream,
                 1e-3f, 3e-3f, 5e-2f);
     }

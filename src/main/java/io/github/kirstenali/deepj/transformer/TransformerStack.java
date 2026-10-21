@@ -2,9 +2,6 @@ package io.github.kirstenali.deepj.transformer;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
-import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJPrismTransformerBlock;
-import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJOriginTransformerBlock;
-import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJOrbitTransformerBlock;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 
 import java.util.ArrayList;
@@ -25,15 +22,6 @@ public record TransformerStack(List<Layer> blocks) implements Layer {
             h = b.forward(h);
         }
         return h;
-    }
-
-    @Override
-    public Tensor backward(Tensor gradOut) {
-        Tensor g = gradOut;
-        for (int i = blocks.size() - 1; i >= 0; i--) {
-            g = blocks.get(i).backward(g);
-        }
-        return g;
     }
 
     @Override

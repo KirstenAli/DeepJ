@@ -22,13 +22,6 @@ final class GroupedHeads {
         return Tensor.sliceRows(heads, mapping, heads.cols);
     }
 
-    Tensor reduce(Tensor gradient, int sequenceLength) {
-        prepareMapping(sequenceLength);
-        Tensor result = Tensor.zeros(keyValueHeads * sequenceLength, gradient.cols);
-        Tensor.scatterAddRows(result, mapping, gradient);
-        return result;
-    }
-
     private void prepareMapping(int sequenceLength) {
         int rows = Math.multiplyExact(queryHeads, sequenceLength);
         if (mapping.length == rows) return;

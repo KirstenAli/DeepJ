@@ -14,7 +14,7 @@ public class AdamWTest {
         AdamW opt = new AdamW(0.1f, 0.9f, 0.999f, 1e-8f, 0.0f);
 
         Parameter p = new Parameter(rowTensor(1.0f));
-        p.grad = rowTensor(1.0f);
+        p.setGradient(rowTensor(1.0f));
 
         opt.step(List.of(p));
         Assertions.assertEquals(0.9f, p.value.data[0], 1e-6f);
@@ -28,7 +28,7 @@ public class AdamWTest {
         AdamW opt = new AdamW(0.1f, 0.9f, 0.999f, 1e-8f, 0.1f);
 
         Parameter p = new Parameter(rowTensor(10.0f));
-        p.grad = rowTensor(0.0f);
+        p.setGradient(rowTensor(0.0f));
 
         opt.step(List.of(p));
         Assertions.assertTrue(p.value.data[0] < 10.0f);

@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
-import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.CausalLM;
@@ -48,31 +47,15 @@ public final class CausalLMTraining {
             int[] y = batch.y()[b];
             Tensor logits = model.forward(x);
             boolean[] mask = batch.mask(b);
-            lossSum += backwardAndLoss(model, logits, y, mask);
+            lossSum += backwardAndLoss(logits, y, mask);
         }
         return lossSum;
     }
 
-    private static float backwardAndLoss(CausalLM model, Tensor logits,
-                                         int[] targets, boolean[] mask) {
-        if (mask != null) {
-            float loss = loss(logits, targets, mask);
-            model.backward(gradient(logits, targets, mask));
-            return loss;
-        }
-        CrossEntropyResult result = CrossEntropyLoss.result(logits, targets);
-        model.backward(result.gradient());
-        return result.meanLoss();
-    }
-
-    private static float loss(Tensor logits, int[] targets, boolean[] mask) {
-        return mask == null ? CrossEntropyLoss.loss(logits, targets)
-                : CrossEntropyLoss.loss(logits, targets, mask);
-    }
-
-    private static Tensor gradient(Tensor logits, int[] targets, boolean[] mask) {
-        return mask == null ? CrossEntropyLoss.gradient(logits, targets)
-                : CrossEntropyLoss.gradient(logits, targets, mask);
+    private static float backwardAndLoss(Tensor logits, int[] targets, boolean[] mask) {
+        Tensor loss = CrossEntropyLoss.forward(logits, targets, mask);
+        if (loss.requiresGrad()) loss.backward();
+        return loss.item();
     }
 
     private static float computeAverageLoss(float lossSum, int batchSize) {
@@ -98,7 +81,7 @@ public final class CausalLMTraining {
     }
 
     private static float computeGlobalGradNorm(List<Parameter> params) {
-        List<Tensor> gradients = params.stream().map(parameter -> parameter.grad)
+        List<Tensor> gradients = params.stream().map(parameter -> parameter.grad())
                 .filter(gradient -> gradient != null).toList();
         float norm = Tensor.backend().l2Norm(gradients);
         if (!Float.isFinite(norm)) {
@@ -109,8 +92,8 @@ public final class CausalLMTraining {
 
     private static void scaleGradients(List<Parameter> params, float scale) {
         for (Parameter p : params) {
-            if (p.grad != null) {
-                p.grad.multiplyScalarInPlace(scale);
+            if (p.grad() != null) {
+                p.grad().multiplyScalarInPlace(scale);
             }
         }
     }

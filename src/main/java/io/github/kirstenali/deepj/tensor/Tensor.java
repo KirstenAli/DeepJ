@@ -1,16 +1,34 @@
 package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import io.github.kirstenali.deepj.autograd.*;
 
 import java.util.Random;
 
 public class Tensor {
 
+    /** Unsafe storage access for backend kernels and initialization. Use set() for managed writes. */
     public final float[] data;
     public final int rows, cols;
 
     Object gpuTag;
     private boolean retainDeviceBuffer;
+    private final GradientState gradientState = new GradientState();
+
+    public GradientState gradientState() { return gradientState; }
+    public boolean requiresGrad() { return gradientState.required(); }
+    public Tensor requiresGrad(boolean required) {
+        gradientState.require(required);
+        return this;
+    }
+    public Tensor grad() { return gradientState.gradient(); }
+    public void zeroGrad() { gradientState.bindGradient(null); }
+    public void backward() { Autograd.backward(this); }
+    public void backward(Tensor gradient) { Autograd.backward(this, gradient); }
+    public Tensor detach() { return new Tensor(this); }
+    public Tensor copy() { return UnaryOps.shift(this, 0.0f); }
+    public Tensor sumTensor() { return ReductionOps.sum(this); }
+    public float item() { return TensorStorage.item(this); }
 
     public Object getGpuTag() { return gpuTag; }
 
@@ -55,146 +73,126 @@ public class Tensor {
         TensorStorage.materialize(this);
     }
 
-    public Tensor matmul(Tensor other) { return backend().matmul(this, other); }
-    public Tensor add(Tensor other) { return backend().add(this, other); }
-    public Tensor subtract(Tensor other) { return backend().subtract(this, other); }
-    public Tensor multiply(Tensor other) { return backend().multiply(this, other); }
-    public Tensor divide(Tensor other) { return backend().divide(this, other); }
+    public Tensor matmul(Tensor other) { return BinaryOps.matmul(this, other); }
+    public Tensor add(Tensor other) { return BinaryOps.add(this, other); }
+    public Tensor subtract(Tensor other) { return BinaryOps.subtract(this, other); }
+    public Tensor multiply(Tensor other) { return BinaryOps.multiply(this, other); }
+    public Tensor divide(Tensor other) { return BinaryOps.divide(this, other); }
 
-    public Tensor addRowVector(Tensor rowVector) { return backend().addRowVector(this, rowVector); }
-    public Tensor addBroadcastCols(Tensor colVector) { return backend().addBroadcastCols(this, colVector); }
-    public Tensor divideBroadcastCols(Tensor colVector) { return backend().divideBroadcastCols(this, colVector); }
-    public Tensor subtractBroadcastCols(Tensor colVector) { return backend().subtractBroadcastCols(this, colVector); }
-    public Tensor multiplyBroadcastCols(Tensor colVector) { return backend().multiplyBroadcastCols(this, colVector); }
-    public Tensor addBroadcastRows(Tensor rowVector) { return backend().addBroadcastRows(this, rowVector); }
-    public Tensor multiplyBroadcastRows(Tensor rowVector) { return backend().multiplyBroadcastRows(this, rowVector); }
+    public Tensor addRowVector(Tensor rowVector) { return BroadcastOps.add(this, rowVector, false); }
+    public Tensor addBroadcastCols(Tensor colVector) { return BroadcastOps.add(this, colVector, true); }
+    public Tensor divideBroadcastCols(Tensor colVector) { return BroadcastOps.divide(this, colVector); }
+    public Tensor subtractBroadcastCols(Tensor colVector) { return BroadcastOps.subtract(this, colVector); }
+    public Tensor multiplyBroadcastCols(Tensor colVector) { return BroadcastOps.multiply(this, colVector, true); }
+    public Tensor addBroadcastRows(Tensor rowVector) { return BroadcastOps.add(this, rowVector, false); }
+    public Tensor multiplyBroadcastRows(Tensor rowVector) { return BroadcastOps.multiply(this, rowVector, false); }
 
-    public Tensor multiplyScalar(float s) { return backend().multiplyScalar(this, s); }
-    public Tensor addScalar(float s) { return backend().addScalar(this, s); }
-    public Tensor divideScalar(float s) { return backend().divideScalar(this, s); }
+    public Tensor multiplyScalar(float s) { return UnaryOps.scale(this, s); }
+    public Tensor addScalar(float s) { return UnaryOps.shift(this, s); }
+    public Tensor divideScalar(float s) { return UnaryOps.divide(this, s); }
 
-    public Tensor sumRows() { return backend().sumRows(this); }
-    public Tensor sumAlongRows() { return backend().sumAlongRows(this); }
-    public Tensor sumAlongCols() { return backend().sumAlongCols(this); }
-    public Tensor meanAlongRows() { return backend().meanAlongRows(this); }
-    public Tensor varianceAlongRows() { return backend().varianceAlongRows(this); }
+    public Tensor sumRows() { return ReductionOps.rows(this); }
+    public Tensor sumAlongRows() { return ReductionOps.columns(this); }
+    public Tensor sumAlongCols() { return ReductionOps.rows(this); }
+    public Tensor meanAlongRows() { return ReductionOps.mean(this); }
+    public Tensor varianceAlongRows() { return ReductionOps.variance(this); }
 
-    public Tensor transpose() { return backend().transpose(this); }
-    public Tensor sqrt() { return backend().sqrt(this); }
-    public Tensor neg() { return backend().neg(this); }
-    public Tensor exp() { return backend().exp(this); }
-    public Tensor log() { return backend().log(this); }
+    public Tensor transpose() { return UnaryOps.transpose(this); }
+    public Tensor sqrt() { return UnaryOps.sqrt(this); }
+    public Tensor neg() { return UnaryOps.neg(this); }
+    public Tensor exp() { return UnaryOps.exp(this); }
+    public Tensor log() { return UnaryOps.log(this); }
 
-    public Tensor tanhActivation() { return backend().tanh(this); }
-    public Tensor sigmoidActivation() { return backend().sigmoid(this); }
-    public Tensor reluActivation() { return backend().relu(this); }
-    public Tensor reluBackward(Tensor gradOutput) { return backend().reluBackward(this, gradOutput); }
-    public Tensor geluActivation() { return backend().gelu(this); }
-    public Tensor geluBackward(Tensor gradOutput) { return backend().geluBackward(this, gradOutput); }
+    public Tensor tanhActivation() { return ActivationOps.tanh(this); }
+    public Tensor sigmoidActivation() { return ActivationOps.sigmoid(this); }
+    public Tensor reluActivation() { return ActivationOps.relu(this); }
+    public Tensor geluActivation() { return ActivationOps.gelu(this); }
 
     public Tensor addInPlace(Tensor other) {
-        backend().addInPlace(this, other);
-        return this;
+        return TensorMutation.apply(this, () -> backend().addInPlace(this, other), other);
     }
 
     public Tensor subtractInPlace(Tensor other) {
-        backend().subtractInPlace(this, other);
-        return this;
+        return TensorMutation.apply(this, () -> backend().subtractInPlace(this, other), other);
     }
 
     public Tensor multiplyInPlace(Tensor other) {
-        backend().multiplyInPlace(this, other);
-        return this;
+        return TensorMutation.apply(this, () -> backend().multiplyInPlace(this, other), other);
     }
 
     public Tensor divideInPlace(Tensor other) {
-        backend().divideInPlace(this, other);
-        return this;
+        return TensorMutation.apply(this, () -> backend().divideInPlace(this, other), other);
     }
 
     public Tensor multiplyScalarInPlace(float scalar) {
-        backend().multiplyScalarInPlace(this, scalar);
-        return this;
+        return TensorMutation.apply(this, () -> backend().multiplyScalarInPlace(this, scalar));
     }
 
     public Tensor addScalarInPlace(float scalar) {
-        backend().addScalarInPlace(this, scalar);
-        return this;
+        return TensorMutation.apply(this, () -> backend().addScalarInPlace(this, scalar));
     }
 
     public Tensor divideScalarInPlace(float scalar) {
-        backend().divideScalarInPlace(this, scalar);
-        return this;
+        return TensorMutation.apply(this, () -> backend().divideScalarInPlace(this, scalar));
     }
 
     public Tensor sqrtInPlace() {
-        backend().sqrtInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().sqrtInPlace(this));
     }
 
     public Tensor negInPlace() {
-        backend().negInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().negInPlace(this));
     }
 
     public Tensor expInPlace() {
-        backend().expInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().expInPlace(this));
     }
 
     public Tensor logInPlace() {
-        backend().logInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().logInPlace(this));
     }
 
     public Tensor reluInPlace() {
-        backend().reluInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().reluInPlace(this));
     }
 
     public Tensor geluInPlace() {
-        backend().geluInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().geluInPlace(this));
     }
 
     public Tensor tanhInPlace() {
-        backend().tanhInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().tanhInPlace(this));
     }
 
     public Tensor sigmoidInPlace() {
-        backend().sigmoidInPlace(this);
-        return this;
+        return TensorMutation.apply(this, () -> backend().sigmoidInPlace(this));
     }
 
-    public Tensor softmaxRows() { return backend().softmaxRows(this); }
-    public Tensor softmaxBackward(Tensor softmaxOut) { return backend().softmaxBackward(this, softmaxOut); }
-
-    public Tensor crossEntropyGradient(int[] targets) { return backend().crossEntropyGradient(this, targets); }
+    public Tensor softmaxRows() { return ActivationOps.softmax(this); }
 
     public static void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                                    float lr, float beta1, float beta2, float eps,
                                    float weightDecay, float bc1, float bc2) {
+        w.gradientState.beforeMutation();
+        mt.gradientState.beforeMutation();
+        vt.gradientState.beforeMutation();
         backend().adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
     }
 
-    public static Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
-        return backend().layerNormBackward(dXHat, xHat, std, dim);
-    }
-
     public Tensor maxAlongRows() {
-        return backend().maxAlongRows(this);
+        return SelectionOps.maximum(this);
     }
 
     public Tensor clamp(float min, float max) {
-        return backend().clamp(this, min, max);
+        return SelectionOps.clamp(this, min, max);
     }
 
     public Tensor pow(float exponent) {
-        return backend().pow(this, exponent);
+        return UnaryOps.pow(this, exponent);
     }
 
     public static void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
+        target.gradientState.beforeMutation();
         backend().scatterAddRows(target, indices, grad);
     }
 
@@ -219,14 +217,16 @@ public class Tensor {
     }
 
     public void set(int r, int c, float value) {
+        gradientState.beforeMutation();
         TensorStorage.set(this, r, c, value);
     }
 
     public Tensor getRow(int row) {
-        return TensorStorage.getRow(this, row);
+        return sliceRows(this, new int[]{row}, cols);
     }
 
     public void setRow(int row, Tensor source, int srcRow) {
+        gradientState.beforeMutation();
         TensorStorage.setRow(this, row, source, srcRow);
     }
 

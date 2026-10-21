@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -34,9 +35,11 @@ class GroupedQueryAttentionTest {
     @Test
     void sharedHeadsAccumulateGradientsRatherThanOverwriteThem() {
         var groups = new GroupedHeads(4, 2);
-        Tensor values = Tensor.from2D(new float[][]{{1}, {2}, {3}, {4}});
-        assertArrayEquals(new float[]{1, 2, 1, 2, 3, 4, 3, 4}, groups.expand(values, 2).data);
-        assertArrayEquals(new float[]{2, 2, 2, 2}, groups.reduce(Tensor.ones(8, 1), 2).data);
+        Tensor values = Tensor.from2D(new float[][]{{1}, {2}, {3}, {4}}).requiresGrad(true);
+        Tensor expanded = groups.expand(values, 2);
+        assertArrayEquals(new float[]{1, 2, 1, 2, 3, 4, 3, 4}, expanded.data);
+        expanded.sumTensor().backward();
+        assertArrayEquals(new float[]{2, 2, 2, 2}, values.grad().data);
     }
 
     @Test
@@ -48,10 +51,12 @@ class GroupedQueryAttentionTest {
         Tensor input = Tensor.random(3, 8, new Random(33L));
         Tensor gradient = Tensor.random(3, 8, new Random(34L));
         assertArrayEquals(expected.forward(input).data, actual.forward(input).data, 1e-6f);
-        assertArrayEquals(expected.backward(gradient).data, actual.backward(gradient).data, 1e-6f);
+        Tensor expectedGradient = AutogradTestSupport.backward(expected::forward, input, gradient);
+        Tensor actualGradient = AutogradTestSupport.backward(actual::forward, input, gradient);
+        assertArrayEquals(expectedGradient.data, actualGradient.data, 1e-6f);
         for (int index = 0; index < expected.parameters().size(); index++) {
-            assertArrayEquals(expected.parameters().get(index).grad.data,
-                    actual.parameters().get(index).grad.data, 1e-6f);
+            assertArrayEquals(expected.parameters().get(index).grad().data,
+                    actual.parameters().get(index).grad().data, 1e-6f);
         }
     }
 }

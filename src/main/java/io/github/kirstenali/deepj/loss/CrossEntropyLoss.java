@@ -3,10 +3,37 @@ package io.github.kirstenali.deepj.loss;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorAdapters;
 import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
+import io.github.kirstenali.deepj.autograd.Autograd;
 
 public final class CrossEntropyLoss implements LossFunction {
 
     private static final float TARGET_INTEGER_EPS = 1e-6f;
+
+    @Override
+    public Tensor forward(Tensor predicted, Tensor actual) {
+        return forward(predicted, toIntTargets(actual), null);
+    }
+
+    public static Tensor forward(Tensor logits, int[] targets, boolean[] mask) {
+        checkTargets(logits, targets);
+        CrossEntropyResult result = mask == null ? result(logits, targets) : maskedResult(logits, targets, mask);
+        return Autograd.recordSaved(result.loss(), g -> new Tensor[]{scaleGradient(result.gradient(), g)},
+                new Tensor[]{logits}, logits, result.gradient());
+    }
+
+    private static CrossEntropyResult maskedResult(Tensor logits, int[] targets, boolean[] mask) {
+        checkMask(logits, mask);
+        return Tensor.backend().crossEntropy(logits, targets, mask);
+    }
+
+    private static Tensor scaleGradient(Tensor gradient, Tensor scalar) {
+        if (scalar.getGpuTag() == null) {
+            float scale = scalar.item();
+            return scale == 1.0f ? gradient : gradient.multiplyScalar(scale);
+        }
+        Tensor weights = Tensor.ones(gradient.rows, 1).multiplyBroadcastRows(scalar);
+        return gradient.multiplyBroadcastCols(weights);
+    }
 
     @Override
     public float loss(Tensor predicted, Tensor actual) {
@@ -27,7 +54,7 @@ public final class CrossEntropyLoss implements LossFunction {
 
     public static Tensor gradient(Tensor logits, int[] targets) {
         checkTargets(logits, targets);
-        return logits.crossEntropyGradient(targets);
+        return Tensor.backend().crossEntropyGradient(logits, targets);
     }
 
     public static CrossEntropyResult result(Tensor logits, int[] targets) {

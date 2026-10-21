@@ -23,8 +23,6 @@ public class MultiHeadSelfAttention implements Layer {
     private final Parameter Wv;
     private final Parameter Wo;
 
-    private ForwardCache cache;
-
     private final Softmax softmax;
 
     public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd) {
@@ -53,59 +51,18 @@ public class MultiHeadSelfAttention implements Layer {
     @Override
     public Tensor forward(Tensor x) {
         validateInput(x);
-
         Projections proj = projectInputs(x);
-
-        Tensor qh = splitHeads(proj.Q);
-        Tensor kh = splitHeads(proj.K);
-        Tensor vh = splitHeads(proj.V);
-
-        Tensor cachedQh = transformQueryKey(qh, x.rows);
-        Tensor cachedKh = transformQueryKey(kh, x.rows);
-
-        Tensor scores = computeDotProductScores(cachedQh, cachedKh);
-        Tensor attnProb = attentionProbabilities(scores, x.rows);
-        Tensor outH          = applyAttentionToValues(attnProb, vh, x.rows);
-        Tensor mergedBeforeWo = mergeHeads(outH, x.rows);
-
-        cache = new ForwardCache(x, proj.Q, proj.K, proj.V,
-                cachedQh, cachedKh, vh, attnProb, outH, mergedBeforeWo);
-
-        return mergedBeforeWo.matmul(Wo.value);
-    }
-
-    @Override
-    public Tensor backward(Tensor dOut) {
-        int seqLen = cache.x.rows;
-
-        Tensor dMerged = backwardOutputProjection(dOut);
-        Tensor dOutH   = splitHeads(dMerged);
-
-        HeadOps.AttentionGrads attnBackward = backwardAttentionAndValues(dOutH, cache.vh, seqLen);
-
-        HeadOps.QKGrads qkBackward = backwardQueriesAndKeys(
-                attnBackward.dScores(), cache.cachedQh, cache.cachedKh, seqLen);
-
-        Tensor dQh = transformQueryKeyBackward(qkBackward.dQh(), seqLen);
-        Tensor dKh = transformQueryKeyBackward(qkBackward.dKh(), seqLen);
-
-        Tensor dQ = mergeHeads(dQh, seqLen);
-        Tensor dK = mergeHeads(dKh, seqLen);
-        Tensor dV = mergeHeads(attnBackward.dVh(), seqLen);
-
-        accumulateProjectionGrads(dQ, dK, dV);
-
-        return dQ.matmul(Wq.value.transpose())
-                .add(dK.matmul(Wk.value.transpose()))
-                .add(dV.matmul(Wv.value.transpose()));
+        Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), x.rows);
+        Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), x.rows);
+        Tensor values = HeadOps.splitHeads(proj.V, nHeads);
+        Tensor scores = HeadOps.dotProductScores(queries, keys, nHeads);
+        Tensor probabilities = attentionProbabilities(scores, x.rows);
+        Tensor context = HeadOps.applyAttentionToValues(probabilities, values, nHeads);
+        return HeadOps.mergeHeads(context, nHeads).matmul(Wo.value);
     }
 
     protected Tensor transformQueryKey(Tensor heads, int seqLen) {
         return heads;
-    }
-
-    protected Tensor transformQueryKeyBackward(Tensor gradHeads, int seqLen) {
-        return gradHeads;
     }
 
     private void validateInput(Tensor x) {
@@ -121,61 +78,15 @@ public class MultiHeadSelfAttention implements Layer {
                 x.matmul(Wv.value));
     }
 
-    private Tensor computeDotProductScores(Tensor qh, Tensor kh) {
-        return HeadOps.dotProductScores(qh, kh, nHeads);
-    }
-
     private Tensor attentionProbabilities(Tensor scores, int seqLen) {
         if (causalMask) return softmax.forwardCausal(scores, seqLen, scale);
         return softmax.forward(scores.multiplyScalar(scale));
-    }
-
-    private Tensor applyAttentionToValues(Tensor attnProb, Tensor vh, int seqLen) {
-        return HeadOps.applyAttentionToValues(attnProb, vh, nHeads);
-    }
-
-    private Tensor backwardOutputProjection(Tensor dOut) {
-        Wo.grad.addInPlace(cache.mergedBeforeWo.transpose().matmul(dOut));
-        return dOut.matmul(Wo.value.transpose());
-    }
-
-    private HeadOps.AttentionGrads backwardAttentionAndValues(Tensor dOutH, Tensor vh, int seqLen) {
-        return HeadOps.backwardAttentionAndValues(
-                dOutH, vh, cache.attnProb, softmax, scale, nHeads);
-    }
-
-    private HeadOps.QKGrads backwardQueriesAndKeys(Tensor dScores, Tensor qh, Tensor kh, int seqLen) {
-        return HeadOps.backwardQueriesAndKeys(dScores, qh, kh, nHeads);
-    }
-
-    private void accumulateProjectionGrads(Tensor dQ, Tensor dK, Tensor dV) {
-        Tensor xT = cache.x.transpose();
-        Wq.grad.addInPlace(xT.matmul(dQ));
-        Wk.grad.addInPlace(xT.matmul(dK));
-        Wv.grad.addInPlace(xT.matmul(dV));
-    }
-
-    private Tensor splitHeads(Tensor t) {
-        return HeadOps.splitHeads(t, nHeads);
-    }
-
-    private Tensor mergeHeads(Tensor t, int seqLen) {
-        return HeadOps.mergeHeads(t, nHeads);
     }
 
     @Override
     public List<Parameter> parameters() {
         return List.of(Wq, Wk, Wv, Wo);
     }
-
-    private record ForwardCache(
-            Tensor x,
-            Tensor Q, Tensor K, Tensor V,
-            Tensor cachedQh, Tensor cachedKh,
-            Tensor vh,
-            Tensor attnProb,
-            Tensor outH,
-            Tensor mergedBeforeWo) {}
 
     private record Projections(Tensor Q, Tensor K, Tensor V) {}
 }

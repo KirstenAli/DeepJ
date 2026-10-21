@@ -73,10 +73,10 @@ class DecoderOnlyModelTest {
         int[] ids = {1, 2, 3};
         Tensor logits = model.forward(ids);
         model.zeroGrad();
-        model.backward(Tensor.ones(logits.rows, logits.cols));
+        model.forward(ids).backward(Tensor.ones(logits.rows, logits.cols));
 
         boolean anyNonZero = model.parameters().stream()
-                .anyMatch(p -> p.grad != null && p.grad.sumAbs() > 0.0f);
+                .anyMatch(p -> p.grad() != null && p.grad().sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one parameter must receive a non-zero gradient");
     }
 
@@ -91,13 +91,13 @@ class DecoderOnlyModelTest {
     void zeroGrad_clearsAllGradients(DecoderOnlyModel model) {
         int[] ids = {1, 2};
         Tensor logits = model.forward(ids);
-        model.backward(Tensor.ones(logits.rows, logits.cols));
+        model.forward(ids).backward(Tensor.ones(logits.rows, logits.cols));
 
         model.zeroGrad();
 
         model.parameters().forEach(p -> {
-            if (p.grad != null) {
-                assertEquals(0.0f, p.grad.sumAbs(), 1e-12f,
+            if (p.grad() != null) {
+                assertEquals(0.0f, p.grad().sumAbs(), 1e-12f,
                         "every gradient must be zero after zeroGrad()");
             }
         });

@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.transformer;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,7 @@ public class TransformerStackTest {
         TestSupport.assertTensorShape(y, 4, 8);
 
         Tensor gradOut = Tensor.ones(4, 8);
-        Tensor gx = stack.backward(gradOut);
+        Tensor gx = AutogradTestSupport.backward(stack::forward, x, gradOut);
         TestSupport.assertTensorShape(gx, 4, 8);
 
         assertFalse(stack.parameters().isEmpty());

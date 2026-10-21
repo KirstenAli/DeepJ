@@ -13,7 +13,6 @@ public final class Embedding implements Trainable {
     private final int dModel;
 
     private final Parameter weight;
-    private int[] lastIds;
 
     public Embedding(int vocabSize, int dModel, Random rnd) {
         this.vocabSize = vocabSize;
@@ -22,15 +21,10 @@ public final class Embedding implements Trainable {
     }
 
     public Tensor forward(int[] ids) {
-        this.lastIds = ids;
         for (int id : ids) {
             if (id < 0 || id >= vocabSize) throw new IllegalArgumentException("Token id out of range: " + id);
         }
         return Tensor.sliceRows(weight.value, ids, dModel);
-    }
-
-    public void backward(Tensor gradOut) {
-        Tensor.scatterAddRows(weight.grad, lastIds, gradOut);
     }
 
     public Parameter weight() {

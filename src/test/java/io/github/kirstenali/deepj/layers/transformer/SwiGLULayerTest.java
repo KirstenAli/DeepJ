@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.layers.transformer.SwiGLULayer;
 
 import io.github.kirstenali.deepj.TestSupport;
@@ -49,7 +50,7 @@ class SwiGLULayerTest {
         SwiGLULayer layer = new SwiGLULayer(6, 12, new Random(4));
         Tensor x = randomTensor(4, 6, 99);
         Tensor y = layer.forward(x);
-        Tensor gradIn = layer.backward(Tensor.ones(y.rows, y.cols));
+        Tensor gradIn = AutogradTestSupport.backward(layer::forward, x, Tensor.ones(y.rows, y.cols));
         TestSupport.assertTensorShape(gradIn, 4, 6);
     }
 
@@ -58,11 +59,11 @@ class SwiGLULayerTest {
         SwiGLULayer layer = new SwiGLULayer(4, 8, new Random(5));
         Tensor x = randomTensor(2, 4, 13);
         layer.forward(x);
-        layer.backward(Tensor.ones(2, 4));
+        AutogradTestSupport.backward(layer::forward, x, Tensor.ones(2, 4));
 
         float totalGrad = 0.0f;
         for (Parameter p : layer.parameters()) {
-            totalGrad += p.grad.sumAbs();
+            totalGrad += p.grad().sumAbs();
         }
         assertTrue(totalGrad > 0, "At least one parameter should have a non-zero gradient");
     }
@@ -78,7 +79,7 @@ class SwiGLULayerTest {
         Tensor x = randomTensor(2, dModel, 17);
 
         layer.forward(x);
-        Tensor analyticGrad = layer.backward(Tensor.ones(2, dModel));
+        Tensor analyticGrad = AutogradTestSupport.backward(layer::forward, x, Tensor.ones(2, dModel));
         assertNumericalGradient(x, analyticGrad, dModel, dFF, eps, tol);
     }
 
@@ -153,7 +154,7 @@ class SwiGLULayerTest {
         Tensor y = layer.forward(x);
         MSELoss mse = new MSELoss();
         float loss = mse.loss(y, target);
-        layer.backward(mse.gradient(y, target));
+        AutogradTestSupport.backward(layer::forward, x, mse.gradient(y, target));
         opt.step(layer.parameters());
         for (Parameter p : layer.parameters()) {
             p.zeroGrad();

@@ -5,30 +5,41 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.Arrays;
 
 public final class Parameter {
-    public Tensor value;
-    public Tensor grad;
+    public final Tensor value;
 
     public Parameter(Tensor value) {
-        this.value = value.retainDeviceBuffer();
-        this.grad = Tensor.zeros(value.rows, value.cols);
+        this.value = value.retainDeviceBuffer().requiresGrad(true);
+        zeroGrad();
+    }
+
+    public Tensor grad() { return value.grad(); }
+
+    public void setGradient(Tensor gradient) {
+        if (gradient != null && gradient.requiresGrad()) {
+            throw new IllegalArgumentException("Parameter gradients must be detached");
+        }
+        if (gradient != null) Tensor.requireSameShape(value, gradient, "parameter gradient");
+        value.gradientState().bindGradient(gradient);
     }
 
     public void zeroGrad() {
+        if (!value.requiresGrad()) {
+            setGradient(null);
+            return;
+        }
         if (canReuseCpuGradBuffer()) {
             clearGradData();
             return;
         }
-        this.grad = Tensor.zeros(value.rows, value.cols);
+        setGradient(Tensor.zeros(value.rows, value.cols));
     }
 
     private boolean canReuseCpuGradBuffer() {
-        return grad != null
-                && grad.rows == value.rows
-                && grad.cols == value.cols
-                && grad.getGpuTag() == null;
+        return grad() != null && grad().getGpuTag() == null;
     }
 
     private void clearGradData() {
-        Arrays.fill(grad.data, 0.0f);
+        grad().gradientState().beforeMutation();
+        Arrays.fill(grad().data, 0.0f);
     }
 }

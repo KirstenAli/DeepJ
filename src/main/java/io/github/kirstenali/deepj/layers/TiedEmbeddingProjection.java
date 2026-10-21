@@ -3,6 +3,8 @@ package io.github.kirstenali.deepj.layers;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
+import io.github.kirstenali.deepj.autograd.LayoutOps;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -10,7 +12,6 @@ import java.util.Objects;
 public final class TiedEmbeddingProjection implements Projection {
 
     private final Parameter embedding;
-    private Tensor input;
 
     public TiedEmbeddingProjection(Parameter embedding) {
         this.embedding = Objects.requireNonNull(embedding, "embedding");
@@ -18,14 +19,7 @@ public final class TiedEmbeddingProjection implements Projection {
 
     @Override
     public Tensor forward(Tensor value) {
-        input = value;
-        return Tensor.backend().batchedMatmul(value, embedding.value, 1, false, true);
-    }
-
-    @Override
-    public Tensor backward(Tensor gradient) {
-        embedding.grad.addInPlace(Tensor.backend().batchedMatmul(gradient, input, 1, true, false));
-        return gradient.matmul(embedding.value);
+        return LayoutOps.batchedMatmul(value, embedding.value, 1, false, true);
     }
 
     @Override

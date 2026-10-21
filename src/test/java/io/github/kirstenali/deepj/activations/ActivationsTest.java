@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.activations;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.Assertions;
@@ -15,7 +16,7 @@ public class ActivationsTest {
         Tensor y = relu.forward(reluInput());
         TestSupport.assertTensorAllClose(y, reluOutput(), 1e-12f);
         Tensor gradOut = Tensor.from2D(new float[][]{{1, 1, 1}, {2, 2, 2}});
-        Tensor gx = relu.backward(gradOut);
+        Tensor gx = AutogradTestSupport.backward(relu::forward, reluInput(), gradOut);
         TestSupport.assertTensorAllClose(gx, reluGradient(), 1e-12f);
     }
 
@@ -42,7 +43,7 @@ public class ActivationsTest {
         }
 
         Tensor gradOut = Tensor.from2D(new float[][]{{1, 1, 1}});
-        Tensor gx = s.backward(gradOut);
+        Tensor gx = AutogradTestSupport.backward(s::forward, x, gradOut);
         for (int c = 0; c < gx.cols; c++) {
             Assertions.assertTrue(gx.data[c] >= 0.0f, "sigmoid' should be >= 0");
         }
@@ -83,8 +84,7 @@ public class ActivationsTest {
             Assertions.assertEquals(1.0f, sum, 1e-6f);
         }
 
-        Softmax sm2 = new Softmax();
-        Assertions.assertThrows(IllegalStateException.class, () -> sm2.backward(p));
+        Assertions.assertThrows(IllegalStateException.class, () -> p.backward(p));
     }
 
     @Test
@@ -93,7 +93,7 @@ public class ActivationsTest {
 
         Sigmoid s = new Sigmoid();
         Tensor y = s.forward(x);
-        Tensor analytic = s.backward(Tensor.ones(y.rows, y.cols));
+        Tensor analytic = AutogradTestSupport.backward(s::forward, x, Tensor.ones(y.rows, y.cols));
 
         Tensor numeric = finiteDiffGradSum(t -> {
             Sigmoid ss = new Sigmoid();
@@ -109,7 +109,7 @@ public class ActivationsTest {
 
         Tanh t = new Tanh();
         Tensor y = t.forward(x);
-        Tensor analytic = t.backward(Tensor.ones(y.rows, y.cols));
+        Tensor analytic = AutogradTestSupport.backward(t::forward, x, Tensor.ones(y.rows, y.cols));
 
         Tensor numeric = finiteDiffGradSum(u -> {
             Tanh tt = new Tanh();
@@ -125,7 +125,7 @@ public class ActivationsTest {
 
         GELU g = new GELU();
         Tensor y = g.forward(x);
-        Tensor analytic = g.backward(Tensor.ones(y.rows, y.cols));
+        Tensor analytic = AutogradTestSupport.backward(g::forward, x, Tensor.ones(y.rows, y.cols));
 
         Tensor numeric = finiteDiffGradSum(u -> {
             GELU gg = new GELU();
@@ -149,7 +149,7 @@ public class ActivationsTest {
 
         Softmax sm = new Softmax();
         sm.forward(logits);
-        Tensor analytic = sm.backward(upstream);
+        Tensor analytic = AutogradTestSupport.backward(sm::forward, logits, upstream);
 
         Tensor numeric = finiteDiffGradScalarObjective(x -> softmaxDotObjective(x, upstream), logits, 1e-3f);
 

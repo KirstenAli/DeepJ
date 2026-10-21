@@ -6,6 +6,4 @@ import io.github.kirstenali.deepj.training.Trainable;
 public interface Layer extends Trainable {
 
     Tensor forward(Tensor input);
-
-    Tensor backward(Tensor gradOutput);
 }

@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,13 +76,13 @@ public class MultiHeadLatentAttentionTest {
         Tensor dOut = Tensor.ones(out.rows, out.cols);
 
         attn.parameters().forEach(p -> p.zeroGrad());
-        Tensor dX = attn.backward(dOut);
+        Tensor dX = AutogradTestSupport.backward(attn::forward, x, dOut);
 
         assertEquals(SEQ_LEN, dX.rows);
         assertEquals(D_MODEL, dX.cols);
 
         boolean anyNonZero = attn.parameters().stream()
-                .anyMatch(p -> p.grad.sumAbs() > 0.0f);
+                .anyMatch(p -> p.grad().sumAbs() > 0.0f);
         assertTrue(anyNonZero, "at least one grad must be non-zero after backward");
     }
 
@@ -89,7 +90,7 @@ public class MultiHeadLatentAttentionTest {
     void backward_inputGradientIsNonZero() {
         Tensor x   = Tensor.random(SEQ_LEN, D_MODEL, new Random(5L));
         Tensor out = attn.forward(x);
-        Tensor dX  = attn.backward(Tensor.ones(out.rows, out.cols));
+        Tensor dX  = AutogradTestSupport.backward(attn::forward, x, Tensor.ones(out.rows, out.cols));
 
         assertTrue(dX.sumAbs() > 0.0f, "input gradient must be non-zero");
     }
@@ -100,7 +101,7 @@ public class MultiHeadLatentAttentionTest {
         Tensor x = Tensor.random(SEQ_LEN, D_MODEL, new Random(6L));
 
         attn.forward(x);
-        Tensor dX = attn.backward(Tensor.ones(SEQ_LEN, D_MODEL));
+        Tensor dX = AutogradTestSupport.backward(attn::forward, x, Tensor.ones(SEQ_LEN, D_MODEL));
 
         for (int r = 0; r < SEQ_LEN; r++) {
             for (int c = 0; c < D_MODEL; c++) {

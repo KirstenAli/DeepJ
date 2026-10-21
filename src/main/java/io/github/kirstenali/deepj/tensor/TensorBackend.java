@@ -107,6 +107,12 @@ public interface TensorBackend {
     float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask);
     Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask);
 
+    default CrossEntropyResult crossEntropy(Tensor logits, int[] targets, boolean[] mask) {
+        Tensor loss = new Tensor(1, 1);
+        loss.data[0] = crossEntropyLoss(logits, targets, mask);
+        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets, mask));
+    }
+
     void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                      float lr, float beta1, float beta2, float eps,
                      float weightDecay, float bc1, float bc2);

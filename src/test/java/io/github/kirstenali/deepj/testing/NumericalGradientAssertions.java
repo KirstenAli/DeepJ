@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.testing;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -21,7 +22,7 @@ public final class NumericalGradientAssertions {
         layer.zeroGrad();
         Tensor output = layer.forward(input);
         requireSameShape(output, upstream);
-        Tensor analyticInput = new Tensor(layer.backward(upstream));
+        Tensor analyticInput = new Tensor(AutogradTestSupport.backward(layer::forward, input, upstream));
         List<Tensor> analyticParameters = copyGradients(layer.parameters());
         assertNumericalGradient(input, analyticInput, () -> layer.forward(input), upstream,
                 epsilon, absoluteTolerance, relativeTolerance, "input");
@@ -81,7 +82,7 @@ public final class NumericalGradientAssertions {
     private static List<Tensor> copyGradients(List<Parameter> parameters) {
         List<Tensor> gradients = new ArrayList<>(parameters.size());
         for (Parameter parameter : parameters) {
-            gradients.add(new Tensor(parameter.grad));
+            gradients.add(new Tensor(parameter.grad()));
         }
         return gradients;
     }

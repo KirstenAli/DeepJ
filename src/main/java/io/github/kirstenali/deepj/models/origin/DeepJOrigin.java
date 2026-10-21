@@ -42,12 +42,6 @@ public final class DeepJOrigin extends DecoderOnlyModel {
     }
 
     @Override
-    protected void backwardEmbeddings(Tensor g) {
-        tokEmb.backward(g);
-        posEmb.backward(g);
-    }
-
-    @Override
     protected List<Parameter> embeddingParameters() {
         List<Parameter> ps = new ArrayList<>(tokEmb.parameters());
         ps.addAll(posEmb.parameters());

@@ -2,23 +2,9 @@ package io.github.kirstenali.deepj.activations;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-public class Sigmoid implements ActivationFunction {
-    private Tensor output;
-
+public final class Sigmoid implements ActivationFunction {
     @Override
     public Tensor forward(Tensor input) {
-        output = input.sigmoidActivation();
-        return output;
-    }
-
-    @Override
-    public Tensor backward(Tensor gradOutput) {
-
-        Tensor oneMinusSig = output.multiplyScalar(-1.0f);
-        oneMinusSig.addScalarInPlace(1.0f);
-
-        Tensor grad = gradOutput.multiply(output);
-        grad.multiplyInPlace(oneMinusSig);
-        return grad;
+        return input.sigmoidActivation();
     }
 }

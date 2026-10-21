@@ -47,6 +47,6 @@ class MetalLegacyKernelTest extends MetalDifferentialTestSupport {
         Tensor actual = logits.softmaxRows();
         assertTensorClose(expected, actual, 1e-5f, 1e-5f);
         assertTensorClose(cpu.softmaxBackward(gradient, expected),
-                gradient.softmaxBackward(actual), 1e-5f, 1e-5f);
+                Tensor.backend().softmaxBackward(gradient, actual), 1e-5f, 1e-5f);
     }
 }

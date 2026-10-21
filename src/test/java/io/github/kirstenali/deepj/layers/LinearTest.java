@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -23,16 +24,16 @@ public class LinearTest {
         Tensor y = lin.forward(linearInput());
         TestSupport.assertTensorAllClose(y, expectedOutput(), 1e-12f);
         Tensor gradOut = Tensor.from2D(new float[][]{{1, 1, 1}, {2, 0, -1}});
-        Tensor gx = lin.backward(gradOut);
+        Tensor gx = AutogradTestSupport.backward(lin::forward, linearInput(), gradOut);
         TestSupport.assertTensorShape(gx, 2, 2);
-        TestSupport.assertTensorShape(W.grad, 2, 3);
-        TestSupport.assertTensorShape(b.grad, 1, 3);
+        TestSupport.assertTensorShape(W.grad(), 2, 3);
+        TestSupport.assertTensorShape(b.grad(), 1, 3);
     }
 
     private static Linear configuredLinear() {
         Linear linear = new Linear(2, 3, new Random(1));
-        linear.weight().value = Tensor.from2D(new float[][]{{1, 0, -1}, {2, 1, 0}});
-        linear.bias().value = Tensor.from2D(new float[][]{{0.5f, -0.5f, 1.0f}});
+        AutogradTestSupport.replaceValues(linear.weight().value, Tensor.from2D(new float[][]{{1, 0, -1}, {2, 1, 0}}));
+        AutogradTestSupport.replaceValues(linear.bias().value, Tensor.from2D(new float[][]{{0.5f, -0.5f, 1.0f}}));
         return linear;
     }
 
@@ -70,7 +71,7 @@ public class LinearTest {
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        lin.backward(gradOut);
+        AutogradTestSupport.backward(lin::forward, x, gradOut);
         opt.step(lin.parameters());
         for (Parameter p : lin.parameters()) {
             p.zeroGrad();
@@ -87,11 +88,11 @@ public class LinearTest {
         Linear lin = new Linear(dIn, dOut, new Random(7));
         Tensor x = gradientInput();
         lin.forward(x);
-        Tensor dX = lin.backward(Tensor.ones(x.rows, dOut));
+        Tensor dX = AutogradTestSupport.backward(lin::forward, x, Tensor.ones(x.rows, dOut));
         Parameter W = lin.weight();
         Parameter b = lin.bias();
-        float[] dW = W.grad.data.clone();
-        float[] db = b.grad.data.clone();
+        float[] dW = W.grad().data.clone();
+        float[] db = b.grad().data.clone();
         assertInputGradient(lin, x, dX, dIn, eps, tol);
         assertWeightGradient(lin, x, W, dW, dIn, dOut, eps, tol);
         assertBiasGradient(lin, x, b, db, dOut, eps, tol);
@@ -122,11 +123,11 @@ public class LinearTest {
         for (int i = 0; i < dIn; i++) {
             for (int j = 0; j < dOut; j++) {
                 float orig = W.value.get(i, j);
-                W.value.set(i, j, orig + eps);
+                AutogradTestSupport.set(W.value, i, j, orig + eps);
                 float fPlus = sumAll(lin.forward(x));
-                W.value.set(i, j, orig - eps);
+                AutogradTestSupport.set(W.value, i, j, orig - eps);
                 float fMinus = sumAll(lin.forward(x));
-                W.value.set(i, j, orig);
+                AutogradTestSupport.set(W.value, i, j, orig);
                 assertEquals((fPlus - fMinus) / (2 * eps), dW[i * dOut + j], tol,
                         "dW mismatch at [" + i + "," + j + "]");
             }
@@ -137,11 +138,11 @@ public class LinearTest {
                                            int dOut, float eps, float tol) {
         for (int j = 0; j < dOut; j++) {
             float orig = b.value.get(0, j);
-            b.value.set(0, j, orig + eps);
+            AutogradTestSupport.set(b.value, 0, j, orig + eps);
             float fPlus = sumAll(lin.forward(x));
-            b.value.set(0, j, orig - eps);
+            AutogradTestSupport.set(b.value, 0, j, orig - eps);
             float fMinus = sumAll(lin.forward(x));
-            b.value.set(0, j, orig);
+            AutogradTestSupport.set(b.value, 0, j, orig);
             assertEquals((fPlus - fMinus) / (2 * eps), db[j], tol, "db mismatch at col " + j);
         }
     }

@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJOrbitTransformerBlock;
 import io.github.kirstenali.deepj.layers.transformer.attention.RoPEMultiHeadSelfAttention;
@@ -160,7 +161,7 @@ class RotaryEmbeddingTest {
 
         Tensor x = Tensor.random(seqLen, dModel, new Random(13));
         attn.forward(x);
-        Tensor gradIn = attn.backward(Tensor.ones(seqLen, dModel));
+        Tensor gradIn = AutogradTestSupport.backward(attn::forward, x, Tensor.ones(seqLen, dModel));
         TestSupport.assertTensorShape(gradIn, seqLen, dModel);
     }
 
@@ -171,11 +172,12 @@ class RotaryEmbeddingTest {
         RoPEMultiHeadSelfAttention attn = new RoPEMultiHeadSelfAttention(dModel, nHeads, true, rope, new Random(14));
 
         attn.forward(Tensor.random(seqLen, dModel, new Random(15)));
-        attn.backward(Tensor.ones(seqLen, dModel));
+        Tensor input = Tensor.random(seqLen, dModel, new Random(15));
+        AutogradTestSupport.backward(attn::forward, input, Tensor.ones(seqLen, dModel));
 
         double totalGrad = 0;
         for (Parameter p : attn.parameters()) {
-            totalGrad += p.grad.sumAbs();
+            totalGrad += p.grad().sumAbs();
         }
         assertTrue(totalGrad > 0, "RoPE-enabled MHSA should produce non-zero weight gradients");
     }
@@ -197,7 +199,7 @@ class RotaryEmbeddingTest {
 
         Tensor x = Tensor.random(seqLen, dModel, new Random(21));
         block.forward(x);
-        Tensor gradIn = block.backward(Tensor.ones(seqLen, dModel));
+        Tensor gradIn = AutogradTestSupport.backward(block::forward, x, Tensor.ones(seqLen, dModel));
         TestSupport.assertTensorShape(gradIn, seqLen, dModel);
     }
 
@@ -222,7 +224,7 @@ class RotaryEmbeddingTest {
         Tensor y = block.forward(x);
         MSELoss mse = new MSELoss();
         double loss = mse.loss(y, target);
-        block.backward(mse.gradient(y, target));
+        AutogradTestSupport.backward(block::forward, x, mse.gradient(y, target));
         opt.step(block.parameters());
         for (Parameter p : block.parameters()) {
             p.zeroGrad();
@@ -280,7 +282,7 @@ class RotaryEmbeddingTest {
         Tensor x = Tensor.random(seqLen, dModel, new Random(77));
 
         attn.forward(x);
-        Tensor dX = attn.backward(Tensor.ones(seqLen, dModel));
+        Tensor dX = AutogradTestSupport.backward(attn::forward, x, Tensor.ones(seqLen, dModel));
         assertAttentionInputGradient(attn, x, dX, eps, tol);
     }
 

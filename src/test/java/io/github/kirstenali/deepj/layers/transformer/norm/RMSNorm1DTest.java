@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.norm;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
 
 import io.github.kirstenali.deepj.TestSupport;
@@ -63,7 +64,7 @@ class RMSNorm1DTest {
 
         norm = new RMSNorm1D(4);
         for (Parameter p : norm.parameters()) {
-            p.value = Tensor.from2D(new float[][]{{2.0f, 2.0f, 2.0f, 2.0f}});
+            AutogradTestSupport.replaceValues(p.value, Tensor.from2D(new float[][]{{2.0f, 2.0f, 2.0f, 2.0f}}));
         }
         Tensor y2 = norm.forward(x);
 
@@ -96,7 +97,7 @@ class RMSNorm1DTest {
     void backward_returns_correct_shape() {
         Tensor x = Tensor.from2D(new float[][]{{1.0f, -1.0f, 2.0f, 0.5f}, {0.0f, 3.0f, -2.0f, 1.0f}});
         norm.forward(x);
-        Tensor grad = norm.backward(Tensor.ones(2, 4));
+        Tensor grad = AutogradTestSupport.backward(norm::forward, x, Tensor.ones(2, 4));
         TestSupport.assertTensorShape(grad, 2, 4);
     }
 
@@ -104,12 +105,12 @@ class RMSNorm1DTest {
     void backward_accumulates_gamma_gradient() {
         Tensor x = Tensor.from2D(new float[][]{{1.0f, 2.0f, 3.0f, 4.0f}});
         norm.forward(x);
-        norm.backward(Tensor.ones(1, 4));
+        AutogradTestSupport.backward(norm::forward, x, Tensor.ones(1, 4));
 
         Parameter gamma = norm.parameters().get(0);
         double totalGrad = 0;
         for (int c = 0; c < 4; c++) {
-            totalGrad += Math.abs(gamma.grad.data[c]);
+            totalGrad += Math.abs(gamma.grad().data[c]);
         }
         assertTrue(totalGrad > 0, "gamma gradient should be non-zero after backward");
     }
@@ -119,12 +120,12 @@ class RMSNorm1DTest {
         Tensor x = Tensor.from2D(new float[][]{{2.0f, 0.0f, 2.0f, 0.0f}});
         norm.forward(x);
         Tensor gradOut = Tensor.ones(1, 4);
-        norm.backward(gradOut);
+        AutogradTestSupport.backward(norm::forward, x, gradOut);
 
         double rms = Math.sqrt(2.0f + EPS);
         Parameter gamma = norm.parameters().get(0);
-        assertEquals(2.0f / rms, gamma.grad.data[0], 1e-5f);
-        assertEquals(0.0f,       gamma.grad.data[1], 1e-5f);
+        assertEquals(2.0f / rms, gamma.grad().data[0], 1e-5f);
+        assertEquals(0.0f,       gamma.grad().data[1], 1e-5f);
     }
 
     @Test
@@ -135,7 +136,7 @@ class RMSNorm1DTest {
         Tensor x = Tensor.from2D(new float[][]{{0.5f, -1.0f, 2.0f, 0.3f}});
 
         norm.forward(x);
-        Tensor analyticGrad = norm.backward(Tensor.ones(1, 4));
+        Tensor analyticGrad = AutogradTestSupport.backward(norm::forward, x, Tensor.ones(1, 4));
 
         for (int c = 0; c < 4; c++) {
             float orig = x.get(0, c);

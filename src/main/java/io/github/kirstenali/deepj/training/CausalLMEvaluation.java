@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.models.CausalLM;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.autograd.GradMode;
 
 public final class CausalLMEvaluation {
 
@@ -16,7 +17,7 @@ public final class CausalLMEvaluation {
         double lossSum = 0.0;
         long sequenceCount = (long) batches * batchSize;
         long tokens = 0L;
-        try {
+        try (var ignored = GradMode.noGrad()) {
             for (int i = 0; i < batches; i++) {
                 Batch batch = source.nextBatch(batchSize);
                 lossSum += batchLoss(model, batch);

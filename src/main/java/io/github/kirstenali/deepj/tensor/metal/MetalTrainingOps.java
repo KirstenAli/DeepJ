@@ -2,7 +2,6 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.*;
 
-import java.util.List;
 
 abstract class MetalTrainingOps extends MetalInPlaceOps {
     @Override
@@ -46,11 +45,19 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
 
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask) {
+        return maskedLoss(logits, targets, mask).item();
+    }
+
+    private Tensor maskedLoss(Tensor logits, int[] targets, boolean[] mask) {
         Tensor losses = crossEntropyRowLosses(logits, targets);
         Tensor masked = multiply(losses, maskTensor(mask));
-        Tensor scalar = divideScalar(sumRows(masked), includedRows(mask));
-        scalar.materialize();
-        return scalar.data[0];
+        return divideScalar(sumRows(masked), includedRows(mask));
+    }
+
+    @Override
+    public CrossEntropyResult crossEntropy(Tensor logits, int[] targets, boolean[] mask) {
+        return new CrossEntropyResult(maskedLoss(logits, targets, mask),
+                crossEntropyGradient(logits, targets, mask));
     }
 
     @Override

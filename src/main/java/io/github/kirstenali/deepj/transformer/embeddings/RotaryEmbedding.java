@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.autograd.LayoutOps;
 
 public final class RotaryEmbedding {
 
@@ -41,12 +42,12 @@ public final class RotaryEmbedding {
 
     public Tensor apply(Tensor t, int seqLen, int nHeads) {
         validateInput(t, seqLen, nHeads);
-        return Tensor.backend().rotary(t, cosTable, sinTable, seqLen, false);
+        return LayoutOps.rotary(t, cosTable, sinTable, seqLen, false);
     }
 
     public Tensor applyBackward(Tensor t, int seqLen, int nHeads) {
         validateInput(t, seqLen, nHeads);
-        return Tensor.backend().rotary(t, cosTable, sinTable, seqLen, true);
+        return LayoutOps.rotary(t, cosTable, sinTable, seqLen, true);
     }
 
     public int headDim() {

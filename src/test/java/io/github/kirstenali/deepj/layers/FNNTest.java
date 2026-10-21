@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.activations.ReLU;
 import io.github.kirstenali.deepj.loss.MSELoss;
@@ -31,7 +32,7 @@ public class FNNTest {
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        mlp.backward(gradOut);
+        AutogradTestSupport.backward(mlp::forward, x, gradOut);
         opt.step(mlp.parameters());
 
         for (Parameter p : mlp.parameters()) {
