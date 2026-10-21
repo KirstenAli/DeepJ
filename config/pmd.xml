@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="Readable control flow"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>Limit cognitive complexity and mixed control-flow nesting in production and test Java.</description>
+    <rule ref="category/java/design.xml/CognitiveComplexity">
+        <properties>
+            <!-- PMD reports scores at or above this value: allow 15, reject 16. -->
+            <property name="reportLevel" value="16"/>
+        </properties>
+    </rule>
+    <rule name="ControlFlowNesting" language="java"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule"
+          message="Control-flow nesting exceeds 3 levels; use a guard clause or a focused helper.">
+        <description>
+            Count mixed if, loop, switch and try nesting within each executable body.
+            Else-if chains do not add nesting, and nested methods and lambdas start a new body.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+let $bodies := //*[self::MethodDeclaration or self::ConstructorDeclaration
+    or self::CompactConstructorDeclaration or self::LambdaExpression or self::Initializer],
+    $controls := //*[self::IfStatement[not(parent::IfStatement[@Else = true()]/*[last()] is .)]
+        or self::ForStatement or self::ForeachStatement or self::WhileStatement or self::DoStatement
+        or self::SwitchStatement or self::SwitchExpression or self::TryStatement]
+return for $node in $controls
+return let $body := $node/ancestor::*[. intersect $bodies][1]
+return $node[count(ancestor-or-self::*[. intersect $controls]
+    [ancestor::*[. intersect $bodies][1] is $body]) > 3]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+</ruleset>

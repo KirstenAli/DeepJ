@@ -1,4 +1,5 @@
 import eslint from '@eslint/js';
+import sonarjs from 'eslint-plugin-sonarjs';
 
 const bridgeCallbacks = [
   'setModel',
@@ -18,8 +19,10 @@ const bridgeCallbacks = [
 export default [
   eslint.configs.recommended,
   {
+    plugins: { sonarjs },
     rules: {
       complexity: ['error', 8],
+      'sonarjs/cognitive-complexity': ['error', 15],
       'max-depth': ['error', 2],
       'max-lines-per-function': ['error', { max: 20, skipBlankLines: true }],
       'max-statements': ['error', 15],

@@ -1,6 +1,9 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,17 +14,37 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class NativeFunctionLengthTest {
 
     private static final Path SOURCE = Path.of("native/deepj_metal_jni.mm");
     private static final int MAX_LINES = 20;
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sources")
+    void nativeFunctionsStaySmall(Path file) throws IOException {
+        ScanResult result = scan(Files.readAllLines(file));
+        assertTrue(result.violations().isEmpty(), file + ": " + String.join("\n", result.violations()));
+    }
+
+    private static List<Path> sources() throws IOException {
+        return NativeSourceFiles.all();
+    }
+
     @Test
-    void nativeFunctionsStaySmall() throws IOException {
-        ScanResult result = scan(Files.readAllLines(SOURCE));
-        assertTrue(result.functionCount() > 100, "Native function scan found too few functions");
-        assertTrue(result.violations().isEmpty(), String.join(System.lineSeparator(), result.violations()));
+    void scannerRecognisesProductionAndTestHelperFunctions() throws IOException {
+        assertTrue(scan(Files.readAllLines(SOURCE)).functionCount() > 100);
+        assertTrue(scan(Files.readAllLines(Path.of("src/test/native/coverage-hooks.h"))).functionCount() >= 4);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {20, 21})
+    void lengthBoundaryIsEnforcedForHeaderStyleHelpers(int count) {
+        String function = "static void helper() {\n" + "    work();\n".repeat(count - 2) + "}";
+        ScanResult result = scan(function.lines().toList());
+        assertEquals(1, result.functionCount());
+        assertEquals(count <= MAX_LINES, result.violations().isEmpty());
     }
 
     private static ScanResult scan(List<String> lines) {
