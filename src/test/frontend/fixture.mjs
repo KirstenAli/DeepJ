@@ -28,7 +28,7 @@ export function fixture(context) {
   const calls = [];
   const timers = fakeTimers(window);
   window.chatBridge = Object.fromEntries(
-    ['chooseModel', 'send', 'stop', 'copy', 'newChat', 'alternatives'].map((name) => [
+    ['chooseModel', 'sendWithSettings', 'stop', 'copy', 'newChat', 'alternatives'].map((name) => [
       name,
       (...args) => calls.push([name, ...args]),
     ]),

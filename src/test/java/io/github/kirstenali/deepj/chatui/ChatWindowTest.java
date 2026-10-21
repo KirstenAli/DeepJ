@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.bridgeState;
 
 @EnabledIfSystemProperty(named = "deepj.uiTests", matches = "true")
 class ChatWindowTest {
@@ -224,7 +223,6 @@ class ChatWindowTest {
     private static void pressEnter(WebView view, boolean shift) {
         Event.fireEvent(view, new KeyEvent(KeyEvent.KEY_PRESSED, "\r", "\r", KeyCode.ENTER,
                 shift, false, false, false));
-        System.out.println("Enter bridge state: " + bridgeState(view));
     }
 
     private static void assertSelection(WebView view) {
