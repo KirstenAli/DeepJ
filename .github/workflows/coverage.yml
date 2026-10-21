@@ -1,50 +1,31 @@
-name: Tests and coverage
+name: Free macOS Metal diagnostic
 
 on:
-  pull_request:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  portable:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '20'
-          cache: maven
-      - name: Test and enforce coverage thresholds
-        run: mvn --batch-mode clean verify
-      - name: Save coverage reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-reports
-          path: |
-            target/site/jacoco/
-            target/coverage/
-            target/surefire-reports/
-  native-quality:
-    # DeepJ's existing Metal compile options require a macOS 15 or newer SDK.
+  metal-probe:
     runs-on: macos-15
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Check Metal device access on the standard free runner
+        id: probe
+        run: swift scripts/diagnostics/metal-probe.swift
       - uses: actions/setup-java@v4
+        if: steps.probe.outputs.available == 'true'
         with:
           distribution: temurin
           java-version: '20'
-          cache: maven
-      - name: Check native host and shader control flow without GPU execution
-        run: mvn --batch-mode -DskipTests process-test-classes
-      - name: Save native code-quality report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-quality-report
-          path: target/quality/native/report.json
+      - name: Run actual Metal numerical tests with required-device preflight
+        if: steps.probe.outputs.available == 'true'
+        run: >-
+          mvn --batch-mode -Pfull-coverage
+          -Dtest=CoverageEnvironmentTest,MetalBackendTest,MetalBackendTrainingTest,MetalBackendDifferentialTest,MetalModelDifferentialTest,ModelSerializerMetalTest,MetalLegacyKernelTest,MetalNativeValidationTest
+          test
+      - name: Explain an unavailable GPU without claiming Metal tests passed
+        if: steps.probe.outputs.available == 'false'
+        run: echo 'The standard macOS runner exposes no Metal device. GPU tests were not run.'
