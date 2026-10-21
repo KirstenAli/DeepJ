@@ -1,0 +1,23 @@
+{
+  "portableJava": {
+    "lines": 85,
+    "branches": 70,
+    "excludePackages": [
+      "io.github.kirstenali.deepj.tensor.metal",
+      "io.github.kirstenali.deepj.chatui"
+    ]
+  },
+  "coreJava": {
+    "lines": 90,
+    "branches": 75,
+    "excludePackages": [
+      "io.github.kirstenali.deepj.tensor.metal",
+      "io.github.kirstenali.deepj.chatui",
+      "io.github.kirstenali.deepj.examples"
+    ]
+  },
+  "fullJava": { "lines": 90, "branches": 75 },
+  "metalJava": { "lines": 90, "branches": 75 },
+  "native": { "lines": 85, "branches": 70, "functions": 90 },
+  "metalKernelSelections": 100
+}

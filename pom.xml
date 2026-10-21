@@ -40,6 +40,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.build.outputTimestamp>2026-10-18T00:00:00Z</project.build.outputTimestamp>
         <javafx.version>21.0.2</javafx.version>
+        <jacocoArgLine></jacocoArgLine>
+        <coverage.mode>--portable</coverage.mode>
+        <coverage.testOutputDirectory>${project.build.directory}/test-classes</coverage.testOutputDirectory>
+        <coverage.node>${project.build.directory}/node/node</coverage.node>
     </properties>
 
     <dependencies>
@@ -64,6 +68,7 @@
     </dependencies>
 
     <build>
+        <testOutputDirectory>${coverage.testOutputDirectory}</testOutputDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -76,8 +81,26 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
                 <configuration>
-                    <argLine>--enable-native-access=ALL-UNNAMED</argLine>
+                    <argLine>@{jacocoArgLine} --enable-native-access=ALL-UNNAMED</argLine>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.15</version>
+                <executions>
+                    <execution>
+                        <id>measure-java-coverage</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                        <configuration><propertyName>jacocoArgLine</propertyName></configuration>
+                    </execution>
+                    <execution>
+                        <id>report-java-coverage</id>
+                        <phase>verify</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>
@@ -163,10 +186,95 @@
                 </configuration>
             </plugin>
 
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <executable>${coverage.node}</executable>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>reset-coverage-data</id>
+                        <phase>process-test-classes</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <arguments><argument>scripts/coverage/prepare.mjs</argument></arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>enforce-java-coverage</id>
+                        <phase>verify</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <arguments>
+                                <argument>scripts/coverage/check-java.mjs</argument>
+                                <argument>${coverage.mode}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 
     <profiles>
+        <profile>
+            <id>windows-coverage-tools</id>
+            <activation><os><family>Windows</family></os></activation>
+            <properties><coverage.node>${project.build.directory}/node/node.exe</coverage.node></properties>
+        </profile>
+        <profile>
+            <id>full-coverage</id>
+            <properties>
+                <coverage.mode>--full</coverage.mode>
+                <coverage.testOutputDirectory>${project.build.directory}/coverage/test-classes</coverage.testOutputDirectory>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <deepj.uiTests>true</deepj.uiTests>
+                                <deepj.requireMetal>true</deepj.requireMetal>
+                            </systemPropertyVariables>
+                            <environmentVariables>
+                                <LLVM_PROFILE_FILE>${project.build.directory}/coverage/native/%m-%p.profraw</LLVM_PROFILE_FILE>
+                                <DEEPJ_KERNEL_COVERAGE>${project.build.directory}/coverage/native/kernels.txt</DEEPJ_KERNEL_COVERAGE>
+                            </environmentVariables>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>build-native-coverage-library</id>
+                                <phase>process-test-classes</phase>
+                                <goals><goal>exec</goal></goals>
+                                <configuration>
+                                    <arguments>
+                                        <argument>scripts/coverage/build-native.mjs</argument>
+                                        <argument>${java.home}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>enforce-native-coverage</id>
+                                <phase>verify</phase>
+                                <goals><goal>exec</goal></goals>
+                                <configuration>
+                                    <arguments><argument>scripts/coverage/check-native.mjs</argument></arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>central-release</id>
             <build>

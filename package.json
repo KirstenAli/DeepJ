@@ -1,17 +1,20 @@
 {
   "private": true,
   "scripts": {
-    "check:ui": "npm run check:format && npm run check:lint && npm run check:duplicates",
-    "check:format": "prettier --check .htmlvalidate.json .prettierrc.json package.json eslint.config.mjs stylelint.config.mjs src/main/resources/chat.html src/main/resources/chat.css src/main/resources/chat.js",
-    "check:lint": "eslint eslint.config.mjs stylelint.config.mjs src/main/resources/chat.js && stylelint src/main/resources/chat.css && html-validate src/main/resources/chat.html",
-    "check:duplicates": "jscpd --min-tokens 100 --min-lines 5 --exit-code 1 --format javascript,css,markup src/main/resources",
-    "format:ui": "prettier --write .htmlvalidate.json .prettierrc.json package.json eslint.config.mjs stylelint.config.mjs src/main/resources/chat.html src/main/resources/chat.css src/main/resources/chat.js"
+    "check:ui": "npm run check:format && npm run check:lint && npm run check:duplicates && npm run test:ui",
+    "check:format": "prettier --check .htmlvalidate.json .prettierrc.json package.json eslint.config.mjs stylelint.config.mjs config/*.json src/main/resources/chat.html src/main/resources/chat.css src/main/resources/chat.js src/test/frontend/*.mjs scripts/coverage/*.mjs",
+    "check:lint": "eslint eslint.config.mjs stylelint.config.mjs src/main/resources/chat.js src/test/frontend/*.mjs scripts/coverage/*.mjs && stylelint src/main/resources/chat.css && html-validate src/main/resources/chat.html",
+    "check:duplicates": "jscpd --min-tokens 100 --min-lines 5 --exit-code 1 --format javascript,css,markup src/main/resources src/test/frontend scripts/coverage",
+    "test:ui": "c8 --config config/ui-coverage.json node --test src/test/frontend/*.test.mjs",
+    "format:ui": "prettier --write .htmlvalidate.json .prettierrc.json package.json eslint.config.mjs stylelint.config.mjs config/*.json src/main/resources/chat.html src/main/resources/chat.css src/main/resources/chat.js src/test/frontend/*.mjs scripts/coverage/*.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "c8": "12.0.0",
     "eslint": "10.12.0",
     "html-validate": "10.17.0",
     "jscpd": "5.4.1",
+    "jsdom": "27.4.0",
     "prettier": "3.9.10",
     "stylelint": "17.16.0"
   }
