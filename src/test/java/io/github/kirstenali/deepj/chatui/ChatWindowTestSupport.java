@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import javafx.scene.web.WebView;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -9,6 +11,11 @@ import java.util.function.Consumer;
 final class ChatWindowTestSupport {
 
     private ChatWindowTestSupport() {}
+
+    static Object bridgeState(WebView view) {
+        return view.getEngine().executeScript("JSON.stringify({status:document.getElementById('status').textContent,"
+                + "busy:busy,loaded:modelLoaded,prompt:promptBox.value,html:messages.innerHTML})");
+    }
 
     record Invocation(String prompt, int maxTokens, float temperature, int topK,
                       long seed, float penalty) {}
