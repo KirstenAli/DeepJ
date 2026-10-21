@@ -185,13 +185,14 @@ class ChatWindowTest {
     void newChatStopsGenerationAndAcceptsAnotherPrompt() throws Exception {
         BlockingService service = new BlockingService();
         Fixture fixture = open(service);
-        verifyWithoutClosing(fixture, view -> script(view, "setModel('stub.dj'); chatBridge.send('old', 10, 1, 1, 1)"));
+        verifyWithoutClosing(fixture, view -> script(view,
+                "setModel('stub.dj'); chatBridge.sendWithSettings('old', 10, 1, 1, 1, 1)"));
         assertTrue(service.started.await(10, TimeUnit.SECONDS));
         verifyWithoutClosing(fixture, view -> {
             assertEquals("Stop generating", script(view, "document.getElementById('send').title"));
             script(view, "document.getElementById('newChat').click()");
             assertEquals(false, script(view, "document.getElementById('prompt').disabled"));
-            script(view, "chatBridge.send('new', 10, 1, 1, 1)");
+            script(view, "chatBridge.sendWithSettings('new', 10, 1, 1, 1, 1)");
         });
         assertTrue(service.stopped.await(10, TimeUnit.SECONDS));
         assertTrue(service.finished.await(10, TimeUnit.SECONDS));
@@ -210,7 +211,8 @@ class ChatWindowTest {
     void stopButtonCancelsGeneration() throws Exception {
         BlockingService service = new BlockingService();
         Fixture fixture = open(service);
-        verifyWithoutClosing(fixture, view -> script(view, "setModel('stub.dj'); chatBridge.send('old', 10, 1, 1, 1)"));
+        verifyWithoutClosing(fixture, view -> script(view,
+                "setModel('stub.dj'); chatBridge.sendWithSettings('old', 10, 1, 1, 1, 1)"));
         assertTrue(service.started.await(10, TimeUnit.SECONDS));
         verify(fixture, view -> {
             script(view, "document.getElementById('send').click()");
