@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
+import io.github.kirstenali.deepj.MetalUnavailableClassLoader;
 import io.github.kirstenali.deepj.models.nova.DeepJNova;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
@@ -7,7 +8,6 @@ import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
-import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETrainer;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +18,7 @@ import org.junit.jupiter.api.function.Executable;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,9 +27,9 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 class EvaluationExamplesTest {
 
@@ -117,10 +118,15 @@ class EvaluationExamplesTest {
     }
 
     @Test
-    void benchmarkDoesNotSilentlyUseCpuUnlessExplicitlyAllowed() {
-        assumeFalse(MetalBackend.isAvailable());
+    void benchmarkDoesNotSilentlyUseCpuUnlessExplicitlyAllowed() throws Exception {
         System.clearProperty("deepj.allowCpuBenchmark");
-        assertThrows(IllegalStateException.class, () -> BenchmarkDeepJ100M.main(new String[0]));
+        try (var isolated = new MetalUnavailableClassLoader()) {
+            var main = isolated.method("examples.BenchmarkDeepJ100M", "main", String[].class);
+            var failure = assertThrows(InvocationTargetException.class,
+                    () -> main.invoke(null, (Object) new String[0]));
+            assertInstanceOf(IllegalStateException.class, failure.getCause());
+            assertTrue(failure.getCause().getMessage().contains("Metal is unavailable"));
+        }
     }
 
     private void configureBenchmark() {
