@@ -43,6 +43,15 @@ jobs:
           cache: maven
       - name: Run Metal, desktop and native checks with required GPU coverage
         run: mvn --batch-mode clean verify -Pfull-coverage
+      - name: Report coverage details when the full build fails
+        if: failure()
+        run: |
+          if [ -f target/site/jacoco/jacoco.csv ]; then
+            sed -n '1,260p' target/site/jacoco/jacoco.csv
+          fi
+          if [ -f target/coverage/native/deepj_metal_coverage.mm ]; then
+            target/node/node scripts/coverage/check-native.mjs
+          fi
       - name: Save native code-quality report
         if: always()
         uses: actions/upload-artifact@v4
