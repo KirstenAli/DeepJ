@@ -8,6 +8,8 @@ mvn clean verify
 
 The build runs Java tests, frontend behavior tests, formatting, lint, short-function checks and duplication checks. It fails if coverage falls below the configured minimum. Coverage is collected only during tests, not during training or normal library use.
 
+The default build remains portable: it does not require macOS, a GPU or a desktop session. Tests that require Metal or a desktop skip when unavailable. Native compiler-based source checks activate only on macOS; the full hardware profile below is explicitly selected, not enabled by default.
+
 ## Rules also apply to tests
 
 Java production and test sources, including test-support classes and performance-test helpers, share the Checkstyle and PMD rules. These include method length, statement count, complexity, nesting and duplication. Tests have no blanket rule exemptions.
@@ -82,8 +84,8 @@ Fresh Java execution data and native profiles are required for each run. The bui
 | Native machine-readable report | `target/coverage/native/coverage.json` |
 | Metal kernel selections | `target/coverage/native/kernel-summary.json` |
 
-GitHub Actions runs the portable checks on Linux and `mvn clean verify -Pfull-coverage` on the standard `macos-15` runner for pull requests and pushes to `master`. The Mac job requires an available Metal device, runs numerical GPU and desktop tests, and enforces native and Java coverage gates. Missing GPU access fails the job instead of silently passing with skipped Metal tests. Native static checks still run on the CPU; they do not need GPU access.
+GitHub Actions uses one standard `macos-15` runner for pull requests and pushes to `master`. Its single `mvn clean verify -Pfull-coverage` build runs CPU, Metal, frontend, desktop and code-quality tests and enforces every coverage gate. Missing GPU access fails the job instead of silently passing with skipped Metal tests. Native static checks still run on the CPU; they do not need GPU access.
 
-The Linux job also verifies operation without Metal: chat must select the CPU backend, and benchmarks must reject an unavailable GPU unless CPU use is explicitly allowed. These platform-dependent paths are not exercised by the GPU-enabled Mac run.
+Tests also exercise the real no-Metal loading path on every host. A test-only isolated class loader hides the native library from its own DeepJ classes, without changing production files or the GPU tests' backend. Chat must select CPU, explicitly constructing Metal must fail, and the GPU benchmark must reject an unavailable device. These tests run even when the host has a GPU; they do not replace actual Linux compatibility testing, which is no longer part of CI.
 
 Standard GitHub-hosted runner time is free for public repositories such as DeepJ; no paid larger runner is selected. The verified Mac runner exposes an Apple Paravirtual Metal device. It is not the same hardware configuration as a user's physical Mac, so passing CI is not a performance benchmark or a substitute for testing hardware-specific changes locally. Report storage has separate GitHub quotas.

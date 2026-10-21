@@ -10,26 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  portable:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '20'
-          cache: maven
-      - name: Test and enforce coverage thresholds
-        run: mvn --batch-mode clean verify
-      - name: Save coverage reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-reports
-          path: |
-            target/site/jacoco/
-            target/coverage/
-            target/surefire-reports/
   metal:
     # DeepJ's existing Metal compile options require a macOS 15 or newer SDK.
     runs-on: macos-15
@@ -41,7 +21,7 @@ jobs:
           distribution: temurin
           java-version: '20'
           cache: maven
-      - name: Run Metal, desktop and native checks with required GPU coverage
+      - name: Run CPU, fallback, Metal, desktop and code-quality checks
         run: mvn --batch-mode clean verify -Pfull-coverage
       - name: Report coverage details when the full build fails
         if: failure()
@@ -52,9 +32,16 @@ jobs:
           if [ -f target/coverage/native/deepj_metal_coverage.mm ]; then
             target/node/node scripts/coverage/check-native.mjs
           fi
-      - name: Save native code-quality report
+      - name: Save coverage and code-quality reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: native-quality-report
-          path: target/quality/native/report.json
+          name: coverage-reports
+          path: |
+            target/site/jacoco/
+            target/coverage/java-summary.json
+            target/coverage/frontend/
+            target/coverage/native/*.json
+            target/coverage/native/html/
+            target/surefire-reports/
+            target/quality/native/report.json
