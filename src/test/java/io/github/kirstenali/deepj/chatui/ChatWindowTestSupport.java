@@ -17,6 +17,11 @@ final class ChatWindowTestSupport {
                 + "busy:busy,loaded:modelLoaded,prompt:promptBox.value,html:messages.innerHTML})");
     }
 
+    static void startAlternativeConversation(WebView view) {
+        view.getEngine().executeScript("setModel('stub.dj'); chatBridge.send('Hello', 80, 0.8, 40, 1234, 1)");
+        System.out.println("Alternative bridge state: " + bridgeState(view));
+    }
+
     record Invocation(String prompt, int maxTokens, float temperature, int topK,
                       long seed, float penalty) {}
 

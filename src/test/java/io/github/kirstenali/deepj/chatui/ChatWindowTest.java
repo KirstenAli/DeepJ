@@ -154,10 +154,7 @@ class ChatWindowTest {
     void alternativesKeepTheOriginalAndChangeOneSettingAtATime() throws Exception {
         AlternativeService service = new AlternativeService();
         Fixture fixture = open(service);
-        verifyWithoutClosing(fixture, view -> {
-            script(view, "setModel('stub.dj'); chatBridge.send('Hello', 80, 0.8, 40, 1234, 1)");
-            System.out.println("Alternative bridge state: " + bridgeState(view));
-        });
+        verifyWithoutClosing(fixture, ChatWindowTestSupport::startAlternativeConversation);
         assertTrue(service.first.await(10, TimeUnit.SECONDS));
         awaitScript(fixture, "document.querySelector('.alternatives-button') !== null && !promptBox.disabled");
         verifyWithoutClosing(fixture, view -> script(view,
