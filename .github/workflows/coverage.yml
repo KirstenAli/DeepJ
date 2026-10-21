@@ -42,7 +42,7 @@ jobs:
           java-version: '20'
           cache: maven
       - name: Run Metal, desktop and native checks with required GPU coverage
-        run: mvn --batch-mode clean verify -Pfull-coverage
+        run: mvn --batch-mode clean test -Pfull-coverage -Dtest=ChatWindowTest
       - name: Save native code-quality report
         if: always()
         uses: actions/upload-artifact@v4

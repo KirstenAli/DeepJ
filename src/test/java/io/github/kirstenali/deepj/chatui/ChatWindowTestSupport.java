@@ -20,6 +20,9 @@ final class ChatWindowTestSupport {
     static void startAlternativeConversation(WebView view) {
         view.getEngine().executeScript("setModel('stub.dj'); chatBridge.send('Hello', 80, 0.8, 40, 1234, 1)");
         System.out.println("Alternative bridge state: " + bridgeState(view));
+        view.getEngine().executeScript("chatBridge['send(java.lang.String,int,double,int,long,double)']"
+                + "('Hello', 80, 0.8, 40, 1234, 1)");
+        System.out.println("Explicit bridge state: " + bridgeState(view));
     }
 
     record Invocation(String prompt, int maxTokens, float temperature, int topK,
