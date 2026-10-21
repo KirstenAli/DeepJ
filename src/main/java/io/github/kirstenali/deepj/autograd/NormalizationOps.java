@@ -7,11 +7,12 @@ public final class NormalizationOps {
 
     public static Tensor rmsNorm(Tensor input, Tensor gamma, float epsilon) {
         var result = Tensor.backend().rmsNorm(input, gamma, epsilon);
+        Tensor normalized = result.normalized(), rms = result.rms();
+        boolean dx = input.requiresGrad(), dg = gamma.requiresGrad();
         return Autograd.recordSaved(result.output(), g -> new Tensor[]{
-                input.requiresGrad() ? Tensor.backend().rmsNormBackward(g,
-                        result.normalized(), result.rms(), gamma) : null,
-                gamma.requiresGrad() ? g.multiply(result.normalized()).sumRows() : null},
-                new Tensor[]{input, gamma}, input, gamma, result.normalized(), result.rms());
+                dx ? Tensor.backend().rmsNormBackward(g, normalized, rms, gamma) : null,
+                dg ? g.multiply(normalized).sumRows() : null},
+                new Tensor[]{input, gamma}, gamma, normalized, rms);
     }
 
     public static Tensor layerNorm(Tensor input, Tensor gamma, Tensor beta, float epsilon) {
@@ -22,15 +23,16 @@ public final class NormalizationOps {
             normalized = input.subtractBroadcastCols(input.meanAlongRows()).divideBroadcastCols(standardDeviation);
             output = normalized.multiplyBroadcastRows(gamma).addBroadcastRows(beta);
         }
-        return Autograd.recordSaved(output, g -> layerGradients(g, input, gamma, beta, normalized, standardDeviation),
-                new Tensor[]{input, gamma, beta}, input, gamma, beta, normalized, standardDeviation);
+        boolean[] required = {input.requiresGrad(), gamma.requiresGrad(), beta.requiresGrad()};
+        return Autograd.recordSaved(output, g -> layerGradients(g, gamma, normalized, standardDeviation, required),
+                new Tensor[]{input, gamma, beta}, gamma, normalized, standardDeviation);
     }
 
-    private static Tensor[] layerGradients(Tensor g, Tensor input, Tensor gamma, Tensor beta,
-                                            Tensor normalized, Tensor standardDeviation) {
-        return new Tensor[]{input.requiresGrad() ? Tensor.backend().layerNormBackward(
-                g.multiplyBroadcastRows(gamma), normalized, standardDeviation, input.cols) : null,
-                gamma.requiresGrad() ? g.multiply(normalized).sumRows() : null,
-                beta.requiresGrad() ? g.sumRows() : null};
+    private static Tensor[] layerGradients(Tensor g, Tensor gamma, Tensor normalized,
+                                            Tensor standardDeviation, boolean[] required) {
+        return new Tensor[]{required[0] ? Tensor.backend().layerNormBackward(
+                g.multiplyBroadcastRows(gamma), normalized, standardDeviation, normalized.cols) : null,
+                required[1] ? g.multiply(normalized).sumRows() : null,
+                required[2] ? g.sumRows() : null};
     }
 }

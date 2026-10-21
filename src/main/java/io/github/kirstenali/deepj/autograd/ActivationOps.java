@@ -7,31 +7,33 @@ public final class ActivationOps {
 
     public static Tensor tanh(Tensor input) {
         Tensor output = Tensor.backend().tanh(input);
-        return UnaryOps.record(input, output, g -> g.multiply(output.multiply(output).neg().addScalar(1)));
+        return UnaryOps.record(input, output, g -> g.multiply(output.multiply(output).neg().addScalar(1)), output);
     }
 
     public static Tensor sigmoid(Tensor input) {
         Tensor output = Tensor.backend().sigmoid(input);
-        return UnaryOps.record(input, output, g -> g.multiply(output).multiply(output.neg().addScalar(1)));
+        return UnaryOps.record(input, output, g -> g.multiply(output).multiply(output.neg().addScalar(1)), output);
     }
 
     public static Tensor relu(Tensor input) {
-        return UnaryOps.record(input, Tensor.backend().relu(input), g -> Tensor.backend().reluBackward(input, g));
+        return UnaryOps.record(input, Tensor.backend().relu(input),
+                g -> Tensor.backend().reluBackward(input, g), input);
     }
 
     public static Tensor gelu(Tensor input) {
-        return UnaryOps.record(input, Tensor.backend().gelu(input), g -> Tensor.backend().geluBackward(input, g));
+        return UnaryOps.record(input, Tensor.backend().gelu(input),
+                g -> Tensor.backend().geluBackward(input, g), input);
     }
 
     public static Tensor softmax(Tensor input) {
         Tensor output = Tensor.backend().softmaxRows(input);
-        return UnaryOps.record(input, output, g -> Tensor.backend().softmaxBackward(g, output));
+        return UnaryOps.record(input, output, g -> Tensor.backend().softmaxBackward(g, output), output);
     }
 
     public static Tensor causalSoftmax(Tensor input, int length, float scale) {
         Tensor output = Tensor.backend().causalSoftmax(input, length, scale);
         return UnaryOps.record(input, output,
-                g -> Tensor.backend().softmaxBackward(g, output).multiplyScalar(scale));
+                g -> Tensor.backend().softmaxBackward(g, output).multiplyScalar(scale), output);
     }
 
     public static Tensor swiGlu(Tensor gate, Tensor up) {

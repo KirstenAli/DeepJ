@@ -17,8 +17,9 @@ public final class CrossEntropyLoss implements LossFunction {
     public static Tensor forward(Tensor logits, int[] targets, boolean[] mask) {
         checkTargets(logits, targets);
         CrossEntropyResult result = mask == null ? result(logits, targets) : maskedResult(logits, targets, mask);
-        return Autograd.recordSaved(result.loss(), g -> new Tensor[]{scaleGradient(result.gradient(), g)},
-                new Tensor[]{logits}, logits, result.gradient());
+        Tensor gradient = result.gradient();
+        return Autograd.recordSaved(result.loss(), g -> new Tensor[]{scaleGradient(gradient, g)},
+                new Tensor[]{logits}, gradient);
     }
 
     private static CrossEntropyResult maskedResult(Tensor logits, int[] targets, boolean[] mask) {

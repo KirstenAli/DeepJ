@@ -7,12 +7,13 @@ public final class LayoutOps {
 
     public static Tensor gather(Tensor input, int[] indices) {
         int[] saved = indices.clone();
+        int rows = input.rows, cols = input.cols;
         Tensor output = Tensor.backend().sliceRows(input, saved);
-        return Autograd.record(output, g -> new Tensor[]{scatter(input, saved, g)}, input);
+        return Autograd.recordSaved(output, g -> new Tensor[]{scatter(rows, cols, saved, g)}, new Tensor[]{input});
     }
 
-    private static Tensor scatter(Tensor input, int[] indices, Tensor gradient) {
-        Tensor result = Tensor.zeros(input.rows, input.cols);
+    private static Tensor scatter(int rows, int cols, int[] indices, Tensor gradient) {
+        Tensor result = Tensor.zeros(rows, cols);
         Tensor.backend().scatterAddRows(result, indices, gradient);
         return result;
     }
@@ -45,6 +46,6 @@ public final class LayoutOps {
         Tensor output = Tensor.backend().rotary(input, cosine, sine, length, inverse);
         return Autograd.recordSaved(output,
                 g -> new Tensor[]{Tensor.backend().rotary(g, cosine, sine, length, !inverse)},
-                new Tensor[]{input}, input, cosine, sine);
+                new Tensor[]{input}, cosine, sine);
     }
 }

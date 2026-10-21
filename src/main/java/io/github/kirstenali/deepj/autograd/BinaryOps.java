@@ -14,11 +14,11 @@ public final class BinaryOps {
     }
 
     public static Tensor add(Tensor a, Tensor b) {
-        return record(Tensor.backend().add(a, b), a, b, g -> g, g -> g);
+        return recordSaved(Tensor.backend().add(a, b), a, b, g -> g, g -> g);
     }
 
     public static Tensor subtract(Tensor a, Tensor b) {
-        return record(Tensor.backend().subtract(a, b), a, b, g -> g, Tensor::neg);
+        return recordSaved(Tensor.backend().subtract(a, b), a, b, g -> g, Tensor::neg);
     }
 
     public static Tensor multiply(Tensor a, Tensor b) {
@@ -32,8 +32,15 @@ public final class BinaryOps {
 
     static Tensor record(Tensor output, Tensor a, Tensor b,
                           Function<Tensor, Tensor> left, Function<Tensor, Tensor> right) {
-        return Autograd.record(output, g -> new Tensor[]{
-                a.requiresGrad() ? left.apply(g) : null,
-                b.requiresGrad() ? right.apply(g) : null}, a, b);
+        return recordSaved(output, a, b, left, right, a, b);
+    }
+
+    static Tensor recordSaved(Tensor output, Tensor a, Tensor b,
+                              Function<Tensor, Tensor> left, Function<Tensor, Tensor> right, Tensor... saved) {
+        Function<Tensor, Tensor> leftRule = a.requiresGrad() ? left : null;
+        Function<Tensor, Tensor> rightRule = b.requiresGrad() ? right : null;
+        return Autograd.recordSaved(output, g -> new Tensor[]{
+                leftRule == null ? null : leftRule.apply(g),
+                rightRule == null ? null : rightRule.apply(g)}, new Tensor[]{a, b}, saved);
     }
 }

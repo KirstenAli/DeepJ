@@ -25,7 +25,7 @@ public final class UnaryOps {
 
     public static Tensor sqrt(Tensor input) {
         Tensor output = Tensor.backend().sqrt(input);
-        return record(input, output, g -> g.divide(output).multiplyScalar(0.5f));
+        return record(input, output, g -> g.divide(output).multiplyScalar(0.5f), output);
     }
 
     public static Tensor neg(Tensor input) {
@@ -34,21 +34,24 @@ public final class UnaryOps {
 
     public static Tensor exp(Tensor input) {
         Tensor output = Tensor.backend().exp(input);
-        return record(input, output, g -> g.multiply(output));
+        return record(input, output, g -> g.multiply(output), output);
     }
 
     public static Tensor log(Tensor input) {
-        return record(input, Tensor.backend().log(input), g -> g.divide(input));
+        return record(input, Tensor.backend().log(input), g -> g.divide(input), input);
     }
 
     public static Tensor pow(Tensor input, float exponent) {
+        int rows = input.rows, cols = input.cols;
+        if (exponent == 0) {
+            return record(input, Tensor.backend().pow(input, exponent), g -> Tensor.zeros(rows, cols));
+        }
         return record(input, Tensor.backend().pow(input, exponent),
-                g -> exponent == 0 ? Tensor.zeros(input.rows, input.cols)
-                        : g.multiply(input.pow(exponent - 1)).multiplyScalar(exponent));
+                g -> g.multiply(input.pow(exponent - 1)).multiplyScalar(exponent), input);
     }
 
-    static Tensor record(Tensor input, Tensor output, Function<Tensor, Tensor> derivative) {
+    static Tensor record(Tensor input, Tensor output, Function<Tensor, Tensor> derivative, Tensor... saved) {
         return Autograd.recordSaved(output, g -> new Tensor[]{derivative.apply(g)},
-                new Tensor[]{input}, input, output);
+                new Tensor[]{input}, saved);
     }
 }

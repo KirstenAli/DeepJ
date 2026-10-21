@@ -19,6 +19,8 @@ For non-scalar outputs, pass an upstream tensor of the same shape to `output.bac
 Gradients accumulate until `tensor.zeroGrad()` or `model.zeroGrad()` is called.
 A backward graph is released after use. Run forward again for another backward pass.
 Higher-order derivatives and retaining graphs for repeated backward passes are not supported.
+Graph connections retain shape and gradient metadata, not complete activation arrays. Each operation
+saves only the numerical values its derivative needs, and releases them after backward.
 
 ## Layers and training
 
@@ -87,6 +89,8 @@ identity, optimizer moments and resume counters are unchanged. Runtime autograd 
 The Maven build enforces the normal source/test quality rules and an autograd-specific minimum of
 95% line and 90% branch coverage. Tests cover numerical derivatives, old manual-training fixtures,
 CPU/Metal agreement, shared weights, masks, graph lifetime, mutation errors and checkpoint resumption.
+Fixed-heap subprocess tests also check that shape-only chains and softmax graphs do not retain unused
+activation arrays. Custom operations must return a new, untracked tensor rather than overwrite a graph.
 
 The optional GitHub Actions benchmark compares synthetic 90M Prism and 100M Nova training against
 a chosen baseline, at sequence length 1,024 and accumulation sizes one and two. It uses separate JVMs,

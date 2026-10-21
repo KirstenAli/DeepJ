@@ -128,6 +128,31 @@ class AutogradSafetyTest {
     }
 
     @Test
+    void customOperationsCannotOverwriteAnExistingGraphOrCreateAncestorCycles() {
+        Tensor input = Tensor.ones(1, 1).requiresGrad(true);
+        Tensor output = input.pow(2);
+        assertThrows(IllegalArgumentException.class, () -> Autograd.record(input, g -> new Tensor[]{g}, output));
+        assertThrows(IllegalArgumentException.class, () -> Autograd.record(output, g -> new Tensor[]{g}, input));
+        Tensor constant = Tensor.ones(1, 1);
+        assertThrows(IllegalArgumentException.class,
+                () -> Autograd.record(constant, g -> new Tensor[]{g, g}, constant, input));
+        output.backward();
+        assertEquals(2, input.grad().item());
+    }
+
+    @Test
+    void validatesSavedOutputsAsWellAsMetadataOnlyInputs() {
+        Tensor input = Tensor.ones(1, 1).requiresGrad(true);
+        Tensor output = input.exp();
+        try (var ignored = GradMode.noGrad()) {
+            output.addScalarInPlace(1);
+        }
+        assertThrows(IllegalStateException.class, output::backward);
+        assertNull(input.grad());
+        assertFalse(output.gradientState().savedForBackward());
+    }
+
+    @Test
     void parameterRejectsTrackedOrIncorrectlyShapedGradientBuffers() {
         Parameter parameter = new Parameter(Tensor.ones(1, 1));
         assertThrows(IllegalArgumentException.class, () -> parameter.setGradient(Tensor.ones(2, 2)));

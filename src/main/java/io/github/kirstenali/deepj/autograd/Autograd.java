@@ -17,8 +17,8 @@ public final class Autograd {
 
     public static Tensor recordSaved(Tensor output, BackwardRule rule, Tensor[] inputs, Tensor... saved) {
         if (!tracks(inputs)) return output;
-        if (Arrays.asList(inputs).contains(output)) {
-            throw new IllegalArgumentException("A tracked operation must return a new tensor");
+        if (output.requiresGrad() || Arrays.asList(inputs).contains(output)) {
+            throw new IllegalArgumentException("A tracked operation must return a new, untracked tensor");
         }
         output.gradientState().attach(new BackwardNode(rule, inputs, saved));
         return output;

@@ -53,7 +53,9 @@ jobs:
           set -o pipefail
           mkdir benchmark-results
           for revision in baseline candidate; do
-            /usr/bin/time -l java -Xmx6g --enable-native-access=ALL-UNNAMED \
+            /usr/bin/time -l java -Xmx6g \
+              "-Xlog:gc=info:file=benchmark-results/$BENCHMARK_PROFILE-$BENCHMARK_BATCH-$revision-gc.txt" \
+              --enable-native-access=ALL-UNNAMED \
               -cp "$revision/target/classes:candidate/target/test-classes" \
               io.github.kirstenali.deepj.testing.AutogradTrainingBenchmark \
               "$BENCHMARK_PROFILE" "$BENCHMARK_BATCH" \
