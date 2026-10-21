@@ -20,6 +20,9 @@ class AutogradSafetyTest {
         Tensor input = Tensor.ones(1, 2).requiresGrad(true);
         assertThrows(IllegalStateException.class, () -> input.multiplyScalarInPlace(2));
         assertThrows(IllegalStateException.class, () -> Tensor.ones(1, 2).addInPlace(input));
+        assertThrows(IllegalStateException.class, () -> Tensor.ones(1, 2).setRow(0, input, 0));
+        assertThrows(IllegalStateException.class,
+                () -> Tensor.scatterAddRows(Tensor.ones(1, 2), new int[]{0}, input));
         assertThrows(IllegalStateException.class, () -> input.set(0, 0, 3));
     }
 

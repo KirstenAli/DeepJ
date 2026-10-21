@@ -192,8 +192,7 @@ public class Tensor {
     }
 
     public static void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
-        target.gradientState.beforeMutation();
-        backend().scatterAddRows(target, indices, grad);
+        TensorMutation.apply(target, () -> backend().scatterAddRows(target, indices, grad), grad);
     }
 
     public static Tensor from2D(float[][] data) {
@@ -226,8 +225,7 @@ public class Tensor {
     }
 
     public void setRow(int row, Tensor source, int srcRow) {
-        gradientState.beforeMutation();
-        TensorStorage.setRow(this, row, source, srcRow);
+        TensorMutation.apply(this, () -> TensorStorage.setRow(this, row, source, srcRow), source);
     }
 
     public static Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {

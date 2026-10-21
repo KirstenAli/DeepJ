@@ -76,6 +76,8 @@ differentiable code, and managed writes or `TensorAdapters.unpackF32Into(...)` f
   another tensor to `parameter.value`.
 - Backend derivative kernels remain available. They are implementation building blocks, not a second
   layer-by-layer training system.
+- Tensor convenience wrappers for `reluBackward`, `geluBackward`, `softmaxBackward`,
+  `crossEntropyGradient` and `layerNormBackward` are removed; autograd invokes the backend rules.
 
 No model or training-checkpoint format changes are required. Saved parameter ordering, tied-weight
 identity, optimizer moments and resume counters are unchanged. Runtime autograd graphs are not saved.
