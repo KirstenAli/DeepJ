@@ -40,6 +40,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.build.outputTimestamp>2026-10-18T00:00:00Z</project.build.outputTimestamp>
         <javafx.version>21.0.2</javafx.version>
+        <pmd.version>7.17.0</pmd.version>
         <jacocoArgLine></jacocoArgLine>
         <coverage.mode>--portable</coverage.mode>
         <coverage.testOutputDirectory>${project.build.directory}/test-classes</coverage.testOutputDirectory>
@@ -63,6 +64,12 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.13.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.sourceforge.pmd</groupId>
+            <artifactId>pmd-java</artifactId>
+            <version>${pmd.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -133,8 +140,23 @@
                     <maxAllowedViolations>0</maxAllowedViolations>
                     <linkXRef>false</linkXRef>
                     <printFailingErrors>true</printFailingErrors>
+                    <rulesets><ruleset>config/pmd.xml</ruleset></rulesets>
+                    <targetJdk>${maven.compiler.release}</targetJdk>
+                    <skipPmdError>false</skipPmdError>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>net.sourceforge.pmd</groupId>
+                        <artifactId>pmd-java</artifactId>
+                        <version>${pmd.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
+                    <execution>
+                        <id>enforce-readable-control-flow</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                    </execution>
                     <execution>
                         <id>enforce-no-copy-paste</id>
                         <phase>verify</phase>

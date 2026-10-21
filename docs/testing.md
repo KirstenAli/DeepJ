@@ -8,6 +8,14 @@ mvn clean verify
 
 The build runs Java tests, frontend behavior tests, formatting, lint, short-function checks and duplication checks. It fails if coverage falls below the configured minimum. Coverage is collected only during tests, not during training or normal library use.
 
+## Control-flow checks
+
+`mvn clean verify` also rejects methods with cognitive complexity above 15. PMD checks production and test Java, including the Java Metal backend; ESLint checks frontend JavaScript, its tests and build scripts.
+
+The Java nesting rule allows up to three mixed control-flow levels, counting `if`, loops, `switch` and `try` together. Else-if chains stay flat, and nested methods and lambdas start a new nesting count. Existing stricter Java `if`/`for` checks remain enabled. JavaScript keeps its existing two-level nesting limit.
+
+The rules live in `config/pmd.xml`, `config/checkstyle.xml` and `eslint.config.mjs`. Regression tests check both acceptable examples and deliberately complex examples, including the 15/16 cognitive-complexity boundary. These are build-time checks, not runtime instrumentation. They do not analyse native Objective-C++ or Metal shader bodies; those retain their separate source checks and numerical tests.
+
 ## Coverage gates
 
 | Scope | Lines | Branches | Other minimums |
