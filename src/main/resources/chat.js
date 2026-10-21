@@ -252,7 +252,7 @@ function submitPrompt() {
   if (!prompt || busy) return;
   if (!modelLoaded) return chooseModel();
   if (!validGenerationSettings()) return;
-  chatBridge.send(
+  chatBridge.sendWithSettings(
     prompt,
     generationValue('maxTokens'),
     generationValue('temperature'),

@@ -34,7 +34,7 @@ Clang parses generated analysis-only copies under `target/quality/native`. Shade
 
 The native metric uses Clang's syntax tree, not brace or keyword counting. It accounts for nested branches and loops, switches, catches, ternaries, logical-operator sequences and direct recursion. Else-if chains stay flat; unbraced nesting still counts. Like common compiler-based checks, inactive preprocessor branches and cross-function recursion cycles are not measured. Limits live in `config/native-quality.json`; per-function results and original source lines are written to `target/quality/native/report.json`.
 
-Native regression tests verify the scoring and boundary conditions against real parsed C++ fixtures. They also test shader extraction and failure handling. Non-macOS builds retain the Java/frontend checks; a separate macOS CI job checks native host and shader control flow on every pull request without requiring a GPU.
+Native regression tests verify the scoring and boundary conditions against real parsed C++ fixtures. They also test shader extraction and failure handling. Non-macOS builds retain the Java/frontend checks. The macOS CI job runs these static checks alongside actual Metal numerical tests and the full coverage profile.
 
 ## Coverage gates
 
@@ -82,4 +82,8 @@ Fresh Java execution data and native profiles are required for each run. The bui
 | Native machine-readable report | `target/coverage/native/coverage.json` |
 | Metal kernel selections | `target/coverage/native/kernel-summary.json` |
 
-GitHub Actions runs the portable checks on pull requests and pushes to `master`, and uploads the reports. A full native/GPU result requires running the hardware command on a suitable Mac; a hosted Linux CI result does not claim native or desktop coverage. Native gate values are policy thresholds until confirmed against an actual full hardware run.
+GitHub Actions runs the portable checks on Linux and `mvn clean verify -Pfull-coverage` on the standard `macos-15` runner for pull requests and pushes to `master`. The Mac job requires an available Metal device, runs numerical GPU and desktop tests, and enforces native and Java coverage gates. Missing GPU access fails the job instead of silently passing with skipped Metal tests. Native static checks still run on the CPU; they do not need GPU access.
+
+The Linux job also verifies operation without Metal: chat must select the CPU backend, and benchmarks must reject an unavailable GPU unless CPU use is explicitly allowed. These platform-dependent paths are not exercised by the GPU-enabled Mac run.
+
+Standard GitHub-hosted runner time is free for public repositories such as DeepJ; no paid larger runner is selected. The verified Mac runner exposes an Apple Paravirtual Metal device. It is not the same hardware configuration as a user's physical Mac, so passing CI is not a performance benchmark or a substitute for testing hardware-specific changes locally. Report storage has separate GitHub quotas.

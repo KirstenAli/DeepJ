@@ -30,9 +30,10 @@ jobs:
             target/site/jacoco/
             target/coverage/
             target/surefire-reports/
-  native-quality:
+  metal:
     # DeepJ's existing Metal compile options require a macOS 15 or newer SDK.
     runs-on: macos-15
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -40,8 +41,17 @@ jobs:
           distribution: temurin
           java-version: '20'
           cache: maven
-      - name: Check native host and shader control flow without GPU execution
-        run: mvn --batch-mode -DskipTests process-test-classes
+      - name: Run Metal, desktop and native checks with required GPU coverage
+        run: mvn --batch-mode clean verify -Pfull-coverage
+      - name: Report coverage details when the full build fails
+        if: failure()
+        run: |
+          if [ -f target/site/jacoco/jacoco.csv ]; then
+            sed -n '1,260p' target/site/jacoco/jacoco.csv
+          fi
+          if [ -f target/coverage/native/deepj_metal_coverage.mm ]; then
+            target/node/node scripts/coverage/check-native.mjs
+          fi
       - name: Save native code-quality report
         if: always()
         uses: actions/upload-artifact@v4

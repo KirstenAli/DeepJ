@@ -112,6 +112,12 @@ public final class ChatWindow {
         send(prompt, maxTokens, temperature, topK, seed, 1.0);
     }
 
+    // WebView needs an unambiguous method name when dispatching JavaScript calls.
+    public void sendWithSettings(String prompt, int maxTokens, double temperature, int topK,
+                                 long seed, double repetitionPenalty) {
+        send(prompt, maxTokens, temperature, topK, seed, repetitionPenalty);
+    }
+
     public void send(String prompt, int maxTokens, double temperature, int topK,
                      long seed, double repetitionPenalty) {
         if (busy || !service.isModelLoaded()) return;

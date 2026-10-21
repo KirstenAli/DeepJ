@@ -60,7 +60,7 @@ test('enter sends the prompt with exactly the selected generation settings', (co
   ui.element('repetitionPenalty').value = '1.1';
   const enter = keyboard(ui, ui.element('prompt'), 'Enter');
   assert.equal(enter.defaultPrevented, true);
-  assert.deepEqual(ui.calls, [['send', 'Hello', 80, 0.8, 40, 1234, 1.1]]);
+  assert.deepEqual(ui.calls, [['sendWithSettings', 'Hello', 80, 0.8, 40, 1234, 1.1]]);
 });
 
 test('shift-enter and ordinary keys do not submit', (context) => {
@@ -77,7 +77,7 @@ test('the send button uses the normal submission path when not generating', (con
   ui.element('prompt').value = 'A question';
   ui.window.resizePrompt();
   ui.click('send');
-  assert.equal(ui.calls[0][0], 'send');
+  assert.equal(ui.calls[0][0], 'sendWithSettings');
   assert.equal(ui.calls[0][1], 'A question');
 });
 

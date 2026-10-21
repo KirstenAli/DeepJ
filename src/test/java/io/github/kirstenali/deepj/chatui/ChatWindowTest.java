@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.chatui;
 import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.AlternativeService;
 import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.BlockingService;
 import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.Invocation;
+import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.TestService;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.event.Event;
@@ -15,12 +16,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -123,36 +122,44 @@ class ChatWindowTest {
     @Test
     void desktopBridgeStreamsIntoConversation() throws Exception {
         Fixture fixture = open();
+        verifyWithoutClosing(fixture, ChatWindowTest::preparePrompt);
+        awaitScript(fixture, "document.activeElement === document.getElementById('prompt')");
         verifyWithoutClosing(fixture, view -> {
-            script(view, "setModel('stub.dj')");
-            script(view, "document.getElementById('repetitionPenalty').value = '1.2'");
-            script(view, "document.getElementById('prompt').value = 'Hello'");
-            script(view, "document.getElementById('prompt').focus()");
             pressEnter(view, true);
             assertEquals(0, ((Number) script(view, "document.querySelectorAll('.user').length")).intValue());
             pressEnter(view, false);
+        });
+        awaitScript(fixture, "document.querySelector('.user .message-content') !== null");
+        verifyWithoutClosing(fixture, view -> {
             assertEquals("Hello", script(view, "document.querySelector('.user .message-content').textContent"));
             assertEquals("", script(view, "document.getElementById('prompt').value"));
         });
         assertTrue(((TestService) fixture.service).generated.await(10, TimeUnit.SECONDS));
         assertEquals(1.2f, ((TestService) fixture.service).repetitionPenalty);
-        Thread.sleep(200);
+        awaitScript(fixture, "document.querySelector('.assistant .message-content')?.textContent === 'A short answer'");
         verify(fixture, view -> assertEquals("A short answer",
                 script(view, "document.querySelector('.assistant .message-content').textContent")));
+    }
+
+    private static void preparePrompt(WebView view) {
+        view.requestFocus();
+        script(view, "setModel('stub.dj')");
+        script(view, "document.getElementById('repetitionPenalty').value = '1.2'");
+        script(view, "document.getElementById('prompt').value = 'Hello'");
+        script(view, "document.getElementById('prompt').focus()");
     }
 
     @Test
     void alternativesKeepTheOriginalAndChangeOneSettingAtATime() throws Exception {
         AlternativeService service = new AlternativeService();
         Fixture fixture = open(service);
-        verifyWithoutClosing(fixture, view -> script(view,
-                "setModel('stub.dj'); chatBridge.send('Hello', 80, 0.8, 40, 1234, 1)"));
+        verifyWithoutClosing(fixture, ChatWindowTestSupport::startAlternativeConversation);
         assertTrue(service.first.await(10, TimeUnit.SECONDS));
-        Thread.sleep(200);
+        awaitScript(fixture, "document.querySelector('.alternatives-button') !== null && !promptBox.disabled");
         verifyWithoutClosing(fixture, view -> script(view,
                 "document.querySelector('.alternatives-button').click()"));
         assertTrue(service.extra.await(10, TimeUnit.SECONDS));
-        Thread.sleep(200);
+        awaitScript(fixture, "document.querySelectorAll('.alternative').length === 2 && !promptBox.disabled");
         verify(fixture, ChatWindowTest::assertAlternativesVisible);
         assertEquals(List.of(new Invocation("Hello", 80, 0.8f, 40, 1234, 1.0f),
                 new Invocation("Hello", 80, 0.8f, 40, 1234, 1.1f),
@@ -178,17 +185,18 @@ class ChatWindowTest {
     void newChatStopsGenerationAndAcceptsAnotherPrompt() throws Exception {
         BlockingService service = new BlockingService();
         Fixture fixture = open(service);
-        verifyWithoutClosing(fixture, view -> script(view, "setModel('stub.dj'); chatBridge.send('old', 10, 1, 1, 1)"));
+        verifyWithoutClosing(fixture, view -> script(view,
+                "setModel('stub.dj'); chatBridge.sendWithSettings('old', 10, 1, 1, 1, 1)"));
         assertTrue(service.started.await(10, TimeUnit.SECONDS));
         verifyWithoutClosing(fixture, view -> {
             assertEquals("Stop generating", script(view, "document.getElementById('send').title"));
             script(view, "document.getElementById('newChat').click()");
             assertEquals(false, script(view, "document.getElementById('prompt').disabled"));
-            script(view, "chatBridge.send('new', 10, 1, 1, 1)");
+            script(view, "chatBridge.sendWithSettings('new', 10, 1, 1, 1, 1)");
         });
         assertTrue(service.stopped.await(10, TimeUnit.SECONDS));
         assertTrue(service.finished.await(10, TimeUnit.SECONDS));
-        Thread.sleep(200);
+        awaitScript(fixture, "document.querySelector('.assistant .message-content')?.textContent === 'new response'");
         verify(fixture, ChatWindowTest::assertNewChat);
     }
 
@@ -203,7 +211,8 @@ class ChatWindowTest {
     void stopButtonCancelsGeneration() throws Exception {
         BlockingService service = new BlockingService();
         Fixture fixture = open(service);
-        verifyWithoutClosing(fixture, view -> script(view, "setModel('stub.dj'); chatBridge.send('old', 10, 1, 1, 1)"));
+        verifyWithoutClosing(fixture, view -> script(view,
+                "setModel('stub.dj'); chatBridge.sendWithSettings('old', 10, 1, 1, 1, 1)"));
         assertTrue(service.started.await(10, TimeUnit.SECONDS));
         verify(fixture, view -> {
             script(view, "document.getElementById('send').click()");
@@ -257,6 +266,17 @@ class ChatWindowTest {
         if (failure.get() != null) throw new AssertionError(failure.get());
     }
 
+    private static void awaitScript(Fixture fixture, String condition) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        AtomicReference<Boolean> ready = new AtomicReference<>(false);
+        while (System.nanoTime() < deadline) {
+            verifyWithoutClosing(fixture, view -> ready.set(Boolean.TRUE.equals(script(view, condition))));
+            if (ready.get()) return;
+            Thread.sleep(20);
+        }
+        throw new AssertionError("Timed out waiting for desktop state: " + condition);
+    }
+
     private static Object script(WebView view, String source) {
         return view.getEngine().executeScript(source);
     }
@@ -297,30 +317,6 @@ class ChatWindowTest {
                 if (close) stage.close();
                 done.countDown();
             }
-        }
-    }
-
-    private static final class TestService implements ChatService {
-        private final CountDownLatch generated = new CountDownLatch(1);
-        private volatile float repetitionPenalty;
-
-        @Override public void loadModel(Path modelPath) {}
-        @Override public boolean isModelLoaded() { return true; }
-        @Override public String getLoadedModelName() { return "stub.dj"; }
-
-        @Override
-        public String generate(String prompt, int maxTokens, float temperature, int topK,
-                               long seed, Consumer<String> listener) {
-            listener.accept("A short");
-            generated.countDown();
-            return "A short answer";
-        }
-
-        @Override
-        public String generate(String prompt, int maxTokens, float temperature, int topK,
-                               long seed, float penalty, Consumer<String> listener) {
-            repetitionPenalty = penalty;
-            return generate(prompt, maxTokens, temperature, topK, seed, listener);
         }
     }
 

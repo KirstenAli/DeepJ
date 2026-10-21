@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import javafx.scene.web.WebView;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -10,8 +12,37 @@ final class ChatWindowTestSupport {
 
     private ChatWindowTestSupport() {}
 
+    static void startAlternativeConversation(WebView view) {
+        view.getEngine().executeScript("setModel('stub.dj');"
+                + "chatBridge.sendWithSettings('Hello', 80, 0.8, 40, 1234, 1)");
+    }
+
     record Invocation(String prompt, int maxTokens, float temperature, int topK,
                       long seed, float penalty) {}
+
+    static final class TestService implements ChatService {
+        final CountDownLatch generated = new CountDownLatch(1);
+        volatile float repetitionPenalty;
+
+        @Override public void loadModel(Path modelPath) {}
+        @Override public boolean isModelLoaded() { return true; }
+        @Override public String getLoadedModelName() { return "stub.dj"; }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, Consumer<String> listener) {
+            listener.accept("A short");
+            generated.countDown();
+            return "A short answer";
+        }
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK,
+                               long seed, float penalty, Consumer<String> listener) {
+            repetitionPenalty = penalty;
+            return generate(prompt, maxTokens, temperature, topK, seed, listener);
+        }
+    }
 
     static final class AlternativeService implements ChatService {
         final CountDownLatch first = new CountDownLatch(1);
