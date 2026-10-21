@@ -14,7 +14,17 @@ The build runs Java tests, frontend behavior tests, formatting, lint, short-func
 
 The Java nesting rule allows up to three mixed control-flow levels, counting `if`, loops, `switch` and `try` together. Else-if chains stay flat, and nested methods and lambdas start a new nesting count. Existing stricter Java `if`/`for` checks remain enabled. JavaScript keeps its existing two-level nesting limit.
 
-The rules live in `config/pmd.xml`, `config/checkstyle.xml` and `eslint.config.mjs`. Regression tests check both acceptable examples and deliberately complex examples, including the 15/16 cognitive-complexity boundary. These are build-time checks, not runtime instrumentation. They do not analyse native Objective-C++ or Metal shader bodies; those retain their separate source checks and numerical tests.
+The rules live in `config/pmd.xml`, `config/checkstyle.xml` and `eslint.config.mjs`. Regression tests check both acceptable examples and deliberately complex examples, including the 15/16 cognitive-complexity boundary. These are build-time checks, not runtime instrumentation.
+
+### Native host and Metal shaders
+
+On macOS, `mvn clean verify` automatically activates `native-code-quality`. It enforces the same cognitive-complexity maximum of 15 and mixed control-flow nesting maximum of 3 on native host functions, extracted shader functions and native coverage-hook test helpers. No GPU work is executed. Xcode Command Line Tools provide the Clang parser and macOS headers. Missing tools, parse errors, missing kernel definitions or rule violations fail the build.
+
+Clang parses generated analysis-only copies under `target/quality/native`. Shader type declarations and address-space qualifiers are supplied by `src/test/native/metal-analysis-shim.h`, while the original function bodies are preserved. This checks C++-compatible control flow, not all Metal language or GPU numerical semantics. The production source, bundled library, training process and checkpoints are untouched.
+
+The native metric uses Clang's syntax tree, not brace or keyword counting. It accounts for nested branches and loops, switches, catches, ternaries, logical-operator sequences and direct recursion. Else-if chains stay flat; unbraced nesting still counts. Like common compiler-based checks, inactive preprocessor branches and cross-function recursion cycles are not measured. Limits live in `config/native-quality.json`; per-function results and original source lines are written to `target/quality/native/report.json`.
+
+Native regression tests verify the scoring and boundary conditions against real parsed C++ fixtures. They also test shader extraction and failure handling. Non-macOS builds retain the Java/frontend checks; a separate macOS CI job checks native host and shader control flow on every pull request without requiring a GPU.
 
 ## Coverage gates
 
