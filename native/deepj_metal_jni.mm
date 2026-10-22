@@ -348,7 +348,10 @@ inline float reduce_sum(threadgroup float* scratch, float value,
         if (tid < stride) scratch[tid] += scratch[tid + stride];
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
-    return scratch[0];
+    // Every lane must read the result before a following reduction reuses scratch.
+    float result = scratch[0];
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    return result;
 }
 
 inline float reduce_max(threadgroup float* scratch, float value,
@@ -359,7 +362,9 @@ inline float reduce_max(threadgroup float* scratch, float value,
         if (tid < stride) scratch[tid] = max(scratch[tid], scratch[tid + stride]);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
-    return scratch[0];
+    float result = scratch[0];
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    return result;
 }
 
 inline void write_row_value(device float* output, uint base, uint cols,
