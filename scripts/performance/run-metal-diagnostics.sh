@@ -17,12 +17,12 @@ system_snapshot() {
 run_case() {
     local revision=$1 label=$2 steps=$3 warmup=$4 recording=$5
     local output="benchmark-diagnostics/$BENCHMARK_PROFILE-$label"
-    local options=()
+    local options=(-Ddeepj.benchmarkVariedData=true)
     if [[ "$recording" == yes ]]; then options+=("-Ddeepj.benchmarkRecording=$output.jfr"); fi
     system_snapshot > "$output-system-before.txt"
     /usr/bin/time -l java -Xmx3g -XX:+ExitOnOutOfMemoryError \
         "-Xlog:gc*,safepoint:file=$output-gc.txt:time,uptime,level,tags" \
-        -Ddeepj.benchmarkVariedData=true "${options[@]}" --enable-native-access=ALL-UNNAMED \
+        "${options[@]}" --enable-native-access=ALL-UNNAMED \
         -cp "$revision/target/classes:candidate/target/test-classes" \
         io.github.kirstenali.deepj.testing.AutogradTrainingBenchmark \
         "$BENCHMARK_PROFILE-probe" 1 "$steps" "$warmup" > "$output.txt" 2>&1
