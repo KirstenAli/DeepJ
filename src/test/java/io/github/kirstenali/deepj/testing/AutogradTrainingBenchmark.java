@@ -20,6 +20,7 @@ public final class AutogradTrainingBenchmark {
 
     public static void main(String[] args) {
         if (!MetalBackend.isAvailable()) throw new IllegalStateException("This benchmark requires a Metal device");
+        System.out.printf("START pid=%d%n", ProcessHandle.current().pid());
         Tensor.setBackend(new MetalBackend());
         try {
             benchmark(args[0], Integer.parseInt(args[1]), argument(args, 2, 6), argument(args, 3, 4));
