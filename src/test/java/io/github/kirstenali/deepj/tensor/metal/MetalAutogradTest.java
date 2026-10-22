@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
+import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,42 @@ class MetalAutogradTest extends MetalDifferentialTestSupport {
         assertFalse(output.requiresGrad());
         metal.releaseTemporaryResources();
         assertNull(output.getGpuTag());
+    }
+
+    @Test
+    void leafGatherSharesTheCanonicalBufferWithDenseGradientBranches() {
+        Parameter table = new Parameter(Tensor.ones(3, 2));
+        Tensor buffer = table.grad();
+        Tensor gathered = Tensor.sliceRows(table.value, new int[]{1, 1, 2}, 2);
+        table.value.sumTensor().add(gathered.sumTensor()).backward();
+        assertSame(buffer, table.grad());
+        Tensor expected = Tensor.from2D(new float[][]{{1, 1}, {3, 3}, {2, 2}});
+        assertTensorClose(expected, table.grad(), 1e-6f, 1e-6f);
+    }
+
+    @Test
+    void repeatedLeafGathersAccumulateOnDeviceAndRespectZeroGrad() {
+        Parameter table = new Parameter(Tensor.ones(3, 2));
+        Tensor.sliceRows(table.value, new int[]{1, 1}, 2).sumTensor().backward();
+        Tensor buffer = table.grad();
+        Tensor.sliceRows(table.value, new int[]{1, 2}, 2).sumTensor().backward();
+        assertSame(buffer, table.grad());
+        Tensor expected = Tensor.from2D(new float[][]{{0, 0}, {3, 3}, {1, 1}});
+        assertTensorClose(expected, table.grad(), 1e-6f, 1e-6f);
+        table.zeroGrad();
+        Tensor.sliceRows(table.value, new int[]{0}, 2).sumTensor().backward();
+        Tensor reset = Tensor.from2D(new float[][]{{1, 1}, {0, 0}, {0, 0}});
+        assertTensorClose(reset, table.grad(), 1e-6f, 1e-6f);
+    }
+
+    @Test
+    void gatherProtectsAnUpstreamThatIsAlsoTheAccumulationBuffer() {
+        Tensor table = Tensor.ones(2, 1).requiresGrad(true);
+        Tensor upstream = Tensor.from2D(new float[][]{{1}, {2}});
+        table.gradientState().bindGradient(upstream);
+        Tensor.sliceRows(table, new int[]{1, 0}, 1).backward(upstream);
+        Tensor expected = Tensor.from2D(new float[][]{{3}, {3}});
+        assertTensorClose(expected, table.grad(), 1e-6f, 1e-6f);
     }
 
     private record Result(Tensor output, Tensor gradient) {}

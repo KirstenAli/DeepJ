@@ -38,6 +38,10 @@ final class BackwardNode {
         return results;
     }
 
+    boolean accumulateLeaf(Tensor gradient) {
+        return rule instanceof LeafGradientRule leaf && leaf.accumulate(gradient);
+    }
+
     void release() {
         released = true;
         inputs = List.of();

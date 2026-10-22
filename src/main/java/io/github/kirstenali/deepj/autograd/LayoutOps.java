@@ -7,15 +7,8 @@ public final class LayoutOps {
 
     public static Tensor gather(Tensor input, int[] indices) {
         int[] saved = indices.clone();
-        int rows = input.rows, cols = input.cols;
         Tensor output = Tensor.backend().sliceRows(input, saved);
-        return Autograd.recordSaved(output, g -> new Tensor[]{scatter(rows, cols, saved, g)}, new Tensor[]{input});
-    }
-
-    private static Tensor scatter(int rows, int cols, int[] indices, Tensor gradient) {
-        Tensor result = Tensor.zeros(rows, cols);
-        Tensor.backend().scatterAddRows(result, indices, gradient);
-        return result;
+        return Autograd.recordSaved(output, new GatherBackward(input, saved), new Tensor[]{input});
     }
 
     public static Tensor splitHeads(Tensor input, int heads) {

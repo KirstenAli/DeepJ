@@ -67,6 +67,7 @@ final class BackwardPass {
 
     private void propagateInputs(BackwardNode node, Tensor gradient) {
         try {
+            if (node.accumulateLeaf(gradient)) return;
             Tensor[] contributions = node.apply(gradient);
             for (int index = 0; index < contributions.length; index++) {
                 accumulate(node.inputs().get(index), contributions[index]);
