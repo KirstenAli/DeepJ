@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -13,8 +14,17 @@ class MetalReductionSynchronizationTest extends MetalDifferentialTestSupport {
     @ParameterizedTest
     @ValueSource(ints = {768, 769, 1536, 1664, 2112})
     void reusedScratchPreservesTheMeanBeforeComputingVariance(int columns) {
-        Tensor input = constant(128, columns, 1);
-        for (int round = 0; round < 8; round++) {
+        assertConstantVariance(128, columns, 8);
+    }
+
+    @Test
+    void repeatedDispatchesExposeRareScratchReuseRaces() {
+        assertConstantVariance(2048, 768, 1000);
+    }
+
+    private void assertConstantVariance(int rows, int columns, int rounds) {
+        Tensor input = Tensor.ones(rows, columns);
+        for (int round = 0; round < rounds; round++) {
             Tensor variance = metal.varianceAlongRows(input);
             variance.materialize();
             for (float value : variance.data) {
