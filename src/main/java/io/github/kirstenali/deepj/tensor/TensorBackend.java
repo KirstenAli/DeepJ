@@ -21,6 +21,8 @@ public interface TensorBackend {
     default Tensor batchedMatmul(Tensor left, Tensor right, int batches,
                                  boolean transposeLeft, boolean transposeRight) {
         if (batches == 1) {
+            left.materialize();
+            right.materialize();
             Tensor a = transposeLeft ? transpose(left) : left;
             Tensor b = transposeRight ? transpose(right) : right;
             return matmul(a, b);
