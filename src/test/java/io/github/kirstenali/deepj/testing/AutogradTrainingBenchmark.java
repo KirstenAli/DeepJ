@@ -31,12 +31,16 @@ public final class AutogradTrainingBenchmark {
 
     private static DecoderOnlyModel model(String profile) {
         return switch (profile) {
-            case "prism" -> new DeepJPrism(new DeepJPrismConfig(
-                    16_384, 1_024, 768, 12, 10, 2_112, 384, 192, 0.2f, 1), 100);
-            case "nova" -> new DeepJNova(new DeepJNovaConfig(
-                    16_384, 1_024, 576, 9, 3, 24, 1_664, true, 0.2f, 1), 100);
+            case "prism", "prism-probe" -> new DeepJPrism(new DeepJPrismConfig(
+                    16_384, 1_024, 768, 12, layers(profile, 10), 2_112, 384, 192, 0.2f, 1), 100);
+            case "nova", "nova-probe" -> new DeepJNova(new DeepJNovaConfig(
+                    16_384, 1_024, 576, 9, 3, layers(profile, 24), 1_664, true, 0.2f, 1), 100);
             default -> throw new IllegalArgumentException("Unknown benchmark profile: " + profile);
         };
+    }
+
+    private static int layers(String profile, int full) {
+        return profile.endsWith("-probe") ? 2 : full;
     }
 
     private static int argument(String[] args, int index, int fallback) {
@@ -50,11 +54,14 @@ public final class AutogradTrainingBenchmark {
         DecoderOnlyModel model = model(profile);
         Random random = Boolean.getBoolean("deepj.benchmarkVariedData") ? new Random(2_026) : null;
         Trainer trainer = CausalLMTraining.trainer(model, ignored -> batch(batchSize, random), 1e-4f);
-        System.out.printf("CONFIG backend=%s profile=%s batch=%d steps=%d warmup=%d variedData=%s initSeconds=%.6f%n",
+        System.out.printf("CONFIG backend=%s profile=%s batch=%d steps=%d warmup=%d variedData=%s "
+                        + "layers=%d initSeconds=%.6f%n",
                 Tensor.backend().getClass().getSimpleName(), profile, batchSize, steps, warmup,
-                random != null, (System.nanoTime() - started) / 1_000_000_000.0);
+                random != null, model.config().nLayers(), (System.nanoTime() - started) / 1_000_000_000.0);
         rounds(trainer, batchSize, "warmup", warmup);
-        summarize(model, profile, batchSize, rounds(trainer, batchSize, "measured", steps));
+        try (var ignored = BenchmarkRecording.start()) {
+            summarize(model, profile, batchSize, rounds(trainer, batchSize, "measured", steps));
+        }
     }
 
     private static void summarize(DecoderOnlyModel model, String profile, int batchSize, double[] seconds) {
@@ -68,10 +75,12 @@ public final class AutogradTrainingBenchmark {
     private static double[] rounds(Trainer trainer, int batchSize, String phase, int count) {
         double[] seconds = new double[count];
         for (int round = 0; round < count; round++) {
+            BenchmarkStep event = BenchmarkStep.start(phase, round);
             long started = System.nanoTime();
             float loss = trainer.trainStep(batchSize);
             Tensor.backend().releaseTemporaryResources();
             seconds[round] = (System.nanoTime() - started) / 1_000_000_000.0;
+            event.finish();
             if (!Float.isFinite(loss)) throw new IllegalStateException("Non-finite benchmark loss");
             System.out.printf("phase=%s round=%d seconds=%.6f loss=%.7f %s%n",
                     phase, round, seconds[round], loss, BenchmarkTelemetry.snapshot());

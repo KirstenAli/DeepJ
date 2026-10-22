@@ -14,13 +14,17 @@ on:
         description: Baseline Git ref for the optional training benchmark
         default: master
         type: string
+      diagnose:
+        description: Profile matched-width two-layer Metal probes in alternating order
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
   performance:
-    if: github.event_name == 'workflow_dispatch' && inputs.benchmark
+    if: github.event_name == 'workflow_dispatch' && inputs.benchmark && !inputs.diagnose
     runs-on: macos-15
     timeout-minutes: 45
     strategy:
@@ -67,8 +71,43 @@ jobs:
           name: autograd-training-benchmarks-${{ matrix.profile }}-${{ matrix.batch }}
           path: benchmark-results/
 
+  diagnostics:
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnose
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [prism, nova]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.baseline }}
+          path: baseline
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '20'
+          cache: maven
+      - name: Compile shared profiling harness and unchanged native libraries
+        run: |
+          mvn --batch-mode -f candidate/pom.xml test-compile
+          mvn --batch-mode -f baseline/pom.xml compiler:compile resources:resources
+      - name: Collect alternating-order timings and measured-phase profiles
+        env:
+          BENCHMARK_PROFILE: ${{ matrix.profile }}
+        run: bash candidate/scripts/performance/run-metal-diagnostics.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metal-diagnostics-${{ matrix.profile }}
+          path: benchmark-diagnostics/
+
   metal:
-    if: github.event_name != 'workflow_dispatch' || !inputs.benchmark
+    if: github.event_name != 'workflow_dispatch' || (!inputs.benchmark && !inputs.diagnose)
     # DeepJ's existing Metal compile options require a macOS 15 or newer SDK.
     runs-on: macos-15
     timeout-minutes: 15
