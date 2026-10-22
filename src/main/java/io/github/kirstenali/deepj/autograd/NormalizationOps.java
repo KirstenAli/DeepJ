@@ -23,16 +23,18 @@ public final class NormalizationOps {
             normalized = input.subtractBroadcastCols(input.meanAlongRows()).divideBroadcastCols(standardDeviation);
             output = normalized.multiplyBroadcastRows(gamma).addBroadcastRows(beta);
         }
-        boolean[] required = {input.requiresGrad(), gamma.requiresGrad(), beta.requiresGrad()};
+        var required = new RequiredGradients(input.requiresGrad(), gamma.requiresGrad(), beta.requiresGrad());
         return Autograd.recordSaved(output, g -> layerGradients(g, gamma, normalized, standardDeviation, required),
                 new Tensor[]{input, gamma, beta}, gamma, normalized, standardDeviation);
     }
 
     private static Tensor[] layerGradients(Tensor g, Tensor gamma, Tensor normalized,
-                                            Tensor standardDeviation, boolean[] required) {
-        return new Tensor[]{required[0] ? Tensor.backend().layerNormBackward(
+                                            Tensor standardDeviation, RequiredGradients required) {
+        return new Tensor[]{required.input() ? Tensor.backend().layerNormBackward(
                 g.multiplyBroadcastRows(gamma), normalized, standardDeviation, normalized.cols) : null,
-                required[1] ? g.multiply(normalized).sumRows() : null,
-                required[2] ? g.sumRows() : null};
+                required.gain() ? g.multiply(normalized).sumRows() : null,
+                required.bias() ? g.sumRows() : null};
     }
+
+    private record RequiredGradients(boolean input, boolean gain, boolean bias) {}
 }

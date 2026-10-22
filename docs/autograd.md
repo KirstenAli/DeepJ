@@ -28,6 +28,8 @@ A layer implements `forward(...)` and supplies its parameters. It no longer impl
 Repeated uses of one layer and shared parameters are handled by the operation graph, not mutable
 last-forward caches. Each parameter's `value` is a tracked leaf tensor; `parameter.grad()` and
 `parameter.value.grad()` access the same gradient buffer.
+Transformer stacks and decoder models list shared parameters once, preserving first-use order so
+gradient scaling and optimizer updates are not repeated for a reused layer.
 
 ```java
 model.zeroGrad();
@@ -96,3 +98,9 @@ The optional GitHub Actions benchmark compares synthetic 90M Prism and 100M Nova
 a chosen baseline, at sequence length 1,024 and accumulation sizes one and two. It uses separate JVMs,
 four warm-up updates and six measured updates per case, and records process peak memory. It reads no
 training data or checkpoints. Autograd is not assumed to improve training speed or model quality.
+
+For a sustained local comparison, pass the profile, accumulation size, measured steps and warm-up
+steps to `AutogradTrainingBenchmark`, for example `prism 1 1000 50` or `nova 1 1000 50`.
+`-Ddeepj.benchmarkVariedData=true` uses reproducible changing synthetic batches. Each update reports
+elapsed time, loss, heap use and garbage-collection counters; JVM GC logs and OS process-memory
+sampling can be collected separately without forcing collections during the timed run.

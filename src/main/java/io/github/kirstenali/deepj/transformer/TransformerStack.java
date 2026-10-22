@@ -30,6 +30,6 @@ public record TransformerStack(List<Layer> blocks) implements Layer {
         for (Layer b : blocks) {
             ps.addAll(b.parameters());
         }
-        return ps;
+        return ps.stream().distinct().toList();
     }
 }

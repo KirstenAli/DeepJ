@@ -20,6 +20,11 @@ public interface TensorBackend {
 
     default Tensor batchedMatmul(Tensor left, Tensor right, int batches,
                                  boolean transposeLeft, boolean transposeRight) {
+        if (batches == 1) {
+            Tensor a = transposeLeft ? transpose(left) : left;
+            Tensor b = transposeRight ? transpose(right) : right;
+            return matmul(a, b);
+        }
         return TensorBackendDefaults.batchedMatmul(
                 left, right, batches, transposeLeft, transposeRight);
     }

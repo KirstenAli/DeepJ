@@ -88,7 +88,7 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
         ps.addAll(stack.parameters());
         ps.addAll(normF.parameters());
         ps.addAll(lmHead.parameters());
-        return ps;
+        return ps.stream().distinct().toList();
     }
 
     protected final void applyInitScale(float factor) {
