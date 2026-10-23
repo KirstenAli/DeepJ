@@ -70,6 +70,12 @@ if the tokenizer is elsewhere.
 | Midtrain | `midtrain-train.txt` | 256,000 | `checkpoints/deepj-loop-100m/midtrain` |
 | Fine-tune | `sft-train.txt` | 22,500 | `checkpoints/deepj-loop-100m/sft` |
 
+Loop's default output directories are separate from Nova's `checkpoints/deepj-100m/`
+and Frisky's `checkpoints/deepj-90m/`. Within each stage, `training-latest.dj` and
+`model-latest.dj` are rolling snapshots replaced at each save, not a per-step
+archive. Completion writes `model-final.dj`. Use a distinct `deepj.output` directory
+for each independent experiment; do not point concurrent runs at the same output.
+
 These are the current 100M example's budgets. Each update uses one
 1,024-token sequence. Pretraining remains sequential, mid-training uses
 random-access sampling, and fine-tuning supervises response tokens only.
