@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
@@ -87,10 +88,10 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
 
     private static DecoderOnlyModel model(Kind kind) {
         return switch (kind) {
-            case ORIGIN -> new DeepJOrigin(new DeepJOriginConfig(31, 256, 128, 2, 2, 256), 197);
-            case ORBIT -> new DeepJOrbit(new DeepJOrbitConfig(31, 256, 128, 2, 2, 256), 197);
-            case PRISM -> new DeepJPrism(new DeepJPrismConfig(31, 256, 128, 2, 2, 256, 64, 32), 197);
-            case NOVA -> new DeepJNova(new DeepJNovaConfig(31, 256, 128, 2, 1, 2, 256), 197);
+            case ORIGIN -> new DeepJOrigin(new DeepJOriginConfig(31, 1024, 128, 2, 2, 256), 197);
+            case ORBIT -> new DeepJOrbit(new DeepJOrbitConfig(31, 1024, 128, 2, 2, 256), 197);
+            case PRISM -> new DeepJPrism(new DeepJPrismConfig(31, 1024, 128, 2, 2, 256, 64, 32), 197);
+            case NOVA -> new DeepJNova(new DeepJNovaConfig(31, 1024, 128, 2, 1, 2, 256), 197);
         };
     }
 
@@ -113,14 +114,16 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
     }
 
     private static void compare(Step expected, Step actual) {
-        assertEquals(expected.loss(), actual.loss(), 2e-5f + Math.abs(expected.loss()) * 1e-5f);
-        assertGradientListsClose(expected.gradients(), actual.gradients(), 2e-6f, 2e-3f);
-        assertGradientListsClose(expected.weights(), actual.weights(), 2e-6f, 2e-4f);
+        assertEquals(expected.loss(), actual.loss());
+        for (int index = 0; index < expected.gradients().size(); index++) {
+            assertArrayEquals(expected.gradients().get(index).data, actual.gradients().get(index).data);
+            assertArrayEquals(expected.weights().get(index).data, actual.weights().get(index).data);
+        }
     }
 
     private static Batch batch() {
-        int[][] input = new int[1][256], target = new int[1][256];
-        for (int index = 0; index < 256; index++) {
+        int[][] input = new int[1][1024], target = new int[1][1024];
+        for (int index = 0; index < 1024; index++) {
             input[0][index] = index % 31;
             target[0][index] = (index + 1) % 31;
         }

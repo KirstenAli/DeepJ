@@ -10,10 +10,12 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 struct MetalContext {
     id<MTLDevice>       device;
     id<MTLCommandQueue> queue;
+    std::array<id<MTLCommandQueue>, 4> attentionQueues;
     id<MTLLibrary>      library;
 
     id<MTLComputePipelineState> addPSO;
@@ -1692,7 +1694,26 @@ struct GraphState {
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
     std::array<id<MTLBuffer>, 3> attentionScratch;
+    std::array<std::array<id<MTLBuffer>, 3>, 4> laneScratch{};
+    std::array<id<MTLEvent>, 4> laneDone{};
+    id<MTLEvent> attentionReady = nil;
+    uint64_t attentionStage = 0;
+    uint32_t pendingAttentionStages = 0;
+    bool serialAttentionOnly = false;
+    std::vector<id<MTLCommandBuffer>> attentionChildren{};
+
+    ~GraphState() {
+        if (encoder != nil) [encoder endEncoding];
+    }
 };
+
+static void finishCommandBuffer(GraphState& state);
+
+static id<MTLCommandBuffer> graphCommands(id<MTLCommandQueue> queue) {
+    id<MTLCommandBuffer> commands = [queue commandBuffer];
+    if (commands == nil) throw std::runtime_error("Failed to create Metal command buffer");
+    return commands;
+}
 
 struct AdamWParamsHost {
     float lr;
@@ -2298,7 +2319,7 @@ static MPSMatrix* attentionFull(id<MTLBuffer> buffer, TiledAttentionShape shape)
 static id<MTLBuffer> attentionScratch(GraphState& state, int index, TiledAttentionShape shape) {
     NSUInteger count = std::min(shape.params.length, 256u);
     NSUInteger columns = index == 2 ? 64 : shape.params.length;
-    NSUInteger bytes = shape.heads * count * columns * sizeof(float);
+    NSUInteger bytes = (NSUInteger)shape.heads * count * columns * sizeof(float);
     id<MTLBuffer> buffer = state.attentionScratch[index];
     if (buffer == nil || buffer.length < bytes) {
         buffer = [state.ctx->device newBufferWithLength:bytes options:MTLResourceStorageModePrivate];
@@ -2390,11 +2411,80 @@ static AttentionBlock attentionBlock(TiledAttentionShape shape, uint32_t start) 
     return {shape, start, std::min(shape.params.length - start, 256u)};
 }
 
+using AttentionBlockEncoder = void (*)(GraphState&, AttentionBlock, const jint*);
+
+static bool prepareAttentionEvents(GraphState& state, uint32_t lanes) {
+    if (state.serialAttentionOnly) return false;
+    if (state.attentionReady == nil) state.attentionReady = [state.ctx->device newEvent];
+    if (state.attentionReady == nil) return false;
+    for (uint32_t lane = 0; lane < lanes; lane++) {
+        auto& queue = state.ctx->attentionQueues[lane];
+        if (queue == nil) queue = [state.ctx->device newCommandQueueWithMaxCommandBufferCount:128];
+        if (queue == nil) return false;
+        if (state.laneDone[lane] == nil) state.laneDone[lane] = [state.ctx->device newEvent];
+        if (state.laneDone[lane] == nil) return false;
+    }
+    return true;
+}
+
+static void limitAttentionBatch(GraphState& state) {
+    // Drain below each queue's capacity so even very long graphs cannot block encoding.
+    if (state.pendingAttentionStages < 96) return;
+    finishCommandBuffer(state);
+    state.commandBuffer = graphCommands(state.ctx->queue);
+    state.attentionChildren.clear();
+    state.pendingAttentionStages = 0;
+}
+
+static void encodeAttentionLane(GraphState& parent, TiledAttentionShape shape, uint32_t lane,
+                                uint32_t lanes, const jint* ids, AttentionBlockEncoder encode) {
+    id<MTLCommandBuffer> commands = graphCommands(parent.ctx->attentionQueues[lane]);
+    [commands encodeWaitForEvent:parent.attentionReady value:parent.attentionStage];
+    GraphState child{parent.ctx, commands, nil, parent.laneScratch[lane]};
+    for (uint32_t start = lane * 256; start < shape.params.length; start += lanes * 256) {
+        encode(child, attentionBlock(shape, start), ids);
+    }
+    endGraphEncoder(child);
+    parent.laneScratch[lane] = child.attentionScratch;
+    [commands encodeSignalEvent:parent.laneDone[lane] value:parent.attentionStage];
+    // Submit only after encoding succeeds: failed graphs must not leave waiting GPU jobs.
+    parent.attentionChildren.push_back(commands);
+}
+
+static void encodeSerialAttention(GraphState& state, TiledAttentionShape shape,
+                                  const jint* ids, AttentionBlockEncoder encode) {
+    for (uint32_t start = 0; start < shape.params.length; start += 256) {
+        encode(state, attentionBlock(shape, start), ids);
+    }
+}
+
+static void encodeParallelAttention(GraphState& state, TiledAttentionShape shape,
+                                    uint32_t lanes, const jint* ids, AttentionBlockEncoder encode) {
+    limitAttentionBatch(state);
+    endGraphEncoder(state);
+    [state.commandBuffer encodeSignalEvent:state.attentionReady value:++state.attentionStage];
+    for (uint32_t lane = 0; lane < lanes; lane++) {
+        encodeAttentionLane(state, shape, lane, lanes, ids, encode);
+    }
+    for (uint32_t lane = 0; lane < lanes; lane++) {
+        [state.commandBuffer encodeWaitForEvent:state.laneDone[lane] value:state.attentionStage];
+    }
+    state.pendingAttentionStages++;
+}
+
+static void encodeAttentionBlocks(GraphState& state, TiledAttentionShape shape,
+                                  const jint* ids, AttentionBlockEncoder encode) {
+    // Keep short inference/training sequences on the lower-overhead serial path.
+    uint32_t lanes = shape.params.length < 1024 ? 1u : 4u;
+    if (lanes == 1) return encodeSerialAttention(state, shape, ids, encode);
+    if (prepareAttentionEvents(state, lanes)) return encodeParallelAttention(state, shape, lanes, ids, encode);
+    state.serialAttentionOnly = true;
+    encodeSerialAttention(state, shape, ids, encode);
+}
+
 static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
     TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6);
-    for (uint32_t start = 0; start < shape.params.length; start += 256) {
-        attentionForwardBlock(state, attentionBlock(shape, start), cmd + pos);
-    }
+    encodeAttentionBlocks(state, shape, cmd + pos, attentionForwardBlock);
 }
 
 static void attentionDerivatives(GraphState& state, AttentionBlock block, id<MTLBuffer> delta) {
@@ -2463,13 +2553,9 @@ static void attentionKeyValueGradient(GraphState& state, AttentionBlock block, c
 static void encodeTiledAttentionBackward(GraphState& state, const jint* cmd, int pos) {
     TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11);
     attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64);
-    for (uint32_t start = 0; start < shape.params.length; start += 256) {
-        attentionQueryGradient(state, attentionBlock(shape, start), cmd + pos);
-    }
+    encodeAttentionBlocks(state, shape, cmd + pos, attentionQueryGradient);
     // Column blocks give dK and dV their original full-query reduction dimension.
-    for (uint32_t start = 0; start < shape.params.length; start += 256) {
-        attentionKeyValueGradient(state, attentionBlock(shape, start), cmd + pos);
-    }
+    encodeAttentionBlocks(state, shape, cmd + pos, attentionKeyValueGradient);
 }
 
 static void encodeLayerNormBackward(GraphState& state, const jint* cmd, int pos) {
@@ -2691,21 +2777,30 @@ static void encodeCommandStream(GraphState& state, const jint* cmd, int length) 
     }
 }
 
-static void finishCommandBuffer(GraphState& state) {
-    if (state.encoder != nil) [state.encoder endEncoding];
-    [state.commandBuffer commit];
-    [state.commandBuffer waitUntilCompleted];
-    if (state.commandBuffer.status != MTLCommandBufferStatusError) return;
-    NSString* desc = state.commandBuffer.error.localizedDescription ?: @"Unknown error";
+static void checkCommandBuffer(id<MTLCommandBuffer> commands) {
+    if (commands.status != MTLCommandBufferStatusError) return;
+    NSString* desc = commands.error.localizedDescription ?: @"Unknown error";
     throw std::runtime_error(std::string("Metal command buffer error: ") + [desc UTF8String]);
+}
+
+static void finishCommandBuffer(GraphState& state) {
+    endGraphEncoder(state);
+    [state.commandBuffer commit];
+    for (id<MTLCommandBuffer> child : state.attentionChildren) {
+        [child commit];
+    }
+    [state.commandBuffer waitUntilCompleted];
+    checkCommandBuffer(state.commandBuffer);
+    for (id<MTLCommandBuffer> child : state.attentionChildren) {
+        [child waitUntilCompleted];
+        checkCommandBuffer(child);
+    }
 }
 
 static void executeGraph(const jint* commandStream, int length) {
     @autoreleasepool {
         MetalContext* ctx = getContext();
-        id<MTLCommandBuffer> commandBuffer = [ctx->queue commandBuffer];
-        if (commandBuffer == nil) throw std::runtime_error("Failed to create Metal command buffer");
-        GraphState state{ctx, commandBuffer, nil, {}};
+        GraphState state{ctx, graphCommands(ctx->queue), nil, {}};
         encodeCommandStream(state, commandStream, length);
         finishCommandBuffer(state);
     }
