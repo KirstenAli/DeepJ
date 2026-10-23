@@ -1537,10 +1537,7 @@ static void uploadBuffer(JNIEnv* env, jint bufId, jfloatArray dataArr) {
     BufferEntry entry = transferEntry(env, bufId, dataArr, "Upload");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(dataArr);
-    jfloat* data = env->GetFloatArrayElements(dataArr, nullptr);
-    if (data == nullptr) return;
-    std::memcpy([entry->second contents], data, (size_t)len * sizeof(float));
-    env->ReleaseFloatArrayElements(dataArr, data, JNI_ABORT);
+    env->GetFloatArrayRegion(dataArr, 0, len, (jfloat*)[entry->second contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -1554,10 +1551,7 @@ static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
     BufferEntry entry = transferEntry(env, bufId, outArr, "Download");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(outArr);
-    jfloat* out = env->GetFloatArrayElements(outArr, nullptr);
-    if (out == nullptr) return;
-    std::memcpy(out, [entry->second contents], (size_t)len * sizeof(float));
-    env->ReleaseFloatArrayElements(outArr, out, 0);
+    env->SetFloatArrayRegion(outArr, 0, len, (const jfloat*)[entry->second contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
