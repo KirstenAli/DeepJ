@@ -57,7 +57,7 @@ abstract class MetalAttentionOps extends MetalTrainingOps implements CausalAtten
             throw new IllegalArgumentException("Tiled attention needs complete 32-row tiles and 64-column heads");
         }
         if (!MetalNative.TILED_ATTENTION_AVAILABLE) {
-            throw new UnsupportedOperationException("Tiled attention requires an Apple 7 family GPU or newer");
+            throw new UnsupportedOperationException("Block attention is not available on this Metal device");
         }
     }
 }

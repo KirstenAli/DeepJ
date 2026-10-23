@@ -24,8 +24,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
+    @Test
+    void availableMetalBackendExposesSharedBlockAttentionWithoutSimdFamilyGating() {
+        Tensor input = Tensor.ones(256, 64);
+        assertTrue(metal.supportsCausalAttention(input, input, input, 1, 0.125f));
+    }
+
     @Test
     void novaForwardBackwardAndSharedParameterGradientsMatchCpu() {
         compareModel(() -> new DeepJNova(new DeepJNovaConfig(11, 4, 8, 4, 2, 2, 12), 26L));

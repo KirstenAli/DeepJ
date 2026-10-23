@@ -1195,7 +1195,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAtte
         JNIEnv*, jclass) {
     @autoreleasepool {
         id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-        return [device supportsFamily:MTLGPUFamilyApple7] ? JNI_TRUE : JNI_FALSE;
+        return device != nil ? JNI_TRUE : JNI_FALSE;
     }
 }
 
@@ -1258,7 +1258,6 @@ static void initAttentionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
 }
 
 static void initTiledAttentionPipelines(MetalContext* ctx) {
-    if (![ctx->device supportsFamily:MTLGPUFamilyApple7]) return;
     ctx->attentionPSO = makePSO(ctx->library, @"kernel_attention_block_probabilities");
     ctx->attentionDeltaPSO = makePSO(ctx->library, @"kernel_attention_block_derivatives");
     ctx->attentionKeyValueBackwardPSO = makePSO(ctx->library, @"kernel_attention_block_columns");
