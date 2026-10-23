@@ -61,6 +61,7 @@ public final class GradientState {
 
     void accumulate(Tensor contribution) {
         if (gradient == null) gradient = Tensor.backend().addScalar(contribution, 0.0f);
+        else if (gradient.gradientState().savedForBackward()) gradient = Tensor.backend().add(gradient, contribution);
         else {
             gradient.gradientState().beforeMutation();
             Tensor.backend().addInPlace(gradient, contribution);
@@ -72,6 +73,7 @@ public final class GradientState {
         if (gradient.rows != rows || gradient.cols != columns) {
             throw new IllegalArgumentException("Leaf gradient must match its tensor shape");
         }
+        if (gradient.gradientState().savedForBackward()) gradient = Tensor.backend().addScalar(gradient, 0.0f);
         gradient.gradientState().beforeMutation();
         Tensor.backend().scatterAddRows(gradient, indices, contribution);
     }

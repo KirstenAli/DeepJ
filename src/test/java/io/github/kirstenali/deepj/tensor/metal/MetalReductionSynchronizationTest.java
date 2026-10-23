@@ -63,9 +63,18 @@ class MetalReductionSynchronizationTest extends MetalDifferentialTestSupport {
     @ParameterizedTest
     @ValueSource(floats = {-100, 0, 100})
     void causalSoftmaxPreservesTheMaximumAcrossSimdGroups(float shift) {
+        assertConstantCausalSoftmax(shift, 8);
+    }
+
+    @Test
+    void repeatedCausalSoftmaxPreservesUniformRows() {
+        assertConstantCausalSoftmax(100, 128);
+    }
+
+    private void assertConstantCausalSoftmax(float shift, int rounds) {
         int length = 1024;
         Tensor scores = constant(length, length, shift);
-        for (int round = 0; round < 8; round++) {
+        for (int round = 0; round < rounds; round++) {
             Tensor probabilities = metal.causalSoftmax(scores, length, 0.125f);
             assertUniformCausalRows(probabilities);
             metal.releaseTemporaryResources();

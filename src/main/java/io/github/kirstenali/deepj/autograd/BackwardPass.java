@@ -81,7 +81,8 @@ final class BackwardPass {
         if (!input.state().required()) return;
         if (contribution == null) throw new IllegalStateException("Missing gradient for a tracked input");
         input.requireShape(contribution);
-        gradients.merge(input.state(), contribution, (left, right) -> Tensor.backend().add(left, right));
+        if (input.state().node() == null) input.state().accumulate(contribution);
+        else gradients.merge(input.state(), contribution, (left, right) -> Tensor.backend().add(left, right));
     }
 
     private void release() {
