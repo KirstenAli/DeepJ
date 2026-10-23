@@ -55,9 +55,7 @@ public class MultiHeadSelfAttention implements Layer {
         Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), x.rows);
         Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), x.rows);
         Tensor values = HeadOps.splitHeads(proj.V, nHeads);
-        Tensor scores = HeadOps.dotProductScores(queries, keys, nHeads);
-        Tensor probabilities = attentionProbabilities(scores, x.rows);
-        Tensor context = HeadOps.applyAttentionToValues(probabilities, values, nHeads);
+        Tensor context = attend(queries, keys, values);
         return HeadOps.mergeHeads(context, nHeads).matmul(Wo.value);
     }
 
@@ -78,9 +76,10 @@ public class MultiHeadSelfAttention implements Layer {
                 x.matmul(Wv.value));
     }
 
-    private Tensor attentionProbabilities(Tensor scores, int seqLen) {
-        if (causalMask) return softmax.forwardCausal(scores, seqLen, scale);
-        return softmax.forward(scores.multiplyScalar(scale));
+    private Tensor attend(Tensor queries, Tensor keys, Tensor values) {
+        if (causalMask) return HeadOps.causal(queries, keys, values, nHeads, scale);
+        Tensor scores = HeadOps.dotProductScores(queries, keys, nHeads);
+        return HeadOps.applyAttentionToValues(softmax.forward(scores.multiplyScalar(scale)), values, nHeads);
     }
 
     @Override

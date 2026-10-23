@@ -53,6 +53,23 @@ class GraphCommandEncodingTest extends ComputeGraphTestSupport {
                 a.id, b.id, c.id, 2, 3, bits(-0.25f));
     }
 
+    @Test
+    void tiledAttentionRecordsItsLinearNormalizationState() {
+        graph.recordCausalAttention(a, b, c, d, e, 2, 0.125f);
+        assertCommand(ComputeGraph.OP_TILED_CAUSAL_ATTENTION,
+                a.id, b.id, c.id, d.id, e.id, 2, 2, bits(0.125f));
+    }
+
+    @Test
+    void tiledAttentionBackwardRecordsEveryInputAndGradientBuffer() {
+        GpuBuffer f = graph.newOutputBuffer(2, 1), g = graph.newOutputBuffer(2, 1);
+        GpuBuffer h = graph.newOutputBuffer(2, 3), i = graph.newOutputBuffer(2, 3);
+        GpuBuffer j = graph.newOutputBuffer(2, 3);
+        graph.recordCausalAttentionBackward(a, b, c, d, e, f, g, h, i, j, 2, 0.125f);
+        assertCommand(ComputeGraph.OP_TILED_CAUSAL_ATTENTION_BACKWARD,
+                a.id, b.id, c.id, d.id, e.id, f.id, g.id, h.id, i.id, j.id, 2, 2, bits(0.125f));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void rotaryRecordsTheInverseFlag(boolean inverse) {

@@ -2,7 +2,9 @@
 #include <Foundation/Foundation.h>
 #include <Metal/Metal.h>
 #include <MetalPerformanceShaders/MetalPerformanceShaders.h>
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
@@ -71,6 +73,9 @@ struct MetalContext {
     id<MTLComputePipelineState> swiGluPSO;
     id<MTLComputePipelineState> swiGluBackwardPSO;
     id<MTLComputePipelineState> adamWUpdatePSO;
+    id<MTLComputePipelineState> attentionPSO;
+    id<MTLComputePipelineState> attentionDeltaPSO;
+    id<MTLComputePipelineState> attentionKeyValueBackwardPSO;
 };
 
 static MetalContext* gCtx = nullptr;
@@ -1092,7 +1097,83 @@ kernel void kernel_adamw_update(device float* w            [[buffer(0)]],
     }
     w[id] -= update;
 }
+
+struct AttentionBlockParams {
+    uint length;
+    uint count;
+    uint start;
+    float scale;
+    uint cached;
+};
+
+inline void collect_attention_row(device const float* scores, device float* probabilities,
+        device float* normalization, constant AttentionBlockParams& p, uint row, uint tid, uint width,
+        threadgroup float* scratch) {
+    uint position = p.start + row % p.count;
+    uint global = row / p.count * p.length + position, base = row * p.length;
+    float localMax = causal_max(scores, base, position, p.scale, tid, width);
+    float maximum = reduce_max(scratch, localMax, tid, width);
+    float localSum = causal_exp(scores, probabilities, base, p.length, position,
+                                p.scale, maximum, tid, width);
+    float sum = reduce_sum(scratch, localSum, tid, width);
+    normalize_causal_row(probabilities, base, p.length, sum, tid, width);
+    if (tid == 0) {
+        normalization[global * 2] = maximum;
+        normalization[global * 2 + 1] = sum;
+    }
+}
+
+inline void restore_attention_row(device const float* scores, device float* probabilities,
+        device const float* normalization, constant AttentionBlockParams& p, uint row, uint tid, uint width) {
+    uint position = p.start + row % p.count, base = row * p.length;
+    uint global = row / p.count * p.length + position;
+    for (uint col = tid; col < p.length; col += width) {
+        float value = col <= position ? exp(scores[base + col] * p.scale - normalization[global * 2]) : 0.0f;
+        probabilities[base + col] = value / normalization[global * 2 + 1];
+    }
+}
+
+kernel void kernel_attention_block_probabilities(
+        device const float* scores [[buffer(0)]], device float* probabilities [[buffer(1)]],
+        device float* normalization [[buffer(2)]], constant AttentionBlockParams& p [[buffer(3)]],
+        uint3 gid [[thread_position_in_grid]], uint3 tid3 [[thread_position_in_threadgroup]],
+        uint3 tptg [[threads_per_threadgroup]]) {
+    threadgroup float scratch[1024];
+    if (p.cached != 0) restore_attention_row(scores, probabilities, normalization, p, gid.y, tid3.x, tptg.x);
+    else collect_attention_row(scores, probabilities, normalization, p, gid.y, tid3.x, tptg.x, scratch);
+}
+
+kernel void kernel_attention_block_derivatives(
+        device const float* gradient [[buffer(0)]], device const float* probabilities [[buffer(1)]],
+        device float* derivatives [[buffer(2)]], device float* delta [[buffer(3)]],
+        constant AttentionBlockParams& p [[buffer(4)]],
+        uint3 gid [[thread_position_in_grid]], uint3 tid3 [[thread_position_in_threadgroup]],
+        uint3 tptg [[threads_per_threadgroup]]) {
+    uint row = gid.y, tid = tid3.x, base = row * p.length;
+    uint global = row / p.count * p.length + p.start + row % p.count;
+    threadgroup float scratch[1024];
+    float local = row_dot(gradient, probabilities, base, p.length, tid, tptg.x);
+    float dot = reduce_sum(scratch, local, tid, tptg.x);
+    write_softmax_backward(gradient, probabilities, derivatives, base, p.length,
+                            tid, tptg.x, dot, p.scale);
+    if (tid == 0) delta[global] = dot;
+}
+
+kernel void kernel_attention_block_columns(
+        device float* scores [[buffer(0)]], device float* derivatives [[buffer(1)]],
+        device const float* normalization [[buffer(2)]], device const float* delta [[buffer(3)]],
+        constant AttentionBlockParams& p [[buffer(4)]], uint id [[thread_position_in_grid]]) {
+#pragma clang fp reassociate(off)
+    uint row = id / p.count, column = p.start + id % p.count;
+    uint position = row % p.length;
+    float probability = column <= position
+            ? exp(scores[id] * p.scale - normalization[row * 2]) / normalization[row * 2 + 1] : 0.0f;
+    float derivative = probability * (derivatives[id] - delta[row]);
+    scores[id] = probability;
+    derivatives[id] = derivative * p.scale;
+}
 )";
+
 
 static void throwJavaRuntimeException(JNIEnv* env, const char* msg) {
     jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -1106,6 +1187,15 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeIsAvailable(
         JNIEnv*, jclass) {
     @autoreleasepool {
         return MTLCreateSystemDefaultDevice() == nil ? JNI_FALSE : JNI_TRUE;
+    }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAttention(
+        JNIEnv*, jclass) {
+    @autoreleasepool {
+        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+        return [device supportsFamily:MTLGPUFamilyApple7] ? JNI_TRUE : JNI_FALSE;
     }
 }
 
@@ -1137,9 +1227,9 @@ static MTLCompileOptions* makeCompileOptions() {
     return options;
 }
 
-static id<MTLLibrary> compileLibrary(id<MTLDevice> device) {
+static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = metalShaderSource) {
     NSError* error = nil;
-    id<MTLLibrary> library = [device newLibraryWithSource:metalShaderSource
+    id<MTLLibrary> library = [device newLibraryWithSource:source
                                                   options:makeCompileOptions()
                                                     error:&error];
     if (library != nil) return library;
@@ -1165,6 +1255,13 @@ static void initAttentionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->causalSoftmaxPSO = makePSO(library, @"kernel_causal_softmax");
     ctx->rotaryPSO = makePSO(library, @"kernel_rotary");
     ctx->gatherRowsPSO = makePSO(library, @"kernel_gather_rows");
+}
+
+static void initTiledAttentionPipelines(MetalContext* ctx) {
+    if (![ctx->device supportsFamily:MTLGPUFamilyApple7]) return;
+    ctx->attentionPSO = makePSO(ctx->library, @"kernel_attention_block_probabilities");
+    ctx->attentionDeltaPSO = makePSO(ctx->library, @"kernel_attention_block_derivatives");
+    ctx->attentionKeyValueBackwardPSO = makePSO(ctx->library, @"kernel_attention_block_columns");
 }
 
 static void initBroadcastPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -1237,6 +1334,7 @@ static MetalContext* createContext() {
     ctx->library = library;
     initBasicPipelines(ctx, library);
     initAttentionPipelines(ctx, library);
+    initTiledAttentionPipelines(ctx);
     initBroadcastPipelines(ctx, library);
     initReductionPipelines(ctx, library);
     initLossPipelines(ctx, library);
@@ -1338,6 +1436,8 @@ static constexpr int OP_RMS_NORM_BACKWARD = 54;
 static constexpr int OP_SWIGLU = 55;
 static constexpr int OP_SWIGLU_BACKWARD = 56;
 static constexpr int OP_SCALED_SOFTMAX_BACKWARD = 57;
+static constexpr int OP_TILED_CAUSAL_ATTENTION = 58;
+static constexpr int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -1592,6 +1692,7 @@ struct GraphState {
     MetalContext* ctx;
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
+    std::array<id<MTLBuffer>, 3> attentionScratch;
 };
 
 struct AdamWParamsHost {
@@ -2147,6 +2248,231 @@ static void encodeSoftmaxBackward(GraphState& state, const jint* cmd, int pos) {
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
 
+struct TiledAttentionParams {
+    uint32_t length;
+    float scale;
+};
+
+struct TiledAttentionShape {
+    uint32_t rows;
+    uint32_t heads;
+    TiledAttentionParams params;
+};
+
+static TiledAttentionShape tiledAttentionShape(GraphState& state, const jint* fields) {
+    uint32_t rows = (uint32_t)positiveCount(fields[0], "attention rows");
+    uint32_t heads = (uint32_t)positiveCount(fields[1], "attention heads");
+    uint32_t length = rows / heads;
+    float scale = floatFromBits(fields[2]);
+    if (rows % heads != 0 || length < 32 || length % 32 != 0 ||
+        rows > INT32_MAX / 64 || !std::isfinite(scale)) {
+        throw std::runtime_error("Invalid tiled attention shape or scale");
+    }
+    if (state.ctx->attentionPSO == nil) throw std::runtime_error("Tiled attention is unavailable on this GPU");
+    return {rows, heads, {length, scale}};
+}
+
+static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count) {
+    id<MTLBuffer> buffer = requireBuffer(bufferId, "tiled attention");
+    if (buffer.length != count * sizeof(float)) {
+        throw std::runtime_error("Tiled attention buffer size mismatch");
+    }
+    return buffer;
+}
+
+struct AttentionBlock {
+    TiledAttentionShape shape;
+    uint32_t start, count;
+};
+
+struct AttentionBlockParamsHost {
+    uint32_t length, count, start;
+    float scale;
+    uint32_t cached;
+};
+
+
+static MPSMatrix* attentionFull(id<MTLBuffer> buffer, TiledAttentionShape shape) {
+    return matrixBatch(buffer, shape.params.length, 64, shape.heads);
+}
+
+static id<MTLBuffer> attentionScratch(GraphState& state, int index, TiledAttentionShape shape) {
+    NSUInteger count = std::min(shape.params.length, 256u);
+    NSUInteger columns = index == 2 ? 64 : shape.params.length;
+    NSUInteger bytes = shape.heads * count * columns * sizeof(float);
+    id<MTLBuffer> buffer = state.attentionScratch[index];
+    if (buffer == nil || buffer.length < bytes) {
+        buffer = [state.ctx->device newBufferWithLength:bytes options:MTLResourceStorageModePrivate];
+        if (buffer == nil) throw std::runtime_error("Failed to allocate attention scratch buffer");
+        state.attentionScratch[index] = buffer;
+    }
+    return buffer;
+}
+
+static MPSMatrix* attentionPackedResult(GraphState& state, AttentionBlock block) {
+    return matrixBatch(attentionScratch(state, 2, block.shape), block.count, 64, block.shape.heads);
+}
+
+static void copyAttentionRows(GraphState& state, id<MTLBuffer> full, AttentionBlock block, bool pack) {
+    // Contiguous head blocks keep the same MPS layouts used by ordinary batched matmul.
+    endGraphEncoder(state);
+    id<MTLBlitCommandEncoder> encoder = [state.commandBuffer blitCommandEncoder];
+    id<MTLBuffer> packed = attentionScratch(state, 2, block.shape);
+    NSUInteger bytes = (NSUInteger)block.count * 64 * sizeof(float);
+    for (uint32_t head = 0; head < block.shape.heads; head++) {
+        NSUInteger offset = ((NSUInteger)head * block.shape.params.length + block.start) * 64 * sizeof(float);
+        if (pack) [encoder copyFromBuffer:full sourceOffset:offset toBuffer:packed
+                       destinationOffset:head * bytes size:bytes];
+        else [encoder copyFromBuffer:packed sourceOffset:head * bytes toBuffer:full
+                       destinationOffset:offset size:bytes];
+    }
+    [encoder endEncoding];
+}
+
+static MPSMatrix* attentionPackedRows(GraphState& state, id<MTLBuffer> full, AttentionBlock block) {
+    copyAttentionRows(state, full, block, true);
+    return attentionPackedResult(state, block);
+}
+
+static MPSMatrix* attentionTile(id<MTLBuffer> buffer, AttentionBlock block, bool columns) {
+    return columns ? matrixBatch(buffer, block.shape.params.length, block.count, block.shape.heads)
+                   : matrixBatch(buffer, block.count, block.shape.params.length, block.shape.heads);
+}
+
+static void attentionProduct(GraphState& state, MPSMatrix* left, MPSMatrix* right,
+                               MPSMatrix* output, bool transposeLeft, bool transposeRight) {
+    // Preserve the complete interior reduction instead of accumulating partial products.
+    endGraphEncoder(state);
+    int inner = transposeLeft ? left.rows : left.columns;
+    [configuredMatmulKernel(state.ctx, output.rows, output.columns, inner,
+                            transposeLeft, transposeRight, output.matrices)
+        encodeToCommandBuffer:state.commandBuffer leftMatrix:left rightMatrix:right resultMatrix:output];
+}
+
+static AttentionBlockParamsHost attentionBlockParams(AttentionBlock block, bool cached = false) {
+    return {block.shape.params.length, block.count, block.start, block.shape.params.scale, cached};
+}
+
+static void dispatchAttentionRows(id<MTLComputeCommandEncoder> encoder,
+                                   AttentionBlock block, id<MTLComputePipelineState> pipeline) {
+    NSUInteger threads = rowReductionWidth(pipeline);
+    [encoder dispatchThreads:MTLSizeMake(threads, block.shape.heads * block.count, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void attentionProbabilities(GraphState& state, AttentionBlock block,
+                                    id<MTLBuffer> normalization, bool cached = false) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->attentionPSO];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
+    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
+    [encoder setBuffer:normalization offset:0 atIndex:2];
+    bindValue(encoder, attentionBlockParams(block, cached), 3);
+    dispatchAttentionRows(encoder, block, state.ctx->attentionPSO);
+}
+
+static void attentionScores(GraphState& state, AttentionBlock block,
+                              id<MTLBuffer> query, id<MTLBuffer> key) {
+    attentionProduct(state, attentionPackedRows(state, query, block), attentionFull(key, block.shape),
+        attentionTile(attentionScratch(state, 0, block.shape), block, false), false, true);
+}
+
+static void attentionForwardBlock(GraphState& state, AttentionBlock block, const jint* ids) {
+    attentionScores(state, block, attentionBuffer(ids[1], (NSUInteger)block.shape.rows * 64),
+                    attentionBuffer(ids[2], (NSUInteger)block.shape.rows * 64));
+    attentionProbabilities(state, block, attentionBuffer(ids[5], (NSUInteger)block.shape.rows * 2));
+    attentionProduct(state, attentionTile(attentionScratch(state, 1, block.shape), block, false),
+        attentionFull(attentionBuffer(ids[3], (NSUInteger)block.shape.rows * 64), block.shape),
+        attentionPackedResult(state, block), false, false);
+    copyAttentionRows(state, attentionBuffer(ids[4], (NSUInteger)block.shape.rows * 64), block, false);
+}
+
+static AttentionBlock attentionBlock(TiledAttentionShape shape, uint32_t start) {
+    return {shape, start, std::min(shape.params.length - start, 256u)};
+}
+
+static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6);
+    for (uint32_t start = 0; start < shape.params.length; start += 256) {
+        attentionForwardBlock(state, attentionBlock(shape, start), cmd + pos);
+    }
+}
+
+static void attentionDerivatives(GraphState& state, AttentionBlock block, id<MTLBuffer> delta) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->attentionDeltaPSO];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
+    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:2];
+    [encoder setBuffer:delta offset:0 atIndex:3];
+    bindValue(encoder, attentionBlockParams(block), 4);
+    dispatchAttentionRows(encoder, block, state.ctx->attentionDeltaPSO);
+}
+
+static void attentionQueryGradient(GraphState& state, AttentionBlock block, const jint* ids) {
+    auto shape = block.shape;
+    attentionScores(state, block, attentionBuffer(ids[1], (NSUInteger)shape.rows * 64),
+                    attentionBuffer(ids[2], (NSUInteger)shape.rows * 64));
+    attentionProbabilities(state, block, attentionBuffer(ids[6], (NSUInteger)shape.rows * 2), true);
+    attentionProduct(state, attentionPackedRows(state, attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), block),
+        attentionFull(attentionBuffer(ids[3], (NSUInteger)shape.rows * 64), shape),
+        attentionTile(attentionScratch(state, 0, shape), block, false), false, true);
+    attentionDerivatives(state, block, attentionBuffer(ids[7], shape.rows));
+    attentionProduct(state, attentionTile(attentionScratch(state, 0, shape), block, false),
+        attentionFull(attentionBuffer(ids[2], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedResult(state, block), false, false);
+    copyAttentionRows(state, attentionBuffer(ids[8], (NSUInteger)shape.rows * 64), block, false);
+}
+
+static void attentionColumnScores(GraphState& state, AttentionBlock block, const jint* ids) {
+    auto shape = block.shape;
+    attentionProduct(state, attentionFull(attentionBuffer(ids[1], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedRows(state, attentionBuffer(ids[2], (NSUInteger)shape.rows * 64), block),
+        attentionTile(attentionScratch(state, 0, shape), block, true), false, true);
+    attentionProduct(state, attentionFull(attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedRows(state, attentionBuffer(ids[3], (NSUInteger)shape.rows * 64), block),
+        attentionTile(attentionScratch(state, 1, shape), block, true), false, true);
+}
+
+static void attentionColumnDerivatives(GraphState& state, AttentionBlock block, const jint* ids) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->attentionKeyValueBackwardPSO];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
+    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
+    [encoder setBuffer:attentionBuffer(ids[6], (NSUInteger)block.shape.rows * 2) offset:0 atIndex:2];
+    [encoder setBuffer:attentionBuffer(ids[7], block.shape.rows) offset:0 atIndex:3];
+    bindValue(encoder, attentionBlockParams(block), 4);
+    NSUInteger count = (NSUInteger)block.shape.rows * block.count;
+    [encoder dispatchThreads:MTLSizeMake(count, 1, 1)
+       threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(state.ctx->attentionKeyValueBackwardPSO), 1, 1)];
+}
+
+static void attentionKeyValueGradient(GraphState& state, AttentionBlock block, const jint* ids) {
+    auto shape = block.shape;
+    attentionColumnScores(state, block, ids);
+    attentionColumnDerivatives(state, block, ids);
+    attentionProduct(state, attentionTile(attentionScratch(state, 1, shape), block, true),
+        attentionFull(attentionBuffer(ids[1], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedResult(state, block), true, false);
+    copyAttentionRows(state, attentionBuffer(ids[9], (NSUInteger)shape.rows * 64), block, false);
+    attentionProduct(state, attentionTile(attentionScratch(state, 0, shape), block, true),
+        attentionFull(attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedResult(state, block), true, false);
+    copyAttentionRows(state, attentionBuffer(ids[10], (NSUInteger)shape.rows * 64), block, false);
+}
+
+static void encodeTiledAttentionBackward(GraphState& state, const jint* cmd, int pos) {
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11);
+    attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64);
+    for (uint32_t start = 0; start < shape.params.length; start += 256) {
+        attentionQueryGradient(state, attentionBlock(shape, start), cmd + pos);
+    }
+    // Column blocks give dK and dV their original full-query reduction dimension.
+    for (uint32_t start = 0; start < shape.params.length; start += 256) {
+        attentionKeyValueGradient(state, attentionBlock(shape, start), cmd + pos);
+    }
+}
+
 static void encodeLayerNormBackward(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 5], "rows");
     uint32_t cols = (uint32_t)positiveCount(cmd[pos + 6], "cols");
@@ -2282,6 +2608,8 @@ static bool isFiveWidthOp(int op) {
 }
 
 static int commandWidth(int op) {
+    if (op == OP_TILED_CAUSAL_ATTENTION) return 9;
+    if (op == OP_TILED_CAUSAL_ATTENTION_BACKWARD) return 14;
     if (isUnaryOp(op) || op == OP_SUM_SQUARES_SCALAR) return 4;
     if (isFiveWidthOp(op)) return 5;
     if (isBroadcastOp(op) || op == OP_CLAMP ||
@@ -2324,6 +2652,8 @@ static bool encodeTrainingCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_SWIGLU) encodeSwiGlu(state, cmd, pos);
     else if (op == OP_SWIGLU_BACKWARD) encodeSwiGluBackward(state, cmd, pos);
     else if (op == OP_SCALED_SOFTMAX_BACKWARD) encodeSoftmaxBackward(state, cmd, pos);
+    else if (op == OP_TILED_CAUSAL_ATTENTION) encodeTiledAttention(state, cmd, pos);
+    else if (op == OP_TILED_CAUSAL_ATTENTION_BACKWARD) encodeTiledAttentionBackward(state, cmd, pos);
     else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
     else return false;
     return true;
@@ -2376,7 +2706,7 @@ static void executeGraph(const jint* commandStream, int length) {
         MetalContext* ctx = getContext();
         id<MTLCommandBuffer> commandBuffer = [ctx->queue commandBuffer];
         if (commandBuffer == nil) throw std::runtime_error("Failed to create Metal command buffer");
-        GraphState state{ctx, commandBuffer, nil};
+        GraphState state{ctx, commandBuffer, nil, {}};
         encodeCommandStream(state, commandStream, length);
         finishCommandBuffer(state);
     }

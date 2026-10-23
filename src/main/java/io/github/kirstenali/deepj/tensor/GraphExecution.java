@@ -3,7 +3,7 @@ package io.github.kirstenali.deepj.tensor;
 import java.lang.ref.WeakReference;
 import java.util.*;
 
-abstract class GraphExecution extends GraphAdvancedRecordingOps {
+abstract class GraphExecution extends GraphAttentionRecordingOps {
     GraphExecution(GpuRuntime runtime) {
         super(runtime);
     }

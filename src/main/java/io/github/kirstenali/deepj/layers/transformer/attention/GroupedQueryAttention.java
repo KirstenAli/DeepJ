@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
-import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.layers.BiasFreeLinear;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
@@ -19,7 +18,6 @@ public final class GroupedQueryAttention implements Layer {
     private final HeadNormalization queryNorm, keyNorm;
     private final RotaryEmbedding rotary;
     private final GroupedHeads groups;
-    private final Softmax softmax = new Softmax();
 
     public GroupedQueryAttention(DeepJNovaConfig config, Random random) {
         this.config = config;
@@ -41,17 +39,15 @@ public final class GroupedQueryAttention implements Layer {
         Tensor queries = transform(queryNorm, query.forward(input), length, config.nHeads());
         Tensor keys = transform(keyNorm, key.forward(input), length, config.kvHeads());
         Tensor values = HeadOps.splitHeads(value.forward(input), config.kvHeads());
-        return attend(queries, groups.expand(keys, length), groups.expand(values, length), length);
+        return attend(queries, groups.expand(keys, length), groups.expand(values, length));
     }
 
     private Tensor transform(HeadNormalization norm, Tensor projection, int length, int heads) {
         return rotary.apply(norm.forward(HeadOps.splitHeads(projection, heads)), length, heads);
     }
 
-    private Tensor attend(Tensor queries, Tensor keys, Tensor values, int length) {
-        Tensor scores = HeadOps.dotProductScores(queries, keys, config.nHeads());
-        Tensor probabilities = softmax.forwardCausal(scores, length, scale());
-        Tensor context = HeadOps.applyAttentionToValues(probabilities, values, config.nHeads());
+    private Tensor attend(Tensor queries, Tensor keys, Tensor values) {
+        Tensor context = HeadOps.causal(queries, keys, values, config.nHeads(), scale());
         return output.forward(HeadOps.mergeHeads(context, config.nHeads()));
     }
 
