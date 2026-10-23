@@ -10,13 +10,15 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation, four trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), four trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
 
 DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
 ## Install
 
 DeepJ requires JDK 20 or newer.
+
+Autograd is available from source; the Maven release below predates it.
 
 ```xml
 <dependency>
@@ -30,7 +32,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ## What is included
 
-- A two-dimensional `Tensor` API with first-order automatic differentiation on CPU and Metal.
+- A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
 - CPU execution and an optional Metal backend with fused Apple GPU training operations.
 - DeepJ Origin with learned positions, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
@@ -97,16 +99,6 @@ retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced u
 
 All four models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
 
-## Automatic differentiation
-
-Autograd is available from source; it is not included in the published `0.9.9-alpha` release.
-
-Layers define their forward computation using tracked tensor operations. Calling `loss.backward()`
-automatically accumulates parameter gradients; the training utilities handle this for you.
-Generation and evaluation disable gradient tracking, and fused Metal kernels remain in use.
-
-See the [autograd guide](docs/autograd.md) for tensor examples, safe parameter updates and API migration details.
-
 ## Frisky 90M
 
 Meet [Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning.
@@ -117,7 +109,6 @@ Download its `model.dj` and `tokenizer.bpe` files to try the quick start above o
 
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
-- Autograd supports first-order gradients; higher-order differentiation is not implemented.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
 - Text generation recalculates the full context for every new token because attention caching is not yet implemented.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
