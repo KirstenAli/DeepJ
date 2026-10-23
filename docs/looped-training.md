@@ -78,15 +78,15 @@ The held-out FineWeb-Edu range stays excluded from pretraining.
 Run each stage after the preceding stage finishes:
 
 ```bash
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
   --enable-native-access=ALL-UNNAMED -cp target/classes \
   io.github.kirstenali.deepj.examples.TrainDeepJLoop100M
 
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
   --enable-native-access=ALL-UNNAMED -cp target/classes \
   io.github.kirstenali.deepj.examples.MidTrainDeepJLoop100M
 
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
   --enable-native-access=ALL-UNNAMED -cp target/classes \
   io.github.kirstenali.deepj.examples.FineTuneDeepJLoop100M
 ```
@@ -107,12 +107,12 @@ cannot establish a looped model's configuration and are rejected for this model.
 Other existing architectures retain support for their older training checkpoints.
 
 ```bash
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
   --enable-native-access=ALL-UNNAMED \
   -Ddeepj.resume=checkpoints/deepj-loop-100m/pretrain/training-latest.dj \
   -cp target/classes io.github.kirstenali.deepj.examples.TrainDeepJLoop100M
 
-"$JAVA_HOME/bin/java" -Xmx8g --enable-native-access=ALL-UNNAMED \
+"$JAVA_HOME/bin/java" -Xmx6g --enable-native-access=ALL-UNNAMED \
   -cp target/classes io.github.kirstenali.deepj.examples.EvaluateDeepJLoop100M
 ```
 
