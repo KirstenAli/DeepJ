@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
-import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -25,7 +24,6 @@ public final class MultiHeadLatentAttention implements Layer {
     private final Parameter Wo;
 
     private final RotaryEmbedding rope;
-    private final Softmax softmax;
 
     public MultiHeadLatentAttention(int dModel, int nHeads, int qRank, int kvRank,
                                     RotaryEmbedding rope, Random rnd) {
@@ -35,7 +33,6 @@ public final class MultiHeadLatentAttention implements Layer {
         this.headDim = dModel / nHeads;
         this.scale   = (float) (1.0 / Math.sqrt(headDim));
         this.rope    = rope;
-        this.softmax = new Softmax();
 
         this.Wdq  = new Parameter(Tensor.random(dModel, qRank,  rnd));
         this.Wuq  = new Parameter(Tensor.random(qRank,  dModel, rnd));
@@ -77,9 +74,7 @@ public final class MultiHeadLatentAttention implements Layer {
     private Tensor attend(Tensor query, Tensor key, Tensor value, int length) {
         Tensor queries = rope.apply(HeadOps.splitHeads(query, nHeads), length, nHeads);
         Tensor keys = rope.apply(HeadOps.splitHeads(key, nHeads), length, nHeads);
-        Tensor scores = HeadOps.dotProductScores(queries, keys, nHeads);
-        Tensor probabilities = softmax.forwardCausal(scores, length, scale);
-        return HeadOps.applyAttentionToValues(probabilities, HeadOps.splitHeads(value, nHeads), nHeads);
+        return HeadOps.causal(queries, keys, HeadOps.splitHeads(value, nHeads), nHeads, scale);
     }
 
     @Override

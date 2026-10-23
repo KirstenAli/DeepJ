@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.autograd.LayoutOps;
+import io.github.kirstenali.deepj.autograd.AttentionOps;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 final class HeadOps {
@@ -13,6 +14,10 @@ final class HeadOps {
 
     static Tensor mergeHeads(Tensor tensor, int heads) {
         return LayoutOps.mergeHeads(tensor, heads);
+    }
+
+    static Tensor causal(Tensor queries, Tensor keys, Tensor values, int heads, float scale) {
+        return AttentionOps.causal(queries, keys, values, heads, scale);
     }
 
     static Tensor dotProductScores(Tensor queries, Tensor keys, int heads) {

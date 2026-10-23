@@ -63,13 +63,16 @@ abstract class GraphOpMetadata {
     public static final int OP_RMS_NORM_BACKWARD = 54;
     public static final int OP_SWIGLU = 55;
     public static final int OP_SWIGLU_BACKWARD = 56;
+    public static final int OP_SCALED_SOFTMAX_BACKWARD = 57;
+    public static final int OP_TILED_CAUSAL_ATTENTION = 58;
+    public static final int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_SWIGLU_BACKWARD + 1];
+        OpMeta[] meta = new OpMeta[OP_TILED_CAUSAL_ATTENTION_BACKWARD + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -147,6 +150,9 @@ abstract class GraphOpMetadata {
         registerMeta(meta, OP_ROTARY, 9, 1, 2, 3, 4);
         registerMeta(meta, OP_GATHER_ROWS, 7, 1, 2, 3);
         registerMeta(meta, OP_CAUSAL_SOFTMAX, 7, 1, 2);
+        registerMeta(meta, OP_SCALED_SOFTMAX_BACKWARD, 7, 1, 2, 3);
+        registerMeta(meta, OP_TILED_CAUSAL_ATTENTION, 9, 1, 2, 3, 4, 5);
+        registerMeta(meta, OP_TILED_CAUSAL_ATTENTION_BACKWARD, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
     }
 
     static void registerBroadcastMeta(OpMeta[] meta) {

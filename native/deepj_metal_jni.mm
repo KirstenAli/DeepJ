@@ -2,14 +2,20 @@
 #include <Foundation/Foundation.h>
 #include <Metal/Metal.h>
 #include <MetalPerformanceShaders/MetalPerformanceShaders.h>
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <vector>
 
 struct MetalContext {
     id<MTLDevice>       device;
     id<MTLCommandQueue> queue;
+    std::array<id<MTLCommandQueue>, 4> attentionQueues;
     id<MTLLibrary>      library;
 
     id<MTLComputePipelineState> addPSO;
@@ -69,6 +75,9 @@ struct MetalContext {
     id<MTLComputePipelineState> swiGluPSO;
     id<MTLComputePipelineState> swiGluBackwardPSO;
     id<MTLComputePipelineState> adamWUpdatePSO;
+    id<MTLComputePipelineState> attentionPSO;
+    id<MTLComputePipelineState> attentionDeltaPSO;
+    id<MTLComputePipelineState> attentionKeyValueBackwardPSO;
 };
 
 static MetalContext* gCtx = nullptr;
@@ -883,10 +892,13 @@ inline float row_dot(device const float* left, device const float* right,
 
 inline void write_softmax_backward(device const float* gradient, device const float* softmax,
                                    device float* output, uint base, uint cols,
-                                   uint tid, uint width, float dot) {
+                                   uint tid, uint width, float dot, float scale) {
+#pragma clang fp reassociate(off)
+    // Keep the derivative's FP32 rounding before the formerly separate scale kernel.
     for (uint c = tid; c < cols; c += width) {
         float value = softmax[base + c];
-        output[base + c] = value * (gradient[base + c] - dot);
+        float derivative = value * (gradient[base + c] - dot);
+        output[base + c] = derivative * scale;
     }
 }
 
@@ -1024,6 +1036,7 @@ kernel void kernel_softmax_backward(device const float* gradOutput [[buffer(0)]]
                                     device const float* softmaxOut [[buffer(1)]],
                                     device float* out              [[buffer(2)]],
                                     device const uint* dims        [[buffer(3)]],
+                                    constant float& scale          [[buffer(4)]],
                                     uint3 gid [[thread_position_in_grid]],
                                     uint3 tid3 [[thread_position_in_threadgroup]],
                                     uint3 tptg [[threads_per_threadgroup]]) {
@@ -1032,7 +1045,7 @@ kernel void kernel_softmax_backward(device const float* gradOutput [[buffer(0)]]
     uint base = row * cols;
     float local = row_dot(gradOutput, softmaxOut, base, cols, tid, tptg.x);
     float dot = reduce_sum(scratch, local, tid, tptg.x);
-    write_softmax_backward(gradOutput, softmaxOut, out, base, cols, tid, tptg.x, dot);
+    write_softmax_backward(gradOutput, softmaxOut, out, base, cols, tid, tptg.x, dot, scale);
 }
 
 kernel void kernel_layernorm_backward(device const float* dXHat [[buffer(0)]],
@@ -1086,7 +1099,83 @@ kernel void kernel_adamw_update(device float* w            [[buffer(0)]],
     }
     w[id] -= update;
 }
+
+struct AttentionBlockParams {
+    uint length;
+    uint count;
+    uint start;
+    float scale;
+    uint cached;
+};
+
+inline void collect_attention_row(device const float* scores, device float* probabilities,
+        device float* normalization, constant AttentionBlockParams& p, uint row, uint tid, uint width,
+        threadgroup float* scratch) {
+    uint position = p.start + row % p.count;
+    uint global = row / p.count * p.length + position, base = row * p.length;
+    float localMax = causal_max(scores, base, position, p.scale, tid, width);
+    float maximum = reduce_max(scratch, localMax, tid, width);
+    float localSum = causal_exp(scores, probabilities, base, p.length, position,
+                                p.scale, maximum, tid, width);
+    float sum = reduce_sum(scratch, localSum, tid, width);
+    normalize_causal_row(probabilities, base, p.length, sum, tid, width);
+    if (tid == 0) {
+        normalization[global * 2] = maximum;
+        normalization[global * 2 + 1] = sum;
+    }
+}
+
+inline void restore_attention_row(device const float* scores, device float* probabilities,
+        device const float* normalization, constant AttentionBlockParams& p, uint row, uint tid, uint width) {
+    uint position = p.start + row % p.count, base = row * p.length;
+    uint global = row / p.count * p.length + position;
+    for (uint col = tid; col < p.length; col += width) {
+        float value = col <= position ? exp(scores[base + col] * p.scale - normalization[global * 2]) : 0.0f;
+        probabilities[base + col] = value / normalization[global * 2 + 1];
+    }
+}
+
+kernel void kernel_attention_block_probabilities(
+        device const float* scores [[buffer(0)]], device float* probabilities [[buffer(1)]],
+        device float* normalization [[buffer(2)]], constant AttentionBlockParams& p [[buffer(3)]],
+        uint3 gid [[thread_position_in_grid]], uint3 tid3 [[thread_position_in_threadgroup]],
+        uint3 tptg [[threads_per_threadgroup]]) {
+    threadgroup float scratch[1024];
+    if (p.cached != 0) restore_attention_row(scores, probabilities, normalization, p, gid.y, tid3.x, tptg.x);
+    else collect_attention_row(scores, probabilities, normalization, p, gid.y, tid3.x, tptg.x, scratch);
+}
+
+kernel void kernel_attention_block_derivatives(
+        device const float* gradient [[buffer(0)]], device const float* probabilities [[buffer(1)]],
+        device float* derivatives [[buffer(2)]], device float* delta [[buffer(3)]],
+        constant AttentionBlockParams& p [[buffer(4)]],
+        uint3 gid [[thread_position_in_grid]], uint3 tid3 [[thread_position_in_threadgroup]],
+        uint3 tptg [[threads_per_threadgroup]]) {
+    uint row = gid.y, tid = tid3.x, base = row * p.length;
+    uint global = row / p.count * p.length + p.start + row % p.count;
+    threadgroup float scratch[1024];
+    float local = row_dot(gradient, probabilities, base, p.length, tid, tptg.x);
+    float dot = reduce_sum(scratch, local, tid, tptg.x);
+    write_softmax_backward(gradient, probabilities, derivatives, base, p.length,
+                            tid, tptg.x, dot, p.scale);
+    if (tid == 0) delta[global] = dot;
+}
+
+kernel void kernel_attention_block_columns(
+        device float* scores [[buffer(0)]], device float* derivatives [[buffer(1)]],
+        device const float* normalization [[buffer(2)]], device const float* delta [[buffer(3)]],
+        constant AttentionBlockParams& p [[buffer(4)]], uint id [[thread_position_in_grid]]) {
+#pragma clang fp reassociate(off)
+    uint row = id / p.count, column = p.start + id % p.count;
+    uint position = row % p.length;
+    float probability = column <= position
+            ? exp(scores[id] * p.scale - normalization[row * 2]) / normalization[row * 2 + 1] : 0.0f;
+    float derivative = probability * (derivatives[id] - delta[row]);
+    scores[id] = probability;
+    derivatives[id] = derivative * p.scale;
+}
 )";
+
 
 static void throwJavaRuntimeException(JNIEnv* env, const char* msg) {
     jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -1100,6 +1189,15 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeIsAvailable(
         JNIEnv*, jclass) {
     @autoreleasepool {
         return MTLCreateSystemDefaultDevice() == nil ? JNI_FALSE : JNI_TRUE;
+    }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAttention(
+        JNIEnv*, jclass) {
+    @autoreleasepool {
+        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+        return device != nil ? JNI_TRUE : JNI_FALSE;
     }
 }
 
@@ -1131,9 +1229,9 @@ static MTLCompileOptions* makeCompileOptions() {
     return options;
 }
 
-static id<MTLLibrary> compileLibrary(id<MTLDevice> device) {
+static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = metalShaderSource) {
     NSError* error = nil;
-    id<MTLLibrary> library = [device newLibraryWithSource:metalShaderSource
+    id<MTLLibrary> library = [device newLibraryWithSource:source
                                                   options:makeCompileOptions()
                                                     error:&error];
     if (library != nil) return library;
@@ -1159,6 +1257,12 @@ static void initAttentionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->causalSoftmaxPSO = makePSO(library, @"kernel_causal_softmax");
     ctx->rotaryPSO = makePSO(library, @"kernel_rotary");
     ctx->gatherRowsPSO = makePSO(library, @"kernel_gather_rows");
+}
+
+static void initTiledAttentionPipelines(MetalContext* ctx) {
+    ctx->attentionPSO = makePSO(ctx->library, @"kernel_attention_block_probabilities");
+    ctx->attentionDeltaPSO = makePSO(ctx->library, @"kernel_attention_block_derivatives");
+    ctx->attentionKeyValueBackwardPSO = makePSO(ctx->library, @"kernel_attention_block_columns");
 }
 
 static void initBroadcastPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -1231,6 +1335,7 @@ static MetalContext* createContext() {
     ctx->library = library;
     initBasicPipelines(ctx, library);
     initAttentionPipelines(ctx, library);
+    initTiledAttentionPipelines(ctx);
     initBroadcastPipelines(ctx, library);
     initReductionPipelines(ctx, library);
     initLossPipelines(ctx, library);
@@ -1331,6 +1436,9 @@ static constexpr int OP_RMS_NORM = 53;
 static constexpr int OP_RMS_NORM_BACKWARD = 54;
 static constexpr int OP_SWIGLU = 55;
 static constexpr int OP_SWIGLU_BACKWARD = 56;
+static constexpr int OP_SCALED_SOFTMAX_BACKWARD = 57;
+static constexpr int OP_TILED_CAUSAL_ATTENTION = 58;
+static constexpr int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -1358,10 +1466,18 @@ static NSUInteger colReductionHeight(id<MTLComputePipelineState> pso) {
     return height;
 }
 
+// Metal copies these transient arguments immediately; no caller-owned buffer is needed.
+template<class T>
+static void bindValue(id<MTLComputeCommandEncoder> encoder, const T& value, NSUInteger index) {
+    static_assert(sizeof(T) < 4096, "Inline Metal arguments must be smaller than 4 KiB");
+    static_assert(std::is_trivially_copyable_v<T> && !std::is_pointer_v<T>, "Pass argument values, not pointers");
+    [encoder setBytes:&value length:sizeof(T) atIndex:index];
+}
+
 struct SoftmaxBuffers {
     id<MTLBuffer> maximum;
     id<MTLBuffer> sum;
-    id<MTLBuffer> dimensions;
+    uint32_t columns;
 };
 
 static SoftmaxBuffers makeSoftmaxBuffers(MetalContext* ctx, int rows, int cols) {
@@ -1370,13 +1486,10 @@ static SoftmaxBuffers makeSoftmaxBuffers(MetalContext* ctx, int rows, int cols) 
                                                      options:MTLResourceStorageModeShared];
     id<MTLBuffer> sum = [ctx->device newBufferWithLength:bytes
                                                  options:MTLResourceStorageModeShared];
-    uint32_t width = (uint32_t)cols;
-    id<MTLBuffer> dims = [ctx->device newBufferWithBytes:&width length:sizeof(width)
-                                                  options:MTLResourceStorageModeShared];
-    if (maximum == nil || sum == nil || dims == nil) {
+    if (maximum == nil || sum == nil) {
         throw std::runtime_error("Failed to allocate softmax buffers");
     }
-    return SoftmaxBuffers{maximum, sum, dims};
+    return SoftmaxBuffers{maximum, sum, (uint32_t)cols};
 }
 
 static void encodeSoftmaxMax(id<MTLComputeCommandEncoder> encoder, MetalContext* ctx,
@@ -1384,7 +1497,7 @@ static void encodeSoftmaxMax(id<MTLComputeCommandEncoder> encoder, MetalContext*
     [encoder setComputePipelineState:ctx->softmaxMaxPSO];
     [encoder setBuffer:input offset:0 atIndex:0];
     [encoder setBuffer:buffers.maximum offset:0 atIndex:1];
-    [encoder setBuffer:buffers.dimensions offset:0 atIndex:2];
+    bindValue(encoder, buffers.columns, 2);
     NSUInteger threads = rowReductionWidth(ctx->softmaxMaxPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, (NSUInteger)rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1399,7 +1512,7 @@ static void encodeSoftmaxExp(id<MTLComputeCommandEncoder> encoder, MetalContext*
     [encoder setBuffer:output offset:0 atIndex:1];
     [encoder setBuffer:buffers.maximum offset:0 atIndex:2];
     [encoder setBuffer:buffers.sum offset:0 atIndex:3];
-    [encoder setBuffer:buffers.dimensions offset:0 atIndex:4];
+    bindValue(encoder, buffers.columns, 4);
     NSUInteger threads = rowReductionWidth(ctx->softmaxExpSumPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, (NSUInteger)rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1412,7 +1525,7 @@ static void encodeSoftmaxNorm(id<MTLComputeCommandEncoder> encoder, MetalContext
     [encoder setComputePipelineState:ctx->softmaxNormPSO];
     [encoder setBuffer:output offset:0 atIndex:0];
     [encoder setBuffer:buffers.sum offset:0 atIndex:1];
-    [encoder setBuffer:buffers.dimensions offset:0 atIndex:2];
+    bindValue(encoder, buffers.columns, 2);
     NSUInteger threads = MIN(total, ctx->softmaxNormPSO.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreads:MTLSizeMake(total, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1530,10 +1643,7 @@ static void uploadBuffer(JNIEnv* env, jint bufId, jfloatArray dataArr) {
     BufferEntry entry = transferEntry(env, bufId, dataArr, "Upload");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(dataArr);
-    jfloat* data = env->GetFloatArrayElements(dataArr, nullptr);
-    if (data == nullptr) return;
-    std::memcpy([entry->second contents], data, (size_t)len * sizeof(float));
-    env->ReleaseFloatArrayElements(dataArr, data, JNI_ABORT);
+    env->GetFloatArrayRegion(dataArr, 0, len, (jfloat*)[entry->second contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -1547,10 +1657,7 @@ static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
     BufferEntry entry = transferEntry(env, bufId, outArr, "Download");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(outArr);
-    jfloat* out = env->GetFloatArrayElements(outArr, nullptr);
-    if (out == nullptr) return;
-    std::memcpy(out, [entry->second contents], (size_t)len * sizeof(float));
-    env->ReleaseFloatArrayElements(outArr, out, 0);
+    env->SetFloatArrayRegion(outArr, 0, len, (const jfloat*)[entry->second contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -1586,7 +1693,27 @@ struct GraphState {
     MetalContext* ctx;
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
+    std::array<id<MTLBuffer>, 3> attentionScratch;
+    std::array<std::array<id<MTLBuffer>, 3>, 4> laneScratch{};
+    std::array<id<MTLEvent>, 4> laneDone{};
+    id<MTLEvent> attentionReady = nil;
+    uint64_t attentionStage = 0;
+    uint32_t pendingAttentionStages = 0;
+    bool serialAttentionOnly = false;
+    std::vector<id<MTLCommandBuffer>> attentionChildren{};
+
+    ~GraphState() {
+        if (encoder != nil) [encoder endEncoding];
+    }
 };
+
+static void finishCommandBuffer(GraphState& state);
+
+static id<MTLCommandBuffer> graphCommands(id<MTLCommandQueue> queue) {
+    id<MTLCommandBuffer> commands = [queue commandBuffer];
+    if (commands == nil) throw std::runtime_error("Failed to create Metal command buffer");
+    return commands;
+}
 
 struct AdamWParamsHost {
     float lr;
@@ -1603,14 +1730,6 @@ static id<MTLComputeCommandEncoder> graphEncoder(GraphState& state) {
         state.encoder = [state.commandBuffer computeCommandEncoder];
     }
     return state.encoder;
-}
-
-static id<MTLBuffer> valueBuffer(MetalContext* ctx, const void* value, NSUInteger bytes) {
-    id<MTLBuffer> buffer = [ctx->device newBufferWithBytes:value
-                                                   length:bytes
-                                                  options:MTLResourceStorageModeShared];
-    if (buffer == nil) throw std::runtime_error("Failed to allocate Metal value buffer");
-    return buffer;
 }
 
 static float floatFromBits(int bits) {
@@ -1692,24 +1811,22 @@ static void encodeUnary(GraphState& state, const jint* cmd, int pos) {
 
 static void encodeScalar(GraphState& state, const jint* cmd, int pos) {
     float scalar = floatFromBits(cmd[pos + 3]);
-    id<MTLBuffer> value = valueBuffer(state.ctx, &scalar, sizeof(float));
     id<MTLComputePipelineState> pipeline = scalarPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "scalar op") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "scalar op") offset:0 atIndex:1];
-    [encoder setBuffer:value offset:0 atIndex:2];
+    bindValue(encoder, scalar, 2);
     dispatch1D(encoder, pipeline, positiveCount(cmd[pos + 4], "element count"));
 }
 
 static void encodeClamp(GraphState& state, const jint* cmd, int pos) {
     float range[] = {floatFromBits(cmd[pos + 3]), floatFromBits(cmd[pos + 4])};
-    id<MTLBuffer> rangeBuffer = valueBuffer(state.ctx, range, sizeof(range));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->clampPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "clamp op") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "clamp op") offset:0 atIndex:1];
-    [encoder setBuffer:rangeBuffer offset:0 atIndex:2];
+    bindValue(encoder, range, 2);
     dispatch1D(encoder, state.ctx->clampPSO,
                positiveCount(cmd[pos + 5], "element count"));
 }
@@ -1717,12 +1834,11 @@ static void encodeClamp(GraphState& state, const jint* cmd, int pos) {
 static void encodeTranspose(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4]};
     NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 4]);
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->transposePSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "transpose") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "transpose") offset:0 atIndex:1];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatch1D(encoder, state.ctx->transposePSO, total);
 }
 
@@ -1736,25 +1852,23 @@ static void encodeHeadPermutation(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4],
                        (uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6]};
     NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 6]);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = headPermutationPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "head permutation") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "head permutation") offset:0 atIndex:1];
-    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatch1D(encoder, pipeline, total);
 }
 
 static void encodeCausalMask(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4]};
     NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 4]);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->causalMaskPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "causal mask") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "causal mask") offset:0 atIndex:1];
-    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatch1D(encoder, state.ctx->causalMaskPSO, total);
 }
 
@@ -1769,12 +1883,11 @@ static void encodeCausalSoftmax(GraphState& state, const jint* cmd, int pos) {
         (uint32_t)positiveCount(cmd[pos + 4], "causal softmax columns"),
         (uint32_t)positiveCount(cmd[pos + 5], "causal softmax sequence"),
         floatFromBits(cmd[pos + 6])};
-    id<MTLBuffer> values = valueBuffer(state.ctx, &params, sizeof(params));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->causalSoftmaxPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "causal softmax") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "causal softmax") offset:0 atIndex:1];
-    [encoder setBuffer:values offset:0 atIndex:2];
+    bindValue(encoder, params, 2);
     NSUInteger threads = rowReductionWidth(state.ctx->causalSoftmaxPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, params.rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1784,14 +1897,13 @@ static void encodeRotary(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6],
                        (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8]};
     NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 7] / 2);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->rotaryPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "rotary input") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "rotary cosine") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "rotary sine") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "rotary output") offset:0 atIndex:3];
-    [encoder setBuffer:dimensions offset:0 atIndex:4];
+    bindValue(encoder, dims, 4);
     dispatch1D(encoder, state.ctx->rotaryPSO, total);
 }
 
@@ -1802,7 +1914,7 @@ static id<MTLComputePipelineState> scatterPipeline(MetalContext* ctx, int op) {
 }
 
 static id<MTLBuffer> encodeScatterLinks(GraphState& state, const jint* cmd,
-                                       int pos, id<MTLBuffer> dimensions) {
+                                       int pos, const std::array<uint32_t, 3>& dimensions) {
     if (cmd[pos] != OP_SCATTER_ADD_ROWS_ATOMIC) return nil;
     NSUInteger count = positiveCount(cmd[pos + 6], "scatter index count");
     id<MTLBuffer> links = [state.ctx->device newBufferWithLength:count * sizeof(uint32_t) * 2
@@ -1812,25 +1924,24 @@ static id<MTLBuffer> encodeScatterLinks(GraphState& state, const jint* cmd,
     [encoder setComputePipelineState:state.ctx->scatterLinksPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "scatter indices") offset:0 atIndex:0];
     [encoder setBuffer:links offset:0 atIndex:1];
-    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    bindValue(encoder, dimensions, 2);
     dispatch1D(encoder, state.ctx->scatterLinksPSO, count);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
     return links;
 }
 
 static void encodeScatter(GraphState& state, const jint* cmd, int pos) {
-    uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
-                       (uint32_t)cmd[pos + 6]};
+    std::array<uint32_t, 3> dims{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
+                                (uint32_t)cmd[pos + 6]};
     NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 6]);
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
-    id<MTLBuffer> links = encodeScatterLinks(state, cmd, pos, dimsBuffer);
+    id<MTLBuffer> links = encodeScatterLinks(state, cmd, pos, dims);
     id<MTLComputePipelineState> pipeline = scatterPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "scatter") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "scatter") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "scatter") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     if (links != nil) [encoder setBuffer:links offset:0 atIndex:4];
     dispatch1D(encoder, pipeline, total);
 }
@@ -1839,13 +1950,12 @@ static void encodeGatherRows(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
                        (uint32_t)cmd[pos + 6]};
     NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 6]);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->gatherRowsPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "gather input") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "gather indices") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "gather output") offset:0 atIndex:2];
-    [encoder setBuffer:dimensions offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     dispatch1D(encoder, state.ctx->gatherRowsPSO, total);
 }
 
@@ -1864,14 +1974,13 @@ static id<MTLComputePipelineState> broadcastPipeline(MetalContext* ctx, int op) 
 static void encodeBroadcast(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5]};
     NSUInteger total = elementCount(cmd[pos + 4], cmd[pos + 5]);
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = broadcastPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "broadcast") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "broadcast") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "broadcast") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     dispatch1D(encoder, pipeline, total);
 }
 
@@ -1904,13 +2013,12 @@ static void encodeReduction(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
     NSUInteger cols = positiveCount(cmd[pos + 4], "cols");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)cols};
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = reductionPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "reduction") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "reduction") offset:0 atIndex:1];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatchReduction(encoder, pipeline, cmd[pos], rows, cols);
 }
 
@@ -1923,13 +2031,12 @@ static id<MTLComputePipelineState> rowStatisticPipeline(MetalContext* ctx, int o
 static void encodeRowStatistic(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 4], "cols")};
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = rowStatisticPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "row statistic") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "row statistic") offset:0 atIndex:1];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     NSUInteger threads = MIN((NSUInteger)256, pipeline.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1943,7 +2050,7 @@ static void encodeSquaresTotal(GraphState& state, id<MTLBuffer> partials,
     [encoder setComputePipelineState:state.ctx->accumulateSquaresPSO];
     [encoder setBuffer:partials offset:0 atIndex:0];
     [encoder setBuffer:total offset:0 atIndex:1];
-    [encoder setBuffer:valueBuffer(state.ctx, &count, sizeof(count)) offset:0 atIndex:2];
+    bindValue(encoder, count, 2);
     NSUInteger threads = MIN((NSUInteger)256,
                              state.ctx->accumulateSquaresPSO.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreadgroups:MTLSizeMake(1, 1, 1)
@@ -1957,7 +2064,6 @@ static void encodeSumSquaresScalar(GraphState& state, const jint* cmd, int pos) 
                              state.ctx->sumSquaresScalarPSO.maxTotalThreadsPerThreadgroup);
     NSUInteger groups = MIN((count + threads - 1) / threads, (NSUInteger)1024);
     uint32_t dims[] = {(uint32_t)count, (uint32_t)groups};
-    id<MTLBuffer> values = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLBuffer> partials = [state.ctx->device newBufferWithLength:groups * sizeof(float)
                                                         options:MTLResourceStorageModeShared];
     if (partials == nil) throw std::runtime_error("Failed to allocate norm partials");
@@ -1965,32 +2071,32 @@ static void encodeSumSquaresScalar(GraphState& state, const jint* cmd, int pos) 
     [encoder setComputePipelineState:state.ctx->sumSquaresScalarPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "sum squares") offset:0 atIndex:0];
     [encoder setBuffer:partials offset:0 atIndex:1];
-    [encoder setBuffer:values offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     [encoder dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
     encodeSquaresTotal(state, partials, requireBuffer(cmd[pos + 2], "sum squares"), groups);
 }
 
 static void encodeColumnSum(GraphState& state, id<MTLBuffer> input,
-                            id<MTLBuffer> output, id<MTLBuffer> dims, NSUInteger cols) {
+                            id<MTLBuffer> output, const std::array<uint32_t, 2>& dims, NSUInteger cols) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->sumRowsPSO];
     [encoder setBuffer:input offset:0 atIndex:0];
     [encoder setBuffer:output offset:0 atIndex:1];
-    [encoder setBuffer:dims offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     NSUInteger threads = colReductionHeight(state.ctx->sumRowsPSO);
     [encoder dispatchThreads:MTLSizeMake(cols, threads, 1)
        threadsPerThreadgroup:MTLSizeMake(1, threads, 1)];
 }
 
 static void encodeFinalSum(GraphState& state, id<MTLBuffer> input,
-                           id<MTLBuffer> output, id<MTLBuffer> dims) {
+                           id<MTLBuffer> output, const std::array<uint32_t, 2>& dims) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
     [encoder setComputePipelineState:state.ctx->sumAlongRowsPSO];
     [encoder setBuffer:input offset:0 atIndex:0];
     [encoder setBuffer:output offset:0 atIndex:1];
-    [encoder setBuffer:dims offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     [encoder dispatchThreads:MTLSizeMake(1, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
 }
@@ -1998,17 +2104,15 @@ static void encodeFinalSum(GraphState& state, id<MTLBuffer> input,
 static void encodeScalarSum(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
     NSUInteger cols = positiveCount(cmd[pos + 4], "cols");
-    uint32_t inputDims[] = {(uint32_t)rows, (uint32_t)cols};
-    uint32_t outputDims[] = {1u, (uint32_t)cols};
+    std::array<uint32_t, 2> inputDims{(uint32_t)rows, (uint32_t)cols};
+    std::array<uint32_t, 2> outputDims{1u, (uint32_t)cols};
     id<MTLBuffer> temporary = [state.ctx->device
         newBufferWithLength:cols * sizeof(float) options:MTLResourceStorageModeShared];
     if (temporary == nil) throw std::runtime_error("Failed to allocate sum buffer");
-    id<MTLBuffer> inputDimsBuffer = valueBuffer(state.ctx, inputDims, sizeof(inputDims));
-    id<MTLBuffer> outputDimsBuffer = valueBuffer(state.ctx, outputDims, sizeof(outputDims));
     encodeColumnSum(state, requireBuffer(cmd[pos + 1], "sum"), temporary,
-                    inputDimsBuffer, cols);
+                    inputDims, cols);
     encodeFinalSum(state, temporary, requireBuffer(cmd[pos + 2], "sum"),
-                   outputDimsBuffer);
+                   outputDims);
 }
 
 static id<MTLComputePipelineState> crossEntropyPipeline(MetalContext* ctx, int op) {
@@ -2020,14 +2124,13 @@ static id<MTLComputePipelineState> crossEntropyPipeline(MetalContext* ctx, int o
 static void encodeCrossEntropy(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 4], "rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 5], "cols")};
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = crossEntropyPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "cross entropy") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "cross entropy") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "cross entropy") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     NSUInteger threads = rowReductionWidth(pipeline);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2036,14 +2139,13 @@ static void encodeCrossEntropy(GraphState& state, const jint* cmd, int pos) {
 static void encodeFusedCrossEntropy(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 5], "rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 6], "cols")};
-    id<MTLBuffer> values = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->crossEntropyFusedPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "cross entropy") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "cross entropy") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "cross entropy") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "cross entropy") offset:0 atIndex:3];
-    [encoder setBuffer:values offset:0 atIndex:4];
+    bindValue(encoder, dims, 4);
     NSUInteger threads = rowReductionWidth(state.ctx->crossEntropyFusedPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2153,29 +2255,319 @@ static void encodeSoftmax(GraphState& state, const jint* cmd, int pos) {
 static void encodeSoftmaxBackward(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 4], "rows");
     uint32_t cols = (uint32_t)positiveCount(cmd[pos + 5], "cols");
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, &cols, sizeof(cols));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->softmaxBackwardPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "softmax backward") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "softmax backward") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "softmax backward") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, cols, 3);
+    float scale = cmd[pos] == OP_SCALED_SOFTMAX_BACKWARD ? floatFromBits(cmd[pos + 6]) : 1.0f;
+    bindValue(encoder, scale, 4);
     NSUInteger threads = rowReductionWidth(state.ctx->softmaxBackwardPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
 
+struct TiledAttentionParams {
+    uint32_t length;
+    float scale;
+};
+
+struct TiledAttentionShape {
+    uint32_t rows;
+    uint32_t heads;
+    TiledAttentionParams params;
+};
+
+static TiledAttentionShape tiledAttentionShape(GraphState& state, const jint* fields) {
+    uint32_t rows = (uint32_t)positiveCount(fields[0], "attention rows");
+    uint32_t heads = (uint32_t)positiveCount(fields[1], "attention heads");
+    uint32_t length = rows / heads;
+    float scale = floatFromBits(fields[2]);
+    if (rows % heads != 0 || length < 32 || length % 32 != 0 ||
+        rows > INT32_MAX / 64 || !std::isfinite(scale)) {
+        throw std::runtime_error("Invalid tiled attention shape or scale");
+    }
+    if (state.ctx->attentionPSO == nil) throw std::runtime_error("Tiled attention is unavailable on this GPU");
+    return {rows, heads, {length, scale}};
+}
+
+static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count) {
+    id<MTLBuffer> buffer = requireBuffer(bufferId, "tiled attention");
+    if (buffer.length != count * sizeof(float)) {
+        throw std::runtime_error("Tiled attention buffer size mismatch");
+    }
+    return buffer;
+}
+
+struct AttentionBlock {
+    TiledAttentionShape shape;
+    uint32_t start, count;
+};
+
+struct AttentionBlockParamsHost {
+    uint32_t length, count, start;
+    float scale;
+    uint32_t cached;
+};
+
+
+static MPSMatrix* attentionFull(id<MTLBuffer> buffer, TiledAttentionShape shape) {
+    return matrixBatch(buffer, shape.params.length, 64, shape.heads);
+}
+
+static id<MTLBuffer> attentionScratch(GraphState& state, int index, TiledAttentionShape shape) {
+    NSUInteger count = std::min(shape.params.length, 256u);
+    NSUInteger columns = index == 2 ? 64 : shape.params.length;
+    NSUInteger bytes = (NSUInteger)shape.heads * count * columns * sizeof(float);
+    id<MTLBuffer> buffer = state.attentionScratch[index];
+    if (buffer == nil || buffer.length < bytes) {
+        buffer = [state.ctx->device newBufferWithLength:bytes options:MTLResourceStorageModePrivate];
+        if (buffer == nil) throw std::runtime_error("Failed to allocate attention scratch buffer");
+        state.attentionScratch[index] = buffer;
+    }
+    return buffer;
+}
+
+static MPSMatrix* attentionPackedResult(GraphState& state, AttentionBlock block) {
+    return matrixBatch(attentionScratch(state, 2, block.shape), block.count, 64, block.shape.heads);
+}
+
+static void copyAttentionRows(GraphState& state, id<MTLBuffer> full, AttentionBlock block, bool pack) {
+    // Contiguous head blocks keep the same MPS layouts used by ordinary batched matmul.
+    endGraphEncoder(state);
+    id<MTLBlitCommandEncoder> encoder = [state.commandBuffer blitCommandEncoder];
+    id<MTLBuffer> packed = attentionScratch(state, 2, block.shape);
+    NSUInteger bytes = (NSUInteger)block.count * 64 * sizeof(float);
+    for (uint32_t head = 0; head < block.shape.heads; head++) {
+        NSUInteger offset = ((NSUInteger)head * block.shape.params.length + block.start) * 64 * sizeof(float);
+        if (pack) [encoder copyFromBuffer:full sourceOffset:offset toBuffer:packed
+                       destinationOffset:head * bytes size:bytes];
+        else [encoder copyFromBuffer:packed sourceOffset:head * bytes toBuffer:full
+                       destinationOffset:offset size:bytes];
+    }
+    [encoder endEncoding];
+}
+
+static MPSMatrix* attentionPackedRows(GraphState& state, id<MTLBuffer> full, AttentionBlock block) {
+    copyAttentionRows(state, full, block, true);
+    return attentionPackedResult(state, block);
+}
+
+static MPSMatrix* attentionTile(id<MTLBuffer> buffer, AttentionBlock block, bool columns) {
+    return columns ? matrixBatch(buffer, block.shape.params.length, block.count, block.shape.heads)
+                   : matrixBatch(buffer, block.count, block.shape.params.length, block.shape.heads);
+}
+
+static void attentionProduct(GraphState& state, MPSMatrix* left, MPSMatrix* right,
+                               MPSMatrix* output, bool transposeLeft, bool transposeRight) {
+    // Preserve the complete interior reduction instead of accumulating partial products.
+    endGraphEncoder(state);
+    int inner = transposeLeft ? left.rows : left.columns;
+    [configuredMatmulKernel(state.ctx, output.rows, output.columns, inner,
+                            transposeLeft, transposeRight, output.matrices)
+        encodeToCommandBuffer:state.commandBuffer leftMatrix:left rightMatrix:right resultMatrix:output];
+}
+
+static AttentionBlockParamsHost attentionBlockParams(AttentionBlock block, bool cached = false) {
+    return {block.shape.params.length, block.count, block.start, block.shape.params.scale, cached};
+}
+
+static void dispatchAttentionRows(id<MTLComputeCommandEncoder> encoder,
+                                   AttentionBlock block, id<MTLComputePipelineState> pipeline) {
+    NSUInteger threads = rowReductionWidth(pipeline);
+    [encoder dispatchThreads:MTLSizeMake(threads, block.shape.heads * block.count, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static void attentionProbabilities(GraphState& state, AttentionBlock block,
+                                    id<MTLBuffer> normalization, bool cached = false) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->attentionPSO];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
+    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
+    [encoder setBuffer:normalization offset:0 atIndex:2];
+    bindValue(encoder, attentionBlockParams(block, cached), 3);
+    dispatchAttentionRows(encoder, block, state.ctx->attentionPSO);
+}
+
+static void attentionScores(GraphState& state, AttentionBlock block,
+                              id<MTLBuffer> query, id<MTLBuffer> key) {
+    attentionProduct(state, attentionPackedRows(state, query, block), attentionFull(key, block.shape),
+        attentionTile(attentionScratch(state, 0, block.shape), block, false), false, true);
+}
+
+static void attentionForwardBlock(GraphState& state, AttentionBlock block, const jint* ids) {
+    attentionScores(state, block, attentionBuffer(ids[1], (NSUInteger)block.shape.rows * 64),
+                    attentionBuffer(ids[2], (NSUInteger)block.shape.rows * 64));
+    attentionProbabilities(state, block, attentionBuffer(ids[5], (NSUInteger)block.shape.rows * 2));
+    attentionProduct(state, attentionTile(attentionScratch(state, 1, block.shape), block, false),
+        attentionFull(attentionBuffer(ids[3], (NSUInteger)block.shape.rows * 64), block.shape),
+        attentionPackedResult(state, block), false, false);
+    copyAttentionRows(state, attentionBuffer(ids[4], (NSUInteger)block.shape.rows * 64), block, false);
+}
+
+static AttentionBlock attentionBlock(TiledAttentionShape shape, uint32_t start) {
+    return {shape, start, std::min(shape.params.length - start, 256u)};
+}
+
+using AttentionBlockEncoder = void (*)(GraphState&, AttentionBlock, const jint*);
+
+static bool prepareAttentionEvents(GraphState& state, uint32_t lanes) {
+    if (state.serialAttentionOnly) return false;
+    if (state.attentionReady == nil) state.attentionReady = [state.ctx->device newEvent];
+    if (state.attentionReady == nil) return false;
+    for (uint32_t lane = 0; lane < lanes; lane++) {
+        auto& queue = state.ctx->attentionQueues[lane];
+        if (queue == nil) queue = [state.ctx->device newCommandQueueWithMaxCommandBufferCount:128];
+        if (queue == nil) return false;
+        if (state.laneDone[lane] == nil) state.laneDone[lane] = [state.ctx->device newEvent];
+        if (state.laneDone[lane] == nil) return false;
+    }
+    return true;
+}
+
+static void limitAttentionBatch(GraphState& state) {
+    // Drain below each queue's capacity so even very long graphs cannot block encoding.
+    if (state.pendingAttentionStages < 96) return;
+    finishCommandBuffer(state);
+    state.commandBuffer = graphCommands(state.ctx->queue);
+    state.attentionChildren.clear();
+    state.pendingAttentionStages = 0;
+}
+
+static void encodeAttentionLane(GraphState& parent, TiledAttentionShape shape, uint32_t lane,
+                                uint32_t lanes, const jint* ids, AttentionBlockEncoder encode) {
+    id<MTLCommandBuffer> commands = graphCommands(parent.ctx->attentionQueues[lane]);
+    [commands encodeWaitForEvent:parent.attentionReady value:parent.attentionStage];
+    GraphState child{parent.ctx, commands, nil, parent.laneScratch[lane]};
+    for (uint32_t start = lane * 256; start < shape.params.length; start += lanes * 256) {
+        encode(child, attentionBlock(shape, start), ids);
+    }
+    endGraphEncoder(child);
+    parent.laneScratch[lane] = child.attentionScratch;
+    [commands encodeSignalEvent:parent.laneDone[lane] value:parent.attentionStage];
+    // Submit only after encoding succeeds: failed graphs must not leave waiting GPU jobs.
+    parent.attentionChildren.push_back(commands);
+}
+
+static void encodeSerialAttention(GraphState& state, TiledAttentionShape shape,
+                                  const jint* ids, AttentionBlockEncoder encode) {
+    for (uint32_t start = 0; start < shape.params.length; start += 256) {
+        encode(state, attentionBlock(shape, start), ids);
+    }
+}
+
+static void encodeParallelAttention(GraphState& state, TiledAttentionShape shape,
+                                    uint32_t lanes, const jint* ids, AttentionBlockEncoder encode) {
+    limitAttentionBatch(state);
+    endGraphEncoder(state);
+    [state.commandBuffer encodeSignalEvent:state.attentionReady value:++state.attentionStage];
+    for (uint32_t lane = 0; lane < lanes; lane++) {
+        encodeAttentionLane(state, shape, lane, lanes, ids, encode);
+    }
+    for (uint32_t lane = 0; lane < lanes; lane++) {
+        [state.commandBuffer encodeWaitForEvent:state.laneDone[lane] value:state.attentionStage];
+    }
+    state.pendingAttentionStages++;
+}
+
+static void encodeAttentionBlocks(GraphState& state, TiledAttentionShape shape,
+                                  const jint* ids, AttentionBlockEncoder encode) {
+    // Keep short inference/training sequences on the lower-overhead serial path.
+    uint32_t lanes = shape.params.length < 1024 ? 1u : 4u;
+    if (lanes == 1) return encodeSerialAttention(state, shape, ids, encode);
+    if (prepareAttentionEvents(state, lanes)) return encodeParallelAttention(state, shape, lanes, ids, encode);
+    state.serialAttentionOnly = true;
+    encodeSerialAttention(state, shape, ids, encode);
+}
+
+static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6);
+    encodeAttentionBlocks(state, shape, cmd + pos, attentionForwardBlock);
+}
+
+static void attentionDerivatives(GraphState& state, AttentionBlock block, id<MTLBuffer> delta) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->attentionDeltaPSO];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
+    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:2];
+    [encoder setBuffer:delta offset:0 atIndex:3];
+    bindValue(encoder, attentionBlockParams(block), 4);
+    dispatchAttentionRows(encoder, block, state.ctx->attentionDeltaPSO);
+}
+
+static void attentionQueryGradient(GraphState& state, AttentionBlock block, const jint* ids) {
+    auto shape = block.shape;
+    attentionScores(state, block, attentionBuffer(ids[1], (NSUInteger)shape.rows * 64),
+                    attentionBuffer(ids[2], (NSUInteger)shape.rows * 64));
+    attentionProbabilities(state, block, attentionBuffer(ids[6], (NSUInteger)shape.rows * 2), true);
+    attentionProduct(state, attentionPackedRows(state, attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), block),
+        attentionFull(attentionBuffer(ids[3], (NSUInteger)shape.rows * 64), shape),
+        attentionTile(attentionScratch(state, 0, shape), block, false), false, true);
+    attentionDerivatives(state, block, attentionBuffer(ids[7], shape.rows));
+    attentionProduct(state, attentionTile(attentionScratch(state, 0, shape), block, false),
+        attentionFull(attentionBuffer(ids[2], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedResult(state, block), false, false);
+    copyAttentionRows(state, attentionBuffer(ids[8], (NSUInteger)shape.rows * 64), block, false);
+}
+
+static void attentionColumnScores(GraphState& state, AttentionBlock block, const jint* ids) {
+    auto shape = block.shape;
+    attentionProduct(state, attentionFull(attentionBuffer(ids[1], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedRows(state, attentionBuffer(ids[2], (NSUInteger)shape.rows * 64), block),
+        attentionTile(attentionScratch(state, 0, shape), block, true), false, true);
+    attentionProduct(state, attentionFull(attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedRows(state, attentionBuffer(ids[3], (NSUInteger)shape.rows * 64), block),
+        attentionTile(attentionScratch(state, 1, shape), block, true), false, true);
+}
+
+static void attentionColumnDerivatives(GraphState& state, AttentionBlock block, const jint* ids) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->attentionKeyValueBackwardPSO];
+    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
+    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
+    [encoder setBuffer:attentionBuffer(ids[6], (NSUInteger)block.shape.rows * 2) offset:0 atIndex:2];
+    [encoder setBuffer:attentionBuffer(ids[7], block.shape.rows) offset:0 atIndex:3];
+    bindValue(encoder, attentionBlockParams(block), 4);
+    NSUInteger count = (NSUInteger)block.shape.rows * block.count;
+    [encoder dispatchThreads:MTLSizeMake(count, 1, 1)
+       threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(state.ctx->attentionKeyValueBackwardPSO), 1, 1)];
+}
+
+static void attentionKeyValueGradient(GraphState& state, AttentionBlock block, const jint* ids) {
+    auto shape = block.shape;
+    attentionColumnScores(state, block, ids);
+    attentionColumnDerivatives(state, block, ids);
+    attentionProduct(state, attentionTile(attentionScratch(state, 1, shape), block, true),
+        attentionFull(attentionBuffer(ids[1], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedResult(state, block), true, false);
+    copyAttentionRows(state, attentionBuffer(ids[9], (NSUInteger)shape.rows * 64), block, false);
+    attentionProduct(state, attentionTile(attentionScratch(state, 0, shape), block, true),
+        attentionFull(attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), shape),
+        attentionPackedResult(state, block), true, false);
+    copyAttentionRows(state, attentionBuffer(ids[10], (NSUInteger)shape.rows * 64), block, false);
+}
+
+static void encodeTiledAttentionBackward(GraphState& state, const jint* cmd, int pos) {
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11);
+    attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64);
+    encodeAttentionBlocks(state, shape, cmd + pos, attentionQueryGradient);
+    // Column blocks give dK and dV their original full-query reduction dimension.
+    encodeAttentionBlocks(state, shape, cmd + pos, attentionKeyValueGradient);
+}
+
 static void encodeLayerNormBackward(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 5], "rows");
     uint32_t cols = (uint32_t)positiveCount(cmd[pos + 6], "cols");
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, &cols, sizeof(cols));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->layerNormBackwardPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "layer norm backward") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "layer norm backward") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "layer norm backward") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "layer norm backward") offset:0 atIndex:3];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:4];
+    bindValue(encoder, cols, 4);
     NSUInteger threads = rowReductionWidth(state.ctx->layerNormBackwardPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2190,7 +2582,6 @@ static void encodeRmsNorm(GraphState& state, const jint* cmd, int pos) {
     RmsNormParamsHost params{(uint32_t)positiveCount(cmd[pos + 6], "rms norm rows"),
                              (uint32_t)positiveCount(cmd[pos + 7], "rms norm columns"),
                              floatFromBits(cmd[pos + 8])};
-    id<MTLBuffer> values = valueBuffer(state.ctx, &params, sizeof(params));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->rmsNormPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "rms norm") offset:0 atIndex:0];
@@ -2198,7 +2589,7 @@ static void encodeRmsNorm(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "rms norm") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "rms norm") offset:0 atIndex:3];
     [encoder setBuffer:requireBuffer(cmd[pos + 5], "rms norm") offset:0 atIndex:4];
-    [encoder setBuffer:values offset:0 atIndex:5];
+    bindValue(encoder, params, 5);
     NSUInteger threads = rowReductionWidth(state.ctx->rmsNormPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, params.rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2207,7 +2598,6 @@ static void encodeRmsNorm(GraphState& state, const jint* cmd, int pos) {
 static void encodeRmsNormBackward(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 6], "rms norm rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 7], "rms norm columns")};
-    id<MTLBuffer> values = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->rmsNormBackwardPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "rms norm backward") offset:0 atIndex:0];
@@ -2215,7 +2605,7 @@ static void encodeRmsNormBackward(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "rms norm backward") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "rms norm backward") offset:0 atIndex:3];
     [encoder setBuffer:requireBuffer(cmd[pos + 5], "rms norm backward") offset:0 atIndex:4];
-    [encoder setBuffer:values offset:0 atIndex:5];
+    bindValue(encoder, dims, 5);
     NSUInteger threads = rowReductionWidth(state.ctx->rmsNormBackwardPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2257,14 +2647,13 @@ static AdamWParamsHost adamWParams(const jint* cmd, int pos) {
 
 static void encodeAdamW(GraphState& state, const jint* cmd, int pos) {
     AdamWParamsHost params = adamWParams(cmd, pos);
-    id<MTLBuffer> paramsBuffer = valueBuffer(state.ctx, &params, sizeof(params));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->adamWUpdatePSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "AdamW weights") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "AdamW gradient") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "AdamW first moment") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "AdamW second moment") offset:0 atIndex:3];
-    [encoder setBuffer:paramsBuffer offset:0 atIndex:4];
+    bindValue(encoder, params, 4);
     dispatch1D(encoder, state.ctx->adamWUpdatePSO,
                positiveCount(cmd[pos + 12], "element count"));
 }
@@ -2304,6 +2693,8 @@ static bool isFiveWidthOp(int op) {
 }
 
 static int commandWidth(int op) {
+    if (op == OP_TILED_CAUSAL_ATTENTION) return 9;
+    if (op == OP_TILED_CAUSAL_ATTENTION_BACKWARD) return 14;
     if (isUnaryOp(op) || op == OP_SUM_SQUARES_SCALAR) return 4;
     if (isFiveWidthOp(op)) return 5;
     if (isBroadcastOp(op) || op == OP_CLAMP ||
@@ -2313,7 +2704,7 @@ static int commandWidth(int op) {
         op == OP_SCATTER_ADD_ROWS_ATOMIC || op == OP_LAYERNORM_BACKWARD ||
         op == OP_SPLIT_HEADS || op == OP_MERGE_HEADS || op == OP_GATHER_ROWS ||
         op == OP_CAUSAL_SOFTMAX || op == OP_CROSS_ENTROPY_FUSED ||
-        op == OP_SWIGLU_BACKWARD) return 7;
+        op == OP_SWIGLU_BACKWARD || op == OP_SCALED_SOFTMAX_BACKWARD) return 7;
     if (op == OP_ROTARY || op == OP_RMS_NORM) return 9;
     if (op == OP_RMS_NORM_BACKWARD) return 8;
     if (op == OP_BATCHED_MATMUL) return 11;
@@ -2345,6 +2736,9 @@ static bool encodeTrainingCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_RMS_NORM_BACKWARD) encodeRmsNormBackward(state, cmd, pos);
     else if (op == OP_SWIGLU) encodeSwiGlu(state, cmd, pos);
     else if (op == OP_SWIGLU_BACKWARD) encodeSwiGluBackward(state, cmd, pos);
+    else if (op == OP_SCALED_SOFTMAX_BACKWARD) encodeSoftmaxBackward(state, cmd, pos);
+    else if (op == OP_TILED_CAUSAL_ATTENTION) encodeTiledAttention(state, cmd, pos);
+    else if (op == OP_TILED_CAUSAL_ATTENTION_BACKWARD) encodeTiledAttentionBackward(state, cmd, pos);
     else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
     else return false;
     return true;
@@ -2383,21 +2777,30 @@ static void encodeCommandStream(GraphState& state, const jint* cmd, int length) 
     }
 }
 
-static void finishCommandBuffer(GraphState& state) {
-    if (state.encoder != nil) [state.encoder endEncoding];
-    [state.commandBuffer commit];
-    [state.commandBuffer waitUntilCompleted];
-    if (state.commandBuffer.status != MTLCommandBufferStatusError) return;
-    NSString* desc = state.commandBuffer.error.localizedDescription ?: @"Unknown error";
+static void checkCommandBuffer(id<MTLCommandBuffer> commands) {
+    if (commands.status != MTLCommandBufferStatusError) return;
+    NSString* desc = commands.error.localizedDescription ?: @"Unknown error";
     throw std::runtime_error(std::string("Metal command buffer error: ") + [desc UTF8String]);
+}
+
+static void finishCommandBuffer(GraphState& state) {
+    endGraphEncoder(state);
+    [state.commandBuffer commit];
+    for (id<MTLCommandBuffer> child : state.attentionChildren) {
+        [child commit];
+    }
+    [state.commandBuffer waitUntilCompleted];
+    checkCommandBuffer(state.commandBuffer);
+    for (id<MTLCommandBuffer> child : state.attentionChildren) {
+        [child waitUntilCompleted];
+        checkCommandBuffer(child);
+    }
 }
 
 static void executeGraph(const jint* commandStream, int length) {
     @autoreleasepool {
         MetalContext* ctx = getContext();
-        id<MTLCommandBuffer> commandBuffer = [ctx->queue commandBuffer];
-        if (commandBuffer == nil) throw std::runtime_error("Failed to create Metal command buffer");
-        GraphState state{ctx, commandBuffer, nil};
+        GraphState state{ctx, graphCommands(ctx->queue), nil, {}};
         encodeCommandStream(state, commandStream, length);
         finishCommandBuffer(state);
     }

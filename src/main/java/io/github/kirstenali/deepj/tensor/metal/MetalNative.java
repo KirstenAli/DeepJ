@@ -8,9 +8,11 @@ import java.nio.file.StandardCopyOption;
 final class MetalNative {
 
     static final boolean AVAILABLE;
+    static final boolean TILED_ATTENTION_AVAILABLE;
 
     static {
         AVAILABLE = loadNative();
+        TILED_ATTENTION_AVAILABLE = AVAILABLE && nativeSupportsTiledAttention();
     }
 
     private MetalNative() {}
@@ -36,6 +38,8 @@ final class MetalNative {
     }
 
     private static native boolean nativeIsAvailable();
+
+    private static native boolean nativeSupportsTiledAttention();
 
     static native void nativeAllocBuffers(int[] ids, int[] sizes, int count);
 
