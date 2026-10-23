@@ -38,6 +38,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
 - DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
+- DeepJ Loop with a shared recurrent core, context reinjection, and full autograd through every pass.
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - Bounded-memory sequential, random-access, and response-only datasets.
@@ -96,8 +97,11 @@ retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced u
 | `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
 | `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 | `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |
+| `DeepJLoop` | Repeated shared core, context reinjection, loop-aware residual scaling, Nova attention and MLP |
 
-All four models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
+All five models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
+
+The [looped 100M training example](docs/looped-training.md) reuses the Frisky datasets and tokenizer.
 
 ## Frisky 90M
 

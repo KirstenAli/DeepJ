@@ -13,16 +13,20 @@ public final class EvaluateDeepJ100M {
     private EvaluateDeepJ100M() {}
 
     public static void main(String[] args) throws Exception {
+        run("checkpoints/deepj-100m/pretrain");
+    }
+
+    static void run(String directory) throws Exception {
         TrainingExampleSupport.configureBackend();
         try {
-            EvaluateDeepJ90MPretraining.run(settings());
+            EvaluateDeepJ90MPretraining.run(settings(directory));
         } finally {
             Tensor.backend().releaseResources();
         }
     }
 
-    private static EvaluateDeepJ90MPretraining.Settings settings() {
-        Path base = path("deepj.base", "checkpoints/deepj-100m/pretrain");
+    private static EvaluateDeepJ90MPretraining.Settings settings(String directory) {
+        Path base = path("deepj.base", directory);
         return new EvaluateDeepJ90MPretraining.Settings(base,
                 path("deepj.checkpoint", base.resolve("model-latest.dj").toString()),
                 path("deepj.corpus", "sample_data/deepj-90m/fineweb-edu.txt"),

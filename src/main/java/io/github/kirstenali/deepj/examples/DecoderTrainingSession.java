@@ -62,7 +62,7 @@ final class DecoderTrainingSession {
         private TrainingProgress load(Path resume) throws IOException {
             if (resume == null) return TrainingProgress.initial();
             if (!TrainingCheckpoint.matches(resume)) return loadWeights(resume);
-            var progress = TrainingCheckpoint.load(model.parameters(), optimizer, dataset, schedule, resume);
+            var progress = TrainingCheckpoint.load(model, optimizer, dataset, schedule, resume);
             System.out.println("Resumed complete training state from " + resume);
             return progress;
         }
@@ -85,7 +85,7 @@ final class DecoderTrainingSession {
         }
 
         private void save(TrainingProgress progress) throws IOException {
-            TrainingCheckpoint.save(model.parameters(), optimizer, dataset, progress, schedule,
+            TrainingCheckpoint.save(model, optimizer, dataset, progress, schedule,
                     output.resolve("training-latest.dj"));
             model.save(output.resolve("model-latest.dj"));
         }

@@ -58,7 +58,7 @@ final class ResponseOnlyFineTuner {
         Path resume = config.files().resume();
         if (resume == null) return TrainingProgress.initial();
         if (!TrainingCheckpoint.matches(resume)) return loadWeights(model, resume);
-        TrainingProgress progress = TrainingCheckpoint.load(model.parameters(), resources.optimizer(),
+        TrainingProgress progress = TrainingCheckpoint.load(model, resources.optimizer(),
                 resources.dataset(), resources.schedule(), resume);
         System.out.println("Resumed complete fine-tuning state from " + resume);
         return progress;
@@ -89,7 +89,7 @@ final class ResponseOnlyFineTuner {
 
     private static void saveCheckpoint(Path output, DecoderOnlyModel model, Resources resources,
                                        TrainingProgress progress) throws IOException {
-        TrainingCheckpoint.save(model.parameters(), resources.optimizer(), resources.dataset(),
+        TrainingCheckpoint.save(model, resources.optimizer(), resources.dataset(),
                 progress, resources.schedule(), output.resolve(LATEST_TRAINING));
         model.save(output.resolve(LATEST_MODEL));
     }

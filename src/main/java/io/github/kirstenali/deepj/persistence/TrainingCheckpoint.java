@@ -1,6 +1,10 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
+import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.models.PromptFormat;
+import io.github.kirstenali.deepj.models.TransformerConfig;
+import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -22,7 +26,7 @@ import java.util.List;
 public final class TrainingCheckpoint {
 
     private static final int MAGIC = 0x444A5443;
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
 
     private TrainingCheckpoint() {}
 
@@ -35,11 +39,24 @@ public final class TrainingCheckpoint {
     public static void save(List<Parameter> params, AdamW optimizer,
                             StatefulBatchSource dataset, TrainingProgress progress,
                             CosineLearningRateSchedule schedule, Path path) throws IOException {
+        save(params, optimizer, dataset, progress, schedule, path, null);
+    }
+
+    public static void save(DecoderOnlyModel model, AdamW optimizer,
+                            StatefulBatchSource dataset, TrainingProgress progress,
+                            CosineLearningRateSchedule schedule, Path path) throws IOException {
+        save(model.parameters(), optimizer, dataset, progress, schedule, path, model.config());
+    }
+
+    private static void save(List<Parameter> params, AdamW optimizer,
+                             StatefulBatchSource dataset, TrainingProgress progress,
+                             CosineLearningRateSchedule schedule, Path path,
+                             TransformerConfig config) throws IOException {
         ensureParent(path);
         Path temporary = temporaryPath(path);
         try {
             write(params, optimizer.state(params), dataset.randomState(), progress,
-                    schedule, temporary);
+                    schedule, temporary, config);
             replaceAtomically(temporary, path);
         } finally {
             Files.deleteIfExists(temporary);
@@ -50,8 +67,20 @@ public final class TrainingCheckpoint {
                                         StatefulBatchSource dataset,
                                         CosineLearningRateSchedule schedule,
                                         Path path) throws IOException {
+        return load(params, optimizer, dataset, schedule, path, null);
+    }
+
+    public static TrainingProgress load(DecoderOnlyModel model, AdamW optimizer,
+                                        StatefulBatchSource dataset, CosineLearningRateSchedule schedule,
+                                        Path path) throws IOException {
+        return load(model.parameters(), optimizer, dataset, schedule, path, model.config());
+    }
+
+    private static TrainingProgress load(List<Parameter> params, AdamW optimizer,
+                                         StatefulBatchSource dataset, CosineLearningRateSchedule schedule,
+                                         Path path, TransformerConfig expected) throws IOException {
         ModelSerializer.prepareForLoad();
-        CheckpointData checkpoint = read(params, schedule, path);
+        CheckpointData checkpoint = read(params, schedule, path, expected);
         applyModelValues(params, checkpoint.modelValues());
         optimizer.restoreState(params, checkpoint.optimizer());
         dataset.restoreRandomState(checkpoint.datasetState());
@@ -60,9 +89,9 @@ public final class TrainingCheckpoint {
 
     private static void write(List<Parameter> params, AdamW.State optimizer, long datasetState,
                               TrainingProgress progress, CosineLearningRateSchedule schedule,
-                              Path path) throws IOException {
+                              Path path, TransformerConfig config) throws IOException {
         try (DataOutputStream output = output(path)) {
-            writeHeader(output, progress, datasetState);
+            writeHeader(output, progress, datasetState, config);
             writeSchedule(output, schedule);
             writeOptimizer(output, optimizer);
             writeTensors(output, params, optimizer);
@@ -70,9 +99,10 @@ public final class TrainingCheckpoint {
     }
 
     private static void writeHeader(DataOutputStream output, TrainingProgress progress,
-                                    long datasetState) throws IOException {
+                                    long datasetState, TransformerConfig config) throws IOException {
         output.writeInt(MAGIC);
-        output.writeInt(VERSION);
+        output.writeInt(config == null ? 1 : VERSION);
+        if (config != null) ModelSettingsIO.write(output, new ModelSettings(config, PromptFormat.PLAIN));
         output.writeInt(progress.completedSteps());
         output.writeFloat(progress.lastLoss());
         output.writeFloat(progress.emaLoss());
@@ -109,9 +139,9 @@ public final class TrainingCheckpoint {
 
     private static CheckpointData read(List<Parameter> params,
                                        CosineLearningRateSchedule schedule,
-                                       Path path) throws IOException {
+                                       Path path, TransformerConfig expected) throws IOException {
         try (DataInputStream input = input(path)) {
-            Metadata metadata = readMetadata(input, schedule);
+            Metadata metadata = readMetadata(input, schedule, expected);
             validateCount(input.readInt(), params.size());
             TensorLists tensors = readTensors(input, params);
             if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
@@ -122,8 +152,11 @@ public final class TrainingCheckpoint {
     }
 
     private static Metadata readMetadata(DataInputStream input,
-                                         CosineLearningRateSchedule schedule) throws IOException {
-        validateFormat(input.readInt(), input.readInt());
+                                         CosineLearningRateSchedule schedule,
+                                         TransformerConfig expected) throws IOException {
+        int magic = input.readInt(), version = input.readInt();
+        validateFormat(magic, version);
+        validateConfiguration(input, version, expected);
         TrainingProgress progress = new TrainingProgress(
                 input.readInt(), input.readFloat(), input.readFloat());
         long datasetState = input.readLong();
@@ -140,7 +173,19 @@ public final class TrainingCheckpoint {
 
     private static void validateFormat(int magic, int version) throws IOException {
         if (magic != MAGIC) throw new IOException("Not a DeepJ training checkpoint");
-        if (version != VERSION) throw new IOException("Unsupported training checkpoint version");
+        if (version != 1 && version != VERSION) throw new IOException("Unsupported training checkpoint version");
+    }
+
+    private static void validateConfiguration(DataInputStream input, int version,
+                                              TransformerConfig expected) throws IOException {
+        if (version == 1) {
+            if (expected instanceof DeepJLoopConfig) {
+                throw new IOException("Loop checkpoint lacks architecture settings");
+            }
+            return;
+        }
+        TransformerConfig actual = ModelSettingsIO.read(input).config();
+        if (!actual.equals(expected)) throw new IOException("Training configuration does not match checkpoint");
     }
 
     private static void validateSchedule(DataInputStream input,
