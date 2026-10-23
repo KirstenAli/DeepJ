@@ -2,10 +2,12 @@
 #include <Foundation/Foundation.h>
 #include <Metal/Metal.h>
 #include <MetalPerformanceShaders/MetalPerformanceShaders.h>
+#include <array>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 struct MetalContext {
     id<MTLDevice>       device;
@@ -1358,10 +1360,18 @@ static NSUInteger colReductionHeight(id<MTLComputePipelineState> pso) {
     return height;
 }
 
+// Metal copies these transient arguments immediately; no caller-owned buffer is needed.
+template<class T>
+static void bindValue(id<MTLComputeCommandEncoder> encoder, const T& value, NSUInteger index) {
+    static_assert(sizeof(T) < 4096, "Inline Metal arguments must be smaller than 4 KiB");
+    static_assert(std::is_trivially_copyable_v<T> && !std::is_pointer_v<T>, "Pass argument values, not pointers");
+    [encoder setBytes:&value length:sizeof(T) atIndex:index];
+}
+
 struct SoftmaxBuffers {
     id<MTLBuffer> maximum;
     id<MTLBuffer> sum;
-    id<MTLBuffer> dimensions;
+    uint32_t columns;
 };
 
 static SoftmaxBuffers makeSoftmaxBuffers(MetalContext* ctx, int rows, int cols) {
@@ -1370,13 +1380,10 @@ static SoftmaxBuffers makeSoftmaxBuffers(MetalContext* ctx, int rows, int cols) 
                                                      options:MTLResourceStorageModeShared];
     id<MTLBuffer> sum = [ctx->device newBufferWithLength:bytes
                                                  options:MTLResourceStorageModeShared];
-    uint32_t width = (uint32_t)cols;
-    id<MTLBuffer> dims = [ctx->device newBufferWithBytes:&width length:sizeof(width)
-                                                  options:MTLResourceStorageModeShared];
-    if (maximum == nil || sum == nil || dims == nil) {
+    if (maximum == nil || sum == nil) {
         throw std::runtime_error("Failed to allocate softmax buffers");
     }
-    return SoftmaxBuffers{maximum, sum, dims};
+    return SoftmaxBuffers{maximum, sum, (uint32_t)cols};
 }
 
 static void encodeSoftmaxMax(id<MTLComputeCommandEncoder> encoder, MetalContext* ctx,
@@ -1384,7 +1391,7 @@ static void encodeSoftmaxMax(id<MTLComputeCommandEncoder> encoder, MetalContext*
     [encoder setComputePipelineState:ctx->softmaxMaxPSO];
     [encoder setBuffer:input offset:0 atIndex:0];
     [encoder setBuffer:buffers.maximum offset:0 atIndex:1];
-    [encoder setBuffer:buffers.dimensions offset:0 atIndex:2];
+    bindValue(encoder, buffers.columns, 2);
     NSUInteger threads = rowReductionWidth(ctx->softmaxMaxPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, (NSUInteger)rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1399,7 +1406,7 @@ static void encodeSoftmaxExp(id<MTLComputeCommandEncoder> encoder, MetalContext*
     [encoder setBuffer:output offset:0 atIndex:1];
     [encoder setBuffer:buffers.maximum offset:0 atIndex:2];
     [encoder setBuffer:buffers.sum offset:0 atIndex:3];
-    [encoder setBuffer:buffers.dimensions offset:0 atIndex:4];
+    bindValue(encoder, buffers.columns, 4);
     NSUInteger threads = rowReductionWidth(ctx->softmaxExpSumPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, (NSUInteger)rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1412,7 +1419,7 @@ static void encodeSoftmaxNorm(id<MTLComputeCommandEncoder> encoder, MetalContext
     [encoder setComputePipelineState:ctx->softmaxNormPSO];
     [encoder setBuffer:output offset:0 atIndex:0];
     [encoder setBuffer:buffers.sum offset:0 atIndex:1];
-    [encoder setBuffer:buffers.dimensions offset:0 atIndex:2];
+    bindValue(encoder, buffers.columns, 2);
     NSUInteger threads = MIN(total, ctx->softmaxNormPSO.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreads:MTLSizeMake(total, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1605,14 +1612,6 @@ static id<MTLComputeCommandEncoder> graphEncoder(GraphState& state) {
     return state.encoder;
 }
 
-static id<MTLBuffer> valueBuffer(MetalContext* ctx, const void* value, NSUInteger bytes) {
-    id<MTLBuffer> buffer = [ctx->device newBufferWithBytes:value
-                                                   length:bytes
-                                                  options:MTLResourceStorageModeShared];
-    if (buffer == nil) throw std::runtime_error("Failed to allocate Metal value buffer");
-    return buffer;
-}
-
 static float floatFromBits(int bits) {
     float value;
     std::memcpy(&value, &bits, sizeof(float));
@@ -1692,24 +1691,22 @@ static void encodeUnary(GraphState& state, const jint* cmd, int pos) {
 
 static void encodeScalar(GraphState& state, const jint* cmd, int pos) {
     float scalar = floatFromBits(cmd[pos + 3]);
-    id<MTLBuffer> value = valueBuffer(state.ctx, &scalar, sizeof(float));
     id<MTLComputePipelineState> pipeline = scalarPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "scalar op") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "scalar op") offset:0 atIndex:1];
-    [encoder setBuffer:value offset:0 atIndex:2];
+    bindValue(encoder, scalar, 2);
     dispatch1D(encoder, pipeline, positiveCount(cmd[pos + 4], "element count"));
 }
 
 static void encodeClamp(GraphState& state, const jint* cmd, int pos) {
     float range[] = {floatFromBits(cmd[pos + 3]), floatFromBits(cmd[pos + 4])};
-    id<MTLBuffer> rangeBuffer = valueBuffer(state.ctx, range, sizeof(range));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->clampPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "clamp op") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "clamp op") offset:0 atIndex:1];
-    [encoder setBuffer:rangeBuffer offset:0 atIndex:2];
+    bindValue(encoder, range, 2);
     dispatch1D(encoder, state.ctx->clampPSO,
                positiveCount(cmd[pos + 5], "element count"));
 }
@@ -1717,12 +1714,11 @@ static void encodeClamp(GraphState& state, const jint* cmd, int pos) {
 static void encodeTranspose(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4]};
     NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 4]);
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->transposePSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "transpose") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "transpose") offset:0 atIndex:1];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatch1D(encoder, state.ctx->transposePSO, total);
 }
 
@@ -1736,25 +1732,23 @@ static void encodeHeadPermutation(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4],
                        (uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6]};
     NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 6]);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = headPermutationPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "head permutation") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "head permutation") offset:0 atIndex:1];
-    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatch1D(encoder, pipeline, total);
 }
 
 static void encodeCausalMask(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4]};
     NSUInteger total = elementCount(cmd[pos + 3], cmd[pos + 4]);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->causalMaskPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "causal mask") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "causal mask") offset:0 atIndex:1];
-    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatch1D(encoder, state.ctx->causalMaskPSO, total);
 }
 
@@ -1769,12 +1763,11 @@ static void encodeCausalSoftmax(GraphState& state, const jint* cmd, int pos) {
         (uint32_t)positiveCount(cmd[pos + 4], "causal softmax columns"),
         (uint32_t)positiveCount(cmd[pos + 5], "causal softmax sequence"),
         floatFromBits(cmd[pos + 6])};
-    id<MTLBuffer> values = valueBuffer(state.ctx, &params, sizeof(params));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->causalSoftmaxPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "causal softmax") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "causal softmax") offset:0 atIndex:1];
-    [encoder setBuffer:values offset:0 atIndex:2];
+    bindValue(encoder, params, 2);
     NSUInteger threads = rowReductionWidth(state.ctx->causalSoftmaxPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, params.rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1784,14 +1777,13 @@ static void encodeRotary(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6],
                        (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8]};
     NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 7] / 2);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->rotaryPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "rotary input") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "rotary cosine") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "rotary sine") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "rotary output") offset:0 atIndex:3];
-    [encoder setBuffer:dimensions offset:0 atIndex:4];
+    bindValue(encoder, dims, 4);
     dispatch1D(encoder, state.ctx->rotaryPSO, total);
 }
 
@@ -1802,7 +1794,7 @@ static id<MTLComputePipelineState> scatterPipeline(MetalContext* ctx, int op) {
 }
 
 static id<MTLBuffer> encodeScatterLinks(GraphState& state, const jint* cmd,
-                                       int pos, id<MTLBuffer> dimensions) {
+                                       int pos, const std::array<uint32_t, 3>& dimensions) {
     if (cmd[pos] != OP_SCATTER_ADD_ROWS_ATOMIC) return nil;
     NSUInteger count = positiveCount(cmd[pos + 6], "scatter index count");
     id<MTLBuffer> links = [state.ctx->device newBufferWithLength:count * sizeof(uint32_t) * 2
@@ -1812,25 +1804,24 @@ static id<MTLBuffer> encodeScatterLinks(GraphState& state, const jint* cmd,
     [encoder setComputePipelineState:state.ctx->scatterLinksPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "scatter indices") offset:0 atIndex:0];
     [encoder setBuffer:links offset:0 atIndex:1];
-    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    bindValue(encoder, dimensions, 2);
     dispatch1D(encoder, state.ctx->scatterLinksPSO, count);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
     return links;
 }
 
 static void encodeScatter(GraphState& state, const jint* cmd, int pos) {
-    uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
-                       (uint32_t)cmd[pos + 6]};
+    std::array<uint32_t, 3> dims{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
+                                (uint32_t)cmd[pos + 6]};
     NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 6]);
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
-    id<MTLBuffer> links = encodeScatterLinks(state, cmd, pos, dimsBuffer);
+    id<MTLBuffer> links = encodeScatterLinks(state, cmd, pos, dims);
     id<MTLComputePipelineState> pipeline = scatterPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "scatter") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "scatter") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "scatter") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     if (links != nil) [encoder setBuffer:links offset:0 atIndex:4];
     dispatch1D(encoder, pipeline, total);
 }
@@ -1839,13 +1830,12 @@ static void encodeGatherRows(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
                        (uint32_t)cmd[pos + 6]};
     NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 6]);
-    id<MTLBuffer> dimensions = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->gatherRowsPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "gather input") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "gather indices") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "gather output") offset:0 atIndex:2];
-    [encoder setBuffer:dimensions offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     dispatch1D(encoder, state.ctx->gatherRowsPSO, total);
 }
 
@@ -1864,14 +1854,13 @@ static id<MTLComputePipelineState> broadcastPipeline(MetalContext* ctx, int op) 
 static void encodeBroadcast(GraphState& state, const jint* cmd, int pos) {
     uint32_t dims[] = {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5]};
     NSUInteger total = elementCount(cmd[pos + 4], cmd[pos + 5]);
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = broadcastPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "broadcast") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "broadcast") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "broadcast") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     dispatch1D(encoder, pipeline, total);
 }
 
@@ -1904,13 +1893,12 @@ static void encodeReduction(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
     NSUInteger cols = positiveCount(cmd[pos + 4], "cols");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)cols};
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = reductionPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "reduction") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "reduction") offset:0 atIndex:1];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     dispatchReduction(encoder, pipeline, cmd[pos], rows, cols);
 }
 
@@ -1923,13 +1911,12 @@ static id<MTLComputePipelineState> rowStatisticPipeline(MetalContext* ctx, int o
 static void encodeRowStatistic(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 4], "cols")};
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = rowStatisticPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "row statistic") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "row statistic") offset:0 atIndex:1];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     NSUInteger threads = MIN((NSUInteger)256, pipeline.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -1943,7 +1930,7 @@ static void encodeSquaresTotal(GraphState& state, id<MTLBuffer> partials,
     [encoder setComputePipelineState:state.ctx->accumulateSquaresPSO];
     [encoder setBuffer:partials offset:0 atIndex:0];
     [encoder setBuffer:total offset:0 atIndex:1];
-    [encoder setBuffer:valueBuffer(state.ctx, &count, sizeof(count)) offset:0 atIndex:2];
+    bindValue(encoder, count, 2);
     NSUInteger threads = MIN((NSUInteger)256,
                              state.ctx->accumulateSquaresPSO.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreadgroups:MTLSizeMake(1, 1, 1)
@@ -1957,7 +1944,6 @@ static void encodeSumSquaresScalar(GraphState& state, const jint* cmd, int pos) 
                              state.ctx->sumSquaresScalarPSO.maxTotalThreadsPerThreadgroup);
     NSUInteger groups = MIN((count + threads - 1) / threads, (NSUInteger)1024);
     uint32_t dims[] = {(uint32_t)count, (uint32_t)groups};
-    id<MTLBuffer> values = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLBuffer> partials = [state.ctx->device newBufferWithLength:groups * sizeof(float)
                                                         options:MTLResourceStorageModeShared];
     if (partials == nil) throw std::runtime_error("Failed to allocate norm partials");
@@ -1965,32 +1951,32 @@ static void encodeSumSquaresScalar(GraphState& state, const jint* cmd, int pos) 
     [encoder setComputePipelineState:state.ctx->sumSquaresScalarPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "sum squares") offset:0 atIndex:0];
     [encoder setBuffer:partials offset:0 atIndex:1];
-    [encoder setBuffer:values offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     [encoder dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
     encodeSquaresTotal(state, partials, requireBuffer(cmd[pos + 2], "sum squares"), groups);
 }
 
 static void encodeColumnSum(GraphState& state, id<MTLBuffer> input,
-                            id<MTLBuffer> output, id<MTLBuffer> dims, NSUInteger cols) {
+                            id<MTLBuffer> output, const std::array<uint32_t, 2>& dims, NSUInteger cols) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->sumRowsPSO];
     [encoder setBuffer:input offset:0 atIndex:0];
     [encoder setBuffer:output offset:0 atIndex:1];
-    [encoder setBuffer:dims offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     NSUInteger threads = colReductionHeight(state.ctx->sumRowsPSO);
     [encoder dispatchThreads:MTLSizeMake(cols, threads, 1)
        threadsPerThreadgroup:MTLSizeMake(1, threads, 1)];
 }
 
 static void encodeFinalSum(GraphState& state, id<MTLBuffer> input,
-                           id<MTLBuffer> output, id<MTLBuffer> dims) {
+                           id<MTLBuffer> output, const std::array<uint32_t, 2>& dims) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
     [encoder setComputePipelineState:state.ctx->sumAlongRowsPSO];
     [encoder setBuffer:input offset:0 atIndex:0];
     [encoder setBuffer:output offset:0 atIndex:1];
-    [encoder setBuffer:dims offset:0 atIndex:2];
+    bindValue(encoder, dims, 2);
     [encoder dispatchThreads:MTLSizeMake(1, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
 }
@@ -1998,17 +1984,15 @@ static void encodeFinalSum(GraphState& state, id<MTLBuffer> input,
 static void encodeScalarSum(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 3], "rows");
     NSUInteger cols = positiveCount(cmd[pos + 4], "cols");
-    uint32_t inputDims[] = {(uint32_t)rows, (uint32_t)cols};
-    uint32_t outputDims[] = {1u, (uint32_t)cols};
+    std::array<uint32_t, 2> inputDims{(uint32_t)rows, (uint32_t)cols};
+    std::array<uint32_t, 2> outputDims{1u, (uint32_t)cols};
     id<MTLBuffer> temporary = [state.ctx->device
         newBufferWithLength:cols * sizeof(float) options:MTLResourceStorageModeShared];
     if (temporary == nil) throw std::runtime_error("Failed to allocate sum buffer");
-    id<MTLBuffer> inputDimsBuffer = valueBuffer(state.ctx, inputDims, sizeof(inputDims));
-    id<MTLBuffer> outputDimsBuffer = valueBuffer(state.ctx, outputDims, sizeof(outputDims));
     encodeColumnSum(state, requireBuffer(cmd[pos + 1], "sum"), temporary,
-                    inputDimsBuffer, cols);
+                    inputDims, cols);
     encodeFinalSum(state, temporary, requireBuffer(cmd[pos + 2], "sum"),
-                   outputDimsBuffer);
+                   outputDims);
 }
 
 static id<MTLComputePipelineState> crossEntropyPipeline(MetalContext* ctx, int op) {
@@ -2020,14 +2004,13 @@ static id<MTLComputePipelineState> crossEntropyPipeline(MetalContext* ctx, int o
 static void encodeCrossEntropy(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 4], "rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 5], "cols")};
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputePipelineState> pipeline = crossEntropyPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "cross entropy") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "cross entropy") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "cross entropy") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, dims, 3);
     NSUInteger threads = rowReductionWidth(pipeline);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2036,14 +2019,13 @@ static void encodeCrossEntropy(GraphState& state, const jint* cmd, int pos) {
 static void encodeFusedCrossEntropy(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 5], "rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 6], "cols")};
-    id<MTLBuffer> values = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->crossEntropyFusedPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "cross entropy") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "cross entropy") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "cross entropy") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "cross entropy") offset:0 atIndex:3];
-    [encoder setBuffer:values offset:0 atIndex:4];
+    bindValue(encoder, dims, 4);
     NSUInteger threads = rowReductionWidth(state.ctx->crossEntropyFusedPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2153,13 +2135,12 @@ static void encodeSoftmax(GraphState& state, const jint* cmd, int pos) {
 static void encodeSoftmaxBackward(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 4], "rows");
     uint32_t cols = (uint32_t)positiveCount(cmd[pos + 5], "cols");
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, &cols, sizeof(cols));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->softmaxBackwardPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "softmax backward") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "softmax backward") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "softmax backward") offset:0 atIndex:2];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    bindValue(encoder, cols, 3);
     NSUInteger threads = rowReductionWidth(state.ctx->softmaxBackwardPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2168,14 +2149,13 @@ static void encodeSoftmaxBackward(GraphState& state, const jint* cmd, int pos) {
 static void encodeLayerNormBackward(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 5], "rows");
     uint32_t cols = (uint32_t)positiveCount(cmd[pos + 6], "cols");
-    id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, &cols, sizeof(cols));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->layerNormBackwardPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "layer norm backward") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "layer norm backward") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "layer norm backward") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "layer norm backward") offset:0 atIndex:3];
-    [encoder setBuffer:dimsBuffer offset:0 atIndex:4];
+    bindValue(encoder, cols, 4);
     NSUInteger threads = rowReductionWidth(state.ctx->layerNormBackwardPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2190,7 +2170,6 @@ static void encodeRmsNorm(GraphState& state, const jint* cmd, int pos) {
     RmsNormParamsHost params{(uint32_t)positiveCount(cmd[pos + 6], "rms norm rows"),
                              (uint32_t)positiveCount(cmd[pos + 7], "rms norm columns"),
                              floatFromBits(cmd[pos + 8])};
-    id<MTLBuffer> values = valueBuffer(state.ctx, &params, sizeof(params));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->rmsNormPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "rms norm") offset:0 atIndex:0];
@@ -2198,7 +2177,7 @@ static void encodeRmsNorm(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "rms norm") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "rms norm") offset:0 atIndex:3];
     [encoder setBuffer:requireBuffer(cmd[pos + 5], "rms norm") offset:0 atIndex:4];
-    [encoder setBuffer:values offset:0 atIndex:5];
+    bindValue(encoder, params, 5);
     NSUInteger threads = rowReductionWidth(state.ctx->rmsNormPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, params.rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2207,7 +2186,6 @@ static void encodeRmsNorm(GraphState& state, const jint* cmd, int pos) {
 static void encodeRmsNormBackward(GraphState& state, const jint* cmd, int pos) {
     NSUInteger rows = positiveCount(cmd[pos + 6], "rms norm rows");
     uint32_t dims[] = {(uint32_t)rows, (uint32_t)positiveCount(cmd[pos + 7], "rms norm columns")};
-    id<MTLBuffer> values = valueBuffer(state.ctx, dims, sizeof(dims));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->rmsNormBackwardPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "rms norm backward") offset:0 atIndex:0];
@@ -2215,7 +2193,7 @@ static void encodeRmsNormBackward(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "rms norm backward") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "rms norm backward") offset:0 atIndex:3];
     [encoder setBuffer:requireBuffer(cmd[pos + 5], "rms norm backward") offset:0 atIndex:4];
-    [encoder setBuffer:values offset:0 atIndex:5];
+    bindValue(encoder, dims, 5);
     NSUInteger threads = rowReductionWidth(state.ctx->rmsNormBackwardPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2257,14 +2235,13 @@ static AdamWParamsHost adamWParams(const jint* cmd, int pos) {
 
 static void encodeAdamW(GraphState& state, const jint* cmd, int pos) {
     AdamWParamsHost params = adamWParams(cmd, pos);
-    id<MTLBuffer> paramsBuffer = valueBuffer(state.ctx, &params, sizeof(params));
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->adamWUpdatePSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "AdamW weights") offset:0 atIndex:0];
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "AdamW gradient") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "AdamW first moment") offset:0 atIndex:2];
     [encoder setBuffer:requireBuffer(cmd[pos + 4], "AdamW second moment") offset:0 atIndex:3];
-    [encoder setBuffer:paramsBuffer offset:0 atIndex:4];
+    bindValue(encoder, params, 4);
     dispatch1D(encoder, state.ctx->adamWUpdatePSO,
                positiveCount(cmd[pos + 12], "element count"));
 }
