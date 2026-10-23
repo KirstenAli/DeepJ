@@ -46,6 +46,13 @@ class GraphCommandEncodingTest extends ComputeGraphTestSupport {
         assertCommand(ComputeGraph.OP_GATHER_ROWS, a.id, b.id, c.id, 2, 3, 4);
     }
 
+    @Test
+    void scaledSoftmaxBackwardPreservesScaleBitsAndShape() {
+        graph.recordScaledSoftmaxBackward(a, b, c, -0.25f);
+        assertCommand(ComputeGraph.OP_SCALED_SOFTMAX_BACKWARD,
+                a.id, b.id, c.id, 2, 3, bits(-0.25f));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void rotaryRecordsTheInverseFlag(boolean inverse) {

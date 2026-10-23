@@ -33,7 +33,7 @@ public final class ActivationOps {
     public static Tensor causalSoftmax(Tensor input, int length, float scale) {
         Tensor output = Tensor.backend().causalSoftmax(input, length, scale);
         return UnaryOps.record(input, output,
-                g -> Tensor.backend().softmaxBackward(g, output).multiplyScalar(scale), output);
+                g -> Tensor.backend().softmaxBackward(g, output, scale), output);
     }
 
     public static Tensor swiGlu(Tensor gate, Tensor up) {

@@ -102,6 +102,10 @@ public interface TensorBackend {
     Tensor softmaxRows(Tensor logits);
     Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut);
 
+    default Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut, float scale) {
+        return multiplyScalar(softmaxBackward(gradOutput, softmaxOut), scale);
+    }
+
     float crossEntropyLoss(Tensor logits, int[] targets);
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
 

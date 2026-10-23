@@ -885,10 +885,13 @@ inline float row_dot(device const float* left, device const float* right,
 
 inline void write_softmax_backward(device const float* gradient, device const float* softmax,
                                    device float* output, uint base, uint cols,
-                                   uint tid, uint width, float dot) {
+                                   uint tid, uint width, float dot, float scale) {
+#pragma clang fp reassociate(off)
+    // Keep the derivative's FP32 rounding before the formerly separate scale kernel.
     for (uint c = tid; c < cols; c += width) {
         float value = softmax[base + c];
-        output[base + c] = value * (gradient[base + c] - dot);
+        float derivative = value * (gradient[base + c] - dot);
+        output[base + c] = derivative * scale;
     }
 }
 
@@ -1026,6 +1029,7 @@ kernel void kernel_softmax_backward(device const float* gradOutput [[buffer(0)]]
                                     device const float* softmaxOut [[buffer(1)]],
                                     device float* out              [[buffer(2)]],
                                     device const uint* dims        [[buffer(3)]],
+                                    constant float& scale          [[buffer(4)]],
                                     uint3 gid [[thread_position_in_grid]],
                                     uint3 tid3 [[thread_position_in_threadgroup]],
                                     uint3 tptg [[threads_per_threadgroup]]) {
@@ -1034,7 +1038,7 @@ kernel void kernel_softmax_backward(device const float* gradOutput [[buffer(0)]]
     uint base = row * cols;
     float local = row_dot(gradOutput, softmaxOut, base, cols, tid, tptg.x);
     float dot = reduce_sum(scratch, local, tid, tptg.x);
-    write_softmax_backward(gradOutput, softmaxOut, out, base, cols, tid, tptg.x, dot);
+    write_softmax_backward(gradOutput, softmaxOut, out, base, cols, tid, tptg.x, dot, scale);
 }
 
 kernel void kernel_layernorm_backward(device const float* dXHat [[buffer(0)]],
@@ -1333,6 +1337,7 @@ static constexpr int OP_RMS_NORM = 53;
 static constexpr int OP_RMS_NORM_BACKWARD = 54;
 static constexpr int OP_SWIGLU = 55;
 static constexpr int OP_SWIGLU_BACKWARD = 56;
+static constexpr int OP_SCALED_SOFTMAX_BACKWARD = 57;
 
 static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -2135,6 +2140,8 @@ static void encodeSoftmaxBackward(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "softmax backward") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "softmax backward") offset:0 atIndex:2];
     bindValue(encoder, cols, 3);
+    float scale = cmd[pos] == OP_SCALED_SOFTMAX_BACKWARD ? floatFromBits(cmd[pos + 6]) : 1.0f;
+    bindValue(encoder, scale, 4);
     NSUInteger threads = rowReductionWidth(state.ctx->softmaxBackwardPSO);
     [encoder dispatchThreads:MTLSizeMake(threads, rows, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
@@ -2284,7 +2291,7 @@ static int commandWidth(int op) {
         op == OP_SCATTER_ADD_ROWS_ATOMIC || op == OP_LAYERNORM_BACKWARD ||
         op == OP_SPLIT_HEADS || op == OP_MERGE_HEADS || op == OP_GATHER_ROWS ||
         op == OP_CAUSAL_SOFTMAX || op == OP_CROSS_ENTROPY_FUSED ||
-        op == OP_SWIGLU_BACKWARD) return 7;
+        op == OP_SWIGLU_BACKWARD || op == OP_SCALED_SOFTMAX_BACKWARD) return 7;
     if (op == OP_ROTARY || op == OP_RMS_NORM) return 9;
     if (op == OP_RMS_NORM_BACKWARD) return 8;
     if (op == OP_BATCHED_MATMUL) return 11;
@@ -2316,6 +2323,7 @@ static bool encodeTrainingCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_RMS_NORM_BACKWARD) encodeRmsNormBackward(state, cmd, pos);
     else if (op == OP_SWIGLU) encodeSwiGlu(state, cmd, pos);
     else if (op == OP_SWIGLU_BACKWARD) encodeSwiGluBackward(state, cmd, pos);
+    else if (op == OP_SCALED_SOFTMAX_BACKWARD) encodeSoftmaxBackward(state, cmd, pos);
     else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
     else return false;
     return true;

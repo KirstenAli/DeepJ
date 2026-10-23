@@ -230,5 +230,13 @@ abstract class MetalMathOps extends MetalCoreOps {
         return gpuOut(gOut);
     }
 
+    @Override
+    public Tensor softmaxBackward(Tensor gradient, Tensor probabilities, float scale) {
+        Tensor.requireSameShape(gradient, probabilities, "softmaxBackward");
+        GpuBuffer output = graph.newOutputBuffer(gradient.rows, gradient.cols);
+        graph.recordScaledSoftmaxBackward(gpuIn(gradient), gpuIn(probabilities), output, scale);
+        return gpuOut(output);
+    }
+
 
 }

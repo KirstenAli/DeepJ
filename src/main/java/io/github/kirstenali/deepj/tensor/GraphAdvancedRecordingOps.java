@@ -149,6 +149,19 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
         endOp();
     }
 
+    public void recordScaledSoftmaxBackward(GpuBuffer gradient, GpuBuffer probabilities,
+                                            GpuBuffer output, float scale) {
+        beginOp(7);
+        emitInt(OP_SCALED_SOFTMAX_BACKWARD);
+        emitInt(gradient.id);
+        emitInt(probabilities.id);
+        emitInt(output.id);
+        emitInt(gradient.rows);
+        emitInt(gradient.cols);
+        emitFloatBits(scale);
+        endOp();
+    }
+
     public void recordLayerNormBackward(GpuBuffer dXHat, GpuBuffer xHat, GpuBuffer std,
                                         GpuBuffer out, int rows, int cols) {
         beginOp(7);
