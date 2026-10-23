@@ -1,32 +1,15 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
-import io.github.kirstenali.deepj.data.Batch;
-import io.github.kirstenali.deepj.data.BatchSource;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.optimisers.Parameter;
-import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
-import io.github.kirstenali.deepj.tensor.RmsNormResult;
-import io.github.kirstenali.deepj.tensor.SwiGluBackwardResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
-import io.github.kirstenali.deepj.training.CausalLMTraining;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -73,7 +56,7 @@ abstract class MetalDifferentialTestSupport {
     protected static List<Tensor> copyGradients(List<Parameter> parameters) {
         List<Tensor> gradients = new ArrayList<>(parameters.size());
         for (Parameter parameter : parameters) {
-            gradients.add(new Tensor(parameter.grad));
+            gradients.add(new Tensor(parameter.grad()));
         }
         return gradients;
     }

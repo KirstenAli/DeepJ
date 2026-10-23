@@ -36,12 +36,6 @@ abstract class AbstractTransformerBlock implements Layer {
         return attended.add(feedForward.forward(secondNorm.forward(attended)));
     }
 
-    @Override
-    public Tensor backward(Tensor gradient) {
-        Tensor attendedGradient = gradient.add(secondNorm.backward(feedForward.backward(gradient)));
-        return attendedGradient.add(firstNorm.backward(attention.backward(attendedGradient)));
-    }
-
     private Layer[] subLayers() {
         return new Layer[]{ firstNorm, secondNorm, attention, feedForward };
     }

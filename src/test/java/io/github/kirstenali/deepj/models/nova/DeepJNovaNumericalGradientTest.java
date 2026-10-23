@@ -26,7 +26,7 @@ class DeepJNovaNumericalGradientTest {
         Tensor upstream = Tensor.random(3, 7, new Random(99L));
         model.zeroGrad();
         model.forward(tokens);
-        model.backward(upstream);
+        model.forward(tokens).backward(upstream);
         assertParameterGradients(model.parameters(), () -> model.forward(tokens), upstream,
                 1e-3f, 4e-3f, 7e-2f);
     }

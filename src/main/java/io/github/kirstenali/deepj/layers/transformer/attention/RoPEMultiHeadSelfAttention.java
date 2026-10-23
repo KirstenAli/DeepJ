@@ -24,8 +24,4 @@ public final class RoPEMultiHeadSelfAttention extends MultiHeadSelfAttention {
         return rope.apply(heads, seqLen, nHeads);
     }
 
-    @Override
-    protected Tensor transformQueryKeyBackward(Tensor gradHeads, int seqLen) {
-        return rope.applyBackward(gradHeads, seqLen, nHeads);
-    }
 }

@@ -12,7 +12,6 @@ public final class PositionalEmbedding implements Trainable {
     private final int maxSeq;
     private final int dModel;
     private final Parameter weight;
-    private int lastSeqLen;
 
     public PositionalEmbedding(int maxSeq, int dModel, Random rnd) {
         this.maxSeq = maxSeq;
@@ -22,22 +21,12 @@ public final class PositionalEmbedding implements Trainable {
 
     public Tensor forward(int seqLen) {
         if (seqLen > maxSeq) throw new IllegalArgumentException("seqLen " + seqLen + " exceeds maxSeq " + maxSeq);
-        this.lastSeqLen = seqLen;
 
         int[] indices = new int[seqLen];
         for (int i = 0; i < seqLen; i++) {
             indices[i] = i;
         }
         return Tensor.sliceRows(weight.value, indices, dModel);
-    }
-
-    public void backward(Tensor gradOut) {
-        int seqLen = gradOut.rows;
-        int[] indices = new int[seqLen];
-        for (int i = 0; i < seqLen; i++) {
-            indices[i] = i;
-        }
-        Tensor.scatterAddRows(weight.grad, indices, gradOut);
     }
 
     @Override

@@ -15,8 +15,6 @@ public final class FNN implements Layer {
     private final List<ActivationFunction> activations = new ArrayList<>();
     private final ActivationFunction outputActivation;
 
-    private final List<Tensor> hiddenPreActs = new ArrayList<>();
-
     public FNN(
             int inputSize,
             int[] hiddenSizes,
@@ -68,14 +66,12 @@ public final class FNN implements Layer {
 
     @Override
     public Tensor forward(Tensor x) {
-        hiddenPreActs.clear();
 
         Tensor h = x;
         int hiddenCount = activations.size();
 
         for (int i = 0; i < hiddenCount; i++) {
             Tensor z = linears.get(i).forward(h);
-            hiddenPreActs.add(z);
             h = activations.get(i).forward(z);
         }
 
@@ -84,23 +80,6 @@ public final class FNN implements Layer {
             out = outputActivation.forward(out);
         }
         return out;
-    }
-
-    @Override
-    public Tensor backward(Tensor gradOut) {
-        Tensor g = gradOut;
-
-        if (outputActivation != null) {
-            g = outputActivation.backward(g);
-        }
-
-        g = linears.get(linears.size() - 1).backward(g);
-
-        for (int i = activations.size() - 1; i >= 0; i--) {
-            g = activations.get(i).backward(g);
-            g = linears.get(i).backward(g);
-        }
-        return g;
     }
 
     @Override

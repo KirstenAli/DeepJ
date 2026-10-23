@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
+import io.github.kirstenali.deepj.autograd.GradMode;
+
 public final class TensorAdapters {
 
     private TensorAdapters() {}
@@ -34,6 +36,10 @@ public final class TensorAdapters {
                     "Flat buffer length " + flat.length +
                             " does not match tensor size " + t.data.length);
         }
-        System.arraycopy(flat, 0, t.data, 0, flat.length);
+        try (var ignored = GradMode.noGrad()) {
+            t.gradientState().beforeMutation();
+            System.arraycopy(flat, 0, t.data, 0, flat.length);
+            TensorStorage.markGpuNeedsUpload(t);
+        }
     }
 }

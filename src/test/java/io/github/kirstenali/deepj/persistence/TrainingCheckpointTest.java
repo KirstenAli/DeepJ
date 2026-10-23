@@ -86,7 +86,7 @@ class TrainingCheckpointTest {
 
     private static void setGradients(List<Parameter> params, float value) {
         for (Parameter parameter : params) {
-            parameter.grad = row(value, -value);
+            parameter.setGradient(row(value, -value));
         }
     }
 

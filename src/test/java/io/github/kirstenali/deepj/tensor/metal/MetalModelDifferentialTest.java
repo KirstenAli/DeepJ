@@ -12,27 +12,18 @@ import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.models.nova.DeepJNova;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
-import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
-import io.github.kirstenali.deepj.tensor.RmsNormResult;
-import io.github.kirstenali.deepj.tensor.SwiGluBackwardResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
-import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
     @Test
@@ -45,7 +36,8 @@ class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
         AtomicInteger downloads = new AtomicInteger();
         DecoderOnlyModel model = new DeepJNova(new DeepJNovaConfig(11, 4, 8, 4, 2, 1, 12), 27L);
         Tensor.setBackend(countingBackend(downloads));
-        model.backward(model.forward(new int[]{1, 3, 5}).multiplyScalar(0.25f));
+        Tensor output = model.forward(new int[]{1, 3, 5});
+        output.backward(Tensor.backend().multiplyScalar(output, 0.25f));
         assertEquals(0, downloads.get());
     }
 
@@ -70,7 +62,8 @@ class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
         var config = new DeepJPrismConfig(11, 4, 4, 2, 1, 8, 3, 2);
         DecoderOnlyModel model = new DeepJPrism(config, 25L);
         Tensor.setBackend(countingBackend(downloads));
-        model.backward(model.forward(new int[]{1, 3, 5}).multiplyScalar(0.25f));
+        Tensor output = model.forward(new int[]{1, 3, 5});
+        output.backward(Tensor.backend().multiplyScalar(output, 0.25f));
         assertEquals(0, downloads.get());
     }
 
@@ -142,9 +135,8 @@ class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
         model.zeroGrad();
         Tensor output = model.forward(inputIds);
         Tensor upstream = Tensor.random(output.rows, output.cols, new Random(seed));
-        model.backward(upstream);
+        model.forward(inputIds).backward(upstream);
         return new ModelResult(output, copyGradients(model.parameters()));
     }
-
 
 }

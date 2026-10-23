@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.util.Arrays;
@@ -151,7 +152,7 @@ public final class TextGenerator {
                                  int[] ids, int generatedStart, int length,
                                  float temperature, int topK, float repetitionPenalty, Random rnd) {
         int[] context = context(ids, length, maxSeqLen);
-        Tensor logits = forwarder.apply(context);
+        Tensor logits = inference(forwarder, context);
         logits.materialize();
 
         float[] lastLogits = Arrays.copyOfRange(logits.data,
@@ -159,6 +160,12 @@ public final class TextGenerator {
         Tensor.backend().releaseTemporaryResources();
         penalizeRecentTokens(lastLogits, ids, generatedStart, length, repetitionPenalty);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
+    }
+
+    private static Tensor inference(Function<int[], Tensor> forwarder, int[] context) {
+        try (var ignored = GradMode.noGrad()) {
+            return forwarder.apply(context);
+        }
     }
 
     private static void penalizeRecentTokens(float[] logits, int[] ids, int start,

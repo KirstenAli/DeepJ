@@ -7,7 +7,5 @@ public interface CausalLM extends Trainable {
 
     Tensor forward(int[] inputIds);
 
-    void backward(Tensor dLogits);
-
     float gradClipNorm();
 }

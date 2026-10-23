@@ -30,8 +30,8 @@ public final class CausalLMTestSupport {
     public static void assertBackward(CausalLM model) {
         Tensor logits = model.forward(new int[]{ 1, 2, 3 });
         model.zeroGrad();
-        model.backward(Tensor.ones(logits.rows, logits.cols));
-        assertTrue(model.parameters().stream().anyMatch(parameter -> parameter.grad.sumAbs() > 0.0f));
+        model.forward(new int[]{ 1, 2, 3 }).backward(Tensor.ones(logits.rows, logits.cols));
+        assertTrue(model.parameters().stream().anyMatch(parameter -> parameter.grad().sumAbs() > 0.0f));
     }
 
     public static void assertParameterCount(CausalLM model, TransformerConfig config, int perBlock) {

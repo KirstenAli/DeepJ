@@ -19,15 +19,20 @@ function checkScope(name, packages) {
 
 function checkHardware() {
   checkScope('fullJava', selectPackages(document));
-  const metal = selectPackages(document).filter(
-    (node) => node.getAttribute('name') === 'io/github/kirstenali/deepj/tensor/metal',
+  checkPackage('metalJava', 'tensor/metal');
+}
+
+function checkPackage(name, suffix) {
+  const packages = selectPackages(document).filter(
+    (node) => node.getAttribute('name') === `io/github/kirstenali/deepj/${suffix}`,
   );
-  checkScope('metalJava', metal);
+  checkScope(name, packages);
 }
 
 for (const name of ['portableJava', 'coreJava']) {
   checkScope(name, selectPackages(document, config[name].excludePackages));
 }
 if (process.argv.includes('--full')) checkHardware();
+checkPackage('autogradJava', 'autograd');
 mkdirSync('target/coverage', { recursive: true });
 writeFileSync('target/coverage/java-summary.json', JSON.stringify(summary, null, 2) + '\n');

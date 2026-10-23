@@ -56,9 +56,6 @@ public class SupervisedTrainingTest {
             public Tensor forward(Tensor input) { return input; }
 
             @Override
-            public Tensor backward(Tensor gradOutput) { return gradOutput; }
-
-            @Override
             public List<Parameter> parameters() { return List.of(); }
         };
     }

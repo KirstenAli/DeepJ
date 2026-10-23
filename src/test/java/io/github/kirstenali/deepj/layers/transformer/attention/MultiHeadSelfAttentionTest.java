@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention;
 
 import io.github.kirstenali.deepj.TestSupport;
@@ -44,7 +45,7 @@ public class MultiHeadSelfAttentionTest {
             identity.data[index * dModel + index] = 1;
         }
         for (Parameter parameter : attention.parameters()) {
-            parameter.value = identity;
+            AutogradTestSupport.replaceValues(parameter.value, identity);
         }
         return attention;
     }
@@ -91,11 +92,11 @@ public class MultiHeadSelfAttentionTest {
         TestSupport.assertTensorShape(y, seqLen, dModel);
 
         Tensor gradOut = Tensor.ones(seqLen, dModel);
-        Tensor gradIn = attn.backward(gradOut);
+        Tensor gradIn = AutogradTestSupport.backward(attn::forward, x, gradOut);
         TestSupport.assertTensorShape(gradIn, seqLen, dModel);
 
         for (Parameter p : attn.parameters()) {
-            assertTrue(p.grad.sumAbs() > 0.0f,
+            assertTrue(p.grad().sumAbs() > 0.0f,
                     "Expected non-zero gradient for a projection matrix");
         }
     }
@@ -117,7 +118,7 @@ public class MultiHeadSelfAttentionTest {
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        attn.backward(gradOut);
+        AutogradTestSupport.backward(attn::forward, x, gradOut);
         opt.step(attn.parameters());
         for (Parameter p : attn.parameters()) {
             p.zeroGrad();
@@ -135,7 +136,7 @@ public class MultiHeadSelfAttentionTest {
         Tensor x = Tensor.random(seqLen, dModel, new Random(99));
 
         attn.forward(x);
-        Tensor dX = attn.backward(Tensor.ones(seqLen, dModel));
+        Tensor dX = AutogradTestSupport.backward(attn::forward, x, Tensor.ones(seqLen, dModel));
         assertInputGradients(attn, x, dX, eps, tol);
     }
 
@@ -162,9 +163,9 @@ public class MultiHeadSelfAttentionTest {
         MultiHeadSelfAttention attn = new MultiHeadSelfAttention(dModel, nHeads, true, new Random(11));
         Tensor x = Tensor.random(seqLen, dModel, new Random(31));
         attn.forward(x);
-        attn.backward(Tensor.ones(seqLen, dModel));
+        AutogradTestSupport.backward(attn::forward, x, Tensor.ones(seqLen, dModel));
         Parameter Wo = attn.parameters().get(3);
-        float[] dWo = Wo.grad.data.clone();
+        float[] dWo = Wo.grad().data.clone();
         assertOutputWeightGradient(attn, x, Wo, dWo, dModel, eps, tol);
     }
 
@@ -174,11 +175,11 @@ public class MultiHeadSelfAttentionTest {
         for (int i = 0; i < dModel; i++) {
             for (int j = 0; j < dModel; j++) {
                 float orig = weight.value.get(i, j);
-                weight.value.set(i, j, orig + eps);
+                AutogradTestSupport.set(weight.value, i, j, orig + eps);
                 float fPlus = sumAll(attn.forward(x));
-                weight.value.set(i, j, orig - eps);
+                AutogradTestSupport.set(weight.value, i, j, orig - eps);
                 float fMinus = sumAll(attn.forward(x));
-                weight.value.set(i, j, orig);
+                AutogradTestSupport.set(weight.value, i, j, orig);
                 assertEquals((fPlus - fMinus) / (2 * eps), gradient[i * dModel + j], tol,
                         "dWo mismatch at [" + i + "," + j + "]");
             }

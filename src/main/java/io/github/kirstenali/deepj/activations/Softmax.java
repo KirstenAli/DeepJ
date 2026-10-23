@@ -1,28 +1,15 @@
 package io.github.kirstenali.deepj.activations;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.autograd.ActivationOps;
 
 public final class Softmax implements ActivationFunction {
-
-    private Tensor softmaxOut;
-
     @Override
-    public Tensor forward(Tensor logits) {
-        this.softmaxOut = logits.softmaxRows();
-        return softmaxOut;
+    public Tensor forward(Tensor input) {
+        return input.softmaxRows();
     }
 
     public Tensor forwardCausal(Tensor logits, int sequenceLength, float scale) {
-        this.softmaxOut = Tensor.backend().causalSoftmax(logits, sequenceLength, scale);
-        return softmaxOut;
-    }
-
-    @Override
-    public Tensor backward(Tensor gradOutput) {
-        if (softmaxOut == null) {
-            throw new IllegalStateException("SoftmaxRows.backward() called before forward()");
-        }
-        Tensor.requireSameShape(gradOutput, softmaxOut, "SoftmaxRows.backward");
-        return gradOutput.softmaxBackward(softmaxOut);
+        return ActivationOps.causalSoftmax(logits, sequenceLength, scale);
     }
 }

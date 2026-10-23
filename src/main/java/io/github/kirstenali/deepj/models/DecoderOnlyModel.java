@@ -6,6 +6,7 @@ import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.persistence.ModelSettings;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.transformer.TransformerStack;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 import io.github.kirstenali.deepj.layers.transformer.norm.NormLayer;
@@ -69,10 +70,6 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
         return tokEmb.forward(inputIds);
     }
 
-    protected void backwardEmbeddings(Tensor g) {
-        tokEmb.backward(g);
-    }
-
     protected List<Parameter> embeddingParameters() {
         return new ArrayList<>(tokEmb.parameters());
     }
@@ -86,24 +83,22 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     }
 
     @Override
-    public void backward(Tensor dLogits) {
-        Tensor g = lmHead.backward(dLogits);
-        g = normF.backward(g);
-        g = stack.backward(g);
-        backwardEmbeddings(g);
-    }
-
-    @Override
     public List<Parameter> parameters() {
         List<Parameter> ps = embeddingParameters();
         ps.addAll(stack.parameters());
         ps.addAll(normF.parameters());
         ps.addAll(lmHead.parameters());
-        return ps;
+        return ps.stream().distinct().toList();
     }
 
     protected final void applyInitScale(float factor) {
         if (factor == 1.0f) return;
+        try (var ignored = GradMode.noGrad()) {
+            scaleInitialWeights(factor);
+        }
+    }
+
+    private void scaleInitialWeights(float factor) {
         for (Parameter parameter : parameters()) {
             if (isRandomWeight(parameter.value)) parameter.value.multiplyScalarInPlace(factor);
         }

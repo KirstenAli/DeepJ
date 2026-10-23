@@ -5,7 +5,7 @@ import io.github.kirstenali.deepj.layers.Linear;
 import io.github.kirstenali.deepj.layers.BiasFreeLinear;
 import io.github.kirstenali.deepj.layers.Projection;
 import io.github.kirstenali.deepj.optimisers.Parameter;
-import io.github.kirstenali.deepj.tensor.SwiGluBackwardResult;
+import io.github.kirstenali.deepj.autograd.ActivationOps;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.ArrayList;
@@ -17,9 +17,6 @@ public final class SwiGLULayer implements Layer {
     private final Projection gateProj;
     private final Projection upProj;
     private final Projection downProj;
-
-    private Tensor gateOut;
-    private Tensor upOut;
 
     public SwiGLULayer(int dModel, int dFF, Random rnd) {
         this(dModel, dFF, rnd, true);
@@ -40,21 +37,9 @@ public final class SwiGLULayer implements Layer {
 
     @Override
     public Tensor forward(Tensor x) {
-        gateOut = gateProj.forward(x);
-        upOut = upProj.forward(x);
-        return downProj.forward(Tensor.backend().swiGlu(gateOut, upOut));
-    }
-
-    @Override
-    public Tensor backward(Tensor dOut) {
-
-        Tensor dFused = downProj.backward(dOut);
-
-        SwiGluBackwardResult gradients = Tensor.backend()
-                .swiGluBackward(dFused, gateOut, upOut);
-        Tensor dXFromGate = gateProj.backward(gradients.gateGradient());
-        Tensor dXFromUp = upProj.backward(gradients.upGradient());
-        return dXFromGate.add(dXFromUp);
+        Tensor gate = gateProj.forward(x);
+        Tensor up = upProj.forward(x);
+        return downProj.forward(ActivationOps.swiGlu(gate, up));
     }
 
     @Override

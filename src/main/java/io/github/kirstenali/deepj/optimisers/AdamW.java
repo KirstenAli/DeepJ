@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.optimisers;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.autograd.GradMode;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -119,6 +120,12 @@ public final class AdamW implements ParameterOptimizer {
 
     @Override
     public void step(List<Parameter> params) {
+        try (var ignored = GradMode.noGrad()) {
+            updateParameters(params);
+        }
+    }
+
+    private void updateParameters(List<Parameter> params) {
         if (params == null) {
             throw new IllegalArgumentException("params must not be null");
         }
@@ -152,7 +159,7 @@ public final class AdamW implements ParameterOptimizer {
 
     private void stepParam(Parameter p, float bc1, float bc2) {
         Tensor w = p.value;
-        Tensor g = p.grad;
+        Tensor g = p.grad();
 
         if (w == null || g == null) {
             return;

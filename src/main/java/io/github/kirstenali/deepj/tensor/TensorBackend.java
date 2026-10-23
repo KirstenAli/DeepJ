@@ -20,6 +20,13 @@ public interface TensorBackend {
 
     default Tensor batchedMatmul(Tensor left, Tensor right, int batches,
                                  boolean transposeLeft, boolean transposeRight) {
+        if (batches == 1) {
+            left.materialize();
+            right.materialize();
+            Tensor a = transposeLeft ? transpose(left) : left;
+            Tensor b = transposeRight ? transpose(right) : right;
+            return matmul(a, b);
+        }
         return TensorBackendDefaults.batchedMatmul(
                 left, right, batches, transposeLeft, transposeRight);
     }
@@ -106,6 +113,12 @@ public interface TensorBackend {
 
     float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask);
     Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask);
+
+    default CrossEntropyResult crossEntropy(Tensor logits, int[] targets, boolean[] mask) {
+        Tensor loss = new Tensor(1, 1);
+        loss.data[0] = crossEntropyLoss(logits, targets, mask);
+        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets, mask));
+    }
 
     void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                      float lr, float beta1, float beta2, float eps,

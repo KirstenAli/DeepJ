@@ -10,13 +10,15 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes built-in gradient calculations, four trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), four trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
 
 DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
 ## Install
 
 DeepJ requires JDK 20 or newer.
+
+Autograd is available from source; the Maven release below predates it.
 
 ```xml
 <dependency>
@@ -30,7 +32,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ## What is included
 
-- A two-dimensional `Tensor` API and built-in gradient calculations for model training.
+- A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
 - CPU execution and an optional Metal backend with fused Apple GPU training operations.
 - DeepJ Origin with learned positions, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
@@ -107,7 +109,6 @@ Download its `model.dj` and `tokenizer.bpe` files to try the quick start above o
 
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
-- Training uses backward calculations built into each layer rather than a general-purpose automatic differentiation engine.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
 - Text generation recalculates the full context for every new token because attention caching is not yet implemented.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.

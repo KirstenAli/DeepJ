@@ -5,12 +5,109 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      benchmark:
+        description: Compare synthetic 90M/100M Metal training against a baseline
+        type: boolean
+        default: false
+      baseline:
+        description: Baseline Git ref for the optional training benchmark
+        default: master
+        type: string
+      diagnose:
+        description: Profile matched-width two-layer Metal probes in alternating order
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
+  performance:
+    if: github.event_name == 'workflow_dispatch' && inputs.benchmark && !inputs.diagnose
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [prism, nova]
+        batch: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.baseline }}
+          path: baseline
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '20'
+          cache: maven
+      - name: Compile candidate and baseline without changing production native libraries
+        run: |
+          mvn --batch-mode -f candidate/pom.xml test-compile
+          mvn --batch-mode -f baseline/pom.xml compiler:compile resources:resources
+      - name: Compare warmed-up training and process peak memory
+        env:
+          BENCHMARK_PROFILE: ${{ matrix.profile }}
+          BENCHMARK_BATCH: ${{ matrix.batch }}
+        run: |
+          set -o pipefail
+          mkdir benchmark-results
+          for revision in baseline candidate; do
+            /usr/bin/time -l java -Xmx6g \
+              "-Xlog:gc=info:file=benchmark-results/$BENCHMARK_PROFILE-$BENCHMARK_BATCH-$revision-gc.txt" \
+              --enable-native-access=ALL-UNNAMED \
+              -cp "$revision/target/classes:candidate/target/test-classes" \
+              io.github.kirstenali.deepj.testing.AutogradTrainingBenchmark \
+              "$BENCHMARK_PROFILE" "$BENCHMARK_BATCH" \
+              2>&1 | tee "benchmark-results/$BENCHMARK_PROFILE-$BENCHMARK_BATCH-$revision.txt"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autograd-training-benchmarks-${{ matrix.profile }}-${{ matrix.batch }}
+          path: benchmark-results/
+
+  diagnostics:
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnose
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [prism, nova]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.baseline }}
+          path: baseline
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '20'
+          cache: maven
+      - name: Compile shared profiling harness and unchanged native libraries
+        run: |
+          mvn --batch-mode -f candidate/pom.xml test-compile
+          mvn --batch-mode -f baseline/pom.xml compiler:compile resources:resources
+      - name: Collect alternating-order timings and measured-phase profiles
+        env:
+          BENCHMARK_PROFILE: ${{ matrix.profile }}
+        run: bash candidate/scripts/performance/run-metal-diagnostics.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metal-diagnostics-${{ matrix.profile }}
+          path: benchmark-diagnostics/
+
   metal:
+    if: github.event_name != 'workflow_dispatch' || (!inputs.benchmark && !inputs.diagnose)
     # DeepJ's existing Metal compile options require a macOS 15 or newer SDK.
     runs-on: macos-15
     timeout-minutes: 15

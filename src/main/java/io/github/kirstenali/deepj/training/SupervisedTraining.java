@@ -38,10 +38,10 @@ public final class SupervisedTraining {
         model.zeroGrad();
         TensorBatch batch = selectBatch(xAll, yAll, rnd, batchSize);
         Tensor prediction = model.forward(batch.x());
-        float loss = lossFn.loss(prediction, batch.y());
-        model.backward(lossFn.gradient(prediction, batch.y()));
+        Tensor loss = lossFn.forward(prediction, batch.y());
+        if (loss.requiresGrad()) loss.backward();
         opt.step(model.parameters());
-        return loss;
+        return loss.item();
     }
 
     private static TensorBatch selectBatch(Tensor xAll, Tensor yAll, Random rnd, int batchSize) {

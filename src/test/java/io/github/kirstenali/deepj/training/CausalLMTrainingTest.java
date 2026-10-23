@@ -172,7 +172,7 @@ public class CausalLMTrainingTest {
 
         @Override
         public void step(List<Parameter> parameters) {
-            gradients.add(parameters.stream().map(parameter -> new Tensor(parameter.grad)).toList());
+            gradients.add(parameters.stream().map(parameter -> new Tensor(parameter.grad())).toList());
         }
     }
 }

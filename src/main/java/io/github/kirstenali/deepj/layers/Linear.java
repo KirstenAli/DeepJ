@@ -9,16 +9,12 @@ import java.util.Random;
 public final class Linear implements Projection {
 
     private final int dIn;
-    private final int dOut;
 
     private final Parameter W;
     private final Parameter b;
 
-    private Tensor lastX;
-
     public Linear(int dIn, int dOut, Random rnd) {
         this.dIn = dIn;
-        this.dOut = dOut;
         this.W = new Parameter(Tensor.random(dIn, dOut, rnd));
         this.b = new Parameter(Tensor.zeros(1, dOut));
     }
@@ -26,22 +22,8 @@ public final class Linear implements Projection {
     @Override
     public Tensor forward(Tensor x) {
         if (x.cols != dIn) throw new IllegalArgumentException("Expected input cols=" + dIn + " got " + x.cols);
-        this.lastX = x;
         Tensor y = x.matmul(W.value).addRowVector(b.value);
         return y;
-    }
-
-    @Override
-    public Tensor backward(Tensor gradY) {
-
-        Tensor dW = lastX.transpose().matmul(gradY);
-
-        Tensor db = gradY.sumRows();
-
-        W.grad.addInPlace(dW);
-        b.grad.addInPlace(db);
-
-        return gradY.matmul(W.value.transpose());
     }
 
     @Override

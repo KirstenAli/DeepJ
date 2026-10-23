@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -49,7 +50,9 @@ class ModelSerializerMetalTest {
 
     private static Parameter pendingParameter() {
         Parameter parameter = new Parameter(Tensor.from2D(new float[][]{{2.0f}}));
-        parameter.value.multiplyScalarInPlace(2.0f);
+        try (var ignored = GradMode.noGrad()) {
+            parameter.value.multiplyScalarInPlace(2.0f);
+        }
         return parameter;
     }
 }

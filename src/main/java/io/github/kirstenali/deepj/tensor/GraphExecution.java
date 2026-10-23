@@ -2,7 +2,6 @@ package io.github.kirstenali.deepj.tensor;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 abstract class GraphExecution extends GraphAdvancedRecordingOps {
     GraphExecution(GpuRuntime runtime) {
@@ -170,9 +169,13 @@ abstract class GraphExecution extends GraphAdvancedRecordingOps {
         for (int id : allocatedBufferIds) {
             WeakReference<Tensor> reference = bufIdToTensor.get(id);
             Tensor tensor = reference == null ? null : reference.get();
-            if (tensor == null || !tensor.retainsDeviceBuffer()) ids.add(id);
+            if (tensor == null || canReleaseTemporary(tensor)) ids.add(id);
         }
         return ids;
+    }
+
+    private static boolean canReleaseTemporary(Tensor tensor) {
+        return !tensor.retainsDeviceBuffer() && !tensor.gradientState().savedForBackward();
     }
 
     void clearTensorGpuTags(List<Integer> ids) {

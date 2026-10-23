@@ -18,6 +18,7 @@
   },
   "fullJava": { "lines": 90, "branches": 75 },
   "metalJava": { "lines": 90, "branches": 75 },
+  "autogradJava": { "lines": 95, "branches": 90 },
   "native": { "lines": 85, "branches": 70, "functions": 90 },
   "metalKernelSelections": 100
 }

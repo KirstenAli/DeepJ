@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import io.github.kirstenali.deepj.autograd.LayoutOps;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -10,6 +11,11 @@ final class TensorStorage {
     private static final CpuBackend CPU = new CpuBackend();
 
     private TensorStorage() {}
+
+    static float item(Tensor tensor) {
+        if (tensor.rows != 1 || tensor.cols != 1) throw new IllegalStateException("item requires a scalar tensor");
+        return tensor.get(0, 0);
+    }
 
     static int checkedSize(int rows, int cols) {
         if (rows < 1 || cols < 1) throw new IllegalArgumentException("Tensor dimensions must be positive");
@@ -99,13 +105,16 @@ final class TensorStorage {
         for (int row : rows) {
             requireRow(tensor, row);
         }
-        return Tensor.backend().sliceRows(tensor, rows);
+        return LayoutOps.gather(tensor, rows);
     }
 
     static Tensor sampleRows(Tensor tensor, int count, Random random) {
         if (count < 1) throw new IllegalArgumentException("Sample count must be positive");
-        tensor.materialize();
-        return CPU.sampleRows(tensor, count, random);
+        int[] indices = new int[count];
+        for (int index = 0; index < count; index++) {
+            indices[index] = random.nextInt(tensor.rows);
+        }
+        return sliceRows(tensor, indices, tensor.cols);
     }
 
     static void print(Tensor tensor, String label) {
@@ -139,7 +148,7 @@ final class TensorStorage {
         if (row < 0 || row >= tensor.rows) throw new IndexOutOfBoundsException("Row index: " + row);
     }
 
-    private static void markGpuNeedsUpload(Tensor tensor) {
+    static void markGpuNeedsUpload(Tensor tensor) {
         if (!(tensor.gpuTag instanceof GpuBuffer buffer)) return;
         buffer.needsUpload = true;
         buffer.cpuStale = false;

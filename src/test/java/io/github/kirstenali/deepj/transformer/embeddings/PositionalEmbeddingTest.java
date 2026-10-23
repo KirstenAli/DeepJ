@@ -36,12 +36,12 @@ public class PositionalEmbeddingTest {
         w.zeroGrad();
 
         Tensor gradOut = Tensor.ones(2, 3);
-        pe.backward(gradOut);
+        pe.forward(gradOut.rows).backward(gradOut);
 
         for (int r = 0; r < 5; r++) {
             for (int c = 0; c < 3; c++) {
                 double expected = (r < 2) ? 1.0f : 0.0f;
-                assertEquals(expected, w.grad.data[r * 3 + c], 1e-12f, "grad mismatch at [" + r + "," + c + "]");
+                assertEquals(expected, w.grad().data[r * 3 + c], 1e-12f, "grad mismatch at [" + r + "," + c + "]");
             }
         }
     }
@@ -85,11 +85,11 @@ public class PositionalEmbeddingTest {
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        pe.backward(gradOut);
+        pe.forward(seqLen).backward(gradOut);
 
         for (int r = 0; r < seqLen; r++) {
             for (int c = 0; c < w.value.cols; c++) {
-                w.value.data[r * w.value.cols + c] -= lr * w.grad.data[r * w.grad.cols + c];
+                w.value.data[r * w.value.cols + c] -= lr * w.grad().data[r * w.grad().cols + c];
             }
         }
 

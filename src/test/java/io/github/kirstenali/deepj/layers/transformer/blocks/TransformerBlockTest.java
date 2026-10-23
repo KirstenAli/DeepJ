@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.blocks;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -19,7 +20,7 @@ public class TransformerBlockTest {
         DeepJOriginTransformerBlock block = new DeepJOriginTransformerBlock(dModel, 2, 8, new Random(1));
 
         for (Parameter p : block.parameters()) {
-            p.value = Tensor.zeros(p.value.rows, p.value.cols);
+            AutogradTestSupport.replaceValues(p.value, Tensor.zeros(p.value.rows, p.value.cols));
             p.zeroGrad();
         }
 
@@ -44,13 +45,13 @@ public class TransformerBlockTest {
 
         Tensor y = block.forward(x);
         Tensor gradOut = Tensor.ones(y.rows, y.cols);
-        Tensor gradIn = block.backward(gradOut);
+        Tensor gradIn = AutogradTestSupport.backward(block::forward, x, gradOut);
 
         TestSupport.assertTensorShape(gradIn, x.rows, x.cols);
 
         double totalGrad = 0.0f;
         for (Parameter p : block.parameters()) {
-            totalGrad += p.grad.sumAbs();
+            totalGrad += p.grad().sumAbs();
         }
         assertTrue(totalGrad > 0.0f, "Expected some non-zero gradients in block parameters");
     }
@@ -87,7 +88,7 @@ public class TransformerBlockTest {
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        block.backward(gradOut);
+        AutogradTestSupport.backward(block::forward, x, gradOut);
         opt.step(block.parameters());
         for (Parameter p : block.parameters()) {
             p.zeroGrad();

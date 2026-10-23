@@ -138,15 +138,15 @@ public class DeepJOriginTest {
             p.zeroGrad();
         }
 
-        model.backward(dLogits);
+        model.forward(ids).backward(dLogits);
 
         Parameter tokW = model.parameters().get(0);
 
-        assertTrue(tokW.grad.sumAbs() > 0.0f, "Expected non-zero token embedding grads");
+        assertTrue(tokW.grad().sumAbs() > 0.0f, "Expected non-zero token embedding grads");
 
-        assertTrue (tokW.grad.getRow(5).sumAbs() > 0.0f, "id=5 row grad should be non-zero");
-        assertTrue(tokW.grad.getRow(1).sumAbs() > 0.0f, "id=1 row grad should be non-zero");
-        assertTrue(tokW.grad.getRow(2).sumAbs() > 0.0f, "id=2 row grad should be non-zero");
+        assertTrue (tokW.grad().getRow(5).sumAbs() > 0.0f, "id=5 row grad should be non-zero");
+        assertTrue(tokW.grad().getRow(1).sumAbs() > 0.0f, "id=1 row grad should be non-zero");
+        assertTrue(tokW.grad().getRow(2).sumAbs() > 0.0f, "id=2 row grad should be non-zero");
     }
 
     @Test

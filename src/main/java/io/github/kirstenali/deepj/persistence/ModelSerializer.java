@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.models.TransformerConfig;
 import io.github.kirstenali.deepj.tensor.GpuBuffer;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.autograd.GradMode;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -145,8 +146,11 @@ public final class ModelSerializer {
     }
 
     private static void readTensorData(DataInputStream in, Tensor t, boolean legacy) throws IOException {
-        for (int j = 0; j < t.data.length; j++) {
-            t.data[j] = legacy ? (float) in.readDouble() : in.readFloat();
+        try (var ignored = GradMode.noGrad()) {
+            t.gradientState().beforeMutation();
+            for (int j = 0; j < t.data.length; j++) {
+                t.data[j] = legacy ? (float) in.readDouble() : in.readFloat();
+            }
         }
     }
 

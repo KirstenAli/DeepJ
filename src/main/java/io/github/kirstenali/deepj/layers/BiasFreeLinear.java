@@ -9,7 +9,6 @@ import java.util.Random;
 public final class BiasFreeLinear implements Projection {
 
     private final Parameter weight;
-    private Tensor input;
 
     public BiasFreeLinear(int inputs, int outputs, Random random) {
         if (inputs <= 0 || outputs <= 0) throw new IllegalArgumentException("Dimensions must be positive");
@@ -18,14 +17,7 @@ public final class BiasFreeLinear implements Projection {
 
     @Override
     public Tensor forward(Tensor value) {
-        input = value;
         return value.matmul(weight.value);
-    }
-
-    @Override
-    public Tensor backward(Tensor gradient) {
-        weight.grad.addInPlace(Tensor.backend().batchedMatmul(input, gradient, 1, true, false));
-        return Tensor.backend().batchedMatmul(gradient, weight.value, 1, false, true);
     }
 
     @Override

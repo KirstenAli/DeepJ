@@ -39,13 +39,15 @@ struct MetalContext {
     id<MTLComputePipelineState> sumAbsPSO;
     id<MTLComputePipelineState> sumSquaresPSO;
     id<MTLComputePipelineState> sumSquaresScalarPSO;
+    id<MTLComputePipelineState> accumulateSquaresPSO;
     id<MTLComputePipelineState> crossEntropyLossPSO;
     id<MTLComputePipelineState> crossEntropyGradPSO;
     id<MTLComputePipelineState> crossEntropyFusedPSO;
     id<MTLComputePipelineState> clampPSO;
     id<MTLComputePipelineState> powPSO;
     id<MTLComputePipelineState> scatterAddRowsPSO;
-    id<MTLComputePipelineState> scatterAddRowsAtomicPSO;
+    id<MTLComputePipelineState> scatterLinksPSO;
+    id<MTLComputePipelineState> orderedScatterPSO;
     id<MTLComputePipelineState> gatherRowsPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
@@ -348,7 +350,10 @@ inline float reduce_sum(threadgroup float* scratch, float value,
         if (tid < stride) scratch[tid] += scratch[tid + stride];
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
-    return scratch[0];
+    // Every lane must read the result before a following reduction reuses scratch.
+    float result = scratch[0];
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    return result;
 }
 
 inline float reduce_max(threadgroup float* scratch, float value,
@@ -359,7 +364,9 @@ inline float reduce_max(threadgroup float* scratch, float value,
         if (tid < stride) scratch[tid] = max(scratch[tid], scratch[tid + stride]);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
-    return scratch[0];
+    float result = scratch[0];
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    return result;
 }
 
 inline void write_row_value(device float* output, uint base, uint cols,
@@ -683,24 +690,12 @@ kernel void kernel_gather_rows(device const float* input   [[buffer(0)]],
     output[id] = inputRow < inputRows ? input[inputRow * cols + column] : 0.0f;
 }
 
-inline void atomic_add_f32(device atomic_uint* addr, float value) {
-    uint expected = atomic_load_explicit(addr, memory_order_relaxed);
-    while (true) {
-        float current = as_type<float>(expected);
-        uint desired = as_type<uint>(current + value);
-        if (atomic_compare_exchange_weak_explicit(
-                addr, &expected, desired,
-                memory_order_relaxed, memory_order_relaxed)) {
-            return;
-        }
-    }
-}
-
 kernel void kernel_sum_squares_scalar(device const float* input [[buffer(0)]],
-                                      device atomic_uint* total [[buffer(1)]],
+                                      device float* partials [[buffer(1)]],
                                       device const uint2* dims [[buffer(2)]],
                                       uint id [[thread_position_in_grid]],
                                       uint tid [[thread_position_in_threadgroup]],
+                                      uint group [[threadgroup_position_in_grid]],
                                       uint width [[threads_per_threadgroup]]) {
     uint count = dims[0].x, gridWidth = dims[0].y * width;
     threadgroup float scratch[1024];
@@ -709,29 +704,65 @@ kernel void kernel_sum_squares_scalar(device const float* input [[buffer(0)]],
         value += input[index] * input[index];
     }
     float sum = reduce_sum(scratch, value, tid, width);
-    if (tid == 0) atomic_add_f32(total, sum);
+    if (tid == 0) partials[group] = sum;
 }
 
-kernel void kernel_scatter_add_rows_atomic(device float* target        [[buffer(0)]],
+kernel void kernel_accumulate_squares(device const float* partials [[buffer(0)]],
+                                      device float* total [[buffer(1)]],
+                                      device const uint* count [[buffer(2)]],
+                                      uint tid [[thread_position_in_threadgroup]],
+                                      uint width [[threads_per_threadgroup]]) {
+    threadgroup float scratch[1024];
+    float value = 0.0f;
+    for (uint index = tid; index < count[0]; index += width) {
+        value += partials[index];
+    }
+    float sum = reduce_sum(scratch, value, tid, width);
+    if (tid == 0) total[0] += sum;
+}
+
+inline bool first_row_occurrence(device const float* indices, uint row, uint index) {
+    for (uint previous = 0; previous < index; previous++) {
+        if ((uint)indices[previous] == row) return false;
+    }
+    return true;
+}
+
+inline uint next_row_occurrence(device const float* indices, uint row,
+                                 uint index, uint count) {
+    for (uint next = index + 1; next < count; next++) {
+        if ((uint)indices[next] == row) return next;
+    }
+    return count;
+}
+
+kernel void kernel_scatter_row_links(device const float* indices [[buffer(0)]],
+                                     device uint2* links [[buffer(1)]],
+                                     device const uint3* dims [[buffer(2)]],
+                                     uint id [[thread_position_in_grid]]) {
+    uint count = dims[0].z;
+    if (id >= count) return;
+    uint row = (uint)indices[id];
+    links[id].x = first_row_occurrence(indices, row, id);
+    links[id].y = next_row_occurrence(indices, row, id, count);
+}
+
+kernel void kernel_scatter_add_rows_ordered(device float* target        [[buffer(0)]],
                                            device const float* indices [[buffer(1)]],
                                            device const float* grad    [[buffer(2)]],
                                            device const uint3* dims    [[buffer(3)]],
+                                           device const uint2* links   [[buffer(4)]],
                                            uint id [[thread_position_in_grid]]) {
-    uint targetRows = dims[0].x;
-    uint targetCols = dims[0].y;
-    uint nIdx = dims[0].z;
-
-    uint total = nIdx * targetCols;
-    if (id >= total) return;
-
-    uint i = id / targetCols;
-    uint c = id % targetCols;
-    uint row = (uint)indices[i];
-    if (row >= targetRows) return;
-
+    uint targetRows = dims[0].x, targetCols = dims[0].y, nIdx = dims[0].z;
+    if (id >= nIdx * targetCols) return;
+    uint i = id / targetCols, c = id % targetCols, row = (uint)indices[i];
+    if (row >= targetRows || links[i].x == 0) return;
     uint flat = row * targetCols + c;
-    device atomic_uint* targetAtomic = (device atomic_uint*)target;
-    atomic_add_f32(&targetAtomic[flat], grad[i * targetCols + c]);
+    float value = target[flat];
+    for (uint index = i; index < nIdx; index = links[index].y) {
+        value += grad[index * targetCols + c];
+    }
+    target[flat] = value;
 }
 
 kernel void kernel_sqrt(device const float* a [[buffer(0)]],
@@ -1148,6 +1179,7 @@ static void initReductionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->sumAbsPSO = makePSO(library, @"kernel_sum_abs");
     ctx->sumSquaresPSO = makePSO(library, @"kernel_sum_squares");
     ctx->sumSquaresScalarPSO = makePSO(library, @"kernel_sum_squares_scalar");
+    ctx->accumulateSquaresPSO = makePSO(library, @"kernel_accumulate_squares");
 }
 
 static void initLossPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -1157,7 +1189,8 @@ static void initLossPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->clampPSO = makePSO(library, @"kernel_clamp");
     ctx->powPSO = makePSO(library, @"kernel_pow");
     ctx->scatterAddRowsPSO = makePSO(library, @"kernel_scatter_add_rows");
-    ctx->scatterAddRowsAtomicPSO = makePSO(library, @"kernel_scatter_add_rows_atomic");
+    ctx->scatterLinksPSO = makePSO(library, @"kernel_scatter_row_links");
+    ctx->orderedScatterPSO = makePSO(library, @"kernel_scatter_add_rows_ordered");
 }
 
 static void initUnaryPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -1764,8 +1797,25 @@ static void encodeRotary(GraphState& state, const jint* cmd, int pos) {
 
 static id<MTLComputePipelineState> scatterPipeline(MetalContext* ctx, int op) {
     if (op == OP_SCATTER_ADD_ROWS) return ctx->scatterAddRowsPSO;
-    if (op == OP_SCATTER_ADD_ROWS_ATOMIC) return ctx->scatterAddRowsAtomicPSO;
+    if (op == OP_SCATTER_ADD_ROWS_ATOMIC) return ctx->orderedScatterPSO;
     throw std::runtime_error("Invalid scatter op");
+}
+
+static id<MTLBuffer> encodeScatterLinks(GraphState& state, const jint* cmd,
+                                       int pos, id<MTLBuffer> dimensions) {
+    if (cmd[pos] != OP_SCATTER_ADD_ROWS_ATOMIC) return nil;
+    NSUInteger count = positiveCount(cmd[pos + 6], "scatter index count");
+    id<MTLBuffer> links = [state.ctx->device newBufferWithLength:count * sizeof(uint32_t) * 2
+                                                     options:MTLResourceStorageModeShared];
+    if (links == nil) throw std::runtime_error("Failed to allocate scatter links");
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->scatterLinksPSO];
+    [encoder setBuffer:requireBuffer(cmd[pos + 2], "scatter indices") offset:0 atIndex:0];
+    [encoder setBuffer:links offset:0 atIndex:1];
+    [encoder setBuffer:dimensions offset:0 atIndex:2];
+    dispatch1D(encoder, state.ctx->scatterLinksPSO, count);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    return links;
 }
 
 static void encodeScatter(GraphState& state, const jint* cmd, int pos) {
@@ -1773,6 +1823,7 @@ static void encodeScatter(GraphState& state, const jint* cmd, int pos) {
                        (uint32_t)cmd[pos + 6]};
     NSUInteger total = elementCount(cmd[pos + 5], cmd[pos + 6]);
     id<MTLBuffer> dimsBuffer = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLBuffer> links = encodeScatterLinks(state, cmd, pos, dimsBuffer);
     id<MTLComputePipelineState> pipeline = scatterPipeline(state.ctx, cmd[pos]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:pipeline];
@@ -1780,6 +1831,7 @@ static void encodeScatter(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:requireBuffer(cmd[pos + 2], "scatter") offset:0 atIndex:1];
     [encoder setBuffer:requireBuffer(cmd[pos + 3], "scatter") offset:0 atIndex:2];
     [encoder setBuffer:dimsBuffer offset:0 atIndex:3];
+    if (links != nil) [encoder setBuffer:links offset:0 atIndex:4];
     dispatch1D(encoder, pipeline, total);
 }
 
@@ -1883,6 +1935,22 @@ static void encodeRowStatistic(GraphState& state, const jint* cmd, int pos) {
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
 
+static void encodeSquaresTotal(GraphState& state, id<MTLBuffer> partials,
+                                id<MTLBuffer> total, NSUInteger groups) {
+    uint32_t count = (uint32_t)groups;
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->accumulateSquaresPSO];
+    [encoder setBuffer:partials offset:0 atIndex:0];
+    [encoder setBuffer:total offset:0 atIndex:1];
+    [encoder setBuffer:valueBuffer(state.ctx, &count, sizeof(count)) offset:0 atIndex:2];
+    NSUInteger threads = MIN((NSUInteger)256,
+                             state.ctx->accumulateSquaresPSO.maxTotalThreadsPerThreadgroup);
+    [encoder dispatchThreadgroups:MTLSizeMake(1, 1, 1)
+       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+}
+
 static void encodeSumSquaresScalar(GraphState& state, const jint* cmd, int pos) {
     NSUInteger count = positiveCount(cmd[pos + 3], "sum squares count");
     NSUInteger threads = MIN((NSUInteger)256,
@@ -1890,13 +1958,17 @@ static void encodeSumSquaresScalar(GraphState& state, const jint* cmd, int pos) 
     NSUInteger groups = MIN((count + threads - 1) / threads, (NSUInteger)1024);
     uint32_t dims[] = {(uint32_t)count, (uint32_t)groups};
     id<MTLBuffer> values = valueBuffer(state.ctx, dims, sizeof(dims));
+    id<MTLBuffer> partials = [state.ctx->device newBufferWithLength:groups * sizeof(float)
+                                                        options:MTLResourceStorageModeShared];
+    if (partials == nil) throw std::runtime_error("Failed to allocate norm partials");
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->sumSquaresScalarPSO];
     [encoder setBuffer:requireBuffer(cmd[pos + 1], "sum squares") offset:0 atIndex:0];
-    [encoder setBuffer:requireBuffer(cmd[pos + 2], "sum squares") offset:0 atIndex:1];
+    [encoder setBuffer:partials offset:0 atIndex:1];
     [encoder setBuffer:values offset:0 atIndex:2];
     [encoder dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+    encodeSquaresTotal(state, partials, requireBuffer(cmd[pos + 2], "sum squares"), groups);
 }
 
 static void encodeColumnSum(GraphState& state, id<MTLBuffer> input,

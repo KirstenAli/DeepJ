@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.activations;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +64,7 @@ class SiLUTest {
 
         Tensor x = Tensor.from2D(new float[][]{{0.0f}});
         silu.forward(x);
-        Tensor grad = silu.backward(Tensor.ones(1, 1));
+        Tensor grad = AutogradTestSupport.backward(silu::forward, x, Tensor.ones(1, 1));
         assertEquals(0.5f, grad.data[0], 1e-6f);
     }
 
@@ -71,7 +72,7 @@ class SiLUTest {
     void backward_preserves_shape() {
         Tensor x = Tensor.from2D(new float[][]{{1.0f, -1.0f, 2.0f}, {0.0f, 3.0f, -2.0f}});
         silu.forward(x);
-        Tensor grad = silu.backward(Tensor.ones(2, 3));
+        Tensor grad = AutogradTestSupport.backward(silu::forward, x, Tensor.ones(2, 3));
         TestSupport.assertTensorShape(grad, 2, 3);
     }
 
@@ -89,7 +90,8 @@ class SiLUTest {
 
             SiLU analytic = new SiLU();
             analytic.forward(Tensor.from2D(new float[][]{{v}}));
-            float analytical = analytic.backward(Tensor.ones(1, 1)).data[0];
+            Tensor input = Tensor.from2D(new float[][]{{v}});
+            float analytical = AutogradTestSupport.backward(analytic::forward, input, Tensor.ones(1, 1)).data[0];
 
             assertEquals(numerical, analytical, 2e-3f,
                     "Gradient mismatch at x=" + v);
@@ -100,25 +102,26 @@ class SiLUTest {
     void backward_gradOut_scales_result() {
         Tensor x = Tensor.from2D(new float[][]{{1.0f}});
         silu.forward(x);
-        Tensor g1 = silu.backward(Tensor.ones(1, 1));
+        Tensor g1 = AutogradTestSupport.backward(silu::forward, x, Tensor.ones(1, 1));
 
         silu = new SiLU();
         silu.forward(x);
-        Tensor g3 = silu.backward(Tensor.from2D(new float[][]{{3.0f}}));
+        Tensor g3 = AutogradTestSupport.backward(silu::forward, x, Tensor.from2D(new float[][]{{3.0f}}));
 
         assertEquals(g1.data[0] * 3.0f, g3.data[0], 1e-6f);
     }
 
     @Test
-    void backward_before_forward_throws() {
+    void backward_without_gradient_tracking_throws() {
         assertThrows(IllegalStateException.class,
-                () -> silu.backward(Tensor.ones(1, 1)));
+                () -> silu.forward(Tensor.ones(1, 1)).backward());
     }
 
     @Test
     void backward_shape_mismatch_throws() {
         silu.forward(Tensor.from2D(new float[][]{{1.0f, 2.0f}}));
+        Tensor input = Tensor.from2D(new float[][]{{1.0f, 2.0f}});
         assertThrows(IllegalArgumentException.class,
-                () -> silu.backward(Tensor.from2D(new float[][]{{1.0f}})));
+                () -> AutogradTestSupport.backward(silu::forward, input, Tensor.ones(1, 1)));
     }
 }

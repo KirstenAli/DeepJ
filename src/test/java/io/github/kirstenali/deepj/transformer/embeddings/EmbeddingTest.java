@@ -41,13 +41,13 @@ public class EmbeddingTest {
                 {3.0f, 4.0f},
                 {5.0f, 6.0f}
         });
-        emb.backward(gradOut);
+        emb.forward(new int[]{1, 1, 3}).backward(gradOut);
 
-        assertEquals(1.0f + 3.0f, emb.weight().grad.data[1 * 2 + 0], 1e-12f);
-        assertEquals(2.0f + 4.0f, emb.weight().grad.data[1 * 2 + 1], 1e-12f);
+        assertEquals(1.0f + 3.0f, emb.weight().grad().data[1 * 2 + 0], 1e-12f);
+        assertEquals(2.0f + 4.0f, emb.weight().grad().data[1 * 2 + 1], 1e-12f);
 
-        assertEquals(5.0f, emb.weight().grad.data[3 * 2 + 0], 1e-12f);
-        assertEquals(6.0f, emb.weight().grad.data[3 * 2 + 1], 1e-12f);
+        assertEquals(5.0f, emb.weight().grad().data[3 * 2 + 0], 1e-12f);
+        assertEquals(6.0f, emb.weight().grad().data[3 * 2 + 1], 1e-12f);
     }
 
     @Test
@@ -82,10 +82,10 @@ public class EmbeddingTest {
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        emb.backward(gradOut);
+        emb.forward(new int[]{id}).backward(gradOut);
 
         Tensor W = emb.weight().value;
-        Tensor dW = emb.weight().grad;
+        Tensor dW = emb.weight().grad();
 
         for (int c = 0; c < W.cols; c++) {
             W.data[id * W.cols + c] -= lr * dW.data[id * dW.cols + c];

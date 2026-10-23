@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.layers.transformer.norm;
 
+import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;
 import io.github.kirstenali.deepj.layers.transformer.norm.LayerNorm1D;
 
@@ -39,7 +40,7 @@ public class LayerNorm1DTest {
         double loss = mse.loss(y, target);
         Tensor gradOut = mse.gradient(y, target);
 
-        ln.backward(gradOut);
+        AutogradTestSupport.backward(ln::forward, x, gradOut);
         opt.step(ln.parameters());
         for (Parameter p : ln.parameters()) {
             p.zeroGrad();
@@ -56,7 +57,7 @@ public class LayerNorm1DTest {
         LayerNorm1D ln = new LayerNorm1D(dim);
         Tensor x = gradientInput();
         ln.forward(x);
-        Tensor analytic = ln.backward(Tensor.ones(x.rows, dim));
+        Tensor analytic = AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.rows, dim));
         assertInputGradient(ln, x, analytic, dim, eps, tol);
     }
 
@@ -85,9 +86,9 @@ public class LayerNorm1DTest {
         LayerNorm1D ln = new LayerNorm1D(dim);
         Tensor x = gradientInput();
         ln.forward(x);
-        ln.backward(Tensor.ones(x.rows, dim));
+        AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.rows, dim));
         Parameter gamma = ln.parameters().get(0);
-        float[] analytic = gamma.grad.data.clone();
+        float[] analytic = gamma.grad().data.clone();
         assertGammaGradient(ln, x, gamma, analytic, dim, eps, tol);
     }
 
@@ -95,11 +96,11 @@ public class LayerNorm1DTest {
                                             float[] analytic, int dim, float eps, float tol) {
         for (int c = 0; c < dim; c++) {
             float orig = gamma.value.get(0, c);
-            gamma.value.set(0, c, orig + eps);
+            AutogradTestSupport.set(gamma.value, 0, c, orig + eps);
             float fPlus = sumAll(ln.forward(x));
-            gamma.value.set(0, c, orig - eps);
+            AutogradTestSupport.set(gamma.value, 0, c, orig - eps);
             float fMinus = sumAll(ln.forward(x));
-            gamma.value.set(0, c, orig);
+            AutogradTestSupport.set(gamma.value, 0, c, orig);
             float numerical = (fPlus - fMinus) / (2 * eps);
             assertEquals(numerical, analytic[c], tol, "gamma grad mismatch at col " + c);
         }
@@ -119,11 +120,11 @@ public class LayerNorm1DTest {
         });
 
         ln.forward(x);
-        ln.backward(Tensor.ones(x.rows, dim));
+        AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.rows, dim));
 
         Parameter beta = ln.parameters().get(1);
         for (int c = 0; c < dim; c++) {
-            assertEquals((float) x.rows, beta.grad.data[c], 1e-6f, "beta grad at col " + c);
+            assertEquals((float) x.rows, beta.grad().data[c], 1e-6f, "beta grad at col " + c);
         }
     }
 

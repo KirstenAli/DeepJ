@@ -21,11 +21,6 @@ final class HeadNormalization implements Layer {
     }
 
     @Override
-    public Tensor backward(Tensor gradient) {
-        return norm == null ? gradient : norm.backward(gradient);
-    }
-
-    @Override
     public List<Parameter> parameters() {
         return norm == null ? List.of() : norm.parameters();
     }
