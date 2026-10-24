@@ -33,6 +33,9 @@ The design draws on [recurrent-depth transformers](https://arxiv.org/abs/2502.05
 the [full-versus-truncated BPTT scaling study](https://arxiv.org/abs/2610.26030),
 and [Loop-μP](https://arxiv.org/abs/2606.18524).
 It reuses DeepJ's existing GQA, RoPE, RMSNorm, SwiGLU and CPU/Metal operations.
+On supported Apple GPUs, the default 1,024-token, 64-wide-head configuration
+automatically uses FP32 Flash-style attention in each core pass. Other shapes
+retain the ordinary attention path.
 Looping increases computation and saved-activation memory. It does not guarantee
 better reasoning, factual accuracy, or less repetitive text.
 
@@ -45,7 +48,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 20)
 mvn clean verify
 
 caffeinate -i /usr/bin/time -l "$JAVA_HOME/bin/java" \
-  -Xmx6g -XX:+ExitOnOutOfMemoryError \
+  -Xmx8g -XX:+ExitOnOutOfMemoryError \
   --enable-native-access=ALL-UNNAMED \
   -Ddeepj.benchmarkWarmup=5 -Ddeepj.benchmarkSteps=250 \
   -cp target/classes \
@@ -78,15 +81,15 @@ The held-out FineWeb-Edu range stays excluded from pretraining.
 Run each stage after the preceding stage finishes:
 
 ```bash
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
   --enable-native-access=ALL-UNNAMED -cp target/classes \
   io.github.kirstenali.deepj.examples.TrainDeepJLoop100M
 
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
   --enable-native-access=ALL-UNNAMED -cp target/classes \
   io.github.kirstenali.deepj.examples.MidTrainDeepJLoop100M
 
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
   --enable-native-access=ALL-UNNAMED -cp target/classes \
   io.github.kirstenali.deepj.examples.FineTuneDeepJLoop100M
 ```
@@ -107,12 +110,12 @@ cannot establish a looped model's configuration and are rejected for this model.
 Other existing architectures retain support for their older training checkpoints.
 
 ```bash
-caffeinate -i "$JAVA_HOME/bin/java" -Xmx6g \
+caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
   --enable-native-access=ALL-UNNAMED \
   -Ddeepj.resume=checkpoints/deepj-loop-100m/pretrain/training-latest.dj \
   -cp target/classes io.github.kirstenali.deepj.examples.TrainDeepJLoop100M
 
-"$JAVA_HOME/bin/java" -Xmx6g --enable-native-access=ALL-UNNAMED \
+"$JAVA_HOME/bin/java" -Xmx8g --enable-native-access=ALL-UNNAMED \
   -cp target/classes io.github.kirstenali.deepj.examples.EvaluateDeepJLoop100M
 ```
 
