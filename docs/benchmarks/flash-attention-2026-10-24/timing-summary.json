@@ -1,0 +1,182 @@
+[
+  {
+    "model": "prism",
+    "baseline": [
+      {
+        "round": 1,
+        "variant": "baseline",
+        "seconds": 0.743478792,
+        "footprint": 10937180176,
+        "rss": 7374848000,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 2,
+        "variant": "baseline",
+        "seconds": 0.745051834,
+        "footprint": 10964901880,
+        "rss": 7374602240,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 3,
+        "variant": "baseline",
+        "seconds": 0.752289479,
+        "footprint": 10960248920,
+        "rss": 7281491968,
+        "systemSwapoutPages": 0
+      }
+    ],
+    "candidate": [
+      {
+        "round": 1,
+        "variant": "candidate",
+        "seconds": 0.604525104,
+        "footprint": 10802224400,
+        "rss": 7350419456,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 2,
+        "variant": "candidate",
+        "seconds": 0.605982958,
+        "footprint": 10812594704,
+        "rss": 7353581568,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 3,
+        "variant": "candidate",
+        "seconds": 0.603778938,
+        "footprint": 10807155264,
+        "rss": 7335706624,
+        "systemSwapoutPages": 0
+      }
+    ],
+    "baselineMedian": 0.745051834,
+    "candidateMedian": 0.604525104,
+    "stepTimeReductionPercent": 18.86133602887017,
+    "throughputGainPercent": 23.24580552075799,
+    "footprintChangePercent": -1.3968082031480034
+  },
+  {
+    "model": "nova",
+    "baseline": [
+      {
+        "round": 1,
+        "variant": "baseline",
+        "seconds": 1.260095313,
+        "footprint": 14994517080,
+        "rss": 7250919424,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 2,
+        "variant": "baseline",
+        "seconds": 1.355281917,
+        "footprint": 15139368000,
+        "rss": 7079182336,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 3,
+        "variant": "baseline",
+        "seconds": 1.277007104,
+        "footprint": 15130799144,
+        "rss": 7150682112,
+        "systemSwapoutPages": 0
+      }
+    ],
+    "candidate": [
+      {
+        "round": 1,
+        "variant": "candidate",
+        "seconds": 1.033930583,
+        "footprint": 14792747568,
+        "rss": 7047184384,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 2,
+        "variant": "candidate",
+        "seconds": 1.030686521,
+        "footprint": 14815914496,
+        "rss": 7292026880,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 3,
+        "variant": "candidate",
+        "seconds": 1.03971473,
+        "footprint": 14788782784,
+        "rss": 7809499136,
+        "systemSwapoutPages": 0
+      }
+    ],
+    "baselineMedian": 1.277007104,
+    "candidateMedian": 1.033930583,
+    "stepTimeReductionPercent": 19.034860513978778,
+    "throughputGainPercent": 23.509945928352515,
+    "footprintChangePercent": -2.2341951193903142
+  },
+  {
+    "model": "loop",
+    "baseline": [
+      {
+        "round": 1,
+        "variant": "baseline",
+        "seconds": 2.100159896,
+        "footprint": 17654001712,
+        "rss": 7654719488,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 2,
+        "variant": "baseline",
+        "seconds": 2.156806021,
+        "footprint": 17618956456,
+        "rss": 8085700608,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 3,
+        "variant": "baseline",
+        "seconds": 2.089902459,
+        "footprint": 17657704568,
+        "rss": 7924793344,
+        "systemSwapoutPages": 0
+      }
+    ],
+    "candidate": [
+      {
+        "round": 1,
+        "variant": "candidate",
+        "seconds": 1.564770729,
+        "footprint": 17248218608,
+        "rss": 7663910912,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 2,
+        "variant": "candidate",
+        "seconds": 1.704505167,
+        "footprint": 17238929048,
+        "rss": 7768719360,
+        "systemSwapoutPages": 0
+      },
+      {
+        "round": 3,
+        "variant": "candidate",
+        "seconds": 1.562914417,
+        "footprint": 17242140216,
+        "rss": 7856848896,
+        "systemSwapoutPages": 0
+      }
+    ],
+    "baselineMedian": 2.100159896,
+    "candidateMedian": 1.564770729,
+    "stepTimeReductionPercent": 25.492781193456338,
+    "throughputGainPercent": 34.21518290683723,
+    "footprintChangePercent": -2.332963951850331
+  }
+]

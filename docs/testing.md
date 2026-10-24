@@ -54,6 +54,9 @@ amplify those differences without either implementation being mathematically wro
 Loss trajectories and held-out validation are therefore checked separately in
 matched multi-seed training experiments before accepting an attention replacement.
 
+The [October 2026 Flash attention qualification](benchmarks/flash-attention-2026-10-24/REPORT.md)
+records the acceptance bounds, measurements and reproducible evidence.
+
 ## Coverage gates
 
 | Scope | Lines | Branches | Other minimums |
