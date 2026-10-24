@@ -24,7 +24,7 @@ Autograd is available from source; the Maven release below predates it.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.10.0-alpha</version>
+    <version>0.10.1-alpha</version>
 </dependency>
 ```
 
@@ -38,7 +38,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
 - DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
-- DeepJ Loop with a shared recurrent core, context reinjection, and full autograd through every pass.
+- DeepJ Loop with a shared decoder core reused across multiple passes and context reinjection.
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - Bounded-memory sequential, random-access, and response-only datasets.
