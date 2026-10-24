@@ -18,7 +18,9 @@ function hostMetrics(source, file, name, flags) {
 function shaderMetrics(shader, name) {
   const shim = resolve('src/test/native/metal-analysis-shim.h');
   assert.equal(shader.source.match(/#include <metal_stdlib>/g)?.length, 1);
-  const source = shader.source.replace('#include <metal_stdlib>', `#include "${shim}"`);
+  const source = shader.source
+    .replace('#include <metal_stdlib>', `#include "${shim}"`)
+    .replace('#include <metal_simdgroup_matrix>', '');
   const metrics = nativeMetrics(clangAst(source, shader.file, name));
   for (const [, kernel] of shader.source.matchAll(/\bkernel\s+void\s+(\w+)\s*\(/g)) {
     assert.ok(

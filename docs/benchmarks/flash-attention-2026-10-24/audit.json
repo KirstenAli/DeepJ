@@ -1,0 +1,1530 @@
+{
+  "snapshots": [
+    {
+      "revision": "d879b55c2c1814465f5224566f5d85777a4d2488",
+      "verifiedTrackedFiles": 905
+    },
+    {
+      "revision": "1916ef4230c4e3392b16cae219d584f59c50be94",
+      "verifiedTrackedFiles": 909
+    }
+  ],
+  "builds": [
+    {
+      "phase": "initial",
+      "tests": 978,
+      "failures": 0,
+      "errors": 0,
+      "expectedSkips": 12
+    },
+    {
+      "phase": "final",
+      "tests": 978,
+      "failures": 0,
+      "errors": 0,
+      "expectedSkips": 12
+    }
+  ],
+  "training": [
+    {
+      "model": "origin",
+      "seed": 100,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": -5.7399999970897395e-8,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": 9.599999994946984e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": 1.8800000027852094e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 5.720000000764003e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        }
+      ],
+      "runs": [
+        {
+          "stem": "origin-100-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 409104016,
+              "maxHeapUsed": 805720208,
+              "gcMillisDuringWindow": 25
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 409813632,
+              "maxHeapUsed": 750633264,
+              "gcMillisDuringWindow": 20
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 409867904,
+              "maxHeapUsed": 750685440,
+              "gcMillisDuringWindow": 19
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 409877120,
+              "maxHeapUsed": 750688992,
+              "gcMillisDuringWindow": 18
+            }
+          ],
+          "finalGcMillis": 88,
+          "finalHeapCommitted": 1639972864,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "origin-100-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 167950728,
+              "maxHeapUsed": 914474752,
+              "gcMillisDuringWindow": 41
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 268424240,
+              "maxHeapUsed": 915443248,
+              "gcMillisDuringWindow": 17
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 269005872,
+              "maxHeapUsed": 915455552,
+              "gcMillisDuringWindow": 16
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 268494880,
+              "maxHeapUsed": 914943552,
+              "gcMillisDuringWindow": 17
+            }
+          ],
+          "finalGcMillis": 109,
+          "finalHeapCommitted": 1732247552,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "origin",
+      "seed": 101,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 1.0479999996704237e-7,
+          "maxAbsoluteLossDelta": 9.600000012710552e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": 1.9399999988678473e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": 5.740000000642453e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 1.860000001130402e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        }
+      ],
+      "runs": [
+        {
+          "stem": "origin-101-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 408923856,
+              "maxHeapUsed": 805993088,
+              "gcMillisDuringWindow": 26
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 410073728,
+              "maxHeapUsed": 750891296,
+              "gcMillisDuringWindow": 18
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 410137728,
+              "maxHeapUsed": 750953232,
+              "gcMillisDuringWindow": 19
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 410150000,
+              "maxHeapUsed": 750961392,
+              "gcMillisDuringWindow": 20
+            }
+          ],
+          "finalGcMillis": 90,
+          "finalHeapCommitted": 1606418432,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "origin-101-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 409380336,
+              "maxHeapUsed": 805982104,
+              "gcMillisDuringWindow": 29
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 410066096,
+              "maxHeapUsed": 750856480,
+              "gcMillisDuringWindow": 20
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 410120320,
+              "maxHeapUsed": 750927088,
+              "gcMillisDuringWindow": 27
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 410127520,
+              "maxHeapUsed": 750938880,
+              "gcMillisDuringWindow": 24
+            }
+          ],
+          "finalGcMillis": 107,
+          "finalHeapCommitted": 1656750080,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "origin",
+      "seed": 102,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 1.1419999996320484e-7,
+          "maxAbsoluteLossDelta": 9.600000012710552e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": 2.57399999998853e-7,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": 3.624000000357341e-7,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 2.9559999999761997e-7,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        }
+      ],
+      "runs": [
+        {
+          "stem": "origin-102-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 407963712,
+              "maxHeapUsed": 804911760,
+              "gcMillisDuringWindow": 21
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 409081472,
+              "maxHeapUsed": 749889856,
+              "gcMillisDuringWindow": 26
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 409135248,
+              "maxHeapUsed": 749939440,
+              "gcMillisDuringWindow": 22
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 409137808,
+              "maxHeapUsed": 749955856,
+              "gcMillisDuringWindow": 21
+            }
+          ],
+          "finalGcMillis": 96,
+          "finalHeapCommitted": 1585446912,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "origin-102-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 211637248,
+              "maxHeapUsed": 734833680,
+              "gcMillisDuringWindow": 34
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 410860736,
+              "maxHeapUsed": 734902304,
+              "gcMillisDuringWindow": 30
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 410907776,
+              "maxHeapUsed": 734921232,
+              "gcMillisDuringWindow": 29
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 410920064,
+              "maxHeapUsed": 734932512,
+              "gcMillisDuringWindow": 31
+            }
+          ],
+          "finalGcMillis": 132,
+          "finalHeapCommitted": 1421869056,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "orbit",
+      "seed": 100,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": -7.660000003184564e-8,
+          "maxAbsoluteLossDelta": 9.599999994946984e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -8.539999999612747e-8,
+          "maxAbsoluteLossDelta": 4.799999997473492e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -4.739999999614497e-8,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": -1.1420000001649555e-7,
+          "maxAbsoluteLossDelta": 9.500000004436515e-7
+        }
+      ],
+      "runs": [
+        {
+          "stem": "orbit-100-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 211005760,
+              "maxHeapUsed": 534067440,
+              "gcMillisDuringWindow": 27
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 211094320,
+              "maxHeapUsed": 578769648,
+              "gcMillisDuringWindow": 23
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 211148016,
+              "maxHeapUsed": 578824896,
+              "gcMillisDuringWindow": 24
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 211157744,
+              "maxHeapUsed": 578841824,
+              "gcMillisDuringWindow": 23
+            }
+          ],
+          "finalGcMillis": 106,
+          "finalHeapCommitted": 1182793728,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "orbit-100-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 413896160,
+              "maxHeapUsed": 813442072,
+              "gcMillisDuringWindow": 25
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 415477344,
+              "maxHeapUsed": 757861632,
+              "gcMillisDuringWindow": 19
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 415546464,
+              "maxHeapUsed": 757919936,
+              "gcMillisDuringWindow": 18
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 415553088,
+              "maxHeapUsed": 757939920,
+              "gcMillisDuringWindow": 21
+            }
+          ],
+          "finalGcMillis": 90,
+          "finalHeapCommitted": 1577058304,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "orbit",
+      "seed": 101,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 9.59999992389271e-9,
+          "maxAbsoluteLossDelta": 9.600000012710552e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -3.799999999998249e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -7.640000003306113e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 2.8640000001800556e-7,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        }
+      ],
+      "runs": [
+        {
+          "stem": "orbit-101-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 270060592,
+              "maxHeapUsed": 598098112,
+              "gcMillisDuringWindow": 35
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 270433920,
+              "maxHeapUsed": 598150288,
+              "gcMillisDuringWindow": 26
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 270474848,
+              "maxHeapUsed": 598694544,
+              "gcMillisDuringWindow": 29
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 270493760,
+              "maxHeapUsed": 598175824,
+              "gcMillisDuringWindow": 39
+            }
+          ],
+          "finalGcMillis": 138,
+          "finalHeapCommitted": 1166016512,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "orbit-101-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 211111216,
+              "maxHeapUsed": 534122800,
+              "gcMillisDuringWindow": 26
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 211182400,
+              "maxHeapUsed": 745093264,
+              "gcMillisDuringWindow": 34
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 416905824,
+              "maxHeapUsed": 745653424,
+              "gcMillisDuringWindow": 28
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 416916048,
+              "maxHeapUsed": 745140896,
+              "gcMillisDuringWindow": 32
+            }
+          ],
+          "finalGcMillis": 129,
+          "finalHeapCommitted": 1421869056,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "orbit",
+      "seed": 102,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 1.626000000420902e-7,
+          "maxAbsoluteLossDelta": 9.600000012710552e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": 1.8139999992783374e-7,
+          "maxAbsoluteLossDelta": 9.499999995554731e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": 3.521999999556158e-7,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 3.717999999430788e-7,
+          "maxAbsoluteLossDelta": 9.599999994946984e-7
+        }
+      ],
+      "runs": [
+        {
+          "stem": "orbit-102-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 413438736,
+              "maxHeapUsed": 813239680,
+              "gcMillisDuringWindow": 35
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 415261312,
+              "maxHeapUsed": 757637376,
+              "gcMillisDuringWindow": 22
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 415321680,
+              "maxHeapUsed": 757705952,
+              "gcMillisDuringWindow": 19
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 415343712,
+              "maxHeapUsed": 757723360,
+              "gcMillisDuringWindow": 19
+            }
+          ],
+          "finalGcMillis": 100,
+          "finalHeapCommitted": 1577058304,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "orbit-102-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 210943312,
+              "maxHeapUsed": 744865456,
+              "gcMillisDuringWindow": 32
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 416680064,
+              "maxHeapUsed": 744920192,
+              "gcMillisDuringWindow": 23
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 416729152,
+              "maxHeapUsed": 744956592,
+              "gcMillisDuringWindow": 18
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 416753760,
+              "maxHeapUsed": 745492672,
+              "gcMillisDuringWindow": 30
+            }
+          ],
+          "finalGcMillis": 112,
+          "finalHeapCommitted": 1421869056,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "prism",
+      "seed": 100,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 2.3420000005103248e-7,
+          "maxAbsoluteLossDelta": 0.000006920000000132376
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": 2.5000000016817127e-8,
+          "maxAbsoluteLossDelta": 0.000001910000000382439
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -1.3720000000994047e-7,
+          "maxAbsoluteLossDelta": 0.000001910000000382439
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 3.760000000241348e-8,
+          "maxAbsoluteLossDelta": 0.0000033400000001293506
+        }
+      ],
+      "runs": [
+        {
+          "stem": "prism-100-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2540910752,
+              "maxHeapUsed": 5819336768,
+              "gcMillisDuringWindow": 216
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2468882016,
+              "maxHeapUsed": 6331836000,
+              "gcMillisDuringWindow": 179
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2745647280,
+              "maxHeapUsed": 6188145392,
+              "gcMillisDuringWindow": 179
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2522105408,
+              "maxHeapUsed": 5860591264,
+              "gcMillisDuringWindow": 167
+            }
+          ],
+          "finalGcMillis": 819,
+          "finalHeapCommitted": 6442450944,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "prism-100-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2468063392,
+              "maxHeapUsed": 6365065424,
+              "gcMillisDuringWindow": 203
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2548498496,
+              "maxHeapUsed": 5828758000,
+              "gcMillisDuringWindow": 159
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2602690544,
+              "maxHeapUsed": 5798934896,
+              "gcMillisDuringWindow": 162
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2714294928,
+              "maxHeapUsed": 6018805488,
+              "gcMillisDuringWindow": 158
+            }
+          ],
+          "finalGcMillis": 738,
+          "finalHeapCommitted": 6442450944,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "prism",
+      "seed": 101,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": -2.8619999998369394e-7,
+          "maxAbsoluteLossDelta": 0.0000045300000000025875
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -2.475999999962397e-7,
+          "maxAbsoluteLossDelta": 0.000004769999999876262
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -1.9600000005226547e-8,
+          "maxAbsoluteLossDelta": 0.0000038100000003815637
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": -6.560000000987998e-8,
+          "maxAbsoluteLossDelta": 0.000003100000000255676
+        }
+      ],
+      "runs": [
+        {
+          "stem": "prism-101-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2408653376,
+              "maxHeapUsed": 6084886576,
+              "gcMillisDuringWindow": 172
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2407504032,
+              "maxHeapUsed": 6373707872,
+              "gcMillisDuringWindow": 138
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2569478272,
+              "maxHeapUsed": 5905663040,
+              "gcMillisDuringWindow": 143
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2608613176,
+              "maxHeapUsed": 5786304544,
+              "gcMillisDuringWindow": 133
+            }
+          ],
+          "finalGcMillis": 651,
+          "finalHeapCommitted": 6442450944,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "prism-101-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2380724880,
+              "maxHeapUsed": 6244268688,
+              "gcMillisDuringWindow": 149
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2612396080,
+              "maxHeapUsed": 6032169296,
+              "gcMillisDuringWindow": 117
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2483564704,
+              "maxHeapUsed": 6350712992,
+              "gcMillisDuringWindow": 112
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2488408128,
+              "maxHeapUsed": 6355556416,
+              "gcMillisDuringWindow": 118
+            }
+          ],
+          "finalGcMillis": 547,
+          "finalHeapCommitted": 6442450944,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "prism",
+      "seed": 102,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 6.17999999619201e-8,
+          "maxAbsoluteLossDelta": 0.00000190999999993835
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": 2.523999999937132e-7,
+          "maxAbsoluteLossDelta": 0.0000014300000001910007
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": 7.200000005092022e-8,
+          "maxAbsoluteLossDelta": 9.499999999995623e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": -1.0540000004333195e-7,
+          "maxAbsoluteLossDelta": 0.0000033400000001293506
+        }
+      ],
+      "runs": [
+        {
+          "stem": "prism-102-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2636932240,
+              "maxHeapUsed": 6111848720,
+              "gcMillisDuringWindow": 173
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2749829216,
+              "maxHeapUsed": 5961457104,
+              "gcMillisDuringWindow": 143
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2427089584,
+              "maxHeapUsed": 6073441296,
+              "gcMillisDuringWindow": 140
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2531727472,
+              "maxHeapUsed": 6267344992,
+              "gcMillisDuringWindow": 137
+            }
+          ],
+          "finalGcMillis": 652,
+          "finalHeapCommitted": 6442450944,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "prism-102-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2389477216,
+              "maxHeapUsed": 6079087952,
+              "gcMillisDuringWindow": 187
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2713435648,
+              "maxHeapUsed": 5771326752,
+              "gcMillisDuringWindow": 113
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2450222944,
+              "maxHeapUsed": 5976090192,
+              "gcMillisDuringWindow": 124
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2713615504,
+              "maxHeapUsed": 5942353616,
+              "gcMillisDuringWindow": 118
+            }
+          ],
+          "finalGcMillis": 592,
+          "finalHeapCommitted": 6442450944,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "nova",
+      "seed": 100,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": -1.3799999987185174e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -3.7800000036725126e-8,
+          "maxAbsoluteLossDelta": 4.800000006355276e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -1.5720000000385427e-7,
+          "maxAbsoluteLossDelta": 9.499999999995623e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": -1.4680000000488748e-7,
+          "maxAbsoluteLossDelta": 9.499999999995623e-7
+        }
+      ],
+      "runs": [
+        {
+          "stem": "nova-100-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 1750730048,
+              "maxHeapUsed": 8261664432,
+              "gcMillisDuringWindow": 648
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2366664240,
+              "maxHeapUsed": 8253078208,
+              "gcMillisDuringWindow": 1029
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2354966336,
+              "maxHeapUsed": 7741982320,
+              "gcMillisDuringWindow": 638
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2407005808,
+              "maxHeapUsed": 8187126224,
+              "gcMillisDuringWindow": 1193
+            }
+          ],
+          "finalGcMillis": 3680,
+          "finalHeapCommitted": 7021264896,
+          "systemSwapoutPages": 47396
+        },
+        {
+          "stem": "nova-100-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2327750720,
+              "maxHeapUsed": 8157020832,
+              "gcMillisDuringWindow": 591
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2382964288,
+              "maxHeapUsed": 7706154928,
+              "gcMillisDuringWindow": 1054
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2354373136,
+              "maxHeapUsed": 7278850704,
+              "gcMillisDuringWindow": 1024
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2439190080,
+              "maxHeapUsed": 7279326416,
+              "gcMillisDuringWindow": 1263
+            }
+          ],
+          "finalGcMillis": 4139,
+          "finalHeapCommitted": 7025459200,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "nova",
+      "seed": 101,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": -1.4200000046926676e-8,
+          "maxAbsoluteLossDelta": 9.599999994946984e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -9.400000040571399e-9,
+          "maxAbsoluteLossDelta": 4.800000001914384e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": 3.8199999998766996e-8,
+          "maxAbsoluteLossDelta": 7.100000001258877e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 2.3599999998680233e-8,
+          "maxAbsoluteLossDelta": 0.0000023900000001297883
+        }
+      ],
+      "runs": [
+        {
+          "stem": "nova-101-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2435294256,
+              "maxHeapUsed": 8187287600,
+              "gcMillisDuringWindow": 411
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 3074118240,
+              "maxHeapUsed": 8283750400,
+              "gcMillisDuringWindow": 354
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2357229344,
+              "maxHeapUsed": 8192575664,
+              "gcMillisDuringWindow": 502
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2567629856,
+              "maxHeapUsed": 8112799248,
+              "gcMillisDuringWindow": 525
+            }
+          ],
+          "finalGcMillis": 1931,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "nova-101-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2423409760,
+              "maxHeapUsed": 8475798336,
+              "gcMillisDuringWindow": 406
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2407963232,
+              "maxHeapUsed": 8369968192,
+              "gcMillisDuringWindow": 362
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2832025232,
+              "maxHeapUsed": 8406695568,
+              "gcMillisDuringWindow": 422
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2405300272,
+              "maxHeapUsed": 8202747920,
+              "gcMillisDuringWindow": 502
+            }
+          ],
+          "finalGcMillis": 1809,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "nova",
+      "seed": 102,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": -1.0100000000790032e-7,
+          "maxAbsoluteLossDelta": 9.599999994946984e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -1.4300000001910006e-7,
+          "maxAbsoluteLossDelta": 9.500000004436515e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -1.6579999998711514e-7,
+          "maxAbsoluteLossDelta": 0.000004290000000128913
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": -5.056000000269733e-7,
+          "maxAbsoluteLossDelta": 0.000007859999999748624
+        }
+      ],
+      "runs": [
+        {
+          "stem": "nova-102-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2625920528,
+              "maxHeapUsed": 8438625552,
+              "gcMillisDuringWindow": 434
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2624650896,
+              "maxHeapUsed": 8420331280,
+              "gcMillisDuringWindow": 377
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2360317216,
+              "maxHeapUsed": 8168771808,
+              "gcMillisDuringWindow": 457
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2352796224,
+              "maxHeapUsed": 8149932752,
+              "gcMillisDuringWindow": 485
+            }
+          ],
+          "finalGcMillis": 1880,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 0
+        },
+        {
+          "stem": "nova-102-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2380958592,
+              "maxHeapUsed": 8205104992,
+              "gcMillisDuringWindow": 375
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2896860672,
+              "maxHeapUsed": 8370169968,
+              "gcMillisDuringWindow": 291
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2361018464,
+              "maxHeapUsed": 8380015616,
+              "gcMillisDuringWindow": 418
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2403174192,
+              "maxHeapUsed": 8226784672,
+              "gcMillisDuringWindow": 781
+            }
+          ],
+          "finalGcMillis": 1998,
+          "finalHeapCommitted": 6773800960,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "loop",
+      "seed": 100,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 3.999999798054432e-10,
+          "maxAbsoluteLossDelta": 9.500000004436515e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -9.560000001407332e-8,
+          "maxAbsoluteLossDelta": 9.600000003828768e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -8.60000000368899e-8,
+          "maxAbsoluteLossDelta": 0.0000033400000001293506
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": 8.776000000132456e-7,
+          "maxAbsoluteLossDelta": 0.000006200000000067263
+        }
+      ],
+      "runs": [
+        {
+          "stem": "loop-100-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2999993944,
+              "maxHeapUsed": 8455176512,
+              "gcMillisDuringWindow": 721
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2929138208,
+              "maxHeapUsed": 6835671648,
+              "gcMillisDuringWindow": 621
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 3170612480,
+              "maxHeapUsed": 8208037144,
+              "gcMillisDuringWindow": 665
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 3111989768,
+              "maxHeapUsed": 8398530416,
+              "gcMillisDuringWindow": 580
+            }
+          ],
+          "finalGcMillis": 2793,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 115340
+        },
+        {
+          "stem": "loop-100-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2760862768,
+              "maxHeapUsed": 8571601712,
+              "gcMillisDuringWindow": 556
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2960242560,
+              "maxHeapUsed": 8099971680,
+              "gcMillisDuringWindow": 598
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 3397673456,
+              "maxHeapUsed": 8503052216,
+              "gcMillisDuringWindow": 567
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 3185219040,
+              "maxHeapUsed": 8362278240,
+              "gcMillisDuringWindow": 584
+            }
+          ],
+          "finalGcMillis": 2496,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 0
+        }
+      ]
+    },
+    {
+      "model": "loop",
+      "seed": 101,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": 1.419999999363597e-8,
+          "maxAbsoluteLossDelta": 9.500000004436515e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -3.77999999923162e-8,
+          "maxAbsoluteLossDelta": 0.0000014300000001910007
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": -6.387999999724059e-7,
+          "maxAbsoluteLossDelta": 0.000005719999999875824
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": -0.0000020078000000367524,
+          "maxAbsoluteLossDelta": 0.000012159999999816762
+        }
+      ],
+      "runs": [
+        {
+          "stem": "loop-101-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2848856896,
+              "maxHeapUsed": 7898747360,
+              "gcMillisDuringWindow": 600
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 2902339368,
+              "maxHeapUsed": 7123120624,
+              "gcMillisDuringWindow": 559
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 3250500248,
+              "maxHeapUsed": 8191203656,
+              "gcMillisDuringWindow": 641
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2869378224,
+              "maxHeapUsed": 8398281080,
+              "gcMillisDuringWindow": 738
+            }
+          ],
+          "finalGcMillis": 2734,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 19760
+        },
+        {
+          "stem": "loop-101-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2840475048,
+              "maxHeapUsed": 8448384808,
+              "gcMillisDuringWindow": 784
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 3025241384,
+              "maxHeapUsed": 8479244032,
+              "gcMillisDuringWindow": 535
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2696229256,
+              "maxHeapUsed": 8298403568,
+              "gcMillisDuringWindow": 623
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 3073751080,
+              "maxHeapUsed": 8408409392,
+              "gcMillisDuringWindow": 546
+            }
+          ],
+          "finalGcMillis": 2670,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 7176
+        }
+      ]
+    },
+    {
+      "model": "loop",
+      "seed": 102,
+      "windows": [
+        {
+          "firstStep": 1,
+          "meanLossDelta": -2.839999998727194e-8,
+          "maxAbsoluteLossDelta": 9.499999995554731e-7
+        },
+        {
+          "firstStep": 51,
+          "meanLossDelta": -9.560000001407332e-8,
+          "maxAbsoluteLossDelta": 9.499999999995623e-7
+        },
+        {
+          "firstStep": 101,
+          "meanLossDelta": 2.37999999619376e-8,
+          "maxAbsoluteLossDelta": 9.499999999995623e-7
+        },
+        {
+          "firstStep": 151,
+          "meanLossDelta": -5.600000010375084e-9,
+          "maxAbsoluteLossDelta": 0.000002380000000190563
+        }
+      ],
+      "runs": [
+        {
+          "stem": "loop-102-baseline",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 3401371968,
+              "maxHeapUsed": 8007721792,
+              "gcMillisDuringWindow": 747
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 3307948240,
+              "maxHeapUsed": 7888225840,
+              "gcMillisDuringWindow": 608
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2450889976,
+              "maxHeapUsed": 8519420064,
+              "gcMillisDuringWindow": 625
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 2781045208,
+              "maxHeapUsed": 7965586848,
+              "gcMillisDuringWindow": 592
+            }
+          ],
+          "finalGcMillis": 2780,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 4260
+        },
+        {
+          "stem": "loop-102-candidate",
+          "heapWindows": [
+            {
+              "firstStep": 1,
+              "lastStep": 50,
+              "minHeapUsed": 2473845792,
+              "maxHeapUsed": 8495490832,
+              "gcMillisDuringWindow": 656
+            },
+            {
+              "firstStep": 51,
+              "lastStep": 100,
+              "minHeapUsed": 3042483992,
+              "maxHeapUsed": 8239062616,
+              "gcMillisDuringWindow": 590
+            },
+            {
+              "firstStep": 101,
+              "lastStep": 150,
+              "minHeapUsed": 2871533720,
+              "maxHeapUsed": 8341424472,
+              "gcMillisDuringWindow": 560
+            },
+            {
+              "firstStep": 151,
+              "lastStep": 200,
+              "minHeapUsed": 3074701632,
+              "maxHeapUsed": 8380771256,
+              "gcMillisDuringWindow": 542
+            }
+          ],
+          "finalGcMillis": 2537,
+          "finalHeapCommitted": 8589934592,
+          "systemSwapoutPages": 0
+        }
+      ]
+    }
+  ]
+}

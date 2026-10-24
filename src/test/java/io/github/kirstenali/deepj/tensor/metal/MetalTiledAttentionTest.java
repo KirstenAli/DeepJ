@@ -62,22 +62,17 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
     }
 
     @Test
-    void fullSizeBlocksPreserveReferenceArithmeticBeforeOptimizerAmplification() {
+    void cancellationSensitiveFixtureAgreesWithIndependentDoubleArithmetic() {
         Tensor q = random(12 * 1024, 64, 229), k = random(q.rows, 64, 233);
         Tensor v = random(q.rows, 64, 239), gradient = random(q.rows, 64, 241);
-        var expected = reference(metal, q, k, v, gradient, 12, 0.125f);
+        var expected = AttentionDoubleReference.calculate(
+                new AttentionDoubleReference.Inputs(q, k, v, gradient, 12, 0.125f));
         var saved = metal.causalAttention(q, k, v, 12, 0.125f);
         var actual = metal.causalAttentionBackward(q, k, v, saved, gradient, 12, 0.125f);
-        assertExact(expected.output(), saved.output());
-        assertExact(expected.gradients().query(), actual.query());
-        assertExact(expected.gradients().key(), actual.key());
-        assertExact(expected.gradients().value(), actual.value());
-    }
-
-    private static void assertExact(Tensor expected, Tensor actual) {
-        expected.materialize();
-        actual.materialize();
-        assertArrayEquals(expected.data, actual.data);
+        MetalAttentionOracleTest.compare("output", expected.output(), saved.output(), 2e-5, 2e-4);
+        MetalAttentionOracleTest.compare("query", expected.query(), actual.query(), 3e-5, 5e-4);
+        MetalAttentionOracleTest.compare("key", expected.key(), actual.key(), 3e-5, 5e-4);
+        MetalAttentionOracleTest.compare("value", expected.value(), actual.value(), 3e-5, 5e-4);
     }
 
     @Test
@@ -113,22 +108,23 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
         assertThrows(IllegalStateException.class, () -> output.backward(Tensor.ones(256, 64)));
     }
 
-    @Test
-    void repeatedRunsHaveIdenticalOutputsAndGradients() {
-        Tensor q = random(512, 64, 97), k = random(512, 64, 101), v = random(512, 64, 103);
-        Tensor gradient = random(512, 64, 107);
-        List<Tensor> expected = snapshot(q, k, v, gradient);
+    @ParameterizedTest
+    @CsvSource({"256,2", "1024,9", "1024,12"})
+    void repeatedRunsHaveIdenticalOutputsAndGradients(int length, int heads) {
+        Tensor q = random(length * heads, 64, 97), k = random(q.rows, 64, 101), v = random(q.rows, 64, 103);
+        Tensor gradient = random(q.rows, 64, 107);
+        List<Tensor> expected = snapshot(q, k, v, gradient, heads);
         for (int repeat = 0; repeat < 3; repeat++) {
-            List<Tensor> actual = snapshot(q, k, v, gradient);
+            List<Tensor> actual = snapshot(q, k, v, gradient, heads);
             for (int index = 0; index < expected.size(); index++) {
                 assertArrayEquals(expected.get(index).data, actual.get(index).data);
             }
         }
     }
 
-    private List<Tensor> snapshot(Tensor q, Tensor k, Tensor v, Tensor gradient) {
-        var saved = metal.causalAttention(q, k, v, 2, 0.125f);
-        var result = metal.causalAttentionBackward(q, k, v, saved, gradient, 2, 0.125f);
+    private List<Tensor> snapshot(Tensor q, Tensor k, Tensor v, Tensor gradient, int heads) {
+        var saved = metal.causalAttention(q, k, v, heads, 0.125f);
+        var result = metal.causalAttentionBackward(q, k, v, saved, gradient, heads, 0.125f);
         return List.of(new Tensor(saved.output()), new Tensor(result.query()),
                 new Tensor(result.key()), new Tensor(result.value()));
     }

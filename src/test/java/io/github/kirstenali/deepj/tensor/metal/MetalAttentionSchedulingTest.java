@@ -26,7 +26,7 @@ class MetalAttentionSchedulingTest extends MetalDifferentialTestSupport {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 97, 193})
-    void longGraphsDrainTheirBoundedQueuesAndPreserveResults(int stages) {
+    void longGraphsPreserveResultsWithoutDeadlocks(int stages) {
         int[] command = command();
         float[] expected = execute(command);
         float[] actual = execute(repeat(command, stages));
@@ -34,7 +34,7 @@ class MetalAttentionSchedulingTest extends MetalDifferentialTestSupport {
     }
 
     @Test
-    void batchDrainingBetweenBackwardPhasesPreservesAllThreeGradients() {
+    void repeatedBackwardDispatchesPreserveAllThreeGradients() {
         Tensor q = random(1024, 64, 277), k = random(1024, 64, 281);
         Tensor v = random(1024, 64, 283), gradient = random(1024, 64, 293);
         var first = metal.causalAttention(q, k, v, 1, 0.125f);
@@ -56,7 +56,7 @@ class MetalAttentionSchedulingTest extends MetalDifferentialTestSupport {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 97})
-    void failedEncodingDoesNotLeaveGpuJobsWaitingForAnUnsubmittedGraph(int stages) {
+    void failedEncodingDoesNotBlockSubsequentGraphs(int stages) {
         int[] command = command();
         float[] expected = execute(command);
         int[] valid = repeat(command, stages);

@@ -10,12 +10,10 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-#include <vector>
 
 struct MetalContext {
     id<MTLDevice>       device;
     id<MTLCommandQueue> queue;
-    std::array<id<MTLCommandQueue>, 4> attentionQueues;
     id<MTLLibrary>      library;
 
     id<MTLComputePipelineState> addPSO;
@@ -77,9 +75,305 @@ struct MetalContext {
     id<MTLComputePipelineState> adamWUpdatePSO;
     id<MTLComputePipelineState> attentionPSO;
     id<MTLComputePipelineState> attentionDeltaPSO;
+    id<MTLComputePipelineState> attentionQueryBackwardPSO;
     id<MTLComputePipelineState> attentionKeyValueBackwardPSO;
 };
+static NSString* tiledAttentionShaderSource = @R"(
+#include <metal_stdlib>
+#include <metal_simdgroup_matrix>
+using namespace metal;
 
+struct AttentionParams {
+    uint length;
+    float scale;
+};
+
+struct AttentionInputs {
+    device const float* query;
+    device const float* key;
+    device const float* value;
+};
+
+struct AttentionBackwardInputs {
+    AttentionInputs values;
+    device const float* gradient;
+    device const float* normalization;
+    device const float* delta;
+};
+
+struct AttentionTile {
+    uint head;
+    uint query;
+    uint key;
+};
+
+// All matrix operands, accumulators and normalization statistics remain FP32.
+template<uint Keys>
+inline void attention_scores(device const float* query, device const float* key,
+                              threadgroup float* scores, uint group) {
+    for (uint column = 0; column < Keys; column += 8) {
+        simdgroup_float8x8 result(0.0f);
+        for (uint inner = 0; inner < 64; inner += 8) {
+            simdgroup_float8x8 left, right;
+            simdgroup_load(left, query + group * 8 * 64 + inner, 64);
+            simdgroup_load(right, key + column * 64 + inner, 64, ulong2(0), true);
+            simdgroup_multiply_accumulate(result, left, right, result);
+        }
+        simdgroup_store(result, scores + group * 8 * Keys + column, Keys);
+    }
+}
+
+template<uint Keys>
+inline void attention_values(threadgroup float* probabilities, device const float* values,
+                              threadgroup float* output, uint group) {
+    for (uint column = 0; column < 64; column += 8) {
+        simdgroup_float8x8 result;
+        simdgroup_load(result, output + group * 8 * 64 + column, 64);
+        for (uint inner = 0; inner < Keys; inner += 8) {
+            simdgroup_float8x8 left, right;
+            simdgroup_load(left, probabilities + group * 8 * Keys + inner, Keys);
+            simdgroup_load(right, values + inner * 64 + column, 64);
+            simdgroup_multiply_accumulate(result, left, right, result);
+        }
+        simdgroup_store(result, output + group * 8 * 64 + column, 64);
+    }
+}
+
+inline float attention_maximum(threadgroup float* scores, uint row, AttentionTile tile,
+                                float scale, float maximum) {
+    for (uint column = 0; column < 32; column++) {
+        uint index = row * 32 + column;
+        float value = tile.key + column <= tile.query + row ? scores[index] * scale : -INFINITY;
+        scores[index] = value;
+        maximum = max(maximum, value);
+    }
+    return maximum;
+}
+
+inline float attention_exponents(threadgroup float* scores, uint row, float maximum) {
+    float sum = 0.0f;
+    for (uint column = 0; column < 32; column++) {
+        uint index = row * 32 + column;
+        float value = exp(scores[index] - maximum);
+        scores[index] = value;
+        sum += value;
+    }
+    return sum;
+}
+
+inline void attention_statistics(threadgroup float* scores,
+                                 threadgroup float* maxima, threadgroup float* sums,
+                                 uint row, AttentionTile tile, float scale) {
+    float maximum = attention_maximum(scores, row, tile, scale, maxima[row]);
+    float correction = exp(maxima[row] - maximum);
+    sums[row] = sums[row] * correction + attention_exponents(scores, row, maximum);
+    maxima[row] = maximum;
+}
+
+
+inline void attention_online_statistics(threadgroup float* scores, threadgroup float* output,
+                                         threadgroup float* maxima, threadgroup float* sums,
+                                         uint row, AttentionTile tile, float scale) {
+    float previous = maxima[row];
+    attention_statistics(scores, maxima, sums, row, tile, scale);
+    float correction = exp(previous - maxima[row]);
+    for (uint column = 0; column < 64; column++) {
+        output[row * 64 + column] *= correction;
+    }
+}
+
+inline void attention_zero(threadgroup float* values, uint count, uint tid, uint threads) {
+    for (uint index = tid; index < count; index += threads) {
+        values[index] = 0.0f;
+    }
+}
+
+inline void attention_initialize(threadgroup float* output, threadgroup float* maxima,
+                                  threadgroup float* sums, uint tid) {
+    attention_zero(output, 32 * 64, tid, 128);
+    if (tid < 32) {
+        maxima[tid] = -INFINITY;
+        sums[tid] = 0.0f;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+}
+
+inline void attention_write(device float* output, device float* normalization,
+                             threadgroup float* accumulated, threadgroup float* maxima,
+                             threadgroup float* sums, AttentionTile tile, uint length, uint tid) {
+    uint row = tile.head * length + tile.query;
+    for (uint index = tid; index < 32 * 64; index += 128) {
+        output[row * 64 + index] = accumulated[index] / sums[index / 64];
+    }
+    if (tid < 32) {
+        normalization[(row + tid) * 2] = maxima[tid];
+        normalization[(row + tid) * 2 + 1] = sums[tid];
+    }
+}
+
+
+inline void attention_forward(AttentionInputs inputs, AttentionParams params, uint2 block,
+                               uint tid, uint group, threadgroup float* scores,
+                               threadgroup float* output, threadgroup float* maxima,
+                               threadgroup float* sums) {
+    uint start = block.x * 32, base = block.y * params.length * 64;
+    attention_initialize(output, maxima, sums, tid);
+    for (uint key = 0; key <= start; key += 32) {
+        attention_scores<32>(inputs.query + base + start * 64, inputs.key + base + key * 64, scores, group);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (tid < 32) attention_online_statistics(scores, output, maxima, sums, tid,
+                                                  AttentionTile{block.y, start, key}, params.scale);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        attention_values<32>(scores, inputs.value + base + key * 64, output, group);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+}
+
+kernel void kernel_tiled_attention(device const float* query [[buffer(0)]],
+                                   device const float* key [[buffer(1)]],
+                                   device const float* value [[buffer(2)]],
+                                   device float* output [[buffer(3)]],
+                                   constant AttentionParams& params [[buffer(4)]],
+                                   device float* normalization [[buffer(5)]],
+                                   uint2 block [[threadgroup_position_in_grid]],
+                                   uint tid [[thread_index_in_threadgroup]],
+                                   uint group [[simdgroup_index_in_threadgroup]]) {
+    threadgroup float scores[32 * 32], accumulated[32 * 64], maxima[32], sums[32];
+    attention_forward(AttentionInputs{query, key, value}, params, block, tid, group,
+                       scores, accumulated, maxima, sums);
+    attention_write(output, normalization, accumulated, maxima, sums,
+                     AttentionTile{block.y, block.x * 32, 0}, params.length, tid);
+}
+
+kernel void kernel_attention_delta(device const float* output [[buffer(0)]],
+                                   device const float* gradient [[buffer(1)]],
+                                   device float* delta [[buffer(2)]],
+                                   uint2 position [[thread_position_in_grid]]) {
+    uint base = position.y * 64 + position.x;
+    float value = output[base] * gradient[base] + output[base + 32] * gradient[base + 32];
+    float sum = simd_sum(value);
+    if (position.x == 0) delta[position.y] = sum;
+}
+
+inline void attention_derivatives(AttentionBackwardInputs inputs, AttentionParams params,
+                                   AttentionTile tile, uint tid, threadgroup float* scores,
+                                   threadgroup float* derivatives) {
+    for (uint flat = tid; flat < 16 * 16; flat += 64) {
+        uint row = flat / 16, column = flat % 16;
+        uint index = tile.head * params.length + tile.query + row;
+        float maximum = inputs.normalization[index * 2];
+        float denominator = inputs.normalization[index * 2 + 1];
+        float probability = tile.key + column <= tile.query + row
+                ? exp(scores[flat] * params.scale - maximum) / denominator : 0.0f;
+        scores[flat] = probability;
+        // The first causal row has one choice, so its query/key derivative is exactly zero.
+        derivatives[flat] = tile.query + row == 0 ? 0.0f
+                : probability * (derivatives[flat] - inputs.delta[index]) * params.scale;
+    }
+}
+
+inline void attention_backward_tile(AttentionBackwardInputs inputs, AttentionParams params,
+                                     AttentionTile tile, uint tid, uint group,
+                                     threadgroup float* scores, threadgroup float* derivatives) {
+    uint query = (tile.head * params.length + tile.query) * 64;
+    uint key = (tile.head * params.length + tile.key) * 64;
+    attention_scores<16>(inputs.values.query + query, inputs.values.key + key, scores, group);
+    attention_scores<16>(inputs.gradient + query, inputs.values.value + key, derivatives, group);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    attention_derivatives(inputs, params, tile, tid, scores, derivatives);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+}
+
+inline void attention_transposed_values(threadgroup float* left, device const float* right,
+                                         threadgroup float* output, uint group) {
+    for (uint column = 0; column < 64; column += 8) {
+        simdgroup_float8x8 result;
+        simdgroup_load(result, output + group * 8 * 64 + column, 64);
+        for (uint inner = 0; inner < 16; inner += 8) {
+            simdgroup_float8x8 a, b;
+            simdgroup_load(a, left + inner * 16 + group * 8, 16, ulong2(0), true);
+            simdgroup_load(b, right + inner * 64 + column, 64);
+            simdgroup_multiply_accumulate(result, a, b, result);
+        }
+        simdgroup_store(result, output + group * 8 * 64 + column, 64);
+    }
+}
+
+inline void attention_query_gradient(AttentionBackwardInputs inputs, AttentionParams params,
+                                      uint2 block, uint tid, uint group, threadgroup float* scores,
+                                      threadgroup float* derivatives, threadgroup float* accumulated) {
+    uint start = block.x * 16, base = block.y * params.length * 64;
+    attention_zero(accumulated, 16 * 64, tid, 64);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint key = 0; key <= start; key += 16) {
+        attention_backward_tile(inputs, params, AttentionTile{block.y, start, key}, tid, group,
+                                 scores, derivatives);
+        attention_values<16>(derivatives, inputs.values.key + base + key * 64, accumulated, group);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+}
+
+inline void attention_write_gradient(device float* output, threadgroup float* values,
+                                      uint2 block, uint length, uint tid) {
+    uint base = (block.y * length + block.x * 16) * 64;
+    for (uint index = tid; index < 16 * 64; index += 64) {
+        output[base + index] = values[index];
+    }
+}
+
+kernel void kernel_attention_query_backward(device const float* query [[buffer(0)]],
+                                            device const float* key [[buffer(1)]],
+                                            device const float* value [[buffer(2)]],
+                                            device const float* gradient [[buffer(3)]],
+                                            device const float* normalization [[buffer(4)]],
+                                            device const float* delta [[buffer(5)]],
+                                            device float* result [[buffer(6)]],
+                                            constant AttentionParams& params [[buffer(7)]],
+                                            uint2 block [[threadgroup_position_in_grid]],
+                                            uint tid [[thread_index_in_threadgroup]],
+                                            uint group [[simdgroup_index_in_threadgroup]]) {
+    threadgroup float scores[16 * 16], derivatives[16 * 16], accumulated[16 * 64];
+    AttentionBackwardInputs inputs = {{query, key, value}, gradient, normalization, delta};
+    attention_query_gradient(inputs, params, block, tid, group, scores, derivatives, accumulated);
+    attention_write_gradient(result, accumulated, block, params.length, tid);
+}
+
+inline void attention_key_value_gradients(AttentionBackwardInputs inputs, AttentionParams params,
+                                          uint2 block, uint tid, uint group,
+                                          threadgroup float* scores, threadgroup float* derivatives,
+                                          threadgroup float* dk, threadgroup float* dv) {
+    uint start = block.x * 16, base = block.y * params.length * 64;
+    attention_zero(dk, 16 * 64, tid, 64);
+    attention_zero(dv, 16 * 64, tid, 64);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint query = start; query < params.length; query += 16) {
+        attention_backward_tile(inputs, params, AttentionTile{block.y, query, start}, tid, group,
+                                 scores, derivatives);
+        attention_transposed_values(derivatives, inputs.values.query + base + query * 64, dk, group);
+        attention_transposed_values(scores, inputs.gradient + base + query * 64, dv, group);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+}
+
+kernel void kernel_attention_key_value_backward(device const float* query [[buffer(0)]],
+                                                device const float* key [[buffer(1)]],
+                                                device const float* value [[buffer(2)]],
+                                                device const float* gradient [[buffer(3)]],
+                                                device const float* normalization [[buffer(4)]],
+                                                device const float* delta [[buffer(5)]],
+                                                device float* dk [[buffer(6)]],
+                                                device float* dv [[buffer(7)]],
+                                                constant AttentionParams& params [[buffer(8)]],
+                                                uint2 block [[threadgroup_position_in_grid]],
+                                                uint tid [[thread_index_in_threadgroup]],
+                                                uint group [[simdgroup_index_in_threadgroup]]) {
+    threadgroup float scores[16 * 16], derivatives[16 * 16], keys[16 * 64], values[16 * 64];
+    AttentionBackwardInputs inputs = {{query, key, value}, gradient, normalization, delta};
+    attention_key_value_gradients(inputs, params, block, tid, group, scores, derivatives, keys, values);
+    attention_write_gradient(dk, keys, block, params.length, tid);
+    attention_write_gradient(dv, values, block, params.length, tid);
+}
+)";
 static MetalContext* gCtx = nullptr;
 static std::mutex gContextMutex;
 
@@ -1100,80 +1394,6 @@ kernel void kernel_adamw_update(device float* w            [[buffer(0)]],
     w[id] -= update;
 }
 
-struct AttentionBlockParams {
-    uint length;
-    uint count;
-    uint start;
-    float scale;
-    uint cached;
-};
-
-inline void collect_attention_row(device const float* scores, device float* probabilities,
-        device float* normalization, constant AttentionBlockParams& p, uint row, uint tid, uint width,
-        threadgroup float* scratch) {
-    uint position = p.start + row % p.count;
-    uint global = row / p.count * p.length + position, base = row * p.length;
-    float localMax = causal_max(scores, base, position, p.scale, tid, width);
-    float maximum = reduce_max(scratch, localMax, tid, width);
-    float localSum = causal_exp(scores, probabilities, base, p.length, position,
-                                p.scale, maximum, tid, width);
-    float sum = reduce_sum(scratch, localSum, tid, width);
-    normalize_causal_row(probabilities, base, p.length, sum, tid, width);
-    if (tid == 0) {
-        normalization[global * 2] = maximum;
-        normalization[global * 2 + 1] = sum;
-    }
-}
-
-inline void restore_attention_row(device const float* scores, device float* probabilities,
-        device const float* normalization, constant AttentionBlockParams& p, uint row, uint tid, uint width) {
-    uint position = p.start + row % p.count, base = row * p.length;
-    uint global = row / p.count * p.length + position;
-    for (uint col = tid; col < p.length; col += width) {
-        float value = col <= position ? exp(scores[base + col] * p.scale - normalization[global * 2]) : 0.0f;
-        probabilities[base + col] = value / normalization[global * 2 + 1];
-    }
-}
-
-kernel void kernel_attention_block_probabilities(
-        device const float* scores [[buffer(0)]], device float* probabilities [[buffer(1)]],
-        device float* normalization [[buffer(2)]], constant AttentionBlockParams& p [[buffer(3)]],
-        uint3 gid [[thread_position_in_grid]], uint3 tid3 [[thread_position_in_threadgroup]],
-        uint3 tptg [[threads_per_threadgroup]]) {
-    threadgroup float scratch[1024];
-    if (p.cached != 0) restore_attention_row(scores, probabilities, normalization, p, gid.y, tid3.x, tptg.x);
-    else collect_attention_row(scores, probabilities, normalization, p, gid.y, tid3.x, tptg.x, scratch);
-}
-
-kernel void kernel_attention_block_derivatives(
-        device const float* gradient [[buffer(0)]], device const float* probabilities [[buffer(1)]],
-        device float* derivatives [[buffer(2)]], device float* delta [[buffer(3)]],
-        constant AttentionBlockParams& p [[buffer(4)]],
-        uint3 gid [[thread_position_in_grid]], uint3 tid3 [[thread_position_in_threadgroup]],
-        uint3 tptg [[threads_per_threadgroup]]) {
-    uint row = gid.y, tid = tid3.x, base = row * p.length;
-    uint global = row / p.count * p.length + p.start + row % p.count;
-    threadgroup float scratch[1024];
-    float local = row_dot(gradient, probabilities, base, p.length, tid, tptg.x);
-    float dot = reduce_sum(scratch, local, tid, tptg.x);
-    write_softmax_backward(gradient, probabilities, derivatives, base, p.length,
-                            tid, tptg.x, dot, p.scale);
-    if (tid == 0) delta[global] = dot;
-}
-
-kernel void kernel_attention_block_columns(
-        device float* scores [[buffer(0)]], device float* derivatives [[buffer(1)]],
-        device const float* normalization [[buffer(2)]], device const float* delta [[buffer(3)]],
-        constant AttentionBlockParams& p [[buffer(4)]], uint id [[thread_position_in_grid]]) {
-#pragma clang fp reassociate(off)
-    uint row = id / p.count, column = p.start + id % p.count;
-    uint position = row % p.length;
-    float probability = column <= position
-            ? exp(scores[id] * p.scale - normalization[row * 2]) / normalization[row * 2 + 1] : 0.0f;
-    float derivative = probability * (derivatives[id] - delta[row]);
-    scores[id] = probability;
-    derivatives[id] = derivative * p.scale;
-}
 )";
 
 
@@ -1189,15 +1409,6 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeIsAvailable(
         JNIEnv*, jclass) {
     @autoreleasepool {
         return MTLCreateSystemDefaultDevice() == nil ? JNI_FALSE : JNI_TRUE;
-    }
-}
-
-extern "C" JNIEXPORT jboolean JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAttention(
-        JNIEnv*, jclass) {
-    @autoreleasepool {
-        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-        return device != nil ? JNI_TRUE : JNI_FALSE;
     }
 }
 
@@ -1239,6 +1450,12 @@ static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = me
     throw std::runtime_error(std::string("Failed to compile Metal shaders: ") + [desc UTF8String]);
 }
 
+static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
+    if ([device supportsFamily:MTLGPUFamilyApple7]) return compileLibrary(device, tiledAttentionShaderSource);
+    // Virtual devices may expose the instructions without advertising an Apple GPU family.
+    return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions() error:nil];
+}
+
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
@@ -1260,9 +1477,12 @@ static void initAttentionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
 }
 
 static void initTiledAttentionPipelines(MetalContext* ctx) {
-    ctx->attentionPSO = makePSO(ctx->library, @"kernel_attention_block_probabilities");
-    ctx->attentionDeltaPSO = makePSO(ctx->library, @"kernel_attention_block_derivatives");
-    ctx->attentionKeyValueBackwardPSO = makePSO(ctx->library, @"kernel_attention_block_columns");
+    id<MTLLibrary> library = compileAttentionLibrary(ctx->device);
+    if (library == nil) return;
+    ctx->attentionPSO = makePSO(library, @"kernel_tiled_attention");
+    ctx->attentionDeltaPSO = makePSO(library, @"kernel_attention_delta");
+    ctx->attentionQueryBackwardPSO = makePSO(library, @"kernel_attention_query_backward");
+    ctx->attentionKeyValueBackwardPSO = makePSO(library, @"kernel_attention_key_value_backward");
 }
 
 static void initBroadcastPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -1351,6 +1571,17 @@ static MetalContext* getContext() {
         gCtx = createContext();
     }
     return gCtx;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAttention(
+        JNIEnv* env, jclass) {
+    try {
+        return getContext()->attentionPSO != nil ? JNI_TRUE : JNI_FALSE;
+    } catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
 }
 
 #include <unordered_map>
@@ -1693,21 +1924,11 @@ struct GraphState {
     MetalContext* ctx;
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
-    std::array<id<MTLBuffer>, 3> attentionScratch;
-    std::array<std::array<id<MTLBuffer>, 3>, 4> laneScratch{};
-    std::array<id<MTLEvent>, 4> laneDone{};
-    id<MTLEvent> attentionReady = nil;
-    uint64_t attentionStage = 0;
-    uint32_t pendingAttentionStages = 0;
-    bool serialAttentionOnly = false;
-    std::vector<id<MTLCommandBuffer>> attentionChildren{};
 
     ~GraphState() {
         if (encoder != nil) [encoder endEncoding];
     }
 };
-
-static void finishCommandBuffer(GraphState& state);
 
 static id<MTLCommandBuffer> graphCommands(id<MTLCommandQueue> queue) {
     id<MTLCommandBuffer> commands = [queue commandBuffer];
@@ -2300,262 +2521,61 @@ static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count) {
     return buffer;
 }
 
-struct AttentionBlock {
-    TiledAttentionShape shape;
-    uint32_t start, count;
-};
-
-struct AttentionBlockParamsHost {
-    uint32_t length, count, start;
-    float scale;
-    uint32_t cached;
-};
-
-
-static MPSMatrix* attentionFull(id<MTLBuffer> buffer, TiledAttentionShape shape) {
-    return matrixBatch(buffer, shape.params.length, 64, shape.heads);
-}
-
-static id<MTLBuffer> attentionScratch(GraphState& state, int index, TiledAttentionShape shape) {
-    NSUInteger count = std::min(shape.params.length, 256u);
-    NSUInteger columns = index == 2 ? 64 : shape.params.length;
-    NSUInteger bytes = (NSUInteger)shape.heads * count * columns * sizeof(float);
-    id<MTLBuffer> buffer = state.attentionScratch[index];
-    if (buffer == nil || buffer.length < bytes) {
-        buffer = [state.ctx->device newBufferWithLength:bytes options:MTLResourceStorageModePrivate];
-        if (buffer == nil) throw std::runtime_error("Failed to allocate attention scratch buffer");
-        state.attentionScratch[index] = buffer;
-    }
-    return buffer;
-}
-
-static MPSMatrix* attentionPackedResult(GraphState& state, AttentionBlock block) {
-    return matrixBatch(attentionScratch(state, 2, block.shape), block.count, 64, block.shape.heads);
-}
-
-static void copyAttentionRows(GraphState& state, id<MTLBuffer> full, AttentionBlock block, bool pack) {
-    // Contiguous head blocks keep the same MPS layouts used by ordinary batched matmul.
-    endGraphEncoder(state);
-    id<MTLBlitCommandEncoder> encoder = [state.commandBuffer blitCommandEncoder];
-    id<MTLBuffer> packed = attentionScratch(state, 2, block.shape);
-    NSUInteger bytes = (NSUInteger)block.count * 64 * sizeof(float);
-    for (uint32_t head = 0; head < block.shape.heads; head++) {
-        NSUInteger offset = ((NSUInteger)head * block.shape.params.length + block.start) * 64 * sizeof(float);
-        if (pack) [encoder copyFromBuffer:full sourceOffset:offset toBuffer:packed
-                       destinationOffset:head * bytes size:bytes];
-        else [encoder copyFromBuffer:packed sourceOffset:head * bytes toBuffer:full
-                       destinationOffset:offset size:bytes];
-    }
-    [encoder endEncoding];
-}
-
-static MPSMatrix* attentionPackedRows(GraphState& state, id<MTLBuffer> full, AttentionBlock block) {
-    copyAttentionRows(state, full, block, true);
-    return attentionPackedResult(state, block);
-}
-
-static MPSMatrix* attentionTile(id<MTLBuffer> buffer, AttentionBlock block, bool columns) {
-    return columns ? matrixBatch(buffer, block.shape.params.length, block.count, block.shape.heads)
-                   : matrixBatch(buffer, block.count, block.shape.params.length, block.shape.heads);
-}
-
-static void attentionProduct(GraphState& state, MPSMatrix* left, MPSMatrix* right,
-                               MPSMatrix* output, bool transposeLeft, bool transposeRight) {
-    // Preserve the complete interior reduction instead of accumulating partial products.
-    endGraphEncoder(state);
-    int inner = transposeLeft ? left.rows : left.columns;
-    [configuredMatmulKernel(state.ctx, output.rows, output.columns, inner,
-                            transposeLeft, transposeRight, output.matrices)
-        encodeToCommandBuffer:state.commandBuffer leftMatrix:left rightMatrix:right resultMatrix:output];
-}
-
-static AttentionBlockParamsHost attentionBlockParams(AttentionBlock block, bool cached = false) {
-    return {block.shape.params.length, block.count, block.start, block.shape.params.scale, cached};
-}
-
-static void dispatchAttentionRows(id<MTLComputeCommandEncoder> encoder,
-                                   AttentionBlock block, id<MTLComputePipelineState> pipeline) {
-    NSUInteger threads = rowReductionWidth(pipeline);
-    [encoder dispatchThreads:MTLSizeMake(threads, block.shape.heads * block.count, 1)
-       threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
-}
-
-static void attentionProbabilities(GraphState& state, AttentionBlock block,
-                                    id<MTLBuffer> normalization, bool cached = false) {
-    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    [encoder setComputePipelineState:state.ctx->attentionPSO];
-    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
-    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
-    [encoder setBuffer:normalization offset:0 atIndex:2];
-    bindValue(encoder, attentionBlockParams(block, cached), 3);
-    dispatchAttentionRows(encoder, block, state.ctx->attentionPSO);
-}
-
-static void attentionScores(GraphState& state, AttentionBlock block,
-                              id<MTLBuffer> query, id<MTLBuffer> key) {
-    attentionProduct(state, attentionPackedRows(state, query, block), attentionFull(key, block.shape),
-        attentionTile(attentionScratch(state, 0, block.shape), block, false), false, true);
-}
-
-static void attentionForwardBlock(GraphState& state, AttentionBlock block, const jint* ids) {
-    attentionScores(state, block, attentionBuffer(ids[1], (NSUInteger)block.shape.rows * 64),
-                    attentionBuffer(ids[2], (NSUInteger)block.shape.rows * 64));
-    attentionProbabilities(state, block, attentionBuffer(ids[5], (NSUInteger)block.shape.rows * 2));
-    attentionProduct(state, attentionTile(attentionScratch(state, 1, block.shape), block, false),
-        attentionFull(attentionBuffer(ids[3], (NSUInteger)block.shape.rows * 64), block.shape),
-        attentionPackedResult(state, block), false, false);
-    copyAttentionRows(state, attentionBuffer(ids[4], (NSUInteger)block.shape.rows * 64), block, false);
-}
-
-static AttentionBlock attentionBlock(TiledAttentionShape shape, uint32_t start) {
-    return {shape, start, std::min(shape.params.length - start, 256u)};
-}
-
-using AttentionBlockEncoder = void (*)(GraphState&, AttentionBlock, const jint*);
-
-static bool prepareAttentionEvents(GraphState& state, uint32_t lanes) {
-    if (state.serialAttentionOnly) return false;
-    if (state.attentionReady == nil) state.attentionReady = [state.ctx->device newEvent];
-    if (state.attentionReady == nil) return false;
-    for (uint32_t lane = 0; lane < lanes; lane++) {
-        auto& queue = state.ctx->attentionQueues[lane];
-        if (queue == nil) queue = [state.ctx->device newCommandQueueWithMaxCommandBufferCount:128];
-        if (queue == nil) return false;
-        if (state.laneDone[lane] == nil) state.laneDone[lane] = [state.ctx->device newEvent];
-        if (state.laneDone[lane] == nil) return false;
-    }
-    return true;
-}
-
-static void limitAttentionBatch(GraphState& state) {
-    // Drain below each queue's capacity so even very long graphs cannot block encoding.
-    if (state.pendingAttentionStages < 96) return;
-    finishCommandBuffer(state);
-    state.commandBuffer = graphCommands(state.ctx->queue);
-    state.attentionChildren.clear();
-    state.pendingAttentionStages = 0;
-}
-
-static void encodeAttentionLane(GraphState& parent, TiledAttentionShape shape, uint32_t lane,
-                                uint32_t lanes, const jint* ids, AttentionBlockEncoder encode) {
-    id<MTLCommandBuffer> commands = graphCommands(parent.ctx->attentionQueues[lane]);
-    [commands encodeWaitForEvent:parent.attentionReady value:parent.attentionStage];
-    GraphState child{parent.ctx, commands, nil, parent.laneScratch[lane]};
-    for (uint32_t start = lane * 256; start < shape.params.length; start += lanes * 256) {
-        encode(child, attentionBlock(shape, start), ids);
-    }
-    endGraphEncoder(child);
-    parent.laneScratch[lane] = child.attentionScratch;
-    [commands encodeSignalEvent:parent.laneDone[lane] value:parent.attentionStage];
-    // Submit only after encoding succeeds: failed graphs must not leave waiting GPU jobs.
-    parent.attentionChildren.push_back(commands);
-}
-
-static void encodeSerialAttention(GraphState& state, TiledAttentionShape shape,
-                                  const jint* ids, AttentionBlockEncoder encode) {
-    for (uint32_t start = 0; start < shape.params.length; start += 256) {
-        encode(state, attentionBlock(shape, start), ids);
+static void bindAttentionValues(id<MTLComputeCommandEncoder> encoder, const jint* ids, uint32_t rows) {
+    for (NSUInteger index = 0; index < 3; index++) {
+        [encoder setBuffer:attentionBuffer(ids[index], (NSUInteger)rows * 64) offset:0 atIndex:index];
     }
 }
 
-static void encodeParallelAttention(GraphState& state, TiledAttentionShape shape,
-                                    uint32_t lanes, const jint* ids, AttentionBlockEncoder encode) {
-    limitAttentionBatch(state);
-    endGraphEncoder(state);
-    [state.commandBuffer encodeSignalEvent:state.attentionReady value:++state.attentionStage];
-    for (uint32_t lane = 0; lane < lanes; lane++) {
-        encodeAttentionLane(state, shape, lane, lanes, ids, encode);
-    }
-    for (uint32_t lane = 0; lane < lanes; lane++) {
-        [state.commandBuffer encodeWaitForEvent:state.laneDone[lane] value:state.attentionStage];
-    }
-    state.pendingAttentionStages++;
-}
-
-static void encodeAttentionBlocks(GraphState& state, TiledAttentionShape shape,
-                                  const jint* ids, AttentionBlockEncoder encode) {
-    // Keep short inference/training sequences on the lower-overhead serial path.
-    uint32_t lanes = shape.params.length < 1024 ? 1u : 4u;
-    if (lanes == 1) return encodeSerialAttention(state, shape, ids, encode);
-    if (prepareAttentionEvents(state, lanes)) return encodeParallelAttention(state, shape, lanes, ids, encode);
-    state.serialAttentionOnly = true;
-    encodeSerialAttention(state, shape, ids, encode);
+static void dispatchAttention(id<MTLComputeCommandEncoder> encoder, TiledAttentionShape shape,
+                               NSUInteger tile, NSUInteger threads) {
+    [encoder dispatchThreadgroups:MTLSizeMake(shape.params.length / tile, shape.heads, 1)
+           threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
 
 static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
     TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6);
-    encodeAttentionBlocks(state, shape, cmd + pos, attentionForwardBlock);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder setComputePipelineState:state.ctx->attentionPSO];
+    bindAttentionValues(encoder, cmd + pos + 1, shape.rows);
+    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64) offset:0 atIndex:3];
+    bindValue(encoder, shape.params, 4);
+    [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * 2) offset:0 atIndex:5];
+    dispatchAttention(encoder, shape, 32, 128);
 }
 
-static void attentionDerivatives(GraphState& state, AttentionBlock block, id<MTLBuffer> delta) {
+static void encodeAttentionDelta(GraphState& state, const jint* cmd, int pos, TiledAttentionShape shape) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder setComputePipelineState:state.ctx->attentionDeltaPSO];
-    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
-    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
-    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:2];
-    [encoder setBuffer:delta offset:0 atIndex:3];
-    bindValue(encoder, attentionBlockParams(block), 4);
-    dispatchAttentionRows(encoder, block, state.ctx->attentionDeltaPSO);
+    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64) offset:0 atIndex:0];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * 64) offset:0 atIndex:1];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 7], shape.rows) offset:0 atIndex:2];
+    [encoder dispatchThreadgroups:MTLSizeMake(1, shape.rows, 1)
+           threadsPerThreadgroup:MTLSizeMake(32, 1, 1)];
 }
 
-static void attentionQueryGradient(GraphState& state, AttentionBlock block, const jint* ids) {
-    auto shape = block.shape;
-    attentionScores(state, block, attentionBuffer(ids[1], (NSUInteger)shape.rows * 64),
-                    attentionBuffer(ids[2], (NSUInteger)shape.rows * 64));
-    attentionProbabilities(state, block, attentionBuffer(ids[6], (NSUInteger)shape.rows * 2), true);
-    attentionProduct(state, attentionPackedRows(state, attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), block),
-        attentionFull(attentionBuffer(ids[3], (NSUInteger)shape.rows * 64), shape),
-        attentionTile(attentionScratch(state, 0, shape), block, false), false, true);
-    attentionDerivatives(state, block, attentionBuffer(ids[7], shape.rows));
-    attentionProduct(state, attentionTile(attentionScratch(state, 0, shape), block, false),
-        attentionFull(attentionBuffer(ids[2], (NSUInteger)shape.rows * 64), shape),
-        attentionPackedResult(state, block), false, false);
-    copyAttentionRows(state, attentionBuffer(ids[8], (NSUInteger)shape.rows * 64), block, false);
-}
-
-static void attentionColumnScores(GraphState& state, AttentionBlock block, const jint* ids) {
-    auto shape = block.shape;
-    attentionProduct(state, attentionFull(attentionBuffer(ids[1], (NSUInteger)shape.rows * 64), shape),
-        attentionPackedRows(state, attentionBuffer(ids[2], (NSUInteger)shape.rows * 64), block),
-        attentionTile(attentionScratch(state, 0, shape), block, true), false, true);
-    attentionProduct(state, attentionFull(attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), shape),
-        attentionPackedRows(state, attentionBuffer(ids[3], (NSUInteger)shape.rows * 64), block),
-        attentionTile(attentionScratch(state, 1, shape), block, true), false, true);
-}
-
-static void attentionColumnDerivatives(GraphState& state, AttentionBlock block, const jint* ids) {
-    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    [encoder setComputePipelineState:state.ctx->attentionKeyValueBackwardPSO];
-    [encoder setBuffer:attentionScratch(state, 0, block.shape) offset:0 atIndex:0];
-    [encoder setBuffer:attentionScratch(state, 1, block.shape) offset:0 atIndex:1];
-    [encoder setBuffer:attentionBuffer(ids[6], (NSUInteger)block.shape.rows * 2) offset:0 atIndex:2];
-    [encoder setBuffer:attentionBuffer(ids[7], block.shape.rows) offset:0 atIndex:3];
-    bindValue(encoder, attentionBlockParams(block), 4);
-    NSUInteger count = (NSUInteger)block.shape.rows * block.count;
-    [encoder dispatchThreads:MTLSizeMake(count, 1, 1)
-       threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(state.ctx->attentionKeyValueBackwardPSO), 1, 1)];
-}
-
-static void attentionKeyValueGradient(GraphState& state, AttentionBlock block, const jint* ids) {
-    auto shape = block.shape;
-    attentionColumnScores(state, block, ids);
-    attentionColumnDerivatives(state, block, ids);
-    attentionProduct(state, attentionTile(attentionScratch(state, 1, shape), block, true),
-        attentionFull(attentionBuffer(ids[1], (NSUInteger)shape.rows * 64), shape),
-        attentionPackedResult(state, block), true, false);
-    copyAttentionRows(state, attentionBuffer(ids[9], (NSUInteger)shape.rows * 64), block, false);
-    attentionProduct(state, attentionTile(attentionScratch(state, 0, shape), block, true),
-        attentionFull(attentionBuffer(ids[5], (NSUInteger)shape.rows * 64), shape),
-        attentionPackedResult(state, block), true, false);
-    copyAttentionRows(state, attentionBuffer(ids[10], (NSUInteger)shape.rows * 64), block, false);
+static void bindAttentionBackward(id<MTLComputeCommandEncoder> encoder, const jint* ids,
+                                   TiledAttentionShape shape) {
+    bindAttentionValues(encoder, ids + 1, shape.rows);
+    [encoder setBuffer:attentionBuffer(ids[5], (NSUInteger)shape.rows * 64) offset:0 atIndex:3];
+    [encoder setBuffer:attentionBuffer(ids[6], (NSUInteger)shape.rows * 2) offset:0 atIndex:4];
+    [encoder setBuffer:attentionBuffer(ids[7], shape.rows) offset:0 atIndex:5];
 }
 
 static void encodeTiledAttentionBackward(GraphState& state, const jint* cmd, int pos) {
     TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11);
-    attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64);
-    encodeAttentionBlocks(state, shape, cmd + pos, attentionQueryGradient);
-    // Column blocks give dK and dV their original full-query reduction dimension.
-    encodeAttentionBlocks(state, shape, cmd + pos, attentionKeyValueGradient);
+    encodeAttentionDelta(state, cmd, pos, shape);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    bindAttentionBackward(encoder, cmd + pos, shape);
+    [encoder setComputePipelineState:state.ctx->attentionQueryBackwardPSO];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 8], (NSUInteger)shape.rows * 64) offset:0 atIndex:6];
+    bindValue(encoder, shape.params, 7);
+    dispatchAttention(encoder, shape, 16, 64);
+    [encoder setComputePipelineState:state.ctx->attentionKeyValueBackwardPSO];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 9], (NSUInteger)shape.rows * 64) offset:0 atIndex:6];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 10], (NSUInteger)shape.rows * 64) offset:0 atIndex:7];
+    bindValue(encoder, shape.params, 8);
+    dispatchAttention(encoder, shape, 16, 64);
 }
 
 static void encodeLayerNormBackward(GraphState& state, const jint* cmd, int pos) {
@@ -2786,21 +2806,14 @@ static void checkCommandBuffer(id<MTLCommandBuffer> commands) {
 static void finishCommandBuffer(GraphState& state) {
     endGraphEncoder(state);
     [state.commandBuffer commit];
-    for (id<MTLCommandBuffer> child : state.attentionChildren) {
-        [child commit];
-    }
     [state.commandBuffer waitUntilCompleted];
     checkCommandBuffer(state.commandBuffer);
-    for (id<MTLCommandBuffer> child : state.attentionChildren) {
-        [child waitUntilCompleted];
-        checkCommandBuffer(child);
-    }
 }
 
 static void executeGraph(const jint* commandStream, int length) {
     @autoreleasepool {
         MetalContext* ctx = getContext();
-        GraphState state{ctx, graphCommands(ctx->queue), nil, {}};
+        GraphState state{ctx, graphCommands(ctx->queue), nil};
         encodeCommandStream(state, commandStream, length);
         finishCommandBuffer(state);
     }
