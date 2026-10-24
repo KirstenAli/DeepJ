@@ -37,7 +37,7 @@ public record DeepJLoopConfig(int vocabSize, int maxSeqLen, int dModel, int nHea
         return preludeLayers + coreLayers * loops + codaLayers;
     }
 
-    /** Attention and MLP dimensions shared with the existing Nova implementation. */
+    /** Dimensions for the grouped-query attention and bias-free SwiGLU blocks also used by Nova. */
     public DeepJNovaConfig backbone() {
         return new DeepJNovaConfig(vocabSize, maxSeqLen, dModel, nHeads, kvHeads, nLayers(),
                 dFF, qkNorm, initScale, gradClipNorm);

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
 
-/** Reuses core weights, never saved activations. Every pass remains on the autograd tape. */
+/** Repeats shared grouped-query attention and SwiGLU blocks; each pass saves its own activations. */
 public final class LoopedTransformer implements Layer {
 
     private final Layer prelude, core, coda;

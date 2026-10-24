@@ -40,7 +40,7 @@ Native regression tests verify the scoring and boundary conditions against real 
 
 ## Attention numerical checks
 
-Metal's FP32 Flash-style attention is checked against an independent scalar
+DeepJ's FP32 Metal implementation of FlashAttention is checked against an independent scalar
 double-precision reference for forward results and all three input gradients.
 Finite differences check both that reference and the GPU backward implementation.
 Tests cover causal boundaries, saturated scores, zero and negative scales,

@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration with Flash-style attention.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration with a custom implementation of FlashAttention.
 
 DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
@@ -31,7 +31,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 ## What is included
 
 - A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
-- CPU execution and an optional Metal backend with fused training operations and FP32 Flash-style attention for supported shapes.
+- CPU execution and an optional Metal backend with fused training operations and a custom FP32 implementation of FlashAttention for supported devices and shapes.
 - DeepJ Origin with learned positions, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
@@ -95,7 +95,7 @@ retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced u
 | `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
 | `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 | `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |
-| `DeepJLoop` | Repeated shared core, context reinjection, loop-aware residual scaling, Nova attention and MLP |
+| `DeepJLoop` | Repeated shared core, context reinjection, loop-aware residual scaling, grouped-query attention, bias-free SwiGLU MLP |
 
 ## Frisky 90M
 

@@ -178,7 +178,7 @@ loadScripts(document, 'script');</script>
 <dl class="index">
 <dt><a href="io/github/kirstenali/deepj/models/loop/DeepJLoopConfig.html#backbone()" class="member-name-link">backbone()</a> - Method in record class io.github.kirstenali.deepj.models.loop.<a href="io/github/kirstenali/deepj/models/loop/DeepJLoopConfig.html" title="class in io.github.kirstenali.deepj.models.loop">DeepJLoopConfig</a></dt>
 <dd>
-<div class="block">Attention and MLP dimensions shared with the existing Nova implementation.</div>
+<div class="block">Dimensions for the grouped-query attention and bias-free SwiGLU blocks also used by Nova.</div>
 </dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/Tensor.html#backend()" class="member-name-link">backend()</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></dt>
 <dd>&nbsp;</dd>
@@ -532,7 +532,7 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/models/loop/DeepJLoop.html" class="type-name-link" title="class in io.github.kirstenali.deepj.models.loop">DeepJLoop</a> - Class in <a href="io/github/kirstenali/deepj/models/loop/package-summary.html">io.github.kirstenali.deepj.models.loop</a></dt>
 <dd>
-<div class="block">A causal decoder that reuses a shared core across multiple passes.</div>
+<div class="block">A looped causal decoder reusing grouped-query attention and SwiGLU blocks across passes.</div>
 </dd>
 <dt><a href="io/github/kirstenali/deepj/models/loop/DeepJLoop.html#%3Cinit%3E(io.github.kirstenali.deepj.models.loop.DeepJLoopConfig,long)" class="member-name-link">DeepJLoop(DeepJLoopConfig, long)</a> - Constructor for class io.github.kirstenali.deepj.models.loop.<a href="io/github/kirstenali/deepj/models/loop/DeepJLoop.html" title="class in io.github.kirstenali.deepj.models.loop">DeepJLoop</a></dt>
 <dd>&nbsp;</dd>
@@ -1777,7 +1777,7 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/transformer/LoopedTransformer.html" class="type-name-link" title="class in io.github.kirstenali.deepj.transformer">LoopedTransformer</a> - Class in <a href="io/github/kirstenali/deepj/transformer/package-summary.html">io.github.kirstenali.deepj.transformer</a></dt>
 <dd>
-<div class="block">Reuses core weights, never saved activations.</div>
+<div class="block">Repeats shared grouped-query attention and SwiGLU blocks; each pass saves its own activations.</div>
 </dd>
 <dt><a href="io/github/kirstenali/deepj/transformer/LoopedTransformer.html#%3Cinit%3E(io.github.kirstenali.deepj.models.loop.DeepJLoopConfig,java.util.Random)" class="member-name-link">LoopedTransformer(DeepJLoopConfig, Random)</a> - Constructor for class io.github.kirstenali.deepj.transformer.<a href="io/github/kirstenali/deepj/transformer/LoopedTransformer.html" title="class in io.github.kirstenali.deepj.transformer">LoopedTransformer</a></dt>
 <dd>&nbsp;</dd>
