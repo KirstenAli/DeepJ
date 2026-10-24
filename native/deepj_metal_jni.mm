@@ -2513,10 +2513,9 @@ static MPSMatrix* headPrefixMatrix(id<MTLBuffer> buffer, int heads, int length, 
     if (buffer.length % perRow != 0 || buffer.length / perRow < (NSUInteger)length) {
         throw std::runtime_error("Invalid head cache capacity");
     }
-    MPSMatrixDescriptor* descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:length columns:width
-        matrices:heads rowBytes:(NSUInteger)width * sizeof(float) matrixBytes:buffer.length / heads
-        dataType:MPSDataTypeFloat32];
-    return [[MPSMatrix alloc] initWithBuffer:buffer descriptor:descriptor];
+    // Describe the full storage; the GEMM dimensions select only the valid prefix.
+    // Full descriptor rows keep multi-head GEMV strides consistent on physical Metal devices.
+    return matrixBatch(buffer, (int)(buffer.length / perRow), width, heads);
 }
 
 static void encodeHeadPrefixMatmul(GraphState& state, const jint* cmd, int pos) {

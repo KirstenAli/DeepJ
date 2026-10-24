@@ -9,7 +9,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MetalHeadCacheTest extends MetalDifferentialTestSupport {
     @ParameterizedTest
-    @CsvSource({"1,1,1,8", "3,3,7,16", "3,1,129,256", "9,1,31,32"})
+    @CsvSource({"1,1,1,8", "3,3,7,16", "3,1,129,256", "9,1,31,32",
+            "2,1,16,32", "2,1,256,288", "2,1,256,1024", "3,3,256,1024"})
     void deviceOnlyAppendsAndStridedProductsMatchCompactCpuReference(
             int heads, int queries, int length, int capacity) {
         Tensor cache = new Tensor(heads * capacity, 64).retainDeviceBuffer();

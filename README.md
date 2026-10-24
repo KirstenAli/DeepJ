@@ -39,6 +39,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - DeepJ Loop with a shared decoder core reused across multiple passes and context reinjection.
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
+- [KV-cached text generation](docs/inference.md) on CPU and Metal.
 - Bounded-memory sequential, random-access, and response-only datasets.
 - Versioned model bundles for sharing DeepJ checkpoints on Hugging Face.
 - A small optional JavaFX chat UI.
@@ -108,7 +109,7 @@ Download its `model.dj` and `tokenizer.bpe` files to try the quick start above o
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
-- [Incremental generation](docs/inference.md) caches attention keys and values within the context limit; sliding-window shifts require re-prefilling.
+- Sliding-window generation re-prefills the cache after each context shift.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
 - The library has not been validated for safety-critical or production inference workloads.
 

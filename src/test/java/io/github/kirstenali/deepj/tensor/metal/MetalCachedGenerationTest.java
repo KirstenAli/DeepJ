@@ -7,14 +7,21 @@ import io.github.kirstenali.deepj.testing.InferenceTestModels;
 import io.github.kirstenali.deepj.testing.InferenceTestModels.Kind;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class MetalCachedGenerationTest extends MetalDifferentialTestSupport {
     @ParameterizedTest
-    @EnumSource(Kind.class)
-    void incrementalGpuLogitsMatchFullRecomputationAndSurviveTemporaryCleanup(Kind kind) {
-        DecoderOnlyModel model = InferenceTestModels.create(kind, 288, 128);
+    @MethodSource("modelsAndCapacities")
+    void incrementalGpuLogitsMatchFullRecomputationAndSurviveTemporaryCleanup(Kind kind, int capacity) {
+        DecoderOnlyModel model = InferenceTestModels.create(kind, capacity, 128);
         int[] tokens = randomTargets(264, 31, 449);
         try (var session = model.openGeneration(); var ignored = GradMode.noGrad()) {
             session.apply(Arrays.copyOf(tokens, 256)).materialize();
@@ -27,6 +34,33 @@ class MetalCachedGenerationTest extends MetalDifferentialTestSupport {
                 metal.releaseTemporaryResources();
             }
         }
+    }
+
+    private static Stream<Arguments> modelsAndCapacities() {
+        return Arrays.stream(Kind.values()).flatMap(kind -> Stream.of(288, 1024)
+                .map(capacity -> Arguments.of(kind, capacity)));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind.class)
+    void repeatedCachedRequestsHaveIdenticalGpuLogits(Kind kind) {
+        DecoderOnlyModel model = InferenceTestModels.create(kind, 1024, 128);
+        int[] tokens = randomTargets(70, 31, 503);
+        List<float[]> expected = decoded(model, tokens), actual = decoded(model, tokens);
+        for (int index = 0; index < expected.size(); index++) {
+            assertArrayEquals(expected.get(index), actual.get(index));
+        }
+    }
+
+    private List<float[]> decoded(DecoderOnlyModel model, int[] tokens) {
+        List<float[]> result = new ArrayList<>();
+        try (var session = model.openGeneration()) {
+            for (int length = 64; length <= tokens.length; length++) {
+                result.add(session.apply(Arrays.copyOf(tokens, length)).rowData(0));
+                metal.releaseTemporaryResources();
+            }
+        }
+        return result;
     }
 
     private static Tensor last(Tensor logits) {
