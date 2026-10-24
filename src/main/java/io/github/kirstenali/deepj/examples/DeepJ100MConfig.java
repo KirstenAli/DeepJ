@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.models.nova.DeepJNova;
 
 import java.nio.file.Path;
 
@@ -8,7 +9,7 @@ import static io.github.kirstenali.deepj.examples.ExampleSystemProperties.*;
 
 record DeepJ100MConfig(DeepJ100MStage stage, DeepJNovaConfig architecture, TrainingOptions training,
                        Path corpus, Path base, Path output, Path initialModel, Path resume,
-                       long validationBytes, long seed) {
+                       long validationBytes, long seed) implements StagedTrainingConfig {
 
     static DeepJ100MConfig fromSystemProperties(DeepJ100MStage stage) {
         Path base = path("deepj.base", "checkpoints/" + stage.base);
@@ -20,7 +21,7 @@ record DeepJ100MConfig(DeepJ100MStage stage, DeepJNovaConfig architecture, Train
                 longValue("deepj.seed", stage.seed));
     }
 
-    private static long validationBytesFromProperties() {
+    static long validationBytesFromProperties() {
         return Math.multiplyExact((long) integer("deepj.validationMiB", 64), 1_024L * 1_024L);
     }
 
@@ -32,11 +33,21 @@ record DeepJ100MConfig(DeepJ100MStage stage, DeepJNovaConfig architecture, Train
                 decimal("deepj.initScale", 0.2f), decimal("deepj.gradClipNorm", 1.0f));
     }
 
-    private static TrainingOptions trainingFromProperties(DeepJ100MStage stage) {
+    static TrainingOptions trainingFromProperties(DeepJ100MStage stage) {
         return new TrainingOptions(integer("deepj.steps", stage.steps), integer("deepj.batchSize", 1),
                 decimal("deepj.learningRate", stage.learningRate),
                 decimal("deepj.minLearningRate", stage.learningRate / 10.0f),
                 integer("deepj.warmupSteps", stage.warmup), integer("deepj.logEvery", 100),
                 integer("deepj.checkpointEvery", 1_000), integer("deepj.releaseEvery", 1));
+    }
+
+    @Override
+    public String modelName() {
+        return "DeepJ Nova";
+    }
+
+    @Override
+    public DeepJNova createModel() {
+        return new DeepJNova(architecture, seed);
     }
 }

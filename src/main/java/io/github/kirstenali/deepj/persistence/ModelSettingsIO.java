@@ -6,6 +6,7 @@ import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -30,6 +31,7 @@ final class ModelSettingsIO {
             output.writeInt(nova.kvHeads());
             output.writeBoolean(nova.qkNorm());
         }
+        if (config instanceof DeepJLoopConfig loop) writeLoop(output, loop);
         output.writeByte(settings.promptFormat() == PromptFormat.PLAIN ? 0 : 1);
         writeMetadata(output, settings.metadata());
     }
@@ -43,11 +45,22 @@ final class ModelSettingsIO {
         }
     }
 
+    private static void writeLoop(DataOutputStream output, DeepJLoopConfig config) throws IOException {
+        output.writeInt(config.kvHeads());
+        output.writeBoolean(config.qkNorm());
+        output.writeInt(config.preludeLayers());
+        output.writeInt(config.coreLayers());
+        output.writeInt(config.codaLayers());
+        output.writeInt(config.loops());
+        output.writeFloat(config.coreResidualScale());
+    }
+
     private static int type(TransformerConfig config) {
         if (config instanceof DeepJOriginConfig) return 1;
         if (config instanceof DeepJOrbitConfig) return 2;
         if (config instanceof DeepJPrismConfig) return 3;
         if (config instanceof DeepJNovaConfig) return 4;
+        if (config instanceof DeepJLoopConfig) return 5;
         throw new IllegalArgumentException("Unsupported model configuration");
     }
 
@@ -70,7 +83,7 @@ final class ModelSettingsIO {
             TransformerConfig config = config(input, type, common);
             PromptFormat prompt = promptFormat(input.readUnsignedByte());
             return new ModelSettings(config, prompt, readMetadata(input));
-        } catch (IllegalArgumentException error) {
+        } catch (IllegalArgumentException | ArithmeticException error) {
             throw new IOException("Invalid model configuration", error);
         }
     }
@@ -99,6 +112,7 @@ final class ModelSettingsIO {
             case 2 -> values.orbit();
             case 3 -> values.prism(input.readInt(), input.readInt());
             case 4 -> values.nova(input.readInt(), input.readBoolean());
+            case 5 -> values.loop(input);
             default -> throw new IOException("Unsupported model type: " + type);
         };
     }
@@ -130,6 +144,16 @@ final class ModelSettingsIO {
         DeepJNovaConfig nova(int kvHeads, boolean qkNorm) {
             return new DeepJNovaConfig(vocab, sequence, width, heads, kvHeads, layers, feedForward,
                     qkNorm, scale, clip);
+        }
+
+        DeepJLoopConfig loop(DataInputStream input) throws IOException {
+            int kvHeads = input.readInt();
+            boolean qkNorm = input.readBoolean();
+            var config = new DeepJLoopConfig(vocab, sequence, width, heads, kvHeads,
+                    input.readInt(), input.readInt(), input.readInt(), input.readInt(), feedForward,
+                    qkNorm, scale, clip, input.readFloat());
+            if (config.nLayers() != layers) throw new IOException("Inconsistent loop layer counts");
+            return config;
         }
     }
 }

@@ -10,8 +10,12 @@ import java.util.Random;
 public final class DeepJNovaTransformerBlock extends AbstractTransformerBlock {
 
     public DeepJNovaTransformerBlock(DeepJNovaConfig config, Random random) {
+        this(config, random, 1.0f);
+    }
+
+    public DeepJNovaTransformerBlock(DeepJNovaConfig config, Random random, float residualScale) {
         super(new RMSNorm1D(config.dModel()), new RMSNorm1D(config.dModel()),
                 new GroupedQueryAttention(config, random),
-                new SwiGLULayer(config.dModel(), config.dFF(), random, false));
+                new SwiGLULayer(config.dModel(), config.dFF(), random, false), residualScale);
     }
 }

@@ -14,13 +14,23 @@ abstract class AbstractTransformerBlock implements Layer {
     private final Layer secondNorm;
     private final Layer attention;
     private final Layer feedForward;
+    private final float residualScale;
 
     AbstractTransformerBlock(Layer firstNorm, Layer secondNorm,
                              Layer attention, Layer feedForward) {
+        this(firstNorm, secondNorm, attention, feedForward, 1.0f);
+    }
+
+    AbstractTransformerBlock(Layer firstNorm, Layer secondNorm,
+                             Layer attention, Layer feedForward, float residualScale) {
+        if (!Float.isFinite(residualScale) || residualScale <= 0.0f) {
+            throw new IllegalArgumentException("residualScale must be finite and > 0");
+        }
         this.firstNorm = firstNorm;
         this.secondNorm = secondNorm;
         this.attention = attention;
         this.feedForward = feedForward;
+        this.residualScale = residualScale;
     }
 
     static RotaryEmbedding rotaryEmbedding(int dModel, int heads, int maxSequenceLength) {
@@ -32,8 +42,13 @@ abstract class AbstractTransformerBlock implements Layer {
 
     @Override
     public Tensor forward(Tensor input) {
-        Tensor attended = input.add(attention.forward(firstNorm.forward(input)));
-        return attended.add(feedForward.forward(secondNorm.forward(attended)));
+        Tensor attended = residual(input, firstNorm, attention);
+        return residual(attended, secondNorm, feedForward);
+    }
+
+    private Tensor residual(Tensor input, Layer norm, Layer branch) {
+        Tensor update = branch.forward(norm.forward(input));
+        return input.add(residualScale == 1.0f ? update : update.multiplyScalar(residualScale));
     }
 
     private Layer[] subLayers() {
