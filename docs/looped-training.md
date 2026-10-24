@@ -41,8 +41,8 @@ the [full-versus-truncated BPTT scaling study](https://arxiv.org/abs/2610.26030)
 and [Loop-μP](https://arxiv.org/abs/2606.18524).
 These blocks use DeepJ's existing CPU/Metal operations.
 On supported Apple GPUs, the default 1,024-token, 64-wide-head configuration
-automatically uses FP32 Flash-style attention in each core pass. Other shapes
-retain the ordinary attention path.
+automatically uses DeepJ's custom FP32 Metal implementation of FlashAttention
+in each core pass. Unsupported shapes use ordinary Metal attention.
 Looping increases computation and saved-activation memory. It does not guarantee
 better reasoning, factual accuracy, or less repetitive text.
 

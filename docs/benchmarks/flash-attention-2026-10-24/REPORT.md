@@ -1,4 +1,4 @@
-# FP32 Flash-style Metal attention qualification
+# FP32 Metal implementation of FlashAttention: qualification
 
 24 October 2026. All declared acceptance checks passed. This is a bounded
 qualification, not proof of month-long convergence or identical old/new weights.
