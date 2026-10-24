@@ -7,5 +7,7 @@ public interface CausalLM extends Trainable {
 
     Tensor forward(int[] inputIds);
 
+    default GenerationSession openGeneration() { return this::forward; }
+
     float gradClipNorm();
 }

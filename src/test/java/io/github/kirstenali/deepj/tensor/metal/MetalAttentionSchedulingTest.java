@@ -76,7 +76,7 @@ class MetalAttentionSchedulingTest extends MetalDifferentialTestSupport {
         int normalizationId = metal.graph.ensureGpuBuffer(normalization).id;
         metal.graph.flush();
         return new int[]{ComputeGraph.OP_TILED_CAUSAL_ATTENTION, inputId, inputId, inputId,
-                outputId, normalizationId, 1024, 1, Float.floatToRawIntBits(0.125f)};
+                outputId, normalizationId, 1024, 1, 1, Float.floatToRawIntBits(0.125f)};
     }
 
     private static int[] repeat(int[] command, int count) {

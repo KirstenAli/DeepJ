@@ -24,28 +24,35 @@ public final class TextGenerator {
             DeepJOrigin model, Tokenizer tok, DeepJOriginConfig cfg,
             String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
-        return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
+        return generate(model, tok, cfg, prompt, maxNewTokens, temperature, topK, seed, 1.0f);
     }
 
     public static String generate(
             DeepJOrbit model, Tokenizer tok, TransformerConfig cfg,
             String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
-        return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
+        return generate(model, tok, cfg, prompt, maxNewTokens, temperature, topK, seed, 1.0f);
     }
 
     public static String generate(
             DeepJPrism model, Tokenizer tok, TransformerConfig cfg,
             String prompt, int maxNewTokens, float temperature, int topK, long seed
     ) {
-        return generate(model::forward, cfg, tok, prompt, maxNewTokens, temperature, topK, seed);
+        return generate(model, tok, cfg, prompt, maxNewTokens, temperature, topK, seed, 1.0f);
+    }
+
+    public static String generate(CausalLM model, Tokenizer tok, TransformerConfig cfg,
+                                  String prompt, int maxNewTokens, float temperature, int topK, long seed) {
+        return generate(model, tok, cfg, prompt, maxNewTokens, temperature, topK, seed, 1.0f);
     }
 
     public static String generate(CausalLM model, Tokenizer tok, TransformerConfig cfg,
                                   String prompt, int maxNewTokens, float temperature, int topK,
                                   long seed, float repetitionPenalty) {
-        return generate(model::forward, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
-                temperature, topK, seed, repetitionPenalty);
+        try (GenerationSession session = model.openGeneration()) {
+            return generate(session, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
+                    temperature, topK, seed, repetitionPenalty);
+        }
     }
 
     public static String generate(
@@ -94,8 +101,10 @@ public final class TextGenerator {
     public static String stream(CausalLM model, Tokenizer tok, TransformerConfig cfg,
                                 String prompt, int maxNewTokens, float temperature, int topK,
                                 long seed, float repetitionPenalty, Consumer<String> listener) {
-        return stream(model::forward, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
-                temperature, topK, seed, repetitionPenalty, listener);
+        try (GenerationSession session = model.openGeneration()) {
+            return stream(session, cfg.maxSeqLen(), tok, prompt, maxNewTokens,
+                    temperature, topK, seed, repetitionPenalty, listener);
+        }
     }
 
     public static String stream(Function<int[], Tensor> forwarder, int maxSeqLen, Tokenizer tok,

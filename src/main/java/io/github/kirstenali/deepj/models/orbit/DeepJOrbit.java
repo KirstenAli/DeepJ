@@ -10,6 +10,9 @@ import java.util.Random;
 
 public final class DeepJOrbit extends DecoderOnlyModel {
 
+    @Override
+    protected boolean supportsCachedGeneration() { return true; }
+
     private final DeepJOrbitConfig cfg;
 
     public DeepJOrbit(DeepJOrbitConfig cfg, long seed) {

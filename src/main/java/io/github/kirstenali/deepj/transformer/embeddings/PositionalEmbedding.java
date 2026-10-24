@@ -20,11 +20,16 @@ public final class PositionalEmbedding implements Trainable {
     }
 
     public Tensor forward(int seqLen) {
-        if (seqLen > maxSeq) throw new IllegalArgumentException("seqLen " + seqLen + " exceeds maxSeq " + maxSeq);
+        return forward(seqLen, 0);
+    }
 
+    public Tensor forward(int seqLen, int offset) {
+        if (seqLen < 1 || offset < 0 || (long) seqLen + offset > maxSeq) {
+            throw new IllegalArgumentException("Position range exceeds maxSeq " + maxSeq);
+        }
         int[] indices = new int[seqLen];
         for (int i = 0; i < seqLen; i++) {
-            indices[i] = i;
+            indices[i] = offset + i;
         }
         return Tensor.sliceRows(weight.value, indices, dModel);
     }

@@ -74,12 +74,12 @@ class MetalAttentionValidationTest extends MetalDifferentialTestSupport {
         int id = metal.graph.ensureGpuBuffer(input).id;
         metal.graph.flush();
         int[] command = {ComputeGraph.OP_TILED_CAUSAL_ATTENTION,
-                id, id, id, id, id, 32, 1, Float.floatToRawIntBits(0.125f)};
+                id, id, id, id, id, 32, 1, 1, Float.floatToRawIntBits(0.125f)};
         assertThrows(RuntimeException.class, () -> MetalNative.nativeFlushOps(command, command.length));
         command[6] = 33;
         assertThrows(RuntimeException.class, () -> MetalNative.nativeFlushOps(command, command.length));
         command[6] = 32;
-        command[8] = Float.floatToRawIntBits(Float.NaN);
+        command[9] = Float.floatToRawIntBits(Float.NaN);
         assertThrows(RuntimeException.class, () -> MetalNative.nativeFlushOps(command, command.length));
     }
 }

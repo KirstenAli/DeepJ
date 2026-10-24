@@ -59,6 +59,16 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(value = Kind.class, names = {"NOVA", "LOOP"})
+    void compactTrainingMatchesPreviousExpandedHeadsForLossGradientsAndUpdatedWeights(Kind kind) {
+        List<Step> expected = train(kind, ExpandedAttentionReferenceBackend.create(metal));
+        List<Step> actual = train(kind, metal);
+        for (int step = 0; step < expected.size(); step++) {
+            compare(expected.get(step), actual.get(step));
+        }
+    }
+
     private static void assertIdentical(List<Tensor> expected, List<Tensor> actual) {
         for (int index = 0; index < expected.size(); index++) {
             assertArrayEquals(expected.get(index).data, actual.get(index).data);

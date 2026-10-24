@@ -108,7 +108,7 @@ Download its `model.dj` and `tokenizer.bpe` files to try the quick start above o
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
-- Text generation recalculates the full context for every new token because attention caching is not yet implemented.
+- [Incremental generation](docs/inference.md) caches attention keys and values within the context limit; sliding-window shifts require re-prefilling.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
 - The library has not been validated for safety-critical or production inference workloads.
 

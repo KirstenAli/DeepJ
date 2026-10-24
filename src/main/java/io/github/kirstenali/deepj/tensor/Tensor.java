@@ -41,6 +41,8 @@ public class Tensor {
 
     public boolean retainsDeviceBuffer() { return retainDeviceBuffer; }
 
+    public void releaseDeviceBufferRetention() { retainDeviceBuffer = false; }
+
     private static volatile TensorBackend BACKEND = new CpuBackend();
     public static void setBackend(TensorBackend backend) {
         if (backend == null) throw new IllegalArgumentException("backend cannot be null");

@@ -6,6 +6,14 @@ public interface TensorBackend {
 
     Tensor matmul(Tensor a, Tensor b);
 
+    default void writeHeadCache(Tensor cache, Tensor update, int heads, int offset) {
+        HeadCacheOps.write(cache, update, heads, offset);
+    }
+
+    default Tensor headPrefixMatmul(Tensor left, Tensor cache, int heads, int length, boolean transposeCache) {
+        return batchedMatmul(left, HeadCacheOps.prefix(cache, heads, length), heads, false, transposeCache);
+    }
+
     default Tensor sliceRows(Tensor input, int[] rows) {
         return TensorBackendDefaults.sliceRows(input, rows);
     }

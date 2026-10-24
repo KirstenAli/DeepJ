@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
@@ -75,6 +76,21 @@ public final class MultiHeadLatentAttention implements Layer {
         Tensor queries = rope.apply(HeadOps.splitHeads(query, nHeads), length, nHeads);
         Tensor keys = rope.apply(HeadOps.splitHeads(key, nHeads), length, nHeads);
         return HeadOps.causal(queries, keys, HeadOps.splitHeads(value, nHeads), nHeads, scale);
+    }
+
+    @Override
+    public boolean supportsIncrementalInference() { return true; }
+
+    @Override
+    public Tensor forward(Tensor input, InferenceContext context) {
+        Tensor query = input.matmul(Wdq.value).matmul(Wuq.value);
+        Tensor compressed = input.matmul(Wdkv.value);
+        Tensor queries = rope.apply(HeadOps.splitHeads(query, nHeads), input.rows, nHeads, context.position());
+        Tensor keys = rope.apply(HeadOps.splitHeads(compressed.matmul(Wuk.value), nHeads),
+                input.rows, nHeads, context.position());
+        Tensor values = HeadOps.splitHeads(compressed.matmul(Wuv.value), nHeads);
+        Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
+        return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);
     }
 
     @Override
