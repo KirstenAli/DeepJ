@@ -97,10 +97,6 @@ retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced u
 | `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |
 | `DeepJLoop` | Repeated shared core, context reinjection, loop-aware residual scaling, Nova attention and MLP |
 
-All five models share DeepJ's causal language-model API. They currently recalculate the full context for every generated token because attention caching is not yet implemented.
-
-The [looped 100M training example](docs/looped-training.md) reuses the Frisky datasets and tokenizer.
-
 ## Frisky 90M
 
 Meet [Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning.
