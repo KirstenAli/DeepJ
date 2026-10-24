@@ -11,7 +11,7 @@ import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 import java.util.List;
 import java.util.Random;
 
-/** A causal decoder that reuses a shared core across multiple passes. */
+/** A looped causal decoder reusing grouped-query attention and SwiGLU blocks across passes. */
 public final class DeepJLoop extends DecoderOnlyModel {
 
     private final DeepJLoopConfig config;

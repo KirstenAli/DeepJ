@@ -95,7 +95,7 @@ retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced u
 | `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
 | `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 | `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |
-| `DeepJLoop` | Repeated shared core, context reinjection, loop-aware residual scaling, Nova attention and MLP |
+| `DeepJLoop` | Repeated shared core, context reinjection, loop-aware residual scaling, grouped-query attention, bias-free SwiGLU MLP |
 
 ## Frisky 90M
 

@@ -161,8 +161,8 @@ String answer = chat.generate(
                 </article>
                 <article class="model-card">
                     <p class="model-name">DeepJ Loop</p>
-                    <h3>Recurrent depth</h3>
-                    <p>A shared decoder core runs multiple passes between prelude and coda blocks.</p>
+                    <h3>Looped Transformer</h3>
+                    <p>Shared layers are reused across passes, with grouped-query attention, RoPE, RMSNorm, and a bias-free SwiGLU MLP.</p>
                 </article>
             </div>
             <p class="model-note">Each compact family offers a different Transformer design while using the same DeepJ training and generation APIs.</p>

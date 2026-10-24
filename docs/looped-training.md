@@ -17,9 +17,16 @@ Existing Frisky and Nova checkpoints are not overwritten.
 | Core passes | 2 |
 | Executed block visits | 36 |
 
-The prelude runs once. Each core pass receives both the previous state and
-the unchanged prelude representation through shared bias-free projections.
-An RMSNorm follows the core on each pass, and the coda runs once at the end.
+Each block uses grouped-query attention (GQA), rotary position embeddings (RoPE),
+RMSNorm, and a bias-free SwiGLU feed-forward network (MLP). Query/key (QK)
+normalization is optional and enabled by default. These are the same block
+components used by DeepJ Nova.
+
+The initial group of blocks (prelude) runs once. The shared group (core) runs
+`loops` times, and the final group (coda) runs once. Each core pass receives both
+the previous state and the unchanged prelude representation through shared
+bias-free projections.
+An RMSNorm follows the core on each pass.
 The context projection is calculated once per forward pass. Embedding and
 output weights are tied.
 
@@ -32,7 +39,7 @@ scaling choice, not a claim to reproduce the entire Loop-μP training recipe.
 The design draws on [recurrent-depth transformers](https://arxiv.org/abs/2502.05171),
 the [full-versus-truncated BPTT scaling study](https://arxiv.org/abs/2610.26030),
 and [Loop-μP](https://arxiv.org/abs/2606.18524).
-It reuses DeepJ's existing GQA, RoPE, RMSNorm, SwiGLU and CPU/Metal operations.
+These blocks use DeepJ's existing CPU/Metal operations.
 On supported Apple GPUs, the default 1,024-token, 64-wide-head configuration
 automatically uses FP32 Flash-style attention in each core pass. Other shapes
 retain the ordinary attention path.
