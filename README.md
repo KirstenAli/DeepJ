@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), four trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
 
 DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
@@ -18,13 +18,11 @@ DeepJ is an alpha project. Its compact model families are designed to make diffe
 
 DeepJ requires JDK 20 or newer.
 
-Autograd is available from source; the Maven release below predates it.
-
 ```xml
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.10.0-alpha</version>
+    <version>0.10.1-alpha</version>
 </dependency>
 ```
 
@@ -38,7 +36,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
 - DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
-- DeepJ Loop with a shared recurrent core, context reinjection, and full autograd through every pass.
+- DeepJ Loop with a shared decoder core reused across multiple passes and context reinjection.
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - Bounded-memory sequential, random-access, and response-only datasets.

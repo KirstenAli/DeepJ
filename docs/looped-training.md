@@ -23,8 +23,8 @@ An RMSNorm follows the core on each pass, and the coda runs once at the end.
 The context projection is calculated once per forward pass. Embedding and
 output weights are tied.
 
-All passes participate in backpropagation. Only weights are shared, not
-per-pass saved activations, and the optimizer updates each parameter once.
+Only weights are shared, not per-pass saved activations. The optimizer updates
+each parameter once.
 The core residual branches use `1 / (loops * sqrt(coreLayers))` by default;
 outer blocks retain their normal residual scale. This is a loop-aware
 scaling choice, not a claim to reproduce the entire Loop-μP training recipe.
