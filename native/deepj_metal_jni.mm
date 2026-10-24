@@ -1412,15 +1412,6 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeIsAvailable(
     }
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAttention(
-        JNIEnv*, jclass) {
-    @autoreleasepool {
-        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-        return device != nil && [device supportsFamily:MTLGPUFamilyApple7] ? JNI_TRUE : JNI_FALSE;
-    }
-}
-
 static id<MTLComputePipelineState> makePSO(id<MTLLibrary> lib, NSString* name) {
     id<MTLFunction> fn = [lib newFunctionWithName:name];
     if (fn == nil) {
@@ -1459,6 +1450,12 @@ static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = me
     throw std::runtime_error(std::string("Failed to compile Metal shaders: ") + [desc UTF8String]);
 }
 
+static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
+    if ([device supportsFamily:MTLGPUFamilyApple7]) return compileLibrary(device, tiledAttentionShaderSource);
+    // Virtual devices may expose the instructions without advertising an Apple GPU family.
+    return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions() error:nil];
+}
+
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
@@ -1480,8 +1477,8 @@ static void initAttentionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
 }
 
 static void initTiledAttentionPipelines(MetalContext* ctx) {
-    if (![ctx->device supportsFamily:MTLGPUFamilyApple7]) return;
-    id<MTLLibrary> library = compileLibrary(ctx->device, tiledAttentionShaderSource);
+    id<MTLLibrary> library = compileAttentionLibrary(ctx->device);
+    if (library == nil) return;
     ctx->attentionPSO = makePSO(library, @"kernel_tiled_attention");
     ctx->attentionDeltaPSO = makePSO(library, @"kernel_attention_delta");
     ctx->attentionQueryBackwardPSO = makePSO(library, @"kernel_attention_query_backward");
@@ -1574,6 +1571,17 @@ static MetalContext* getContext() {
         gCtx = createContext();
     }
     return gCtx;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAttention(
+        JNIEnv* env, jclass) {
+    try {
+        return getContext()->attentionPSO != nil ? JNI_TRUE : JNI_FALSE;
+    } catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
 }
 
 #include <unordered_map>

@@ -78,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [prism]
+        profile: [prism, nova]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,7 +99,7 @@ jobs:
       - name: Collect alternating-order timings and measured-phase profiles
         env:
           BENCHMARK_PROFILE: ${{ matrix.profile }}
-        run: swift candidate/scripts/performance/metal-capability-probe.swift
+        run: bash candidate/scripts/performance/run-metal-diagnostics.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

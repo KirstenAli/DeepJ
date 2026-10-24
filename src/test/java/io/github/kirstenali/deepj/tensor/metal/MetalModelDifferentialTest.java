@@ -24,13 +24,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
     @Test
-    void availableMetalBackendExposesSharedBlockAttentionWithoutSimdFamilyGating() {
+    void attentionCapabilityMatchesCompiledNativePipelines() {
         Tensor input = Tensor.ones(256, 64);
-        assertTrue(metal.supportsCausalAttention(input, input, input, 1, 0.125f));
+        assertEquals(MetalNative.TILED_ATTENTION_AVAILABLE,
+                metal.supportsCausalAttention(input, input, input, 1, 0.125f));
     }
 
     @Test
