@@ -10,15 +10,13 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), four trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
 
 DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
 ## Install
 
 DeepJ requires JDK 20 or newer.
-
-Autograd is available from source; the Maven release below predates it.
 
 ```xml
 <dependency>
