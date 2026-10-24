@@ -24,7 +24,7 @@ Autograd is available from source; the Maven release below predates it.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.9.9-alpha</version>
+    <version>0.10.0-alpha</version>
 </dependency>
 ```
 

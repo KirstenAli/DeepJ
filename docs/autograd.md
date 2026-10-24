@@ -1,6 +1,6 @@
 # Automatic differentiation
 
-This guide describes the source implementation, not the published `0.9.9-alpha` release.
+Available in DeepJ `0.10.0-alpha` and newer.
 
 DeepJ records differentiable tensor operations when at least one input requires gradients.
 Calling `backward()` follows those operations in reverse and accumulates gradients on leaf tensors.
