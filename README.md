@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration.
+DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration with Flash-style attention.
 
 DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
 
@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.10.1-alpha</version>
+    <version>0.10.2-alpha</version>
 </dependency>
 ```
 
@@ -31,7 +31,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 ## What is included
 
 - A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
-- CPU execution and an optional Metal backend with fused Apple GPU training operations.
+- CPU execution and an optional Metal backend with fused training operations and FP32 Flash-style attention for supported shapes.
 - DeepJ Origin with learned positions, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.

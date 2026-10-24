@@ -206,8 +206,8 @@ public final class DeepJModelBundle {
     }
 
     private static String usageHeader() {
-        return "Use [DeepJ 0.10.1-alpha](https://central.sonatype.com/artifact/"
-                + "io.github.kirstenali/deepj/0.10.1-alpha) or newer:\n\n"
+        return "Use [DeepJ 0.10.2-alpha](https://central.sonatype.com/artifact/"
+                + "io.github.kirstenali/deepj/0.10.2-alpha) or newer:\n\n"
                 + dependency() + "Download this repository's `model.dj` and `tokenizer.bpe` "
                 + "into `downloaded-model`. Imports are omitted below.\n\n";
     }
@@ -218,7 +218,7 @@ public final class DeepJModelBundle {
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.10.1-alpha</version>
+                    <version>0.10.2-alpha</version>
                 </dependency>
                 ```
 
