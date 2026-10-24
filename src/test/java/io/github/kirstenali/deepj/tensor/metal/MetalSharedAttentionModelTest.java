@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.models.loop.*;
 import io.github.kirstenali.deepj.models.nova.*;
 import io.github.kirstenali.deepj.models.orbit.*;
 import io.github.kirstenali.deepj.models.origin.*;
@@ -23,10 +24,11 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
-    private enum Kind { ORIGIN, ORBIT, PRISM, NOVA }
+    private enum Kind { ORIGIN, ORBIT, PRISM, NOVA, LOOP }
     private record Step(float loss, List<Tensor> gradients, List<Tensor> weights) {}
     private final int[] calls = new int[3];
 
@@ -43,6 +45,24 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
         }
         assertEquals(6, calls[0], "two attention layers per update");
         assertEquals(6, calls[1], "two attention backward operations per update");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind.class)
+    void repeatedFusedTrainingHasIdenticalLossesGradientsAndWeights(Kind kind) {
+        List<Step> expected = train(kind, backend(true));
+        List<Step> actual = train(kind, backend(true));
+        for (int step = 0; step < expected.size(); step++) {
+            assertEquals(expected.get(step).loss(), actual.get(step).loss());
+            assertIdentical(expected.get(step).gradients(), actual.get(step).gradients());
+            assertIdentical(expected.get(step).weights(), actual.get(step).weights());
+        }
+    }
+
+    private static void assertIdentical(List<Tensor> expected, List<Tensor> actual) {
+        for (int index = 0; index < expected.size(); index++) {
+            assertArrayEquals(expected.get(index).data, actual.get(index).data);
+        }
     }
 
     @ParameterizedTest
@@ -92,6 +112,7 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
             case ORBIT -> new DeepJOrbit(new DeepJOrbitConfig(31, 1024, 128, 2, 2, 256), 197);
             case PRISM -> new DeepJPrism(new DeepJPrismConfig(31, 1024, 128, 2, 2, 256, 64, 32), 197);
             case NOVA -> new DeepJNova(new DeepJNovaConfig(31, 1024, 128, 2, 1, 2, 256), 197);
+            case LOOP -> new DeepJLoop(new DeepJLoopConfig(31, 1024, 128, 2, 1, 0, 1, 0, 2, 256), 197);
         };
     }
 
@@ -114,11 +135,26 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
     }
 
     private static void compare(Step expected, Step actual) {
-        assertEquals(expected.loss(), actual.loss());
-        for (int index = 0; index < expected.gradients().size(); index++) {
-            assertArrayEquals(expected.gradients().get(index).data, actual.gradients().get(index).data);
-            assertArrayEquals(expected.weights().get(index).data, actual.weights().get(index).data);
+        assertEquals(expected.loss(), actual.loss(), 2e-4 + 2e-4 * Math.abs(expected.loss()));
+        assertRelativeError("gradients", expected.gradients(), actual.gradients(), 1e-3);
+        assertRelativeError("weights", expected.weights(), actual.weights(), 1e-4);
+    }
+
+    private static void assertRelativeError(String label, List<Tensor> expected,
+                                            List<Tensor> actual, double tolerance) {
+        double squaredError = 0, squaredReference = 0;
+        for (int index = 0; index < expected.size(); index++) {
+            float[] left = expected.get(index).data, right = actual.get(index).data;
+            for (int element = 0; element < left.length; element++) {
+                double error = (double) right[element] - left[element];
+                squaredError += error * error;
+                squaredReference += (double) left[element] * left[element];
+            }
         }
+        double relative = Math.sqrt(squaredError / Math.max(squaredReference, 1e-30));
+        System.out.printf("MODEL_COMPARISON variable=%s relativeL2=%.12g bound=%.6g%n",
+                label, relative, tolerance);
+        assertTrue(Double.isFinite(relative) && relative <= tolerance, label + " relative L2=" + relative);
     }
 
     private static Batch batch() {

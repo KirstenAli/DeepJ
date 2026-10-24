@@ -38,6 +38,22 @@ The native metric uses Clang's syntax tree, not brace or keyword counting. It ac
 
 Native regression tests verify the scoring and boundary conditions against real parsed C++ fixtures. They also test shader extraction and failure handling. Non-macOS builds retain the Java/frontend checks. The macOS CI job runs these static checks alongside actual Metal numerical tests and the full coverage profile.
 
+## Attention numerical checks
+
+Metal's FP32 Flash-style attention is checked against an independent scalar
+double-precision reference for forward results and all three input gradients.
+Finite differences check both that reference and the GPU backward implementation.
+Tests cover causal boundaries, saturated scores, zero and negative scales,
+production head counts, and unsupported-shape fallbacks.
+
+Repeated execution of the same implementation must remain bit-identical, including
+three training updates for Origin, Orbit, Prism, Nova and Loop. Comparisons between
+different attention algorithms use explicit accuracy and whole-model error bounds,
+not bit equality. Changed reduction order can alter near-zero gradients; Adam can
+amplify those differences without either implementation being mathematically wrong.
+Loss trajectories and held-out validation are therefore checked separately in
+matched multi-seed training experiments before accepting an attention replacement.
+
 ## Coverage gates
 
 | Scope | Lines | Branches | Other minimums |
