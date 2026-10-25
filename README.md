@@ -32,7 +32,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 - A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
 - CPU execution and an optional Metal backend with fused training operations and a custom FP32 implementation of FlashAttention for supported devices and shapes.
-- DeepJ Origin with learned positions, LayerNorm, and GELU.
+- DeepJ Origin with causal multi-head attention, learned positional embeddings, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
 - DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
@@ -41,7 +41,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - [KV-cached text generation](docs/inference.md) on CPU and Metal.
 - File-backed dataset loaders for sequential reading, random sampling and response-only fine-tuning.
-- Versioned model bundles for sharing DeepJ checkpoints on Hugging Face.
+- Export model bundles with weights, configuration, tokenizer files, and a model card for sharing on Hugging Face.
 - A small optional JavaFX chat UI.
 
 ## Desktop chat
@@ -104,7 +104,7 @@ or check backend availability. See the [CLI guide](docs/cli.md) for commands and
 
 | Model | Main components |
 |---|---|
-| `DeepJOrigin` | Learned positions, causal multi-head attention, LayerNorm, GELU MLP |
+| `DeepJOrigin` | Learned positional embeddings, causal multi-head attention, LayerNorm, GELU MLP |
 | `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
 | `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 | `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |

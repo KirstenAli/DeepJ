@@ -185,7 +185,7 @@ public final class DeepJModelBundle {
                 + "%d attention heads, Q rank %d, KV rank %d and a %,d-token vocabulary."
                 .formatted(config.nHeads(), config.qRank(), config.kvRank(), config.vocabSize())
                 + "\n\nDeepJ Prism uses low-rank Q/KV attention with rotary embeddings, "
-                + "RMSNorm and SwiGLU. It recalculates the full context for every generated token.";
+                + "RMSNorm and SwiGLU.";
         return formatModelCard(card, details, usage(format));
     }
 
