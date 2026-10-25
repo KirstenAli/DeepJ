@@ -102,7 +102,7 @@ public final class ModelSerializer {
             for (int i = 0; i < count; i++) {
                 Tensor t = params.get(i).value;
                 readAndValidateShape(in, t, i);
-                readTensorData(in, t, format.legacy());
+                readTensorData(in, t);
                 markGpuBufferNeedsUpload(t);
             }
             if (in.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
@@ -171,15 +171,15 @@ public final class ModelSerializer {
 
     static void readTensor(DataInputStream in, Tensor tensor, int index) throws IOException {
         readAndValidateShape(in, tensor, index);
-        readTensorData(in, tensor, false);
+        readTensorData(in, tensor);
     }
 
-    private static void readTensorData(DataInputStream in, Tensor t, boolean legacy) throws IOException {
+    private static void readTensorData(DataInputStream in, Tensor t) throws IOException {
         try (var ignored = GradMode.noGrad()) {
             t.gradientState().beforeMutation();
             float[] data = t.data();
             for (int j = 0; j < data.length; j++) {
-                data[j] = legacy ? (float) in.readDouble() : in.readFloat();
+                data[j] = in.readFloat();
             }
         }
     }
@@ -208,12 +208,12 @@ public final class ModelSerializer {
 
     private static Format readFormat(DataInputStream in) throws IOException {
         int marker = in.readInt();
-        if (marker != MAGIC) return new Format(marker, true, null);
+        if (marker != MAGIC) throw new IOException("Unsupported checkpoint format: missing DeepJ header");
         int version = in.readInt();
-        if (version == 1) return new Format(in.readInt(), false, null);
+        if (version == 1) return new Format(in.readInt(), null);
         if (version == CURRENT_FORMAT_VERSION) {
             ModelSettings settings = ModelSettingsIO.read(in);
-            return new Format(in.readInt(), false, settings);
+            return new Format(in.readInt(), settings);
         }
         throw new IOException("Unsupported model format version: " + version);
     }
@@ -231,5 +231,5 @@ public final class ModelSerializer {
         }
     }
 
-    private record Format(int count, boolean legacy, ModelSettings settings) {}
+    private record Format(int count, ModelSettings settings) {}
 }
