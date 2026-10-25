@@ -101,10 +101,10 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("DeepJ Prism Transformer architecture"));
         assertTrue(modelCard.contains("a hidden size of 8"));
         assertTrue(modelCard.contains("vocabulary.\n\nDeepJ Prism uses low-rank Q/KV attention"));
-        assertFalse(modelCard.contains("recalculates the full context for every generated token"));
+        assertInferenceDocumentation(modelCard);
         assertTrue(modelCard.contains("## Usage"));
-        assertTrue(modelCard.contains("DeepJ 0.10.2-alpha"));
-        assertTrue(modelCard.contains("<version>0.10.2-alpha</version>"));
+        assertTrue(modelCard.contains("DeepJ 0.11.0-alpha"));
+        assertTrue(modelCard.contains("<version>0.11.0-alpha</version>"));
         assertGenerationSettings(modelCard);
         assertTrue(modelCard.contains("desktop chat UI"));
         assertFalse(modelCard.contains("Use a DeepJ release that supports checkpoint format"));
@@ -119,6 +119,12 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("| Seed | Controls sampling randomness"));
         assertTrue(modelCard.contains("| Repetition penalty | Makes the model less likely to repeat itself. "
                 + "`1.0` turns it off; try `1.1` if responses loop. |"));
+    }
+
+    private static void assertInferenceDocumentation(String modelCard) {
+        assertFalse(modelCard.contains("recalculates the full context for every generated token"));
+        assertTrue(modelCard.contains("Generation uses DeepJ's key/value cache"));
+        assertTrue(modelCard.contains("command-line interface"));
     }
 
     private static BPEModel tokenizer() {

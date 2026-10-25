@@ -83,6 +83,9 @@ public final class DeepJModelBundle {
             The `model.dj` checkpoint and `tokenizer.bpe` files use DeepJ's versioned binary formats.
             They are not directly loadable by the Python Transformers library.
 
+            Generation uses DeepJ's key/value cache. When the context window shifts,
+            DeepJ rebuilds the cache for that window.
+
             ## Usage
 
             %s
@@ -206,8 +209,8 @@ public final class DeepJModelBundle {
     }
 
     private static String usageHeader() {
-        return "Use [DeepJ 0.10.2-alpha](https://central.sonatype.com/artifact/"
-                + "io.github.kirstenali/deepj/0.10.2-alpha) or newer:\n\n"
+        return "Use [DeepJ 0.11.0-alpha](https://central.sonatype.com/artifact/"
+                + "io.github.kirstenali/deepj/0.11.0-alpha) or newer:\n\n"
                 + dependency() + "Download this repository's `model.dj` and `tokenizer.bpe` "
                 + "into `downloaded-model`. Imports are omitted below.\n\n";
     }
@@ -218,7 +221,7 @@ public final class DeepJModelBundle {
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.10.2-alpha</version>
+                    <version>0.11.0-alpha</version>
                 </dependency>
                 ```
 
@@ -238,6 +241,8 @@ public final class DeepJModelBundle {
                 Then choose `model.dj`.
                 Keep `tokenizer.bpe` in the same directory. The UI applies the checkpoint's saved
                 prompt format automatically and streams the generated text.
+
+                For terminal chat, see DeepJ's [command-line interface](https://github.com/KirstenAli/DeepJ/blob/master/docs/cli.md).
                 """ + generationSettings();
     }
 

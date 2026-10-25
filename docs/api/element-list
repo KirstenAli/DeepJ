@@ -1,9 +1,11 @@
 io.github.kirstenali.deepj.activations
 io.github.kirstenali.deepj.autograd
 io.github.kirstenali.deepj.chatui
+io.github.kirstenali.deepj.cli
 io.github.kirstenali.deepj.concurrent
 io.github.kirstenali.deepj.data
 io.github.kirstenali.deepj.examples
+io.github.kirstenali.deepj.inference
 io.github.kirstenali.deepj.layers
 io.github.kirstenali.deepj.layers.transformer
 io.github.kirstenali.deepj.layers.transformer.attention
