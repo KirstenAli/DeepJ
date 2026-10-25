@@ -66,4 +66,23 @@ class MetalCachedGenerationTest extends MetalDifferentialTestSupport {
     private static Tensor last(Tensor logits) {
         return Tensor.from2D(new float[][]{logits.rowData(logits.rows - 1)});
     }
+
+    @ParameterizedTest
+    @EnumSource(Kind.class)
+    void slidingContextAndInterleavedRequestsMatchFullGpuRecomputation(Kind kind) {
+        DecoderOnlyModel model = InferenceTestModels.create(kind, 288, 128);
+        int[] tokens = randomTargets(294, 31, 509);
+        try (var first = model.openGeneration(); var second = model.openGeneration();
+             var ignored = GradMode.noGrad()) {
+            first.apply(Arrays.copyOf(tokens, 286)).materialize();
+            second.apply(new int[]{3, 7}).materialize();
+            for (int length = 287; length <= tokens.length; length++) {
+                int[] window = Arrays.copyOfRange(tokens, Math.max(0, length - 288), length);
+                assertTensorClose(last(model.forward(window)), last(first.apply(window)), 2e-5f, 2e-4f);
+                metal.releaseTemporaryResources();
+            }
+            int[] other = {3, 7, 11};
+            assertTensorClose(last(model.forward(other)), last(second.apply(other)), 2e-5f, 2e-4f);
+        }
+    }
 }
