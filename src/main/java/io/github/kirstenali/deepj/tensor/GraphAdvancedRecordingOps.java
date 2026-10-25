@@ -13,10 +13,10 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
                                    int rows, int cols) {
         beginOp(7);
         emitInt(OP_CROSS_ENTROPY_FUSED);
-        emitInt(logits.id);
-        emitInt(targets.id);
-        emitInt(losses.id);
-        emitInt(gradient.id);
+        emitBuffer(logits);
+        emitBuffer(targets);
+        emitBuffer(losses);
+        emitBuffer(gradient);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -27,11 +27,11 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
                               int rows, int cols, float epsilon) {
         beginOp(9);
         emitInt(OP_RMS_NORM);
-        emitInt(input.id);
-        emitInt(gamma.id);
-        emitInt(output.id);
-        emitInt(normalized.id);
-        emitInt(rms.id);
+        emitBuffer(input);
+        emitBuffer(gamma);
+        emitBuffer(output);
+        emitBuffer(normalized);
+        emitBuffer(rms);
         emitInt(rows);
         emitInt(cols);
         emitFloatBits(epsilon);
@@ -43,11 +43,11 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
                                       GpuBuffer output, int rows, int cols) {
         beginOp(8);
         emitInt(OP_RMS_NORM_BACKWARD);
-        emitInt(gradient.id);
-        emitInt(normalized.id);
-        emitInt(rms.id);
-        emitInt(gamma.id);
-        emitInt(output.id);
+        emitBuffer(gradient);
+        emitBuffer(normalized);
+        emitBuffer(rms);
+        emitBuffer(gamma);
+        emitBuffer(output);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -56,9 +56,9 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordSwiGlu(GpuBuffer gate, GpuBuffer up, GpuBuffer fused) {
         beginOp(5);
         emitInt(OP_SWIGLU);
-        emitInt(gate.id);
-        emitInt(up.id);
-        emitInt(fused.id);
+        emitBuffer(gate);
+        emitBuffer(up);
+        emitBuffer(fused);
         emitInt(gate.floatCount());
         endOp();
     }
@@ -67,11 +67,11 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
                                      GpuBuffer gateGradient, GpuBuffer upGradient) {
         beginOp(7);
         emitInt(OP_SWIGLU_BACKWARD);
-        emitInt(gradient.id);
-        emitInt(gate.id);
-        emitInt(up.id);
-        emitInt(gateGradient.id);
-        emitInt(upGradient.id);
+        emitBuffer(gradient);
+        emitBuffer(gate);
+        emitBuffer(up);
+        emitBuffer(gateGradient);
+        emitBuffer(upGradient);
         emitInt(gradient.floatCount());
         endOp();
     }
@@ -79,8 +79,8 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordSumScalar(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SUM_SCALAR);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -89,8 +89,8 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordTranspose(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_TRANSPOSE);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -99,9 +99,9 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordRowBroadcast(int opCode, GpuBuffer a, GpuBuffer rowVec, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(opCode);
-        emitInt(a.id);
-        emitInt(rowVec.id);
-        emitInt(out.id);
+        emitBuffer(a);
+        emitBuffer(rowVec);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -110,9 +110,9 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordColBroadcast(int opCode, GpuBuffer a, GpuBuffer colVec, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(opCode);
-        emitInt(a.id);
-        emitInt(colVec.id);
-        emitInt(out.id);
+        emitBuffer(a);
+        emitBuffer(colVec);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -121,8 +121,8 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordReduction(int opCode, GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(opCode);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -131,8 +131,8 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordSoftmaxRows(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SOFTMAX_ROWS);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -141,9 +141,9 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
     public void recordSoftmaxBackward(GpuBuffer gradOutput, GpuBuffer softmaxOut, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_SOFTMAX_BACKWARD);
-        emitInt(gradOutput.id);
-        emitInt(softmaxOut.id);
-        emitInt(out.id);
+        emitBuffer(gradOutput);
+        emitBuffer(softmaxOut);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -153,9 +153,9 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
                                             GpuBuffer output, float scale) {
         beginOp(7);
         emitInt(OP_SCALED_SOFTMAX_BACKWARD);
-        emitInt(gradient.id);
-        emitInt(probabilities.id);
-        emitInt(output.id);
+        emitBuffer(gradient);
+        emitBuffer(probabilities);
+        emitBuffer(output);
         emitInt(gradient.rows);
         emitInt(gradient.cols);
         emitFloatBits(scale);
@@ -166,10 +166,10 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
                                         GpuBuffer out, int rows, int cols) {
         beginOp(7);
         emitInt(OP_LAYERNORM_BACKWARD);
-        emitInt(dXHat.id);
-        emitInt(xHat.id);
-        emitInt(std.id);
-        emitInt(out.id);
+        emitBuffer(dXHat);
+        emitBuffer(xHat);
+        emitBuffer(std);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -180,10 +180,10 @@ abstract class GraphAdvancedRecordingOps extends GraphRecordingOps {
                                   float weightDecay, float bc1, float bc2, int n) {
         beginOp(13);
         emitInt(OP_ADAMW_UPDATE);
-        emitInt(w.id);
-        emitInt(g.id);
-        emitInt(mt.id);
-        emitInt(vt.id);
+        emitBuffer(w);
+        emitBuffer(g);
+        emitBuffer(mt);
+        emitBuffer(vt);
         emitFloatBits(lr);
         emitFloatBits(beta1);
         emitFloatBits(beta2);

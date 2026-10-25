@@ -110,14 +110,9 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
                 w.rows * w.cols
         );
 
-        markUpdated(gw);
-        markUpdated(gmt);
-        markUpdated(gvt);
-    }
-
-    static void markUpdated(GpuBuffer buffer) {
-        buffer.cpuStale = true;
-        buffer.needsUpload = false;
+        graph.markUpdated(w);
+        graph.markUpdated(mt);
+        graph.markUpdated(vt);
     }
 
     @Override
@@ -199,6 +194,9 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     }
 
     void recordGpuScatterAddRowsAtomic(Tensor target, Tensor grad, Tensor indexTensor, int[] indices) {
+        if (MetalHostZeroInput.isUnboundZero(target)) {
+            graph.bindTensorToBuffer(target, graph.newZeroBuffer(target.rows, target.cols));
+        }
         GpuBuffer gTarget = gpuIn(target);
         GpuBuffer gGrad = gpuIn(grad);
         GpuBuffer gIndices = gpuIn(indexTensor);

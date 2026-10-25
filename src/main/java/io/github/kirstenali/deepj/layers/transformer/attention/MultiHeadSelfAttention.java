@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.activations.Softmax;
+import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -61,6 +62,27 @@ public class MultiHeadSelfAttention implements Layer {
 
     protected Tensor transformQueryKey(Tensor heads, int seqLen) {
         return heads;
+    }
+
+    protected Tensor transformQueryKey(Tensor heads, int length, int offset) {
+        return transformQueryKey(heads, length);
+    }
+
+    @Override
+    public boolean supportsIncrementalInference() { return causalMask; }
+
+    @Override
+    public Tensor forward(Tensor input, InferenceContext context) {
+        if (!causalMask) throw new IllegalStateException("Noncausal attention cannot use a KV cache");
+        validateInput(input);
+        Projections projections = projectInputs(input);
+        Tensor queries = transformQueryKey(HeadOps.splitHeads(projections.Q, nHeads),
+                input.rows, context.position());
+        Tensor keys = transformQueryKey(HeadOps.splitHeads(projections.K, nHeads),
+                input.rows, context.position());
+        Tensor values = HeadOps.splitHeads(projections.V, nHeads);
+        Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
+        return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);
     }
 
     private void validateInput(Tensor x) {

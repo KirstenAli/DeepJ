@@ -38,7 +38,12 @@ public final class DeepJOrigin extends DecoderOnlyModel {
 
     @Override
     protected Tensor embed(int[] inputIds) {
-        return tokEmb.forward(inputIds).add(posEmb.forward(inputIds.length));
+        return embed(inputIds, 0);
+    }
+
+    @Override
+    protected Tensor embed(int[] inputIds, int offset) {
+        return tokEmb.forward(inputIds).add(posEmb.forward(inputIds.length, offset));
     }
 
     @Override
@@ -52,6 +57,9 @@ public final class DeepJOrigin extends DecoderOnlyModel {
     public float gradClipNorm() {
         return cfg.gradClipNorm();
     }
+
+    @Override
+    protected boolean supportsCachedGeneration() { return true; }
 
     public DeepJOriginConfig config() {
         return cfg;

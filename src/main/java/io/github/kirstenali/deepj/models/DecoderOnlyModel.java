@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.models;
 
 import io.github.kirstenali.deepj.layers.Projection;
+import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
@@ -68,6 +69,22 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
     protected Tensor embed(int[] inputIds) {
         return tokEmb.forward(inputIds);
+    }
+
+    protected Tensor embed(int[] inputIds, int offset) { return embed(inputIds); }
+
+    protected boolean supportsCachedGeneration() { return false; }
+
+    @Override
+    public GenerationSession openGeneration() {
+        return supportsCachedGeneration() && stack.supportsIncrementalInference()
+                ? new CachedGenerationSession(this) : this::forward;
+    }
+
+    final Tensor forwardCached(int[] inputIds, InferenceContext context) {
+        Tensor hidden = stack.forward(embed(inputIds, context.position()), context);
+        Tensor last = Tensor.sliceRows(hidden, new int[]{hidden.rows - 1}, hidden.cols);
+        return lmHead.forward(normF.forward(last));
     }
 
     protected List<Parameter> embeddingParameters() {

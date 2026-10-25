@@ -39,8 +39,8 @@ final class TrainingExampleSupport {
     }
 
     static void generate(CausalLM model, Tokenizer tokenizer, TransformerConfig config, String prompt) {
-        String output = TextGenerator.generate(model::forward, config, tokenizer,
-                prompt, 200, 0.1f, 20, 1234L);
+        String output = TextGenerator.generate(model, tokenizer, config,
+                prompt, 200, 0.1f, 20, 1234L, 1.0f);
         System.out.println("\n=== Generated ===");
         System.out.println(output);
     }

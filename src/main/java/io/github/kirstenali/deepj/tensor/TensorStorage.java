@@ -7,10 +7,36 @@ import java.util.Arrays;
 import java.util.Random;
 
 final class TensorStorage {
+    static final int RETAIN_DEVICE = 1;
+    static final int LAZY_HOST = 2;
 
     private static final CpuBackend CPU = new CpuBackend();
 
     private TensorStorage() {}
+
+    static void discardStaleHostStorage(Tensor tensor) {
+        if ((tensor.storageFlags & LAZY_HOST) != 0) tensor.data = null;
+    }
+
+    static TensorBackend requireBackend(TensorBackend backend) {
+        if (backend == null) throw new IllegalArgumentException("backend cannot be null");
+        return backend;
+    }
+
+    static float[] initialStorage(int rows, int cols, boolean host) {
+        int size = checkedSize(rows, cols);
+        return host ? new float[size] : null;
+    }
+
+    static float[] hostStorage(Tensor tensor) {
+        if (tensor.data == null) tensor.data = new float[checkedSize(tensor.rows, tensor.cols)];
+        return tensor.data;
+    }
+
+    static float[] hostData(Tensor tensor) {
+        materialize(tensor);
+        return tensor.data;
+    }
 
     static float item(Tensor tensor) {
         if (tensor.rows != 1 || tensor.cols != 1) throw new IllegalStateException("item requires a scalar tensor");
@@ -43,6 +69,10 @@ final class TensorStorage {
 
     static void materialize(Tensor tensor) {
         if (tensor.gpuTag != null) Tensor.backend().materializeTensor(tensor);
+        if (tensor.gpuTag instanceof GpuBuffer buffer && buffer.cpuStale && buffer.owner != null) {
+            buffer.owner.materialize(tensor);
+        }
+        tensor.hostStorage();
     }
 
     static Tensor from2D(float[][] data) {
@@ -78,6 +108,7 @@ final class TensorStorage {
     }
 
     static void set(Tensor tensor, int row, int column, float value) {
+        tensor.gradientState().beforeMutation();
         requireIndex(tensor, row, column);
         tensor.materialize();
         CPU.set(tensor, row, column, value);

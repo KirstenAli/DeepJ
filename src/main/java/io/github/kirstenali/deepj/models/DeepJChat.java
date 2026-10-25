@@ -26,10 +26,12 @@ public final class DeepJChat {
         this.tokenizer = tokenizer;
     }
 
-    public static DeepJChat load(Path directory) throws IOException {
-        Objects.requireNonNull(directory, "directory");
-        DecoderOnlyModel model = ModelLoader.load(directory.resolve("model.dj"));
-        Tokenizer tokenizer = tokenizer(directory.resolve("tokenizer.bpe"), model.config().vocabSize());
+    public static DeepJChat load(Path path) throws IOException {
+        Objects.requireNonNull(path, "path");
+        Path file = Files.isDirectory(path) ? path.resolve("model.dj") : path;
+        DecoderOnlyModel model = ModelLoader.load(file);
+        Path tokenizerPath = file.toAbsolutePath().getParent().resolve("tokenizer.bpe");
+        Tokenizer tokenizer = tokenizer(tokenizerPath, model.config().vocabSize());
         if (model.config().vocabSize() != tokenizer.vocabSize()) {
             throw new IOException("Tokenizer vocabulary does not match model");
         }

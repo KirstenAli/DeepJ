@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.transformer;
 
 import io.github.kirstenali.deepj.layers.BiasFreeLinear;
+import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJNovaTransformerBlock;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
@@ -52,6 +53,22 @@ public final class LoopedTransformer implements Layer {
     }
 
     @Override
+    public boolean supportsIncrementalInference() {
+        return Stream.of(prelude, core, coda).allMatch(Layer::supportsIncrementalInference);
+    }
+
+    @Override
+    public Tensor forward(Tensor input, InferenceContext inference) {
+        Tensor encoded = prelude.forward(input, inference);
+        Tensor context = contextProjection.forward(encoded);
+        Tensor state = encoded;
+        for (int pass = 0; pass < loops; pass++) {
+            state = coreNorm.forward(core.forward(stateProjection.forward(state).add(context), inference));
+        }
+        return coda.forward(state, inference);
+    }
+
+    @Override
     public List<Parameter> parameters() {
         return Stream.of(prelude, core, coda, contextProjection, stateProjection, coreNorm)
                 .flatMap(layer -> layer.parameters().stream()).distinct().toList();
@@ -64,6 +81,9 @@ public final class LoopedTransformer implements Layer {
         public Tensor forward(Tensor input) {
             return input;
         }
+
+        @Override
+        public boolean supportsIncrementalInference() { return true; }
 
         @Override
         public List<Parameter> parameters() {

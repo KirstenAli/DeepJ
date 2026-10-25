@@ -10,6 +10,9 @@ import java.util.Random;
 
 public final class DeepJPrism extends DecoderOnlyModel {
 
+    @Override
+    protected boolean supportsCachedGeneration() { return true; }
+
     private final DeepJPrismConfig cfg;
 
     public DeepJPrism(DeepJPrismConfig cfg, long seed) {

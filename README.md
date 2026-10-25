@@ -22,7 +22,7 @@ DeepJ requires JDK 20 or newer.
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.10.2-alpha</version>
+    <version>0.11.0-alpha</version>
 </dependency>
 ```
 
@@ -32,15 +32,16 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 - A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
 - CPU execution and an optional Metal backend with fused training operations and a custom FP32 implementation of FlashAttention for supported devices and shapes.
-- DeepJ Origin with learned positions, LayerNorm, and GELU.
+- DeepJ Origin with learned positional embeddings, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
 - DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
 - DeepJ Loop with a shared decoder core reused across multiple passes and context reinjection.
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
-- Bounded-memory sequential, random-access, and response-only datasets.
-- Versioned model bundles for sharing DeepJ checkpoints on Hugging Face.
+- [KV-cached text generation](docs/inference.md) on CPU and Metal.
+- File-backed dataset loaders for sequential reading, random sampling and response-only fine-tuning.
+- Export model bundles with weights, configuration, tokenizer files, and a model card for sharing on Hugging Face.
 - A small optional JavaFX chat UI.
 
 ## Desktop chat
@@ -87,11 +88,23 @@ and returns only the generated answer. `chat.stream(prompt, listener)` delivers 
 answers as they are generated. Each call is independent; conversation history is not
 retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced use.
 
+## Command line
+
+Build the optional terminal app with JDK 20 or newer:
+
+```bash
+mvn package -Pcli
+java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
+```
+
+Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
+or check backend availability. See the [CLI guide](docs/cli.md) for commands and controls.
+
 ## Models
 
 | Model | Main components |
 |---|---|
-| `DeepJOrigin` | Learned positions, causal multi-head attention, LayerNorm, GELU MLP |
+| `DeepJOrigin` | Learned positional embeddings, causal multi-head attention, LayerNorm, GELU MLP |
 | `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
 | `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
 | `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |
@@ -108,7 +121,7 @@ Download its `model.dj` and `tokenizer.bpe` files to try the quick start above o
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
-- Text generation recalculates the full context for every new token because attention caching is not yet implemented.
+- Sliding-window generation re-prefills the cache after each context shift.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
 - The library has not been validated for safety-critical or production inference workloads.
 

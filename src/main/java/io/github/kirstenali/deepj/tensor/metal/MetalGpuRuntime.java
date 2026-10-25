@@ -21,6 +21,12 @@ final class MetalGpuRuntime implements GpuRuntime {
     }
 
     @Override
+    public void zeroBuffer(int bufId, int floatCount) {
+        if (floatCount < 1) throw new IllegalArgumentException("Invalid zero buffer size");
+        MetalNative.nativeZeroBuffer(requireBufferId(bufId), floatCount);
+    }
+
+    @Override
     public void downloadBuffer(int bufId, float[] out) {
         MetalNative.nativeDownloadBuffer(requireBufferId(bufId), Objects.requireNonNull(out));
     }

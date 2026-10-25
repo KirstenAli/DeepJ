@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
+import io.github.kirstenali.deepj.autograd.AttentionOps;
+import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.layers.BiasFreeLinear;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
@@ -17,7 +19,6 @@ public final class GroupedQueryAttention implements Layer {
     private final BiasFreeLinear query, key, value, output;
     private final HeadNormalization queryNorm, keyNorm;
     private final RotaryEmbedding rotary;
-    private final GroupedHeads groups;
 
     public GroupedQueryAttention(DeepJNovaConfig config, Random random) {
         this.config = config;
@@ -30,7 +31,6 @@ public final class GroupedQueryAttention implements Layer {
         queryNorm = new HeadNormalization(headWidth, config.qkNorm());
         keyNorm = new HeadNormalization(headWidth, config.qkNorm());
         rotary = new RotaryEmbedding(headWidth, config.maxSeqLen());
-        groups = new GroupedHeads(config.nHeads(), config.kvHeads());
     }
 
     @Override
@@ -39,7 +39,7 @@ public final class GroupedQueryAttention implements Layer {
         Tensor queries = transform(queryNorm, query.forward(input), length, config.nHeads());
         Tensor keys = transform(keyNorm, key.forward(input), length, config.kvHeads());
         Tensor values = HeadOps.splitHeads(value.forward(input), config.kvHeads());
-        return attend(queries, groups.expand(keys, length), groups.expand(values, length));
+        return attend(queries, keys, values);
     }
 
     private Tensor transform(HeadNormalization norm, Tensor projection, int length, int heads) {
@@ -47,12 +47,30 @@ public final class GroupedQueryAttention implements Layer {
     }
 
     private Tensor attend(Tensor queries, Tensor keys, Tensor values) {
-        Tensor context = HeadOps.causal(queries, keys, values, config.nHeads(), scale());
+        Tensor context = AttentionOps.causal(
+                queries, keys, values, config.nHeads(), config.kvHeads(), scale());
         return output.forward(HeadOps.mergeHeads(context, config.nHeads()));
     }
 
     private float scale() {
         return (float) (1.0 / Math.sqrt(config.dModel() / config.nHeads()));
+    }
+
+    @Override
+    public boolean supportsIncrementalInference() { return true; }
+
+    @Override
+    public Tensor forward(Tensor input, InferenceContext context) {
+        Tensor queries = cachedTransform(queryNorm, query.forward(input), config.nHeads(), context.position());
+        Tensor keys = cachedTransform(keyNorm, key.forward(input), config.kvHeads(), context.position());
+        Tensor values = HeadOps.splitHeads(value.forward(input), config.kvHeads());
+        Tensor attended = context.attend(this, queries, keys, values, config.nHeads(), config.kvHeads(), scale());
+        return output.forward(HeadOps.mergeHeads(attended, config.nHeads()));
+    }
+
+    private Tensor cachedTransform(HeadNormalization norm, Tensor projection, int heads, int offset) {
+        Tensor split = norm.forward(HeadOps.splitHeads(projection, heads));
+        return rotary.apply(split, projection.rows, heads, offset);
     }
 
     @Override

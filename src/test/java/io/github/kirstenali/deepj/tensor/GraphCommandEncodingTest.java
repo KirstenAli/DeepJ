@@ -57,7 +57,7 @@ class GraphCommandEncodingTest extends ComputeGraphTestSupport {
     void tiledAttentionRecordsItsLinearNormalizationState() {
         graph.recordCausalAttention(a, b, c, d, e, 2, 0.125f);
         assertCommand(ComputeGraph.OP_TILED_CAUSAL_ATTENTION,
-                a.id, b.id, c.id, d.id, e.id, 2, 2, bits(0.125f));
+                a.id, b.id, c.id, d.id, e.id, 2, 2, 2, bits(0.125f));
     }
 
     @Test
@@ -67,7 +67,24 @@ class GraphCommandEncodingTest extends ComputeGraphTestSupport {
         GpuBuffer j = graph.newOutputBuffer(2, 3);
         graph.recordCausalAttentionBackward(a, b, c, d, e, f, g, h, i, j, 2, 0.125f);
         assertCommand(ComputeGraph.OP_TILED_CAUSAL_ATTENTION_BACKWARD,
-                a.id, b.id, c.id, d.id, e.id, f.id, g.id, h.id, i.id, j.id, 2, 2, bits(0.125f));
+                a.id, b.id, c.id, d.id, e.id, f.id, g.id, h.id, i.id, j.id, 2, 2, 2, bits(0.125f));
+    }
+
+    @Test
+    void groupedAttentionRecordsDistinctQueryAndKeyValueHeadCounts() {
+        graph.recordCausalAttention(a, b, c, d, e, 9, 3, 0.125f);
+        assertCommand(ComputeGraph.OP_TILED_CAUSAL_ATTENTION,
+                a.id, b.id, c.id, d.id, e.id, 2, 9, 3, bits(0.125f));
+    }
+
+    @Test
+    void headCacheCommandsPreserveOffsetsAndPrefixDimensions() {
+        graph.recordHeadCacheWrite(a, b, 2, 3);
+        assertCommand(ComputeGraph.OP_HEAD_CACHE_WRITE, a.id, b.id, 2, 1, 1, 3, 3);
+        graph.recordHeadPrefixMatmul(a, b, c, 2, 1, true);
+        assertCommand(ComputeGraph.OP_HEAD_PREFIX_MATMUL, a.id, b.id, c.id, 2, 1, 3, 1, 3, 1);
+        graph.recordHeadPrefixMatmul(a, b, c, 1, 2, false);
+        assertCommand(ComputeGraph.OP_HEAD_PREFIX_MATMUL, a.id, b.id, c.id, 1, 2, 3, 2, 3, 0);
     }
 
     @ParameterizedTest

@@ -6,38 +6,45 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 final class AttentionDoubleReference {
     private static final int WIDTH = 64;
 
-    record Inputs(Tensor query, Tensor key, Tensor value, Tensor upstream, int heads, float scale) {}
+    record Inputs(Tensor query, Tensor key, Tensor value, Tensor upstream,
+                  int heads, int keyValueHeads, float scale) {
+        Inputs(Tensor query, Tensor key, Tensor value, Tensor upstream, int heads, float scale) {
+            this(query, key, value, upstream, heads, heads, scale);
+        }
+    }
     record Result(double[] output, double[] query, double[] key, double[] value) {}
 
     private AttentionDoubleReference() {}
 
     static Result calculate(Inputs inputs) {
         int count = inputs.query().data.length;
-        Result result = new Result(new double[count], new double[count], new double[count], new double[count]);
+        Result result = new Result(new double[count], new double[count],
+                new double[inputs.key().data.length], new double[inputs.value().data.length]);
         int length = inputs.query().rows / inputs.heads();
         for (int head = 0; head < inputs.heads(); head++) {
-            accumulateHead(inputs, result, head * length, length);
+            int keyBase = head / (inputs.heads() / inputs.keyValueHeads()) * length;
+            accumulateHead(inputs, result, head * length, keyBase, length);
         }
         return result;
     }
 
-    private static void accumulateHead(Inputs inputs, Result result, int base, int length) {
+    private static void accumulateHead(Inputs inputs, Result result, int base, int keyBase, int length) {
         for (int row = 0; row < length; row++) {
-            double[] probabilities = probabilities(inputs, base, row);
-            double[] upstream = upstream(inputs, base, row);
+            double[] probabilities = probabilities(inputs, base, keyBase, row);
+            double[] upstream = upstream(inputs, base, keyBase, row);
             double delta = dot(probabilities, upstream);
             for (int column = 0; column <= row; column++) {
                 double derivative = probabilities[column] * (upstream[column] - delta) * inputs.scale();
-                accumulate(inputs, result, base + row, base + column, probabilities[column], derivative);
+                accumulate(inputs, result, base + row, keyBase + column, probabilities[column], derivative);
             }
         }
     }
 
-    private static double[] probabilities(Inputs inputs, int base, int row) {
+    private static double[] probabilities(Inputs inputs, int base, int keyBase, int row) {
         double[] scores = new double[row + 1];
         double maximum = Double.NEGATIVE_INFINITY;
         for (int column = 0; column <= row; column++) {
-            scores[column] = dot(inputs.query(), base + row, inputs.key(), base + column) * inputs.scale();
+            scores[column] = dot(inputs.query(), base + row, inputs.key(), keyBase + column) * inputs.scale();
             maximum = Math.max(maximum, scores[column]);
         }
         double sum = exponentiate(scores, maximum);
@@ -56,10 +63,10 @@ final class AttentionDoubleReference {
         return sum;
     }
 
-    private static double[] upstream(Inputs inputs, int base, int row) {
+    private static double[] upstream(Inputs inputs, int base, int keyBase, int row) {
         double[] result = new double[row + 1];
         for (int column = 0; column <= row; column++) {
-            result[column] = dot(inputs.upstream(), base + row, inputs.value(), base + column);
+            result[column] = dot(inputs.upstream(), base + row, inputs.value(), keyBase + column);
         }
         return result;
     }

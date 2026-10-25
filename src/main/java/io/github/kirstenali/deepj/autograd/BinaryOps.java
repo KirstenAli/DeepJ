@@ -39,7 +39,7 @@ public final class BinaryOps {
                               Function<Tensor, Tensor> left, Function<Tensor, Tensor> right, Tensor... saved) {
         Function<Tensor, Tensor> leftRule = a.requiresGrad() ? left : null;
         Function<Tensor, Tensor> rightRule = b.requiresGrad() ? right : null;
-        return Autograd.recordSaved(output, g -> new Tensor[]{
+        return Autograd.recordBuiltinSaved(output, g -> new Tensor[]{
                 leftRule == null ? null : leftRule.apply(g),
                 rightRule == null ? null : rightRule.apply(g)}, new Tensor[]{a, b}, saved);
     }

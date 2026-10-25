@@ -9,7 +9,7 @@ public final class NormalizationOps {
         var result = Tensor.backend().rmsNorm(input, gamma, epsilon);
         Tensor normalized = result.normalized(), rms = result.rms();
         boolean dx = input.requiresGrad(), dg = gamma.requiresGrad();
-        return Autograd.recordSaved(result.output(), g -> new Tensor[]{
+        return Autograd.recordBuiltinSaved(result.output(), g -> new Tensor[]{
                 dx ? Tensor.backend().rmsNormBackward(g, normalized, rms, gamma) : null,
                 dg ? g.multiply(normalized).sumRows() : null},
                 new Tensor[]{input, gamma}, gamma, normalized, rms);
@@ -24,7 +24,8 @@ public final class NormalizationOps {
             output = normalized.multiplyBroadcastRows(gamma).addBroadcastRows(beta);
         }
         var required = new RequiredGradients(input.requiresGrad(), gamma.requiresGrad(), beta.requiresGrad());
-        return Autograd.recordSaved(output, g -> layerGradients(g, gamma, normalized, standardDeviation, required),
+        return Autograd.recordBuiltinSaved(output,
+                g -> layerGradients(g, gamma, normalized, standardDeviation, required),
                 new Tensor[]{input, gamma, beta}, gamma, normalized, standardDeviation);
     }
 

@@ -94,8 +94,8 @@ public class ModelSerializerTest {
     }
 
     @Test
-    void load_supportsLegacyDoubleCheckpoint() throws IOException {
-        Path file = tempDir.resolve("legacy.bin");
+    void rejectsHeaderlessDoubleCheckpointsWithoutChangingParameters() throws IOException {
+        Path file = tempDir.resolve("unsupported-double.bin");
         try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(file))) {
             out.writeInt(1);
             out.writeInt(1);
@@ -104,9 +104,12 @@ public class ModelSerializerTest {
             out.writeDouble(-2.5);
         }
 
-        Parameter parameter = new Parameter(Tensor.zeros(1, 2));
-        ModelSerializer.load(List.of(parameter), file);
-        assertArrayEquals(new float[]{1.25f, -2.5f}, parameter.value.data);
+        Parameter parameter = new Parameter(rowTensor(7, 8));
+        IOException error = assertThrows(IOException.class, () -> ModelSerializer.load(List.of(parameter), file));
+        assertEquals("Unsupported checkpoint format: missing DeepJ header", error.getMessage());
+        assertArrayEquals(new float[]{7, 8}, parameter.value.data);
+        assertThrows(IOException.class, () -> ModelSerializer.settings(file));
+        assertThrows(IOException.class, () -> ModelSerializer.inspect(file));
     }
 
     @Test

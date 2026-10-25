@@ -70,11 +70,12 @@ class ComputeGraphTest extends ComputeGraphTestSupport {
     }
 
     @Test
-    void outputBufferIdsAreIncreasing() {
+    void liveOutputBuffersHaveDistinctNonNegativeIds() {
         GpuBuffer a = graph.newOutputBuffer(1, 1);
         GpuBuffer b = graph.newOutputBuffer(1, 1);
 
-        assertTrue(b.id > a.id, "buffer ids should be monotonically increasing");
+        assertTrue(a.id >= 0 && b.id >= 0);
+        assertNotEquals(a.id, b.id, "live buffers must never share an id");
     }
 
     @Test

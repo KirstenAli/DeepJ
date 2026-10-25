@@ -15,21 +15,26 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
             return;
         }
 
-        allocatePendingBuffers();
+        GraphBufferReuse.Plan plan = GraphBufferReuse.prepare(this);
+        allocatePendingBuffers(plan.allocations());
         uploadPendingData();
-        executePendingOps();
+        executePendingOps(plan.commands());
         releaseOrphanedBuffers();
     }
 
     void allocatePendingBuffers() {
-        if (pendingAllocs.isEmpty()) return;
+        allocatePendingBuffers(pendingAllocs);
+    }
 
-        int count = pendingAllocs.size();
+    private void allocatePendingBuffers(List<int[]> allocations) {
+        if (allocations.isEmpty()) return;
+
+        int count = allocations.size();
         int[] ids   = new int[count];
         int[] sizes = new int[count];
         for (int i = 0; i < count; i++) {
-            ids[i]   = pendingAllocs.get(i)[0];
-            sizes[i] = pendingAllocs.get(i)[1];
+            ids[i]   = allocations.get(i)[0];
+            sizes[i] = allocations.get(i)[1];
         }
         runtime.allocBuffers(ids, sizes, count);
         markAllocatedBuffers();
@@ -37,10 +42,10 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     }
 
     void markAllocatedBuffers() {
-        for (var ref : bufIdToTensor.values()) {
-            Tensor t = ref.get();
-            if (t != null && t.getGpuTag() instanceof GpuBuffer gb) {
-                gb.allocatedOnGpu = true;
+        for (var entry : bufIdToTensor.entrySet()) {
+            Tensor t = entry.getValue().get();
+            if (ownsBuffer(t, entry.getKey())) {
+                ((GpuBuffer) t.getGpuTag()).allocatedOnGpu = true;
             }
         }
     }
@@ -54,11 +59,10 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
         for (int id : orphanIds) {
             removePendingForId(id);
             bufIdToTensor.remove(id);
-            allocatedBufferIds.remove(id);
         }
 
         int[] ids = orphanIds.stream().mapToInt(Integer::intValue).toArray();
-        runtime.releaseBuffers(ids, ids.length);
+        GraphBufferRelease.release(this, ids);
     }
 
     List<Integer> collectOrphanIds() {
@@ -74,8 +78,19 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     }
 
     boolean isOrphanedBuffer(int id, Tensor t) {
+        if (backwardBufferIds.contains(id)) return true;
         if (t == null) return true;
         return !(t.getGpuTag() instanceof GpuBuffer gb) || gb.id != id;
+    }
+
+    void retireBackwardBuffer(GpuBuffer buffer) {
+        if (managedBuffers.get(buffer.id) != buffer) return;
+        var reference = bufIdToTensor.get(buffer.id);
+        Tensor tensor = reference == null ? null : reference.get();
+        if (tensor != null && !canReleaseTemporary(tensor)) return;
+        backwardBufferIds.add(buffer.id);
+        if (ownsBuffer(tensor, buffer.id)) tensor.setGpuTag(null);
+        bufIdToTensor.putIfAbsent(buffer.id, new WeakReference<>(null));
     }
 
     static int getOpStride(int op) {
@@ -121,19 +136,13 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
         }
     }
 
-    void uploadPendingData() {
-        if (pendingUploadIds.isEmpty()) return;
-
-        for (int i = 0; i < pendingUploadIds.size(); i++) {
-            runtime.uploadBuffer(pendingUploadIds.get(i)[0], pendingUploadData.get(i));
-        }
-        pendingUploadIds.clear();
-        pendingUploadData.clear();
+    void executePendingOps() {
+        executePendingOps(cmdStream);
     }
 
-    void executePendingOps() {
+    private void executePendingOps(int[] commands) {
         if (opCount > 0) {
-            runtime.flushOps(cmdStream, cmdPos);
+            runtime.flushOps(commands, cmdPos);
         }
         cmdPos  = 0;
         opCount = 0;
@@ -141,11 +150,16 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
 
     public void materialize(Tensor t) {
         if (!(t.getGpuTag() instanceof GpuBuffer buf)) return;
+        buf.requireLive();
+        if (buf.owner != null && buf.owner != this) {
+            buf.owner.materialize(t);
+            return;
+        }
         if (!buf.cpuStale) return;
 
         flush();
 
-        runtime.downloadBuffer(buf.id, t.data);
+        runtime.downloadBuffer(buf.id, t.hostStorage());
         buf.cpuStale = false;
     }
 
@@ -162,6 +176,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
         clearTensorGpuTags(ids);
         releaseNativeBuffers(ids);
         allocatedBufferIds.removeAll(ids);
+        backwardBufferIds.removeAll(ids);
     }
 
     List<Integer> temporaryBufferIds() {
@@ -186,42 +201,42 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
         }
     }
 
-    static boolean ownsBuffer(Tensor tensor, int id) {
+    boolean ownsBuffer(Tensor tensor, int id) {
         return tensor != null && tensor.getGpuTag() instanceof GpuBuffer buffer
-                && buffer.id == id;
+                && buffer.id == id && buffer.owner == this;
     }
 
     void materializeTrackedTensors() {
         flush();
-        for (WeakReference<Tensor> ref : bufIdToTensor.values()) {
-            Tensor t = ref.get();
-            if (t == null) continue;
-            if (!(t.getGpuTag() instanceof GpuBuffer gb)) continue;
+        for (var entry : bufIdToTensor.entrySet()) {
+            Tensor t = entry.getValue().get();
+            if (!ownsBuffer(t, entry.getKey())) continue;
+            GpuBuffer gb = (GpuBuffer) t.getGpuTag();
             if (!gb.cpuStale) continue;
 
-            runtime.downloadBuffer(gb.id, t.data);
+            runtime.downloadBuffer(gb.id, t.hostStorage());
             gb.cpuStale = false;
             gb.needsUpload = false;
         }
     }
 
     void clearTensorGpuTags() {
-        for (WeakReference<Tensor> ref : bufIdToTensor.values()) {
-            Tensor t = ref.get();
-            if (t != null) t.setGpuTag(null);
+        for (var entry : bufIdToTensor.entrySet()) {
+            Tensor t = entry.getValue().get();
+            if (ownsBuffer(t, entry.getKey())) t.setGpuTag(null);
         }
     }
 
     void releaseNativeBuffers() {
         if (allocatedBufferIds.isEmpty()) return;
         int[] ids = allocatedBufferIds.stream().mapToInt(Integer::intValue).toArray();
-        runtime.releaseBuffers(ids, ids.length);
+        GraphBufferRelease.release(this, ids);
     }
 
     void releaseNativeBuffers(List<Integer> buffers) {
         if (buffers.isEmpty()) return;
         int[] ids = buffers.stream().mapToInt(Integer::intValue).toArray();
-        runtime.releaseBuffers(ids, ids.length);
+        GraphBufferRelease.release(this, ids);
     }
 
     void resetGraphState() {
@@ -230,6 +245,8 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
         pendingUploadIds.clear();
         pendingUploadData.clear();
         allocatedBufferIds.clear();
+        backwardBufferIds.clear();
+        managedBuffers.clear();
         cmdPos = 0;
         opCount = 0;
     }

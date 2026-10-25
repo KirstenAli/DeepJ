@@ -36,6 +36,16 @@ abstract class MetalCoreOps implements TensorBackend {
         return graph.createOutputTensor(buf);
     }
 
+    @Override
+    public Tensor zeros(int rows, int columns) {
+        return gpuOut(graph.newZeroBuffer(rows, columns));
+    }
+
+    @Override
+    public Tensor copy(Tensor source) {
+        return graph.copyToDevice(source);
+    }
+
     static void markNeedsUpload(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer gb) {
             gb.needsUpload = true;

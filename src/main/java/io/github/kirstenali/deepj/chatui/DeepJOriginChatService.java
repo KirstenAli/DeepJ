@@ -60,7 +60,7 @@ public final class DeepJOriginChatService implements ChatService {
                            long seed, float repetitionPenalty, Consumer<String> listener) {
         validateRequest(prompt, maxTokens, temperature, topK);
         String prefix = tokenizer.decode(tokenizer.encode(prompt));
-        String result = TextGenerator.stream(loadedModel::forward, config.maxSeqLen(), tokenizer, prompt,
+        String result = TextGenerator.stream(loadedModel, tokenizer, config, prompt,
                 maxTokens, temperature, topK, seed, repetitionPenalty,
                 text -> listener.accept(GeneratedText.continuation(prefix, text)));
         return GeneratedText.continuation(prefix, result);

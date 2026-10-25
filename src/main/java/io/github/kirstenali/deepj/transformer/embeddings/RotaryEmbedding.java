@@ -3,6 +3,8 @@ package io.github.kirstenali.deepj.transformer.embeddings;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.autograd.LayoutOps;
 
+import java.util.stream.IntStream;
+
 public final class RotaryEmbedding {
 
     private final int headDim;
@@ -43,6 +45,17 @@ public final class RotaryEmbedding {
     public Tensor apply(Tensor t, int seqLen, int nHeads) {
         validateInput(t, seqLen, nHeads);
         return LayoutOps.rotary(t, cosTable, sinTable, seqLen, false);
+    }
+
+    public Tensor apply(Tensor tensor, int length, int heads, int offset) {
+        if (offset == 0) return apply(tensor, length, heads);
+        validateInput(tensor, length, heads);
+        if (offset < 0 || (long) offset + length > cosTable.rows) {
+            throw new IllegalArgumentException("Rotary position exceeds the configured context");
+        }
+        int[] rows = IntStream.range(offset, offset + length).toArray();
+        return LayoutOps.rotary(tensor, LayoutOps.gather(cosTable, rows),
+                LayoutOps.gather(sinTable, rows), length, false);
     }
 
     public Tensor applyBackward(Tensor t, int seqLen, int nHeads) {

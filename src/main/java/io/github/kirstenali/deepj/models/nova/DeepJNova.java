@@ -50,6 +50,9 @@ public final class DeepJNova extends DecoderOnlyModel {
     }
 
     @Override
+    protected boolean supportsCachedGeneration() { return true; }
+
+    @Override
     public List<Parameter> parameters() {
         return trainable;
     }

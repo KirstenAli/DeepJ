@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Objects;
@@ -100,7 +102,7 @@ public final class ModelSerializer {
             for (int i = 0; i < count; i++) {
                 Tensor t = params.get(i).value;
                 readAndValidateShape(in, t, i);
-                readTensorData(in, t, format.legacy());
+                readTensorData(in, t);
                 markGpuBufferNeedsUpload(t);
             }
             if (in.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
@@ -112,6 +114,33 @@ public final class ModelSerializer {
         try (DataInputStream input = openInput(path)) {
             return readFormat(input).settings();
         }
+    }
+
+    public static ModelInspection inspect(Path path) throws IOException {
+        try (FileChannel channel = FileChannel.open(path);
+             var input = new DataInputStream(Channels.newInputStream(channel))) {
+            Format format = readFormat(input);
+            if (format.settings() == null) throw new IOException("Model has no embedded settings: " + path);
+            if (format.count() < 1) throw new IOException("Model has no tensors");
+            long parameters = 0;
+            for (int index = 0; index < format.count(); index++) {
+                parameters += inspectTensor(channel, input);
+            }
+            if (channel.position() != channel.size()) throw new IOException("Unexpected trailing checkpoint data");
+            return new ModelInspection(format.settings(), parameters, format.count(), channel.size());
+        }
+    }
+
+    private static long inspectTensor(FileChannel channel, DataInputStream input) throws IOException {
+        int rows = input.readInt(), columns = input.readInt();
+        long count = (long) rows * columns;
+        if (rows < 1 || columns < 1 || count > Integer.MAX_VALUE) {
+            throw new IOException("Invalid checkpoint tensor shape");
+        }
+        long bytes = count * Float.BYTES;
+        if (bytes > channel.size() - channel.position()) throw new IOException("Truncated checkpoint tensor");
+        channel.position(channel.position() + bytes);
+        return count;
     }
 
     private static void validateSettings(ModelSettings settings, TransformerConfig expected)
@@ -142,14 +171,15 @@ public final class ModelSerializer {
 
     static void readTensor(DataInputStream in, Tensor tensor, int index) throws IOException {
         readAndValidateShape(in, tensor, index);
-        readTensorData(in, tensor, false);
+        readTensorData(in, tensor);
     }
 
-    private static void readTensorData(DataInputStream in, Tensor t, boolean legacy) throws IOException {
+    private static void readTensorData(DataInputStream in, Tensor t) throws IOException {
         try (var ignored = GradMode.noGrad()) {
             t.gradientState().beforeMutation();
-            for (int j = 0; j < t.data.length; j++) {
-                t.data[j] = legacy ? (float) in.readDouble() : in.readFloat();
+            float[] data = t.data();
+            for (int j = 0; j < data.length; j++) {
+                data[j] = in.readFloat();
             }
         }
     }
@@ -178,12 +208,12 @@ public final class ModelSerializer {
 
     private static Format readFormat(DataInputStream in) throws IOException {
         int marker = in.readInt();
-        if (marker != MAGIC) return new Format(marker, true, null);
+        if (marker != MAGIC) throw new IOException("Unsupported checkpoint format: missing DeepJ header");
         int version = in.readInt();
-        if (version == 1) return new Format(in.readInt(), false, null);
+        if (version == 1) return new Format(in.readInt(), null);
         if (version == CURRENT_FORMAT_VERSION) {
             ModelSettings settings = ModelSettingsIO.read(in);
-            return new Format(in.readInt(), false, settings);
+            return new Format(in.readInt(), settings);
         }
         throw new IOException("Unsupported model format version: " + version);
     }
@@ -201,5 +231,5 @@ public final class ModelSerializer {
         }
     }
 
-    private record Format(int count, boolean legacy, ModelSettings settings) {}
+    private record Format(int count, ModelSettings settings) {}
 }

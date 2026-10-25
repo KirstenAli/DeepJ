@@ -81,7 +81,10 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
         assertTrue(graph.isEmpty(), "graph should be empty after releaseAll");
 
         GpuBuffer fresh = graph.ensureGpuBuffer(Tensor.from2D(new float[][]{{9}}));
-        assertTrue(fresh.id > out.id, "buffer ids must stay globally unique after releaseAll");
+        assertTrue(fresh.id >= 0);
+        assertNotSame(out, fresh);
+        assertNull(t.getGpuTag());
+        assertThrows(IllegalStateException.class, () -> graph.createOutputTensor(out));
     }
 
     @Test
@@ -107,7 +110,7 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
         for (int index = 0; index < fields.size(); index++) {
             codes[index] = fields.get(index).getInt(null);
         }
-        assertEquals(59, fields.size());
+        assertEquals(61, fields.size());
         assertEquals(fields.size(), java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
     }

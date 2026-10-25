@@ -45,6 +45,8 @@ final class MetalNative {
 
     static native void nativeUploadBuffer(int bufId, float[] data);
 
+    static native void nativeZeroBuffer(int bufId, int floatCount);
+
     static native void nativeDownloadBuffer(int bufId, float[] out);
 
     static native void nativeReleaseBuffers(int[] ids, int count);

@@ -38,7 +38,7 @@ public final class ActivationOps {
 
     public static Tensor swiGlu(Tensor gate, Tensor up) {
         Tensor output = Tensor.backend().swiGlu(gate, up);
-        return Autograd.record(output, g -> {
+        return Autograd.recordBuiltin(output, g -> {
             var result = Tensor.backend().swiGluBackward(g, gate, up);
             return new Tensor[]{result.gateGradient(), result.upGradient()};
         }, gate, up);

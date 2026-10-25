@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.blocks;
 
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
@@ -48,6 +49,19 @@ abstract class AbstractTransformerBlock implements Layer {
 
     private Tensor residual(Tensor input, Layer norm, Layer branch) {
         Tensor update = branch.forward(norm.forward(input));
+        return addResidual(input, update);
+    }
+
+    @Override
+    public Tensor forward(Tensor input, InferenceContext context) {
+        Tensor update = attention.forward(firstNorm.forward(input), context);
+        return residual(addResidual(input, update), secondNorm, feedForward);
+    }
+
+    @Override
+    public boolean supportsIncrementalInference() { return attention.supportsIncrementalInference(); }
+
+    private Tensor addResidual(Tensor input, Tensor update) {
         return input.add(residualScale == 1.0f ? update : update.multiplyScalar(residualScale));
     }
 
