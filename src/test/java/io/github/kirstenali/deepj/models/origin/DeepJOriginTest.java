@@ -43,8 +43,8 @@ public class DeepJOriginTest {
     @Test
     void modelUsesIndependentInitializationStreams() {
         DeepJOrigin model = new DeepJOrigin(new DeepJOriginConfig(11, 8, 4, 2, 1, 8), 1234L);
-        float embeddingFirst = model.parameters().get(0).value.data[0];
-        float attentionFirst = model.parameters().get(6).value.data[0];
+        float embeddingFirst = model.parameters().get(0).value.rawData()[0];
+        float attentionFirst = model.parameters().get(6).value.rawData()[0];
         assertNotEquals(embeddingFirst, attentionFirst);
     }
 
@@ -57,7 +57,7 @@ public class DeepJOriginTest {
     }
 
     private static boolean isAllOnes(Tensor tensor) {
-        for (float value : tensor.data) {
+        for (float value : tensor.rawData()) {
             if (value != 1.0f) return false;
         }
         return true;
@@ -131,7 +131,7 @@ public class DeepJOriginTest {
 
         Tensor dLogits = Tensor.zeros(logits.rows, logits.cols);
         for (int r = 0; r < dLogits.rows; r++) {
-            dLogits.data[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0f;
+            dLogits.rawData()[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0f;
         }
 
         for (Parameter p : model.parameters()) {
@@ -164,6 +164,6 @@ public class DeepJOriginTest {
 
     private static float[] materializedData(Tensor tensor) {
         tensor.materialize();
-        return tensor.data.clone();
+        return tensor.rawData().clone();
     }
 }

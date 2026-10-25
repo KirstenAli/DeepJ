@@ -61,8 +61,8 @@ class ModelLoaderTest {
         original.save(file);
         DecoderOnlyModel loaded = ModelLoader.load(file);
         assertEquals(original.config(), loaded.config());
-        assertArrayEquals(original.parameters().get(0).value.data,
-                loaded.parameters().get(0).value.data);
+        assertArrayEquals(original.parameters().get(0).value.rawData(),
+                loaded.parameters().get(0).value.rawData());
         return loaded;
     }
 }

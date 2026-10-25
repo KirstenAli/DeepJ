@@ -7,15 +7,12 @@ import java.util.Arrays;
 import java.util.Random;
 
 final class TensorStorage {
-    static final int RETAIN_DEVICE = 1;
-    static final int LAZY_HOST = 2;
-
     private static final CpuBackend CPU = new CpuBackend();
 
     private TensorStorage() {}
 
     static void discardStaleHostStorage(Tensor tensor) {
-        if ((tensor.storageFlags & LAZY_HOST) != 0) tensor.data = null;
+        tensor.memory().discardStaleHost();
     }
 
     static TensorBackend requireBackend(TensorBackend backend) {
@@ -23,19 +20,13 @@ final class TensorStorage {
         return backend;
     }
 
-    static float[] initialStorage(int rows, int cols, boolean host) {
-        int size = checkedSize(rows, cols);
-        return host ? new float[size] : null;
-    }
-
     static float[] hostStorage(Tensor tensor) {
-        if (tensor.data == null) tensor.data = new float[checkedSize(tensor.rows, tensor.cols)];
-        return tensor.data;
+        return tensor.memory().floats();
     }
 
     static float[] hostData(Tensor tensor) {
         materialize(tensor);
-        return tensor.data;
+        return tensor.rawData();
     }
 
     static float item(Tensor tensor) {
@@ -52,9 +43,10 @@ final class TensorStorage {
         }
     }
 
-    static float[] copyData(Tensor source) {
+    static TensorMemory copyMemory(Tensor source) {
+        requireSource(source);
         source.materialize();
-        return Arrays.copyOf(source.data, source.data.length);
+        return source.memory().copy();
     }
 
     static void requireSource(Tensor source) {
@@ -64,12 +56,12 @@ final class TensorStorage {
     static float[] rowData(Tensor tensor, int row) {
         requireRow(tensor, row);
         tensor.materialize();
-        return Arrays.copyOfRange(tensor.data, row * tensor.cols, (row + 1) * tensor.cols);
+        return Arrays.copyOfRange(tensor.rawData(), row * tensor.cols, (row + 1) * tensor.cols);
     }
 
     static void materialize(Tensor tensor) {
-        if (tensor.gpuTag != null) Tensor.backend().materializeTensor(tensor);
-        if (tensor.gpuTag instanceof GpuBuffer buffer && buffer.cpuStale && buffer.owner != null) {
+        if (tensor.getGpuTag() != null) Tensor.backend().materializeTensor(tensor);
+        if (tensor.getGpuTag() instanceof GpuBuffer buffer && buffer.cpuStale && buffer.owner != null) {
             buffer.owner.materialize(tensor);
         }
         tensor.hostStorage();
@@ -91,7 +83,7 @@ final class TensorStorage {
     private static void copyRows(float[][] data, Tensor tensor) {
         for (int row = 0; row < data.length; row++) {
             requireRowWidth(data[row], tensor.cols);
-            System.arraycopy(data[row], 0, tensor.data, row * tensor.cols, tensor.cols);
+            System.arraycopy(data[row], 0, tensor.rawData(), row * tensor.cols, tensor.cols);
         }
     }
 
@@ -180,7 +172,7 @@ final class TensorStorage {
     }
 
     static void markGpuNeedsUpload(Tensor tensor) {
-        if (!(tensor.gpuTag instanceof GpuBuffer buffer)) return;
+        if (!(tensor.getGpuTag() instanceof GpuBuffer buffer)) return;
         buffer.needsUpload = true;
         buffer.cpuStale = false;
     }

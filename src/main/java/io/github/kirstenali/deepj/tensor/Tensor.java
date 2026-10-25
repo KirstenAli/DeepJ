@@ -5,14 +5,10 @@ import io.github.kirstenali.deepj.autograd.*;
 
 import java.util.Random;
 
-public class Tensor {
+public class Tensor extends TensorStorageAccess {
 
-    /** Raw CPU storage; call materialize() before access. GPU results allocate it lazily. */
-    public float[] data;
     public final int rows, cols;
 
-    Object gpuTag;
-    int storageFlags;
     private final GradientState gradientState = new GradientState();
 
     public GradientState gradientState() { return gradientState; }
@@ -29,18 +25,10 @@ public class Tensor {
     public Tensor sumTensor() { return ReductionOps.sum(this); }
     public float item() { return TensorStorage.item(this); }
 
-    public Object getGpuTag() { return gpuTag; }
-
-    public void setGpuTag(Object tag) { this.gpuTag = tag; }
-
     public Tensor retainDeviceBuffer() {
-        storageFlags |= TensorStorage.RETAIN_DEVICE;
+        retainDevice();
         return this;
     }
-
-    public boolean retainsDeviceBuffer() { return (storageFlags & TensorStorage.RETAIN_DEVICE) != 0; }
-
-    public void releaseDeviceBufferRetention() { storageFlags &= ~TensorStorage.RETAIN_DEVICE; }
 
     private static volatile TensorBackend BACKEND = new CpuBackend();
     public static void setBackend(TensorBackend backend) {
@@ -56,10 +44,9 @@ public class Tensor {
     }
 
     private Tensor(int rows, int cols, boolean hostStorage) {
+        super(new TensorMemory(DType.FLOAT32, TensorStorage.checkedSize(rows, cols), hostStorage));
         this.rows = rows;
         this.cols = cols;
-        storageFlags = hostStorage ? 0 : TensorStorage.LAZY_HOST;
-        data = TensorStorage.initialStorage(rows, cols, hostStorage);
     }
 
     static Tensor deviceOnly(int rows, int cols) { return new Tensor(rows, cols, false); }
@@ -70,10 +57,9 @@ public class Tensor {
     public float[] data() { return TensorStorage.hostData(this); }
 
     public Tensor(Tensor source) {
-        TensorStorage.requireSource(source);
+        super(TensorStorage.copyMemory(source));
         this.rows = source.rows;
         this.cols = source.cols;
-        this.data = TensorStorage.copyData(source);
     }
 
     public float[] rowData(int r) {

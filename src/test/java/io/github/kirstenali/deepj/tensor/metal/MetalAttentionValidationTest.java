@@ -65,7 +65,7 @@ class MetalAttentionValidationTest extends MetalDifferentialTestSupport {
         Tensor actual = AttentionOps.causal(input, input, input, 1, 0.125f);
         expected.materialize();
         actual.materialize();
-        assertArrayEquals(expected.data, actual.data);
+        assertArrayEquals(expected.rawData(), actual.rawData());
     }
 
     @Test

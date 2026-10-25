@@ -26,15 +26,15 @@ final class TensorBackendDefaults {
         if (sourceRow < 0 || sourceRow >= input.rows) {
             throw new IllegalArgumentException("Row index out of range: " + sourceRow);
         }
-        System.arraycopy(input.data, sourceRow * input.cols,
-                output.data, targetRow * output.cols, input.cols);
+        System.arraycopy(input.rawData(), sourceRow * input.cols,
+                output.rawData(), targetRow * output.cols, input.cols);
     }
 
     private static void splitRow(Tensor input, Tensor output, int row, int heads, int headDim) {
         for (int head = 0; head < heads; head++) {
             int source = row * input.cols + head * headDim;
             int target = (head * input.rows + row) * headDim;
-            System.arraycopy(input.data, source, output.data, target, headDim);
+            System.arraycopy(input.rawData(), source, output.rawData(), target, headDim);
         }
     }
 
@@ -51,7 +51,7 @@ final class TensorBackendDefaults {
         for (int head = 0; head < heads; head++) {
             int source = (head * output.rows + row) * input.cols;
             int target = row * output.cols + head * input.cols;
-            System.arraycopy(input.data, source, output.data, target, input.cols);
+            System.arraycopy(input.rawData(), source, output.rawData(), target, input.cols);
         }
     }
 
@@ -74,7 +74,7 @@ final class TensorBackendDefaults {
         for (int inner = 0; inner < shape.inner(); inner++) {
             float value = leftValue(left, shape, batch, row, inner);
             for (int col = 0; col < shape.cols(); col++) {
-                output.data[outputBase + col] += value * rightValue(right, shape, batch, inner, col);
+                output.rawData()[outputBase + col] += value * rightValue(right, shape, batch, inner, col);
             }
         }
     }
@@ -82,13 +82,13 @@ final class TensorBackendDefaults {
     private static float leftValue(Tensor tensor, BatchShape shape, int batch, int row, int inner) {
         int batchBase = batch * shape.leftRows() * tensor.cols;
         int offset = shape.transposeLeft() ? inner * tensor.cols + row : row * tensor.cols + inner;
-        return tensor.data[batchBase + offset];
+        return tensor.rawData()[batchBase + offset];
     }
 
     private static float rightValue(Tensor tensor, BatchShape shape, int batch, int inner, int col) {
         int batchBase = batch * shape.rightRows() * tensor.cols;
         int offset = shape.transposeRight() ? col * tensor.cols + inner : inner * tensor.cols + col;
-        return tensor.data[batchBase + offset];
+        return tensor.rawData()[batchBase + offset];
     }
 
     static Tensor causalMask(Tensor input, int sequenceLength) {
@@ -103,7 +103,7 @@ final class TensorBackendDefaults {
         int base = row * input.cols;
         int position = row % sequenceLength;
         for (int col = 0; col < input.cols; col++) {
-            output.data[base + col] = col > position ? -1e9f : input.data[base + col];
+            output.rawData()[base + col] = col > position ? -1e9f : input.rawData()[base + col];
         }
     }
 
@@ -132,10 +132,10 @@ final class TensorBackendDefaults {
         int inputBase = row * input.cols + pair * 2;
         int tableIndex = position * cosine.cols + pair;
         float direction = inverse ? -1.0f : 1.0f;
-        float x = input.data[inputBase], y = input.data[inputBase + 1];
-        float cos = cosine.data[tableIndex], sin = sine.data[tableIndex] * direction;
-        output.data[inputBase] = x * cos - y * sin;
-        output.data[inputBase + 1] = x * sin + y * cos;
+        float x = input.rawData()[inputBase], y = input.rawData()[inputBase + 1];
+        float cos = cosine.rawData()[tableIndex], sin = sine.rawData()[tableIndex] * direction;
+        output.rawData()[inputBase] = x * cos - y * sin;
+        output.rawData()[inputBase + 1] = x * sin + y * cos;
     }
 
     private static BatchShape shape(Tensor left, Tensor right, int batches,

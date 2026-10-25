@@ -11,7 +11,7 @@ class GraphZeroBufferTest extends ComputeGraphTestSupport {
     void zeroInitializationUsesMetadataUntilFlushAndPreservesPortableRuntimes() {
         GpuBuffer buffer = graph.newZeroBuffer(3, 5);
         Tensor tensor = graph.createOutputTensor(buffer);
-        assertNull(tensor.data);
+        assertNull(tensor.rawData());
         assertNull(graph.pendingUploadData.get(0));
         assertArrayEquals(new int[]{buffer.id, 15}, graph.pendingUploadIds.get(0));
         graph.flush();

@@ -88,7 +88,7 @@ public class LayerNorm1DTest {
         ln.forward(x);
         AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.rows, dim));
         Parameter gamma = ln.parameters().get(0);
-        float[] analytic = gamma.grad().data.clone();
+        float[] analytic = gamma.grad().rawData().clone();
         assertGammaGradient(ln, x, gamma, analytic, dim, eps, tol);
     }
 
@@ -124,7 +124,7 @@ public class LayerNorm1DTest {
 
         Parameter beta = ln.parameters().get(1);
         for (int c = 0; c < dim; c++) {
-            assertEquals((float) x.rows, beta.grad().data[c], 1e-6f, "beta grad at col " + c);
+            assertEquals((float) x.rows, beta.grad().rawData()[c], 1e-6f, "beta grad at col " + c);
         }
     }
 
@@ -132,7 +132,7 @@ public class LayerNorm1DTest {
         float s = 0.0f;
         for (int r = 0; r < t.rows; r++) {
             for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+                s += t.rawData()[r * t.cols + c];
             }
         }
         return s;

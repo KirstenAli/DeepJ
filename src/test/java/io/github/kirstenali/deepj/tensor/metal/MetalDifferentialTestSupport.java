@@ -81,8 +81,9 @@ abstract class MetalDifferentialTestSupport {
         actual.materialize();
         assertEquals(expected.rows, actual.rows, "row count");
         assertEquals(expected.cols, actual.cols, "column count");
-        for (int i = 0; i < expected.data.length; i++) {
-            assertElementClose(expected.data[i], actual.data[i], absoluteTolerance, relativeTolerance, label, i);
+        for (int i = 0; i < expected.rawData().length; i++) {
+            assertElementClose(expected.rawData()[i], actual.rawData()[i],
+                    absoluteTolerance, relativeTolerance, label, i);
         }
     }
 

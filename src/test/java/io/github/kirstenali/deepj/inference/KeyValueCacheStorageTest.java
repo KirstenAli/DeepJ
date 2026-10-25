@@ -24,8 +24,8 @@ class KeyValueCacheStorageTest {
     void cpuCacheStorageRemainsEagerAndZeroInitialized() throws Exception {
         Tensor.setBackend(new CpuBackend());
         try (var cache = new KeyValueCache(8, 1, 2)) {
-            assertArrayEquals(new float[16], tensor(cache, "keys").data);
-            assertArrayEquals(new float[16], tensor(cache, "values").data);
+            assertArrayEquals(new float[16], tensor(cache, "keys").rawData());
+            assertArrayEquals(new float[16], tensor(cache, "values").rawData());
         }
     }
 
@@ -34,17 +34,17 @@ class KeyValueCacheStorageTest {
         useMetal();
         try (var cache = new KeyValueCache(8, 1, 2)) {
             Tensor keys = tensor(cache, "keys"), values = tensor(cache, "values");
-            assertNull(keys.data);
-            assertNull(values.data);
+            assertNull(keys.rawData());
+            assertNull(values.rawData());
             Tensor row = Tensor.from2D(new float[][]{{3, 5}});
             cache.attend(row, row, row, 1, 0, 1).materialize();
             float[] expected = new float[16];
-            System.arraycopy(row.data, 0, expected, 0, 2);
+            System.arraycopy(row.rawData(), 0, expected, 0, 2);
             assertArrayEquals(expected, keys.data());
             assertArrayEquals(expected, values.data());
             cache.attend(row, row, row, 1, 1, 1).materialize();
-            assertNull(keys.data);
-            assertNull(values.data);
+            assertNull(keys.rawData());
+            assertNull(values.rawData());
         }
     }
 

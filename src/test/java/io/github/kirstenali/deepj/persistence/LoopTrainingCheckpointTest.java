@@ -55,7 +55,7 @@ class LoopTrainingCheckpointTest {
     void differentLoopCountIsRejectedBeforeWeightsOrStateChange() throws Exception {
         var original = model(2, 37L);
         var incompatible = model(3, 99L);
-        float[] untouched = incompatible.parameters().get(0).value.data.clone();
+        float[] untouched = incompatible.parameters().get(0).value.rawData().clone();
         var optimizer = AdamW.defaultAdamW(0.001f);
         try (var data = dataset(41L)) {
             TrainingCheckpoint.save(original, optimizer, data, TrainingProgress.initial(), schedule, saved);
@@ -63,7 +63,7 @@ class LoopTrainingCheckpointTest {
             var error = assertThrows(IOException.class, () ->
                     TrainingCheckpoint.load(incompatible, optimizer, data, schedule, saved));
             assertTrue(error.getMessage().contains("configuration"));
-            assertArrayEquals(untouched, incompatible.parameters().get(0).value.data);
+            assertArrayEquals(untouched, incompatible.parameters().get(0).value.rawData());
             assertEquals(0, optimizer.stepCount());
             assertEquals(randomState, data.randomState());
         }
@@ -113,7 +113,8 @@ class LoopTrainingCheckpointTest {
 
     private static void assertWeightsEqual(DeepJLoop a, DeepJLoop b) {
         for (int index = 0; index < a.parameters().size(); index++) {
-            assertArrayEquals(a.parameters().get(index).value.data, b.parameters().get(index).value.data, 0.0f);
+            assertArrayEquals(a.parameters().get(index).value.rawData(),
+                    b.parameters().get(index).value.rawData(), 0.0f);
         }
     }
 }

@@ -157,9 +157,9 @@ public class CausalLMTrainingTest {
     }
 
     private static void assertTensorAverage(Tensor actual, Tensor first, Tensor second) {
-        for (int index = 0; index < actual.data.length; index++) {
-            float expected = (first.data[index] + second.data[index]) * 0.5f;
-            Assertions.assertEquals(expected, actual.data[index], 1e-6f);
+        for (int index = 0; index < actual.rawData().length; index++) {
+            float expected = (first.rawData()[index] + second.rawData()[index]) * 0.5f;
+            Assertions.assertEquals(expected, actual.rawData()[index], 1e-6f);
         }
     }
 

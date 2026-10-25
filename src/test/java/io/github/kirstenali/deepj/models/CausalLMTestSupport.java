@@ -68,7 +68,7 @@ public final class CausalLMTestSupport {
     }
 
     public static boolean isAllOnes(Tensor tensor) {
-        for (float value : tensor.data) {
+        for (float value : tensor.rawData()) {
             if (value != 1.0f) return false;
         }
         return true;
@@ -76,6 +76,6 @@ public final class CausalLMTestSupport {
 
     private static float[] materialized(Tensor tensor) {
         tensor.materialize();
-        return tensor.data.clone();
+        return tensor.rawData().clone();
     }
 }

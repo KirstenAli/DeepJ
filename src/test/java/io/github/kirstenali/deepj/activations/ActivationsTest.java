@@ -39,13 +39,13 @@ public class ActivationsTest {
         Tensor y = s.forward(x);
 
         for (int c = 0; c < y.cols; c++) {
-            Assertions.assertTrue(y.data[c] > 0.0f && y.data[c] < 1.0f);
+            Assertions.assertTrue(y.rawData()[c] > 0.0f && y.rawData()[c] < 1.0f);
         }
 
         Tensor gradOut = Tensor.from2D(new float[][]{{1, 1, 1}});
         Tensor gx = AutogradTestSupport.backward(s::forward, x, gradOut);
         for (int c = 0; c < gx.cols; c++) {
-            Assertions.assertTrue(gx.data[c] >= 0.0f, "sigmoid' should be >= 0");
+            Assertions.assertTrue(gx.rawData()[c] >= 0.0f, "sigmoid' should be >= 0");
         }
     }
 
@@ -54,7 +54,7 @@ public class ActivationsTest {
         Tanh t = new Tanh();
         Tensor x1 = Tensor.from2D(new float[][]{{0.5f, -0.5f}});
         Tensor y1 = t.forward(x1);
-        Assertions.assertEquals(y1.data[0], -y1.data[1], 1e-12f);
+        Assertions.assertEquals(y1.rawData()[0], -y1.rawData()[1], 1e-12f);
     }
 
     @Test
@@ -63,8 +63,8 @@ public class ActivationsTest {
         Tensor x = Tensor.from2D(new float[][]{{-1e-3f, 0.0f, 1e-3f}});
         Tensor y = g.forward(x);
 
-        Assertions.assertTrue(y.data[0] < y.data[1]);
-        Assertions.assertTrue(y.data[1] < y.data[2]);
+        Assertions.assertTrue(y.rawData()[0] < y.rawData()[1]);
+        Assertions.assertTrue(y.rawData()[1] < y.rawData()[2]);
     }
 
     @Test
@@ -79,7 +79,7 @@ public class ActivationsTest {
         for (int r = 0; r < p.rows; r++) {
             float sum = 0.0f;
             for (int c = 0; c < p.cols; c++) {
-                sum += p.data[r * p.cols + c];
+                sum += p.rawData()[r * p.cols + c];
             }
             Assertions.assertEquals(1.0f, sum, 1e-6f);
         }
@@ -205,7 +205,7 @@ public class ActivationsTest {
         float s = 0.0f;
         for (int r = 0; r < p.rows; r++) {
             for (int c = 0; c < p.cols; c++) {
-                s += p.data[r * p.cols + c] * upstream.data[r * upstream.cols + c];
+                s += p.rawData()[r * p.cols + c] * upstream.rawData()[r * upstream.cols + c];
             }
         }
         return s;

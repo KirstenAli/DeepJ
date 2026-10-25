@@ -44,14 +44,14 @@ public final class SlidingWindowReference {
         }
         double total = normalize(scores);
         for (int column = 0; column < output.cols; column++) {
-            output.data[row * output.cols + column] = weighted(value, keyStart + first, column, scores, total);
+            output.rawData()[row * output.cols + column] = weighted(value, keyStart + first, column, scores, total);
         }
     }
 
     private static double dot(Tensor left, int row, Tensor right, int otherRow) {
         double sum = 0;
         for (int column = 0; column < left.cols; column++) {
-            sum += (double) left.data[row * left.cols + column] * right.data[otherRow * right.cols + column];
+            sum += (double) left.rawData()[row * left.cols + column] * right.rawData()[otherRow * right.cols + column];
         }
         return sum;
     }
@@ -68,7 +68,7 @@ public final class SlidingWindowReference {
     private static float weighted(Tensor values, int first, int column, double[] scores, double total) {
         double sum = 0;
         for (int index = 0; index < scores.length; index++) {
-            sum += scores[index] * values.data[(first + index) * values.cols + column];
+            sum += scores[index] * values.rawData()[(first + index) * values.cols + column];
         }
         return (float) (sum / total);
     }

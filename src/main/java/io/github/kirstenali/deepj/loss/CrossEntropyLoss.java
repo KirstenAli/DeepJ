@@ -85,7 +85,7 @@ public final class CrossEntropyLoss implements LossFunction {
         actual.materialize();
         int[] y = new int[actual.rows];
         for (int i = 0; i < actual.rows; i++) {
-            y[i] = requireIntegerTarget(actual.data[i], i);
+            y[i] = requireIntegerTarget(actual.rawData()[i], i);
         }
         return y;
     }

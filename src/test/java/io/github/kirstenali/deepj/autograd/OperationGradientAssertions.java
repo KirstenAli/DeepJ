@@ -16,9 +16,9 @@ public final class OperationGradientAssertions {
         Tensor analytic = variable.grad();
         analytic.materialize();
         try (var ignored = GradMode.noGrad()) {
-            for (int index = 0; index < point.data.length; index++) {
+            for (int index = 0; index < point.rawData().length; index++) {
                 float numerical = difference(forward, point, index);
-                assertEquals(numerical, analytic.data[index], 3e-3f + Math.abs(numerical) * 2e-2f,
+                assertEquals(numerical, analytic.rawData()[index], 3e-3f + Math.abs(numerical) * 2e-2f,
                         "gradient at flat index " + index);
             }
         }

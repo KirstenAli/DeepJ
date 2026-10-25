@@ -193,7 +193,7 @@ abstract class MetalBackendTestSupport {
     protected static Tensor standardDeviations(Tensor normalized) {
         Tensor deviation = new Tensor(normalized.rows, 1);
         for (int row = 0; row < deviation.rows; row++) {
-            deviation.data[row] = 0.5f + Math.abs(normalized.data[row * normalized.cols]);
+            deviation.rawData()[row] = 0.5f + Math.abs(normalized.rawData()[row * normalized.cols]);
         }
         return deviation;
     }
@@ -268,8 +268,8 @@ abstract class MetalBackendTestSupport {
 
         for (int r = 0; r < expected.rows; r++) {
             for (int c = 0; c < expected.cols; c++) {
-                double e = expected.data[r * expected.cols + c];
-                double a = actual.data[r * actual.cols + c];
+                double e = expected.rawData()[r * expected.cols + c];
+                double a = actual.rawData()[r * actual.cols + c];
                 double tol = atol + rtol * Math.abs(e);
                 assertTrue(Math.abs(e - a) <= tol, "Mismatch at (" + r + "," + c + ") expected=" + e + " actual=" + a);
             }

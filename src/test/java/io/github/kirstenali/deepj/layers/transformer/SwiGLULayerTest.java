@@ -31,7 +31,7 @@ class SwiGLULayerTest {
         Tensor y = layer.forward(x);
         for (int r = 0; r < y.rows; r++) {
             for (int c = 0; c < y.cols; c++) {
-                assertTrue(Double.isFinite(y.data[r * y.cols + c]),
+                assertTrue(Double.isFinite(y.rawData()[r * y.cols + c]),
                         "output must be finite at [" + r + "," + c + "]");
             }
         }
@@ -144,7 +144,7 @@ class SwiGLULayerTest {
         float s = 0.0f;
         for (int r = 0; r < t.rows; r++) {
             for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+                s += t.rawData()[r * t.cols + c];
             }
         }
         return s;

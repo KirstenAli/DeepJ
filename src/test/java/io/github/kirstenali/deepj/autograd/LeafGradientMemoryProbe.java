@@ -39,7 +39,7 @@ public final class LeafGradientMemoryProbe {
     private static void verify(List<Parameter> parameters, Tensor input) {
         if (input.grad().item() != 1) throw new AssertionError("Incorrect root gradient");
         for (Parameter parameter : parameters) {
-            for (float value : parameter.grad().data) {
+            for (float value : parameter.grad().rawData()) {
                 if (value != 1) throw new AssertionError("Incorrect leaf gradient");
             }
         }

@@ -17,7 +17,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
         for (int r = 0; r < a.rows; r++) {
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) {
-                result.data[c] += a.data[base + c];
+                result.rawData()[c] += a.rawData()[base + c];
             }
         }
         return result;
@@ -29,7 +29,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
         Tensor result = new Tensor(a.rows, 1);
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
-            result.data[r] = rowSum(a.data, base, a.cols);
+            result.rawData()[r] = rowSum(a.rawData(), base, a.cols);
         });
         return result;
     }
@@ -43,7 +43,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
         float invCols = 1.0f / a.cols;
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
-            result.data[r] = rowSum(a.data, base, a.cols) * invCols;
+            result.rawData()[r] = rowSum(a.rawData(), base, a.cols) * invCols;
         });
         return result;
     }
@@ -55,13 +55,13 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
         float invCols = 1.0f / a.cols;
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
-            float mean = rowSum(a.data, base, a.cols) * invCols;
+            float mean = rowSum(a.rawData(), base, a.cols) * invCols;
             float acc = 0.0f;
             for (int c = 0; c < a.cols; c++) {
-                float diff = a.data[base + c] - mean;
+                float diff = a.rawData()[base + c] - mean;
                 acc += diff * diff;
             }
-            result.data[r] = acc * invCols;
+            result.rawData()[r] = acc * invCols;
         });
         return result;
     }
@@ -74,9 +74,9 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
             int base = r * a.cols;
             float max = Float.NEGATIVE_INFINITY;
             for (int c = 0; c < a.cols; c++) {
-                if (a.data[base + c] > max) max = a.data[base + c];
+                if (a.rawData()[base + c] > max) max = a.rawData()[base + c];
             }
-            result.data[r] = max;
+            result.rawData()[r] = max;
         });
         return result;
     }
@@ -85,7 +85,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     public float sum(Tensor a) {
         prepare(a);
         float s = 0.0f;
-        for (float v : a.data) {
+        for (float v : a.rawData()) {
             s += v;
         }
         return s;
@@ -95,7 +95,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     public float sumAbs(Tensor a) {
         prepare(a);
         float s = 0.0f;
-        for (float v : a.data) {
+        for (float v : a.rawData()) {
             s += Math.abs(v);
         }
         return s;
@@ -108,7 +108,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
         DeepJExecutor.forRange(0, a.rows, r -> {
             int aBase = r * a.cols;
             for (int c = 0; c < a.cols; c++) {
-                result.data[c * a.rows + r] = a.data[aBase + c];
+                result.rawData()[c * a.rows + r] = a.rawData()[aBase + c];
             }
         });
         return result;
@@ -220,7 +220,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
         DeepJExecutor.forRange(0, logits.rows, r -> {
             int base = r * logits.cols;
-            rowWriteSoftmax(logits.data, result.data, base, logits.cols);
+            rowWriteSoftmax(logits.rawData(), result.rawData(), base, logits.cols);
         });
 
         return result;
@@ -235,10 +235,10 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
         DeepJExecutor.forRange(0, gradOutput.rows, r -> {
             int base = r * gradOutput.cols;
 
-            float dot = rowDot(gradOutput.data, softmaxOut.data, base, gradOutput.cols);
+            float dot = rowDot(gradOutput.rawData(), softmaxOut.rawData(), base, gradOutput.cols);
 
             for (int c = 0; c < gradOutput.cols; c++) {
-                result.data[base + c] = softmaxOut.data[base + c] * (gradOutput.data[base + c] - dot);
+                result.rawData()[base + c] = softmaxOut.rawData()[base + c] * (gradOutput.rawData()[base + c] - dot);
             }
         });
 

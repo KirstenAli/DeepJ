@@ -40,6 +40,6 @@ public final class Parameter {
 
     private void clearGradData() {
         grad().gradientState().beforeMutation();
-        if (grad().data != null) Arrays.fill(grad().data, 0.0f);
+        if (grad().rawData() != null) Arrays.fill(grad().rawData(), 0.0f);
     }
 }

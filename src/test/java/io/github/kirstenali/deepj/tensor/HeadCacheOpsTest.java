@@ -15,13 +15,13 @@ class HeadCacheOpsTest {
         Tensor cache = new Tensor(8, 1);
         Tensor.backend().writeHeadCache(cache, column(1, 2, 10, 20), 2, 0);
         Tensor.backend().writeHeadCache(cache, column(3, 30), 2, 2);
-        assertArrayEquals(new float[]{1, 2, 3, 0, 10, 20, 30, 0}, cache.data);
+        assertArrayEquals(new float[]{1, 2, 3, 0, 10, 20, 30, 0}, cache.rawData());
         Tensor query = column(2, 3);
         assertArrayEquals(new float[]{2, 4, 6, 30, 60, 90},
-                Tensor.backend().headPrefixMatmul(query, cache, 2, 3, true).data);
+                Tensor.backend().headPrefixMatmul(query, cache, 2, 3, true).rawData());
         Tensor probabilities = Tensor.from2D(new float[][]{{0, 0, 1}, {1, 0, 0}});
         assertArrayEquals(new float[]{3, 10},
-                Tensor.backend().headPrefixMatmul(probabilities, cache, 2, 3, false).data);
+                Tensor.backend().headPrefixMatmul(probabilities, cache, 2, 3, false).rawData());
     }
 
     @Test
@@ -43,7 +43,7 @@ class HeadCacheOpsTest {
 
     private static Tensor column(float... values) {
         Tensor tensor = new Tensor(values.length, 1);
-        System.arraycopy(values, 0, tensor.data, 0, values.length);
+        System.arraycopy(values, 0, tensor.rawData(), 0, values.length);
         return tensor;
     }
 }

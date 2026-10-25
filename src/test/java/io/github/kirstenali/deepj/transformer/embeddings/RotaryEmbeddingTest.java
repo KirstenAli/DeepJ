@@ -35,11 +35,11 @@ class RotaryEmbeddingTest {
                                              {1.0f, 0.0f, 0.0f, 0.0f}});
         Tensor y = rope.apply(x, 2, 1);
 
-        assertEquals(1.0f, y.data[0], 1e-6f);
-        assertEquals(0.0f, y.data[1], 1e-6f);
+        assertEquals(1.0f, y.rawData()[0], 1e-6f);
+        assertEquals(0.0f, y.rawData()[1], 1e-6f);
 
-        assertEquals(Math.cos(1.0f), y.data[1 * 4 + 0], 1e-6f);
-        assertEquals(Math.sin(1.0f), y.data[1 * 4 + 1], 1e-6f);
+        assertEquals(Math.cos(1.0f), y.rawData()[1 * 4 + 0], 1e-6f);
+        assertEquals(Math.sin(1.0f), y.rawData()[1 * 4 + 1], 1e-6f);
     }
 
     @Test
@@ -110,8 +110,8 @@ class RotaryEmbeddingTest {
 
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
-                assertEquals(ySingle.data[r * 4 + c], yDouble.data[r * 4 + c],       1e-6f, "head0 row " + r);
-                assertEquals(ySingle.data[r * 4 + c], yDouble.data[(r + 2) * 4 + c], 1e-6f, "head1 row " + r);
+                assertEquals(ySingle.rawData()[r * 4 + c], yDouble.rawData()[r * 4 + c],       1e-6f, "head0 row " + r);
+                assertEquals(ySingle.rawData()[r * 4 + c], yDouble.rawData()[(r + 2) * 4 + c], 1e-6f, "head1 row " + r);
             }
         }
     }
@@ -236,7 +236,7 @@ class RotaryEmbeddingTest {
         double s = 0;
         int base = row * t.cols;
         for (int c = 0; c < t.cols; c++) {
-            s += t.data[base + c] * t.data[base + c];
+            s += t.rawData()[base + c] * t.rawData()[base + c];
         }
         return Math.sqrt(s);
     }
@@ -307,7 +307,7 @@ class RotaryEmbeddingTest {
         float s = 0.0f;
         for (int r = 0; r < t.rows; r++) {
             for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+                s += t.rawData()[r * t.cols + c];
             }
         }
         return s;
@@ -315,8 +315,8 @@ class RotaryEmbeddingTest {
 
     private static float weightedSum(Tensor y, Tensor g) {
         float s = 0.0f;
-        for (int i = 0; i < y.data.length; i++) {
-            s += y.data[i] * g.data[i];
+        for (int i = 0; i < y.rawData().length; i++) {
+            s += y.rawData()[i] * g.rawData()[i];
         }
         return s;
     }

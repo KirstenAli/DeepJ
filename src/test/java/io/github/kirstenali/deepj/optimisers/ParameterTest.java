@@ -11,13 +11,13 @@ public class ParameterTest {
         Parameter p = new Parameter(Tensor.from2D(new float[][]{{1,2},{3,4}}));
         Tensor originalGrad = p.grad();
 
-        p.grad().data[0] = 7.0f;
-        p.grad().data[1 * 2 + 1] = -3.0f;
+        p.grad().rawData()[0] = 7.0f;
+        p.grad().rawData()[1 * 2 + 1] = -3.0f;
         p.zeroGrad();
 
         Assertions.assertSame(originalGrad, p.grad());
-        Assertions.assertEquals(0.0f, p.grad().data[0], 1e-12f);
-        Assertions.assertEquals(0.0f, p.grad().data[1 * 2 + 1], 1e-12f);
+        Assertions.assertEquals(0.0f, p.grad().rawData()[0], 1e-12f);
+        Assertions.assertEquals(0.0f, p.grad().rawData()[1 * 2 + 1], 1e-12f);
         Assertions.assertEquals(2, p.grad().rows);
         Assertions.assertEquals(2, p.grad().cols);
     }
@@ -31,8 +31,8 @@ public class ParameterTest {
         p.zeroGrad();
 
         Assertions.assertNotSame(originalGrad, p.grad());
-        Assertions.assertEquals(0.0f, p.grad().data[0], 1e-12f);
-        Assertions.assertEquals(0.0f, p.grad().data[1 * 2 + 1], 1e-12f);
+        Assertions.assertEquals(0.0f, p.grad().rawData()[0], 1e-12f);
+        Assertions.assertEquals(0.0f, p.grad().rawData()[1 * 2 + 1], 1e-12f);
     }
 
     @Test

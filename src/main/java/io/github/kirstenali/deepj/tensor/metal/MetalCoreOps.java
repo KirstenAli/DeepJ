@@ -56,7 +56,7 @@ abstract class MetalCoreOps implements TensorBackend {
     static Tensor immutableIntColumn(int[] values) {
         Tensor t = new Tensor(values.length, 1);
         for (int i = 0; i < values.length; i++) {
-            t.data[i] = values[i];
+            t.rawData()[i] = values[i];
         }
         return t;
     }

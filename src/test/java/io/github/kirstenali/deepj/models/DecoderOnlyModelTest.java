@@ -61,7 +61,7 @@ class DecoderOnlyModelTest {
         Tensor logits = model.forward(new int[]{1, 2, 3});
         for (int r = 0; r < logits.rows; r++) {
             for (int c = 0; c < logits.cols; c++) {
-                assertTrue(Double.isFinite(logits.data[r * logits.cols + c]),
+                assertTrue(Double.isFinite(logits.rawData()[r * logits.cols + c]),
                         "logit[" + r + "][" + c + "] must be finite");
             }
         }

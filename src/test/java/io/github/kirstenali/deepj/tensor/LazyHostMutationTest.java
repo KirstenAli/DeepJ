@@ -11,23 +11,23 @@ class LazyHostMutationTest extends ComputeGraphTestSupport {
         Tensor tensor = graph.createOutputTensor(buffer);
         runtime.downloadResult = new float[]{1, 2};
         graph.materialize(tensor);
-        float[] previous = tensor.data;
+        float[] previous = tensor.rawData();
         graph.markUpdated(tensor);
-        assertNull(tensor.data);
+        assertNull(tensor.rawData());
         assertArrayEquals(new float[]{1, 2}, previous);
         runtime.downloadResult = new float[]{3, 4};
         graph.materialize(tensor);
-        assertArrayEquals(new float[]{3, 4}, tensor.data);
-        assertNotSame(previous, tensor.data);
+        assertArrayEquals(new float[]{3, 4}, tensor.rawData());
+        assertNotSame(previous, tensor.rawData());
     }
 
     @Test
     void ordinaryCpuStorageIsNeverDiscardedByDeviceUpdates() {
         Tensor tensor = Tensor.ones(1, 2);
-        float[] original = tensor.data;
+        float[] original = tensor.rawData();
         GpuBuffer buffer = graph.ensureGpuBuffer(tensor);
         graph.markUpdated(tensor);
-        assertSame(original, tensor.data);
+        assertSame(original, tensor.rawData());
         assertTrue(buffer.cpuStale);
         assertFalse(buffer.needsUpload);
     }
@@ -50,8 +50,8 @@ class LazyHostMutationTest extends ComputeGraphTestSupport {
     void copiedDeviceStorageOwnsItsSnapshotWithoutAnEagerHostArray() {
         Tensor source = Tensor.from2D(new float[][]{{-0.0f, 3}});
         Tensor copy = graph.copyToDevice(source);
-        assertNull(copy.data);
-        source.data[1] = 9;
+        assertNull(copy.rawData());
+        source.rawData()[1] = 9;
         graph.flush();
         assertArrayEquals(new float[]{-0.0f, 3}, runtime.uploads.get(0).data());
         assertThrows(IllegalArgumentException.class, () -> graph.copyToDevice(null));

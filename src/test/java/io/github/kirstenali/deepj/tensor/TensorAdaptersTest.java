@@ -42,10 +42,10 @@ class TensorAdaptersTest {
 
         assertEquals(2, t.rows);
         assertEquals(3, t.cols);
-        assertEquals(1.0f, t.data[0], 1e-6f);
-        assertEquals(3.0f, t.data[2], 1e-6f);
-        assertEquals(4.0f, t.data[1 * 3 + 0], 1e-6f);
-        assertEquals(6.0f, t.data[1 * 3 + 2], 1e-6f);
+        assertEquals(1.0f, t.rawData()[0], 1e-6f);
+        assertEquals(3.0f, t.rawData()[2], 1e-6f);
+        assertEquals(4.0f, t.rawData()[1 * 3 + 0], 1e-6f);
+        assertEquals(6.0f, t.rawData()[1 * 3 + 2], 1e-6f);
     }
 
     @Test
@@ -68,9 +68,9 @@ class TensorAdaptersTest {
         float[] flat = {10f, 20f, 30f, 40f, 50f, 60f};
         TensorAdapters.unpackF32Into(flat, t);
 
-        assertEquals(10.0f, t.data[0], 1e-6f);
-        assertEquals(30.0f, t.data[2], 1e-6f);
-        assertEquals(60.0f, t.data[1 * 3 + 2], 1e-6f);
+        assertEquals(10.0f, t.rawData()[0], 1e-6f);
+        assertEquals(30.0f, t.rawData()[2], 1e-6f);
+        assertEquals(60.0f, t.rawData()[1 * 3 + 2], 1e-6f);
     }
 
     @Test
@@ -89,7 +89,7 @@ class TensorAdaptersTest {
         for (int r = 0; r < original.rows; r++) {
             for (int c = 0; c < original.cols; c++) {
 
-                assertEquals(original.data[r * original.cols + c], restored.data[r * restored.cols + c]);
+                assertEquals(original.rawData()[r * original.cols + c], restored.rawData()[r * restored.cols + c]);
             }
         }
     }

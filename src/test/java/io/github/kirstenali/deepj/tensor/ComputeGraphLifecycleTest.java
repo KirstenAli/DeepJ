@@ -28,8 +28,8 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
         assertEquals(1, runtime.downloads.size());
         assertEquals(outBuf.id, runtime.downloads.get(0).bufId());
 
-        assertEquals(1.414f, result.data[0], 1e-3f);
-        assertEquals(2.0f, result.data[1], 1e-3f);
+        assertEquals(1.414f, result.rawData()[0], 1e-3f);
+        assertEquals(2.0f, result.rawData()[1], 1e-3f);
 
         assertFalse(outBuf.cpuStale);
     }
@@ -126,7 +126,7 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
 
         graph.releaseAll();
 
-        assertEquals(42.0f, t.data[0], 1e-6f, "releaseAll should preserve latest GPU value");
+        assertEquals(42.0f, t.rawData()[0], 1e-6f, "releaseAll should preserve latest GPU value");
         assertNull(t.getGpuTag(), "releaseAll should still clear GPU tags");
         assertFalse(buf.cpuStale, "buffer state should be marked fresh after forced materialization");
     }
@@ -140,7 +140,7 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
 
         graph.releaseAll();
 
-        assertSame(tensor.data, runtime.downloads.get(0).output());
+        assertSame(tensor.rawData(), runtime.downloads.get(0).output());
     }
 
     @Test

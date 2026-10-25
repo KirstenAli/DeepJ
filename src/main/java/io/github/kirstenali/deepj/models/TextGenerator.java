@@ -164,7 +164,7 @@ public final class TextGenerator {
         Tensor logits = inference(forwarder, context);
         logits.materialize();
 
-        float[] lastLogits = Arrays.copyOfRange(logits.data,
+        float[] lastLogits = Arrays.copyOfRange(logits.rawData(),
                 (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
         Tensor.backend().releaseTemporaryResources();
         penalizeRecentTokens(lastLogits, ids, generatedStart, length, repetitionPenalty);

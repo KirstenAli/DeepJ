@@ -28,7 +28,7 @@ public final class HeadCacheOps {
         int count = update.rows / heads * update.cols;
         for (int head = 0; head < heads; head++) {
             int destination = (head * (cache.rows / heads) + offset) * cache.cols;
-            System.arraycopy(update.data, head * count, cache.data, destination, count);
+            System.arraycopy(update.rawData(), head * count, cache.rawData(), destination, count);
         }
         cache.setGpuTag(null);
     }

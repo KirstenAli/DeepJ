@@ -40,7 +40,7 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
         Tensor rowLosses = gpuOut(gRowLosses);
         Tensor scalar = sumRows(rowLosses).divideScalar(logits.rows);
         scalar.materialize();
-        return scalar.data[0];
+        return scalar.rawData()[0];
     }
 
     @Override
@@ -78,7 +78,7 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     static Tensor maskTensor(boolean[] mask) {
         Tensor tensor = new Tensor(mask.length, 1);
         for (int row = 0; row < mask.length; row++) {
-            tensor.data[row] = mask[row] ? 1.0f : 0.0f;
+            tensor.rawData()[row] = mask[row] ? 1.0f : 0.0f;
         }
         return tensor;
     }

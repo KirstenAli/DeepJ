@@ -181,9 +181,9 @@ public class TextGeneratorTest {
 
     private static Tensor rankedLogits(float first, float second) {
         Tensor logits = new Tensor(1, ByteTokenizer.VOCAB_SIZE);
-        Arrays.fill(logits.data, -1000.0f);
-        logits.data['x'] = first;
-        logits.data['y'] = second;
+        Arrays.fill(logits.rawData(), -1000.0f);
+        logits.rawData()['x'] = first;
+        logits.rawData()['y'] = second;
         return logits;
     }
 
@@ -226,15 +226,15 @@ public class TextGeneratorTest {
     private static Tensor endTokenLogits(AtomicInteger calls) {
         calls.incrementAndGet();
         Tensor logits = new Tensor(1, 3);
-        logits.data[0] = 0.0f;
-        logits.data[1] = 10.0f;
-        logits.data[2] = -1.0f;
+        logits.rawData()[0] = 0.0f;
+        logits.rawData()[1] = 10.0f;
+        logits.rawData()[2] = -1.0f;
         return logits;
     }
 
     private static Tensor continuingLogits() {
         Tensor logits = new Tensor(1, 3);
-        logits.data[2] = 10.0f;
+        logits.rawData()[2] = 10.0f;
         return logits;
     }
 

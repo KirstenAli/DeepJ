@@ -91,8 +91,8 @@ public class LinearTest {
         Tensor dX = AutogradTestSupport.backward(lin::forward, x, Tensor.ones(x.rows, dOut));
         Parameter W = lin.weight();
         Parameter b = lin.bias();
-        float[] dW = W.grad().data.clone();
-        float[] db = b.grad().data.clone();
+        float[] dW = W.grad().rawData().clone();
+        float[] db = b.grad().rawData().clone();
         assertInputGradient(lin, x, dX, dIn, eps, tol);
         assertWeightGradient(lin, x, W, dW, dIn, dOut, eps, tol);
         assertBiasGradient(lin, x, b, db, dOut, eps, tol);
@@ -151,7 +151,7 @@ public class LinearTest {
         float s = 0.0f;
         for (int r = 0; r < t.rows; r++) {
             for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+                s += t.rawData()[r * t.cols + c];
             }
         }
         return s;

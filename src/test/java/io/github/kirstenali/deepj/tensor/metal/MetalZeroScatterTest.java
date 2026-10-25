@@ -36,8 +36,8 @@ class MetalZeroScatterTest extends MetalDifferentialTestSupport {
         Tensor target = Tensor.zeros(4, 2).retainDeviceBuffer();
         Tensor contribution = Tensor.from2D(new float[][]{{1, 2}, {3, 4}, {5, 6}});
         metal.scatterAddRows(target, new int[]{1, 1, 3}, contribution);
-        contribution.data[0] = 900;
-        target.data[0] = 800;
+        contribution.rawData()[0] = 900;
+        target.rawData()[0] = 800;
         metal.scatterAddRows(target, new int[]{1}, Tensor.ones(1, 2));
         metal.releaseTemporaryResources();
         assertArrayEquals(new float[]{0, 0, 5, 7, 0, 0, 5, 6}, target.data());
@@ -48,7 +48,7 @@ class MetalZeroScatterTest extends MetalDifferentialTestSupport {
         Tensor target = Tensor.from2D(new float[][]{{-0.0f, 9}, {2, 3}});
         metal.scatterAddRows(target, new int[]{1}, Tensor.ones(1, 2));
         assertArrayEquals(new float[]{-0.0f, 9, 3, 4}, target.data());
-        assertEquals(0x80000000, Float.floatToRawIntBits(target.data[0]));
+        assertEquals(0x80000000, Float.floatToRawIntBits(target.rawData()[0]));
     }
 
     @Test

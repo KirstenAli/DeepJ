@@ -42,7 +42,7 @@ class CpuBackendTest extends CpuBackendTestSupport {
 
         for (int r = 0; r < t1.rows; r++) {
             for (int c = 0; c < t1.cols; c++) {
-                assertEquals(t1.data[r * t1.cols + c], t2.data[r * t2.cols + c], EPS);
+                assertEquals(t1.rawData()[r * t1.cols + c], t2.rawData()[r * t2.cols + c], EPS);
             }
         }
     }

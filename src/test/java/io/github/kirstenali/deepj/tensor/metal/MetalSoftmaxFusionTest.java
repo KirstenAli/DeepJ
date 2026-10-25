@@ -18,7 +18,7 @@ class MetalSoftmaxFusionTest extends MetalDifferentialTestSupport {
         Tensor actual = metal.softmaxBackward(gradient, probabilities, scale);
         expected.materialize();
         actual.materialize();
-        assertArrayEquals(expected.data, actual.data);
+        assertArrayEquals(expected.rawData(), actual.rawData());
     }
 
     @ParameterizedTest
@@ -32,7 +32,7 @@ class MetalSoftmaxFusionTest extends MetalDifferentialTestSupport {
         Tensor actual = metal.softmaxBackward(gradient, metal.causalSoftmax(scores, length, scale), scale);
         assertTensorClose(expected, actual, 2e-6f, 2e-4f);
         gradient.materialize();
-        assertArrayEquals(original.data, gradient.data);
+        assertArrayEquals(original.rawData(), gradient.rawData());
     }
 
     @Test

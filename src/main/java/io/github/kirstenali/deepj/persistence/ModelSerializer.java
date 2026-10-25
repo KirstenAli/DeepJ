@@ -82,7 +82,7 @@ public final class ModelSerializer {
     }
 
     private static void writeTensorData(DataOutputStream out, Tensor t) throws IOException {
-        for (float v : t.data) {
+        for (float v : t.rawData()) {
             out.writeFloat(v);
         }
     }

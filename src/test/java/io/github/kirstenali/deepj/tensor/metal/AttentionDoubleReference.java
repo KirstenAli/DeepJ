@@ -17,9 +17,9 @@ final class AttentionDoubleReference {
     private AttentionDoubleReference() {}
 
     static Result calculate(Inputs inputs) {
-        int count = inputs.query().data.length;
+        int count = inputs.query().rawData().length;
         Result result = new Result(new double[count], new double[count],
-                new double[inputs.key().data.length], new double[inputs.value().data.length]);
+                new double[inputs.key().rawData().length], new double[inputs.value().rawData().length]);
         int length = inputs.query().rows / inputs.heads();
         for (int head = 0; head < inputs.heads(); head++) {
             int keyBase = head / (inputs.heads() / inputs.keyValueHeads()) * length;
@@ -74,7 +74,7 @@ final class AttentionDoubleReference {
     private static double dot(Tensor left, int row, Tensor right, int column) {
         double sum = 0;
         for (int index = 0; index < WIDTH; index++) {
-            sum += (double) left.data[row * WIDTH + index] * right.data[column * WIDTH + index];
+            sum += (double) left.rawData()[row * WIDTH + index] * right.rawData()[column * WIDTH + index];
         }
         return sum;
     }
@@ -92,10 +92,10 @@ final class AttentionDoubleReference {
         for (int index = 0; index < WIDTH; index++) {
             int query = row * WIDTH + index;
             int key = column * WIDTH + index;
-            result.output()[query] += probability * inputs.value().data[key];
-            result.query()[query] += derivative * inputs.key().data[key];
-            result.key()[key] += derivative * inputs.query().data[query];
-            result.value()[key] += probability * inputs.upstream().data[query];
+            result.output()[query] += probability * inputs.value().rawData()[key];
+            result.query()[query] += derivative * inputs.key().rawData()[key];
+            result.key()[key] += derivative * inputs.query().rawData()[query];
+            result.value()[key] += probability * inputs.upstream().rawData()[query];
         }
     }
 }

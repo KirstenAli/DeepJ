@@ -50,7 +50,7 @@ class ComputeGraphTest extends ComputeGraphTestSupport {
         GpuBuffer buf = graph.ensureGpuBuffer(t);
 
         buf.needsUpload = true;
-        t.data[0] = 99.0f;
+        t.rawData()[0] = 99.0f;
 
         graph.ensureGpuBuffer(t);
         assertFalse(buf.needsUpload, "needsUpload should be cleared after re-scheduling");

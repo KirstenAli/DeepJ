@@ -37,8 +37,8 @@ public final class RotaryEmbedding {
                 float theta = (float) (position
                         / Math.pow(10_000.0f, (2.0f * dimension) / headDim));
                 int index = position * halfDim + dimension;
-                cosTable.data[index] = (float) Math.cos(theta);
-                sinTable.data[index] = (float) Math.sin(theta);
+                cosTable.rawData()[index] = (float) Math.cos(theta);
+                sinTable.rawData()[index] = (float) Math.sin(theta);
             }
         }
     }

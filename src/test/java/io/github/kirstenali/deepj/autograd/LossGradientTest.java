@@ -34,7 +34,7 @@ class LossGradientTest {
         targets[1] = 3;
         mask[0] = true;
         loss.backward();
-        assertArrayEquals(expected.data, logits.grad().data, 1e-6f);
+        assertArrayEquals(expected.rawData(), logits.grad().rawData(), 1e-6f);
     }
 
     @Test

@@ -81,7 +81,7 @@ abstract class MetalMathOps extends MetalCoreOps {
         graph.recordSumScalar(ga, gOut, a.rows, a.cols);
         Tensor scalar = gpuOut(gOut);
         scalar.materialize();
-        return scalar.data[0];
+        return scalar.rawData()[0];
     }
 
     @Override
@@ -92,7 +92,7 @@ abstract class MetalMathOps extends MetalCoreOps {
         Tensor rowAbsSums = gpuOut(gRowAbsSums);
         Tensor scalar = sumRows(rowAbsSums);
         scalar.materialize();
-        return scalar.data[0];
+        return scalar.rawData()[0];
     }
 
     @Override
@@ -105,7 +105,7 @@ abstract class MetalMathOps extends MetalCoreOps {
         }
         output.cpuStale = true;
         total.materialize();
-        return (float) Math.sqrt(total.data[0]);
+        return (float) Math.sqrt(total.rawData()[0]);
     }
 
     @Override

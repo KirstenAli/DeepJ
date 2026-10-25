@@ -20,8 +20,8 @@ public final class TestSupport {
         Assertions.assertEquals(a.cols, b.cols, "cols");
         for (int r = 0; r < a.rows; r++) {
             for (int c = 0; c < a.cols; c++) {
-                double av = a.data[r * a.cols + c];
-                double bv = b.data[r * b.cols + c];
+                double av = a.rawData()[r * a.cols + c];
+                double bv = b.rawData()[r * b.cols + c];
                 if (Double.isNaN(av) || Double.isNaN(bv)) {
                     Assertions.fail("NaN encountered at [" + r + "," + c + "]");
                 }

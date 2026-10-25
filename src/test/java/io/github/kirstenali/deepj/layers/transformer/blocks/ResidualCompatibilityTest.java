@@ -29,12 +29,12 @@ class ResidualCompatibilityTest {
         Tensor input = Tensor.random(4, 8, new Random(509L));
         Tensor gradient = Tensor.random(4, 8, new Random(521L));
         Tensor actual = block.forward(input), expected = reference.forward(input);
-        assertArrayEquals(expected.data, actual.data, 0.0f);
+        assertArrayEquals(expected.rawData(), actual.rawData(), 0.0f);
         actual.backward(gradient);
         expected.backward(gradient);
         for (int index = 0; index < block.parameters().size(); index++) {
-            assertArrayEquals(reference.parameters().get(index).grad().data,
-                    block.parameters().get(index).grad().data, 0.0f);
+            assertArrayEquals(reference.parameters().get(index).grad().rawData(),
+                    block.parameters().get(index).grad().rawData(), 0.0f);
         }
     }
 

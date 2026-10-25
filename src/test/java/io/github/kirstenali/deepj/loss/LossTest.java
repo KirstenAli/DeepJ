@@ -48,7 +48,7 @@ public class LossTest {
         for (int r = 0; r < g.rows; r++) {
             float sum = 0.0f;
             for (int c = 0; c < g.cols; c++) {
-                sum += g.data[r * g.cols + c];
+                sum += g.rawData()[r * g.cols + c];
             }
             Assertions.assertEquals(0.0f, sum, 1e-6f, "softmax-crossentropy grad rows should sum to 0");
         }
@@ -71,9 +71,9 @@ public class LossTest {
         double p1 = b / s;
         double p2 = c / s;
 
-        Assertions.assertEquals(p0, g.data[0], 1e-6f);
-        Assertions.assertEquals(p1, g.data[1], 1e-6f);
-        Assertions.assertEquals(p2 - 1.0f, g.data[2], 1e-6f);
+        Assertions.assertEquals(p0, g.rawData()[0], 1e-6f);
+        Assertions.assertEquals(p1, g.rawData()[1], 1e-6f);
+        Assertions.assertEquals(p2 - 1.0f, g.rawData()[2], 1e-6f);
     }
 
     @Test
@@ -101,9 +101,9 @@ public class LossTest {
         Tensor actual = CrossEntropyLoss.gradient(logits, targets, mask);
         Tensor expectedRow = CrossEntropyLoss.gradient(expectedLogits, new int[]{0});
         Assertions.assertArrayEquals(new float[]{0, 0, 0},
-                java.util.Arrays.copyOfRange(actual.data, 0, 3), 1e-7f);
-        Assertions.assertArrayEquals(expectedRow.data,
-                java.util.Arrays.copyOfRange(actual.data, 3, 6), 1e-6f);
+                java.util.Arrays.copyOfRange(actual.rawData(), 0, 3), 1e-7f);
+        Assertions.assertArrayEquals(expectedRow.rawData(),
+                java.util.Arrays.copyOfRange(actual.rawData(), 3, 6), 1e-6f);
     }
 
     @Test
@@ -126,13 +126,13 @@ public class LossTest {
         TestSupport.assertTensorShape(g, 2, 3);
 
         double a = Math.exp(1), b = Math.exp(2), c = Math.exp(3), s = a + b + c;
-        Assertions.assertEquals((a / s) / n, g.data[0], 1e-6f);
-        Assertions.assertEquals((b / s) / n, g.data[1], 1e-6f);
-        Assertions.assertEquals((c / s - 1.0) / n, g.data[2], 1e-6f);
+        Assertions.assertEquals((a / s) / n, g.rawData()[0], 1e-6f);
+        Assertions.assertEquals((b / s) / n, g.rawData()[1], 1e-6f);
+        Assertions.assertEquals((c / s - 1.0) / n, g.rawData()[2], 1e-6f);
 
-        Assertions.assertEquals((1.0 / 3 - 1.0) / n, g.data[3], 1e-6f);
-        Assertions.assertEquals((1.0 / 3) / n, g.data[4], 1e-6f);
-        Assertions.assertEquals((1.0 / 3) / n, g.data[5], 1e-6f);
+        Assertions.assertEquals((1.0 / 3 - 1.0) / n, g.rawData()[3], 1e-6f);
+        Assertions.assertEquals((1.0 / 3) / n, g.rawData()[4], 1e-6f);
+        Assertions.assertEquals((1.0 / 3) / n, g.rawData()[5], 1e-6f);
     }
 
     @Test

@@ -58,8 +58,8 @@ public class DeepJOrbitTest {
                 / baseModel.parameters().get(0).value.sumAbs();
         assertEquals(0.2f, ratio, 1e-6f);
         assertTrue(scaledModel.parameters().stream().anyMatch(p -> isAllOnes(p.value)));
-        assertNotEquals(scaledModel.parameters().get(0).value.data[0],
-                scaledModel.parameters().get(3).value.data[0]);
+        assertNotEquals(scaledModel.parameters().get(0).value.rawData()[0],
+                scaledModel.parameters().get(3).value.rawData()[0]);
     }
 
     @Test

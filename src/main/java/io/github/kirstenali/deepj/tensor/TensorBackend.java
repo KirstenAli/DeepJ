@@ -91,7 +91,7 @@ public interface TensorBackend {
         float squares = 0.0f;
         for (Tensor tensor : tensors) {
             tensor.materialize();
-            for (float value : tensor.data) {
+            for (float value : tensor.rawData()) {
                 squares += value * value;
             }
         }
@@ -125,7 +125,7 @@ public interface TensorBackend {
 
     default CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
         Tensor loss = new Tensor(1, 1);
-        loss.data[0] = crossEntropyLoss(logits, targets);
+        loss.rawData()[0] = crossEntropyLoss(logits, targets);
         return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets));
     }
 
@@ -134,7 +134,7 @@ public interface TensorBackend {
 
     default CrossEntropyResult crossEntropy(Tensor logits, int[] targets, boolean[] mask) {
         Tensor loss = new Tensor(1, 1);
-        loss.data[0] = crossEntropyLoss(logits, targets, mask);
+        loss.rawData()[0] = crossEntropyLoss(logits, targets, mask);
         return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets, mask));
     }
 

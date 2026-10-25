@@ -49,22 +49,22 @@ public final class NumericalGradientAssertions {
     private static void assertNumericalGradient(Tensor variable, Tensor analytic, Supplier<Tensor> forward,
                                                 Tensor upstream, float epsilon, float absoluteTolerance,
                                                 float relativeTolerance, String label) {
-        for (int i = 0; i < variable.data.length; i++) {
+        for (int i = 0; i < variable.rawData().length; i++) {
             float numerical = centralDifference(variable, i, forward, upstream, epsilon);
-            assertClose(analytic.data[i], numerical, absoluteTolerance, relativeTolerance,
+            assertClose(analytic.rawData()[i], numerical, absoluteTolerance, relativeTolerance,
                     label + " gradient at flat index " + i);
         }
     }
 
     private static float centralDifference(Tensor variable, int index, Supplier<Tensor> forward,
                                            Tensor upstream, float epsilon) {
-        float original = variable.data[index];
+        float original = variable.rawData()[index];
         float step = epsilon * Math.max(1.0f, Math.abs(original));
-        variable.data[index] = original + step;
+        variable.rawData()[index] = original + step;
         float plus = objective(forward.get(), upstream);
-        variable.data[index] = original - step;
+        variable.rawData()[index] = original - step;
         float minus = objective(forward.get(), upstream);
-        variable.data[index] = original;
+        variable.rawData()[index] = original;
         return (plus - minus) / (2.0f * step);
     }
 
@@ -73,8 +73,8 @@ public final class NumericalGradientAssertions {
         output.materialize();
         upstream.materialize();
         float result = 0.0f;
-        for (int i = 0; i < output.data.length; i++) {
-            result += output.data[i] * upstream.data[i];
+        for (int i = 0; i < output.rawData().length; i++) {
+            result += output.rawData()[i] * upstream.rawData()[i];
         }
         return result;
     }

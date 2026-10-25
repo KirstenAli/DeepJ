@@ -20,10 +20,10 @@ abstract class CpuTrainingOps extends CpuReductionOps {
             int base = i * logits.cols;
             int target = targets[i];
 
-            float max = rowMax(logits.data, base, logits.cols);
-            float sumExp = rowSumExpShifted(logits.data, base, logits.cols, max);
+            float max = rowMax(logits.rawData(), base, logits.cols);
+            float sumExp = rowSumExpShifted(logits.rawData(), base, logits.cols, max);
 
-            lossSum += fLog(sumExp) + max - logits.data[base + target];
+            lossSum += fLog(sumExp) + max - logits.rawData()[base + target];
         }
         return lossSum / logits.rows;
     }
@@ -38,8 +38,8 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         for (int i = 0; i < logits.rows; i++) {
             int base = i * logits.cols;
 
-            rowWriteSoftmax(logits.data, grad.data, base, logits.cols);
-            grad.data[base + targets[i]] -= 1.0f;
+            rowWriteSoftmax(logits.rawData(), grad.rawData(), base, logits.cols);
+            grad.rawData()[base + targets[i]] -= 1.0f;
         }
 
         divideScalarInPlace(grad, logits.rows);
@@ -71,18 +71,18 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     static float crossEntropyRowLoss(Tensor logits, int target, int row) {
         int base = row * logits.cols;
-        float max = rowMax(logits.data, base, logits.cols);
-        return fLog(rowSumExpShifted(logits.data, base, logits.cols, max))
-                + max - logits.data[base + target];
+        float max = rowMax(logits.rawData(), base, logits.cols);
+        return fLog(rowSumExpShifted(logits.rawData(), base, logits.cols, max))
+                + max - logits.rawData()[base + target];
     }
 
     static void writeCrossEntropyRow(Tensor gradient, Tensor logits, int target,
                                              int row, int included) {
         int base = row * logits.cols;
-        rowWriteSoftmax(logits.data, gradient.data, base, logits.cols);
-        gradient.data[base + target] -= 1.0f;
+        rowWriteSoftmax(logits.rawData(), gradient.rawData(), base, logits.cols);
+        gradient.rawData()[base + target] -= 1.0f;
         for (int col = 0; col < logits.cols; col++) {
-            gradient.data[base + col] /= included;
+            gradient.rawData()[base + col] /= included;
         }
     }
 
@@ -99,24 +99,24 @@ abstract class CpuTrainingOps extends CpuReductionOps {
                             float lr, float beta1, float beta2, float eps,
                             float weightDecay, float bc1, float bc2) {
         prepare(w, g, mt, vt);
-        int n = w.data.length;
+        int n = w.rawData().length;
         for (int i = 0; i < n; i++) {
-            float grad = g.data[i];
+            float grad = g.rawData()[i];
 
-            float mNew = beta1 * mt.data[i] + (1.0f - beta1) * grad;
-            float vNew = beta2 * vt.data[i] + (1.0f - beta2) * (grad * grad);
+            float mNew = beta1 * mt.rawData()[i] + (1.0f - beta1) * grad;
+            float vNew = beta2 * vt.rawData()[i] + (1.0f - beta2) * (grad * grad);
 
-            mt.data[i] = mNew;
-            vt.data[i] = vNew;
+            mt.rawData()[i] = mNew;
+            vt.rawData()[i] = vNew;
 
             float mHat = mNew / bc1;
             float vHat = vNew / bc2;
 
             float update = (lr * mHat) / (fSqrt(vHat) + eps);
 
-            if (weightDecay != 0.0f) update += lr * weightDecay * w.data[i];
+            if (weightDecay != 0.0f) update += lr * weightDecay * w.rawData()[i];
 
-            w.data[i] -= update;
+            w.rawData()[i] -= update;
         }
     }
 
@@ -131,15 +131,15 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     private static void layerNormGradientRow(Tensor output, Tensor gradient, Tensor normalized,
                                              Tensor std, int row, int width) {
         int base = row * width;
-        float inverse = 1.0f / std.data[row], sum = 0.0f, dot = 0.0f;
+        float inverse = 1.0f / std.rawData()[row], sum = 0.0f, dot = 0.0f;
         for (int column = 0; column < width; column++) {
-            float value = gradient.data[base + column];
+            float value = gradient.rawData()[base + column];
             sum += value;
-            dot += value * normalized.data[base + column];
+            dot += value * normalized.rawData()[base + column];
         }
         for (int column = 0; column < width; column++) {
-            float value = gradient.data[base + column], norm = normalized.data[base + column];
-            output.data[base + column] = inverse * (value - sum / width - norm * (dot / width));
+            float value = gradient.rawData()[base + column], norm = normalized.rawData()[base + column];
+            output.rawData()[base + column] = inverse * (value - sum / width - norm * (dot / width));
         }
     }
 
@@ -171,7 +171,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
             int tBase = indices[i] * target.cols;
             int gBase = i * target.cols;
             for (int c = 0; c < target.cols; c++) {
-                target.data[tBase + c] += grad.data[gBase + c];
+                target.rawData()[tBase + c] += grad.rawData()[gBase + c];
             }
         }
     }

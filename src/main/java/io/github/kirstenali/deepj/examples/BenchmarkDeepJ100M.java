@@ -79,7 +79,7 @@ public final class BenchmarkDeepJ100M {
     }
 
     private static long parameterCount(DecoderOnlyModel model) {
-        long count = model.parameters().stream().mapToLong(parameter -> parameter.value.data.length).sum();
+        long count = model.parameters().stream().mapToLong(parameter -> parameter.value.rawData().length).sum();
         long expected = model.config() instanceof DeepJLoopConfig loop
                 ? DeepJLoopParameterCount.count(loop)
                 : DeepJNovaParameterCount.count((DeepJNovaConfig) model.config());

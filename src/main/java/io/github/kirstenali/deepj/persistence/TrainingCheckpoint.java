@@ -232,7 +232,7 @@ public final class TrainingCheckpoint {
             for (int index = 0; index < params.size(); index++) {
                 Tensor target = params.get(index).value;
                 target.gradientState().beforeMutation();
-                System.arraycopy(values.get(index).data, 0, target.data, 0, target.data.length);
+                System.arraycopy(values.get(index).rawData(), 0, target.rawData(), 0, target.rawData().length);
                 ModelSerializer.markGpuBufferNeedsUpload(target);
             }
         }

@@ -41,8 +41,10 @@ class MetalHeadCacheTest extends MetalDifferentialTestSupport {
         Tensor result = new Tensor(heads * (length + 1), initial.cols);
         for (int head = 0; head < heads; head++) {
             int start = head * (length + 1) * initial.cols;
-            System.arraycopy(initial.data, head * length * initial.cols, result.data, start, length * initial.cols);
-            System.arraycopy(next.data, head * initial.cols, result.data, start + length * initial.cols, initial.cols);
+            System.arraycopy(initial.rawData(), head * length * initial.cols,
+                    result.rawData(), start, length * initial.cols);
+            System.arraycopy(next.rawData(), head * initial.cols,
+                    result.rawData(), start + length * initial.cols, initial.cols);
         }
         return result;
     }

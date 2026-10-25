@@ -28,8 +28,8 @@ class MetalZeroAdditionTest extends MetalDifferentialTestSupport {
     void nonzeroAndNegativeZeroTargetsUseTheExistingBinaryPath() {
         Tensor source = deviceValues();
         Tensor target = Tensor.zeros(source.rows, source.cols);
-        target.data[0] = -0.0f;
-        target.data[2] = 3;
+        target.rawData()[0] = -0.0f;
+        target.rawData()[2] = 3;
         Tensor expected = metal.add(new Tensor(target), source);
         assertFalse(MetalHostZeroInput.canSkip(target, source));
         metal.addInPlace(target, source);
@@ -42,8 +42,8 @@ class MetalZeroAdditionTest extends MetalDifferentialTestSupport {
         Tensor source = metal.multiplyScalar(input, 1);
         Tensor target = Tensor.zeros(1, 3);
         metal.addInPlace(target, source);
-        input.data[0] = 900;
-        target.data[0] = 800;
+        input.rawData()[0] = 900;
+        target.rawData()[0] = 800;
         assertSameBits(Tensor.from2D(new float[][]{{2, 3, 4}}), target);
     }
 

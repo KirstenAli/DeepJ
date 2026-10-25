@@ -118,7 +118,7 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
         for (int repeat = 0; repeat < 3; repeat++) {
             List<Tensor> actual = snapshot(q, k, v, gradient, heads);
             for (int index = 0; index < expected.size(); index++) {
-                assertArrayEquals(expected.get(index).data, actual.get(index).data);
+                assertArrayEquals(expected.get(index).rawData(), actual.get(index).rawData());
             }
         }
     }
@@ -135,9 +135,9 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
         Tensor q = random(256, 64, 109), k = random(256, 64, 113), v = random(256, 64, 127);
         Tensor expected = new Tensor(metal.causalAttention(q, k, v, 1, 0.125f).output());
         Tensor changed = new Tensor(v), gradient = Tensor.zeros(256, 64);
-        for (int index = 0; index < changed.data.length; index++) {
-            if (index / 64 >= 128) changed.data[index] += 100;
-            else gradient.data[index] = 1;
+        for (int index = 0; index < changed.rawData().length; index++) {
+            if (index / 64 >= 128) changed.rawData()[index] += 100;
+            else gradient.rawData()[index] = 1;
         }
         var saved = metal.causalAttention(q, k, changed, 1, 0.125f);
         var result = metal.causalAttentionBackward(q, k, changed, saved, gradient, 1, 0.125f);
@@ -148,11 +148,11 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
     }
 
     private static void assertCausalBoundary(Tensor expected, Tensor output, AttentionGradients gradients) {
-        for (int index = 0; index < output.data.length; index++) {
-            if (index / 64 < 128) assertEquals(expected.data[index], output.data[index]);
+        for (int index = 0; index < output.rawData().length; index++) {
+            if (index / 64 < 128) assertEquals(expected.rawData()[index], output.rawData()[index]);
             else {
-                assertEquals(0.0f, gradients.key().data[index]);
-                assertEquals(0.0f, gradients.value().data[index]);
+                assertEquals(0.0f, gradients.key().rawData()[index]);
+                assertEquals(0.0f, gradients.value().rawData()[index]);
             }
         }
     }

@@ -43,7 +43,7 @@ class LoopedTransformerTest {
         Tensor upstream = Tensor.random(3, 4, new Random(31L));
         Tensor expected = reference.forward(input);
         Tensor observed = actual.forward(input);
-        assertArrayEquals(expected.data, observed.data, 0.0f);
+        assertArrayEquals(expected.rawData(), observed.rawData(), 0.0f);
         expected.backward(upstream);
         observed.backward(upstream);
         assertParameterGradients(reference.parameters(), actual.parameters());
@@ -60,8 +60,8 @@ class LoopedTransformerTest {
     private static void assertParameterGradients(List<Parameter> a, List<Parameter> b) {
         assertEquals(a.size(), b.size());
         for (int index = 0; index < a.size(); index++) {
-            assertArrayEquals(a.get(index).value.data, b.get(index).value.data, 0.0f);
-            assertArrayEquals(a.get(index).grad().data, b.get(index).grad().data, 0.0f);
+            assertArrayEquals(a.get(index).value.rawData(), b.get(index).value.rawData(), 0.0f);
+            assertArrayEquals(a.get(index).grad().rawData(), b.get(index).grad().rawData(), 0.0f);
         }
     }
 

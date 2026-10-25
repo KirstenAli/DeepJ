@@ -10,14 +10,35 @@ import java.util.List;
 public final class GradientState {
     private boolean required;
     private long version;
+    private MutationVersion sharedVersion;
     private Tensor gradient;
     private BackwardNode node;
     private final List<WeakReference<BackwardNode>> readers = new ArrayList<>();
 
     public boolean required() { return required; }
-    public long version() { return version; }
+    public long version() { return sharedVersion == null ? version : sharedVersion.value(); }
     public Tensor gradient() { return gradient; }
     public BackwardNode node() { return node; }
+
+    public GradientState() {}
+
+    private GradientState(MutationVersion sharedVersion) {
+        this.sharedVersion = sharedVersion;
+        sharedVersion.track(this);
+    }
+
+    /** Independent autograd metadata sharing only the physical storage's mutation version. */
+    public GradientState newAlias() {
+        if (sharedVersion == null) {
+            sharedVersion = new MutationVersion(version);
+            sharedVersion.track(this);
+        }
+        return new GradientState(sharedVersion);
+    }
+
+    public boolean storageSavedForBackward() {
+        return sharedVersion == null ? savedForBackward() : sharedVersion.any(GradientState::savedForBackward);
+    }
 
     public void require(boolean value) {
         if (node != null) throw new IllegalStateException("Only leaf tensors can change requiresGrad");
@@ -53,6 +74,10 @@ public final class GradientState {
     }
 
     public void beforeMutation() {
+        if (sharedVersion != null) {
+            sharedVersion.beforeMutation();
+            return;
+        }
         if (required && GradMode.isEnabled()) {
             throw new IllegalStateException("Use noGrad for parameter updates; tracked operations are out-of-place");
         }

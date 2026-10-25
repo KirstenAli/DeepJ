@@ -61,6 +61,6 @@ class TensorFacadeTest {
 
     private static void assertValues(Tensor tensor, float... expected) {
         tensor.materialize();
-        assertArrayEquals(expected, tensor.data, 1e-5f);
+        assertArrayEquals(expected, tensor.rawData(), 1e-5f);
     }
 }

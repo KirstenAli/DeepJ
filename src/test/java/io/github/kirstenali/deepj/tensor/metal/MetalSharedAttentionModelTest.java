@@ -71,7 +71,7 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
 
     private static void assertIdentical(List<Tensor> expected, List<Tensor> actual) {
         for (int index = 0; index < expected.size(); index++) {
-            assertArrayEquals(expected.get(index).data, actual.get(index).data);
+            assertArrayEquals(expected.get(index).rawData(), actual.get(index).rawData());
         }
     }
 
@@ -154,7 +154,7 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
                                             List<Tensor> actual, double tolerance) {
         double squaredError = 0, squaredReference = 0;
         for (int index = 0; index < expected.size(); index++) {
-            float[] left = expected.get(index).data, right = actual.get(index).data;
+            float[] left = expected.get(index).rawData(), right = actual.get(index).rawData();
             for (int element = 0; element < left.length; element++) {
                 double error = (double) right[element] - left[element];
                 squaredError += error * error;

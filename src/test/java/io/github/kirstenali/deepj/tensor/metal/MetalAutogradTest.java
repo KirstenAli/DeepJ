@@ -54,10 +54,10 @@ class MetalAutogradTest extends MetalDifferentialTestSupport {
         output.sumTensor().backward();
         Tensor expected = Tensor.zeros(input.rows, input.cols);
         input.grad().materialize();
-        for (int index = 0; index < input.data.length; index++) {
-            float value = input.data[index];
+        for (int index = 0; index < input.rawData().length; index++) {
+            float value = input.rawData()[index];
             float tangent = (float) Math.tanh(value * value);
-            expected.data[index] = 2 * value * (1 - tangent * tangent);
+            expected.rawData()[index] = 2 * value * (1 - tangent * tangent);
         }
         assertTensorClose(expected, input.grad(), 1e-5f, 1e-3f);
     }
