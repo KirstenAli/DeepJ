@@ -1,0 +1,227 @@
+{
+  "controls": {
+    "prism-state-candidate": {
+      "model": "prism",
+      "mode": "rebuild",
+      "steps": 3,
+      "loss": 9.84445572,
+      "gradients": "9d2f189a925b75b3cd20943df843ce47c62c17684965ce19167188745cd827dc",
+      "weights": "711dc99606376805a0063d49a92a3ddcf73c2503638234e4b8dddd975318f49e",
+      "globalSwapoutPages": 0
+    },
+    "prism-state-baseline": {
+      "model": "prism",
+      "mode": "rebuild",
+      "steps": 3,
+      "loss": 9.84445572,
+      "gradients": "9d2f189a925b75b3cd20943df843ce47c62c17684965ce19167188745cd827dc",
+      "weights": "711dc99606376805a0063d49a92a3ddcf73c2503638234e4b8dddd975318f49e",
+      "globalSwapoutPages": 0
+    },
+    "loop-pre-candidate-rolling": {
+      "model": "loop",
+      "mode": "rolling",
+      "action": "compare",
+      "positions": 11,
+      "values": 180224,
+      "exact": "true",
+      "globalSwapoutPages": 23876
+    },
+    "loop-pre-baseline": {
+      "model": "loop",
+      "mode": "rebuild",
+      "action": "compare",
+      "positions": 11,
+      "values": 180224,
+      "exact": "true",
+      "globalSwapoutPages": 5556
+    },
+    "loop-pre-candidate-rebuild": {
+      "model": "loop",
+      "mode": "rebuild",
+      "action": "compare",
+      "positions": 11,
+      "values": 180224,
+      "exact": "true",
+      "globalSwapoutPages": 0
+    }
+  },
+  "memory": {
+    "candidate": {
+      "rows": [
+        {
+          "length": 1024,
+          "flash": "true",
+          "nativeLive": 407794176,
+          "nativePeak": 2814360840,
+          "buffers": 317,
+          "heapUsed": 1347699200
+        },
+        {
+          "length": 1023,
+          "flash": "false",
+          "nativeLive": 407794176,
+          "nativePeak": 5522017596,
+          "buffers": 317,
+          "heapUsed": 1351893504
+        },
+        {
+          "length": 1023,
+          "flash": "false",
+          "nativeLive": 407794176,
+          "nativePeak": 5522017596,
+          "buffers": 317,
+          "heapUsed": 1360282112
+        },
+        {
+          "length": 1024,
+          "flash": "true",
+          "nativeLive": 407794176,
+          "nativePeak": 2814360840,
+          "buffers": 317,
+          "heapUsed": 1364476416
+        }
+      ],
+      "globalSwapoutPages": 0
+    },
+    "baseline": {
+      "rows": [
+        {
+          "length": 1024,
+          "flash": "true",
+          "nativeLive": 407794176,
+          "nativePeak": 2814360840,
+          "buffers": 317,
+          "heapUsed": 1333133824
+        },
+        {
+          "length": 1023,
+          "flash": "false",
+          "nativeLive": 407794176,
+          "nativePeak": 5522017596,
+          "buffers": 317,
+          "heapUsed": 1341522432
+        },
+        {
+          "length": 1023,
+          "flash": "false",
+          "nativeLive": 407794176,
+          "nativePeak": 5522017596,
+          "buffers": 317,
+          "heapUsed": 1345716736
+        },
+        {
+          "length": 1024,
+          "flash": "true",
+          "nativeLive": 407794176,
+          "nativePeak": 2814360840,
+          "buffers": 317,
+          "heapUsed": 1354105344
+        }
+      ],
+      "globalSwapoutPages": 0
+    }
+  },
+  "longSamples": [
+    {
+      "prompt": 0,
+      "seed": 1234,
+      "mode": "REBUILD",
+      "promptTokens": 1024,
+      "generatedTokens": 160,
+      "calls": 160,
+      "shiftedSteps": 159
+    },
+    {
+      "prompt": 0,
+      "seed": 1234,
+      "mode": "ROLLING",
+      "promptTokens": 1024,
+      "generatedTokens": 59,
+      "calls": 60,
+      "shiftedSteps": 59
+    },
+    {
+      "prompt": 0,
+      "seed": 2026,
+      "mode": "REBUILD",
+      "promptTokens": 1024,
+      "generatedTokens": 133,
+      "calls": 134,
+      "shiftedSteps": 133
+    },
+    {
+      "prompt": 0,
+      "seed": 2026,
+      "mode": "ROLLING",
+      "promptTokens": 1024,
+      "generatedTokens": 160,
+      "calls": 160,
+      "shiftedSteps": 159
+    },
+    {
+      "prompt": 1,
+      "seed": 1234,
+      "mode": "REBUILD",
+      "promptTokens": 1023,
+      "generatedTokens": 105,
+      "calls": 106,
+      "shiftedSteps": 104
+    },
+    {
+      "prompt": 1,
+      "seed": 1234,
+      "mode": "ROLLING",
+      "promptTokens": 1023,
+      "generatedTokens": 160,
+      "calls": 160,
+      "shiftedSteps": 158
+    },
+    {
+      "prompt": 1,
+      "seed": 2026,
+      "mode": "REBUILD",
+      "promptTokens": 1023,
+      "generatedTokens": 105,
+      "calls": 106,
+      "shiftedSteps": 104
+    },
+    {
+      "prompt": 1,
+      "seed": 2026,
+      "mode": "ROLLING",
+      "promptTokens": 1023,
+      "generatedTokens": 160,
+      "calls": 160,
+      "shiftedSteps": 158
+    }
+  ],
+  "longSamplesGlobalSwapoutPages": 0,
+  "perBatch": [
+    {
+      "sample": 0,
+      "rebuildLoss": 1.27053418159,
+      "rollingLoss": 1.31499627187,
+      "delta": 0.04446209027999992
+    },
+    {
+      "sample": 1,
+      "rebuildLoss": 1.38724475274,
+      "rollingLoss": 1.39286529468,
+      "delta": 0.005620541939999946
+    },
+    {
+      "sample": 2,
+      "rebuildLoss": 1.56894062849,
+      "rollingLoss": 1.56519952921,
+      "delta": -0.003741099279999993
+    },
+    {
+      "sample": 3,
+      "rebuildLoss": 1.74871564278,
+      "rollingLoss": 1.75863455259,
+      "delta": 0.009918909810000098
+    }
+  ],
+  "resolution": "Original swap findings preserved. Loop fallback peak reproduces on both revisions; no new native-memory regression or retained-buffer growth. OS counters are system-wide and do not attribute which process was paged out."
+}
