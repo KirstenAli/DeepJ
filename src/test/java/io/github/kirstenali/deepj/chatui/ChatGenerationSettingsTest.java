@@ -1,10 +1,20 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ChatGenerationSettingsTest {
+
+    @Test
+    void alternativeSettingsPreserveRollingMode() {
+        var mode = ContextWindowMode.ROLLING;
+        var settings = new ChatGenerationSettings(80, 0.8, 40, 1234, 1, mode);
+        assertEquals(mode, settings.withPenalty().contextWindow());
+        assertEquals(mode, settings.withNewSeed().contextWindow());
+    }
 
     @Test
     void penaltyAlternativePreservesOtherSettings() {

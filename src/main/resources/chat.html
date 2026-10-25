@@ -194,6 +194,13 @@
               <input id="repetitionPenalty" type="number" min="1" max="2" step="0.05" value="1" />
               <small>1.0 is off. Try 1.1 if text loops.</small>
             </label>
+            <label class="cache-choice">
+              <span><input id="rollingCache" type="checkbox" /> Rolling KV cache</span>
+              <small
+                >Keep decoding fast after the window fills. RoPE models only; long responses may
+                change.</small
+              >
+            </label>
           </div>
         </details>
         <button type="button" id="doneSettings" class="done-button">Done</button>

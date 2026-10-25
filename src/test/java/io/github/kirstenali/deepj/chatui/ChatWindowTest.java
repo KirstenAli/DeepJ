@@ -4,35 +4,22 @@ import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.AlternativeServic
 import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.BlockingService;
 import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.Invocation;
 import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.TestService;
-import javafx.application.Platform;
-import javafx.concurrent.Worker;
 import javafx.event.Event;
-import javafx.scene.Scene;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.web.WebView;
-import javafx.stage.Stage;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnabledIfSystemProperty(named = "deepj.uiTests", matches = "true")
-class ChatWindowTest {
-
-    @BeforeAll
-    static void startJavaFx() {
-        Platform.startup(() -> {});
-        Platform.setImplicitExit(false);
-    }
+class ChatWindowTest extends ChatDesktopTestSupport {
 
     @Test
     void messagesAreSelectableAndNotClipped() throws Exception {
@@ -237,87 +224,6 @@ class ChatWindowTest {
                 window.getSelection().toString();
                 """);
         assertEquals("A selectable answer ".repeat(45), selected);
-    }
-
-    private static Fixture open() throws Exception {
-        return open(new TestService());
-    }
-
-    private static Fixture open(ChatService service) throws Exception {
-        Fixture fixture = new Fixture(service);
-        Platform.runLater(fixture::show);
-        assertTrue(fixture.loaded.await(10, TimeUnit.SECONDS));
-        return fixture;
-    }
-
-    private static void verify(Fixture fixture, Check check) throws Exception {
-        checkOnUi(fixture, check, true);
-    }
-
-    private static void verifyWithoutClosing(Fixture fixture, Check check) throws Exception {
-        checkOnUi(fixture, check, false);
-    }
-
-    private static void checkOnUi(Fixture fixture, Check check, boolean close) throws Exception {
-        CountDownLatch checked = new CountDownLatch(1);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        Platform.runLater(() -> fixture.check(check, failure, checked, close));
-        assertTrue(checked.await(10, TimeUnit.SECONDS));
-        if (failure.get() != null) throw new AssertionError(failure.get());
-    }
-
-    private static void awaitScript(Fixture fixture, String condition) throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        AtomicReference<Boolean> ready = new AtomicReference<>(false);
-        while (System.nanoTime() < deadline) {
-            verifyWithoutClosing(fixture, view -> ready.set(Boolean.TRUE.equals(script(view, condition))));
-            if (ready.get()) return;
-            Thread.sleep(20);
-        }
-        throw new AssertionError("Timed out waiting for desktop state: " + condition);
-    }
-
-    private static Object script(WebView view, String source) {
-        return view.getEngine().executeScript(source);
-    }
-
-    private static double styleNumber(WebView view, String selector, String property) {
-        return ((Number) script(view, "parseFloat(getComputedStyle(document.querySelector('"
-                + selector + "'))." + property + ")")).doubleValue();
-    }
-
-    private interface Check { void run(WebView view); }
-
-    private static final class Fixture {
-        private final CountDownLatch loaded = new CountDownLatch(1);
-        private final ChatService service;
-        private WebView view;
-        private Stage stage;
-
-        private Fixture(ChatService service) { this.service = service; }
-
-        private void show() {
-            view = new WebView();
-            stage = new Stage();
-            stage.setScene(new Scene(view, 1000, 700));
-            stage.show();
-            view.getEngine().getLoadWorker().stateProperty().addListener((ob, old, state) -> {
-                if (state == Worker.State.SUCCEEDED) loaded.countDown();
-            });
-            new ChatWindow(stage, view, service).open();
-        }
-
-        private void check(Check check, AtomicReference<Throwable> failure,
-                           CountDownLatch done, boolean close) {
-            try {
-                check.run(view);
-            } catch (Throwable error) {
-                failure.set(error);
-            } finally {
-                if (close) stage.close();
-                done.countDown();
-            }
-        }
     }
 
 }

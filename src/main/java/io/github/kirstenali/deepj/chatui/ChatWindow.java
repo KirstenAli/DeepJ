@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import javafx.concurrent.Task;
 import javafx.concurrent.Worker;
 import javafx.scene.input.Clipboard;
@@ -120,11 +122,17 @@ public final class ChatWindow {
 
     public void send(String prompt, int maxTokens, double temperature, int topK,
                      long seed, double repetitionPenalty) {
+        sendWithWindowSettings(prompt, maxTokens, temperature, topK, seed, repetitionPenalty, false);
+    }
+
+    public void sendWithWindowSettings(String prompt, int maxTokens, double temperature, int topK,
+                                       long seed, double repetitionPenalty, boolean rollingCache) {
         if (busy || !service.isModelLoaded()) return;
         if (prompt == null || prompt.isBlank()) return;
         try {
             startGeneration(prompt.trim(),
-                    new ChatGenerationSettings(maxTokens, temperature, topK, seed, repetitionPenalty));
+                    new ChatGenerationSettings(maxTokens, temperature, topK, seed, repetitionPenalty,
+                            rollingCache ? ContextWindowMode.ROLLING : ContextWindowMode.REBUILD));
         } catch (IllegalArgumentException error) {
             call("setStatus", error.getMessage());
         }
@@ -149,7 +157,8 @@ public final class ChatWindow {
         return new Task<>() {
             @Override protected String call() {
                 return service.generate(prompt, settings.maxTokens(), (float) settings.temperature(),
-                        settings.topK(), settings.seed(), (float) settings.repetitionPenalty(), this::updateValue);
+                        settings.topK(), settings.seed(), (float) settings.repetitionPenalty(),
+                        settings.contextWindow(), this::updateValue);
             }
         };
     }

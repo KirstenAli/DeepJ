@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.models.ModelLoader;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
@@ -13,6 +15,14 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 
 final class EmbeddedModelChatService implements ChatService {
+
+    @Override
+    public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
+                           float repetitionPenalty, ContextWindowMode mode, Consumer<String> listener) {
+        if (model == null) throw new IllegalStateException("Load a model first");
+        return ChatModelGeneration.stream(model, tokenizer, prompt, maxTokens, temperature, topK,
+                seed, repetitionPenalty, mode, listener);
+    }
 
     private DecoderOnlyModel model;
     private Tokenizer tokenizer;

@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 
 import java.util.Random;
@@ -27,6 +28,11 @@ public final class RoPEMultiHeadSelfAttention extends MultiHeadSelfAttention {
     @Override
     protected Tensor transformQueryKey(Tensor heads, int length, int offset) {
         return rope.apply(heads, length, nHeads, offset);
+    }
+
+    @Override
+    protected Tensor transformQueryKey(Tensor heads, int length, InferenceContext context) {
+        return context.rotate(rope, heads, length, nHeads);
     }
 
 }

@@ -624,6 +624,18 @@ svg {
   background: var(--field);
   color: var(--text);
 }
+.cache-choice span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+.settings-grid input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  accent-color: var(--text);
+}
 .done-button {
   display: block;
   margin: 24px 0 0 auto;

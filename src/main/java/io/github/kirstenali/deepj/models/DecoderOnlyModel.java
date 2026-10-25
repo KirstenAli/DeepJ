@@ -75,10 +75,28 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
     protected boolean supportsCachedGeneration() { return false; }
 
+    protected boolean supportsRollingGeneration() { return false; }
+
     @Override
     public GenerationSession openGeneration() {
+        return openGeneration(ContextWindowMode.REBUILD);
+    }
+
+    @Override
+    public GenerationSession openGeneration(ContextWindowMode mode) {
+        Objects.requireNonNull(mode, "mode");
+        if (mode == ContextWindowMode.ROLLING && !supportsRollingGeneration()) {
+            throw new UnsupportedOperationException("This model does not support rolling cached generation");
+        }
         return supportsCachedGeneration() && stack.supportsIncrementalInference()
-                ? new CachedGenerationSession(this) : this::forward;
+                ? new CachedGenerationSession(this, mode) : uncachedGeneration(mode);
+    }
+
+    private GenerationSession uncachedGeneration(ContextWindowMode mode) {
+        if (mode == ContextWindowMode.ROLLING) {
+            throw new UnsupportedOperationException("The decoder stack does not support rolling cached generation");
+        }
+        return this::forward;
     }
 
     final Tensor forwardCached(int[] inputIds, InferenceContext context) {
