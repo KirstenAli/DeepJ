@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
+import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.models.TransformerConfig;
@@ -227,10 +228,13 @@ public final class TrainingCheckpoint {
     }
 
     private static void applyModelValues(List<Parameter> params, List<Tensor> values) {
-        for (int index = 0; index < params.size(); index++) {
-            Tensor target = params.get(index).value;
-            System.arraycopy(values.get(index).data, 0, target.data, 0, target.data.length);
-            ModelSerializer.markGpuBufferNeedsUpload(target);
+        try (var ignored = GradMode.noGrad()) {
+            for (int index = 0; index < params.size(); index++) {
+                Tensor target = params.get(index).value;
+                target.gradientState().beforeMutation();
+                System.arraycopy(values.get(index).data, 0, target.data, 0, target.data.length);
+                ModelSerializer.markGpuBufferNeedsUpload(target);
+            }
         }
     }
 
