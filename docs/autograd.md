@@ -64,13 +64,14 @@ Changing a tensor needed by an outstanding backward pass causes an error rather 
 `detach()` returns an independent, untracked copy. `copy()` preserves gradient tracking.
 Neither introduces shared GPU-buffer ownership.
 
-The public `data` array and `Tensor.backend()` are low-level escape hatches for kernels and advanced
-code. Direct array writes and raw backend calls bypass autograd's managed mutation checks and tracking.
+`rawData()`, the mutable array returned by `data()`, and `Tensor.backend()` are low-level escape
+hatches for kernels and advanced code. Direct array writes and raw backend calls bypass autograd's managed
+mutation checks and tracking. The replaceable public `data` field has been removed.
 Do not use them to modify tensors belonging to a live backward graph. Use tensor operations for
 differentiable code, and managed writes or `TensorAdapters.unpackF32Into(...)` for explicit value replacement.
 
 Metal results allocate CPU storage only when requested. Use `tensor.data()` to download and access
-current values, or call `tensor.materialize()` before accessing the raw `tensor.data` field, which can
+current values, or call `tensor.materialize()` before accessing `tensor.rawData()`, which can
 be `null` beforehand. `get`, `rowData`, copying and serialization handle this automatically. Ordinary
 CPU tensor constructors still allocate their arrays immediately. Scratch GPU buffers can share storage
 when their command lifetimes do not overlap. Library-owned backward scratch is retired explicitly,

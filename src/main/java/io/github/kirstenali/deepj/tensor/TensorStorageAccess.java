@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
 /** Shared physical storage plumbing; logical Tensor operations remain on the concrete facade. */
-abstract class TensorStorageAccess {
+public abstract class TensorStorageAccess {
     private final TensorMemory memory;
     private boolean deviceRetained;
 
