@@ -1914,6 +1914,23 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
     @autoreleasepool { uploadBuffer(env, bufId, dataArr); }
 }
 
+static void zeroBuffer(JNIEnv* env, jint bufferId, jint floatCount) {
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    auto entry = gBufferPool.find(bufferId);
+    if (entry == gBufferPool.end() || floatCount <= 0 ||
+        (NSUInteger)floatCount * sizeof(float) != [entry->second length]) {
+        throwJavaRuntimeException(env, "Zero buffer was not found or its size does not match");
+        return;
+    }
+    memset([entry->second contents], 0, [entry->second length]);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeZeroBuffer(
+        JNIEnv* env, jclass, jint bufferId, jint floatCount) {
+    @autoreleasepool { zeroBuffer(env, bufferId, floatCount); }
+}
+
 static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
     BufferEntry entry = transferEntry(env, bufId, outArr, "Download");

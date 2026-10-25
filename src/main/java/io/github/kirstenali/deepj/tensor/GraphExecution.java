@@ -136,16 +136,6 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
         }
     }
 
-    void uploadPendingData() {
-        if (pendingUploadIds.isEmpty()) return;
-
-        for (int i = 0; i < pendingUploadIds.size(); i++) {
-            runtime.uploadBuffer(pendingUploadIds.get(i)[0], pendingUploadData.get(i));
-        }
-        pendingUploadIds.clear();
-        pendingUploadData.clear();
-    }
-
     void executePendingOps() {
         executePendingOps(cmdStream);
     }

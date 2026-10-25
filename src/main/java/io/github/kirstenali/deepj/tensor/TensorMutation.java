@@ -16,6 +16,9 @@ final class TensorMutation {
         mt.gradientState().beforeMutation();
         vt.gradientState().beforeMutation();
         Tensor.backend().adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+        markHostMutation(w);
+        markHostMutation(mt);
+        markHostMutation(vt);
     }
 
     static Tensor apply(Tensor target, Runnable operation, Tensor... operands) {
@@ -24,7 +27,11 @@ final class TensorMutation {
         }
         target.gradientState().beforeMutation();
         operation.run();
-        if (target.getGpuTag() instanceof GpuBuffer buffer && !buffer.cpuStale) buffer.needsUpload = true;
+        markHostMutation(target);
         return target;
+    }
+
+    private static void markHostMutation(Tensor target) {
+        if (target.getGpuTag() instanceof GpuBuffer buffer && !buffer.cpuStale) buffer.needsUpload = true;
     }
 }

@@ -4,6 +4,12 @@ import java.util.List;
 
 public interface TensorBackend {
 
+    /** Backend-owned positive-zero storage; ordinary Tensor constructors stay CPU-backed. */
+    default Tensor zeros(int rows, int columns) { return new Tensor(rows, columns); }
+
+    /** Independent storage with the same float bits, without recording an autograd operation. */
+    default Tensor copy(Tensor source) { return new Tensor(source); }
+
     Tensor matmul(Tensor a, Tensor b);
 
     default void writeHeadCache(Tensor cache, Tensor update, int heads, int offset) {

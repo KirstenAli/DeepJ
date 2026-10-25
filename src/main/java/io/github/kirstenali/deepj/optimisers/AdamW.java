@@ -80,11 +80,11 @@ public final class AdamW implements ParameterOptimizer {
     }
 
     private static Tensor newMoment(Tensor value) {
-        return Tensor.zeros(value.rows, value.cols).retainDeviceBuffer();
+        return Tensor.backend().zeros(value.rows, value.cols).retainDeviceBuffer();
     }
 
     private static Tensor retained(Tensor tensor) {
-        return tensor.retainDeviceBuffer();
+        return Tensor.backend().copy(tensor).retainDeviceBuffer();
     }
 
     private void validateState(List<Parameter> params, State state) {

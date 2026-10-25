@@ -12,7 +12,7 @@ public class Tensor {
     public final int rows, cols;
 
     Object gpuTag;
-    private boolean retainDeviceBuffer;
+    int storageFlags;
     private final GradientState gradientState = new GradientState();
 
     public GradientState gradientState() { return gradientState; }
@@ -34,13 +34,13 @@ public class Tensor {
     public void setGpuTag(Object tag) { this.gpuTag = tag; }
 
     public Tensor retainDeviceBuffer() {
-        retainDeviceBuffer = true;
+        storageFlags |= TensorStorage.RETAIN_DEVICE;
         return this;
     }
 
-    public boolean retainsDeviceBuffer() { return retainDeviceBuffer; }
+    public boolean retainsDeviceBuffer() { return (storageFlags & TensorStorage.RETAIN_DEVICE) != 0; }
 
-    public void releaseDeviceBufferRetention() { retainDeviceBuffer = false; }
+    public void releaseDeviceBufferRetention() { storageFlags &= ~TensorStorage.RETAIN_DEVICE; }
 
     private static volatile TensorBackend BACKEND = new CpuBackend();
     public static void setBackend(TensorBackend backend) {
@@ -58,6 +58,7 @@ public class Tensor {
     private Tensor(int rows, int cols, boolean hostStorage) {
         this.rows = rows;
         this.cols = cols;
+        storageFlags = hostStorage ? 0 : TensorStorage.LAZY_HOST;
         data = TensorStorage.initialStorage(rows, cols, hostStorage);
     }
 
@@ -223,7 +224,6 @@ public class Tensor {
     }
 
     public void set(int r, int c, float value) {
-        gradientState.beforeMutation();
         TensorStorage.set(this, r, c, value);
     }
 

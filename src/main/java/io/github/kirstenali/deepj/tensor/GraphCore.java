@@ -34,6 +34,17 @@ abstract class GraphCore extends GraphOpMetadata {
         pendingUploadData.add(data);
     }
 
+    void uploadPendingData() {
+        for (int i = 0; i < pendingUploadIds.size(); i++) {
+            int[] upload = pendingUploadIds.get(i);
+            float[] data = pendingUploadData.get(i);
+            if (data == null) runtime.zeroBuffer(upload[0], upload[1]);
+            else runtime.uploadBuffer(upload[0], data);
+        }
+        pendingUploadIds.clear();
+        pendingUploadData.clear();
+    }
+
     public GpuBuffer ensureGpuBuffer(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer existing) {
             existing.requireLive();
@@ -80,10 +91,37 @@ abstract class GraphCore extends GraphOpMetadata {
         return buf;
     }
 
+    /** Queues explicit zero initialization before any operations consume this buffer. */
+    public GpuBuffer newZeroBuffer(int rows, int cols) {
+        TensorStorage.checkedSize(rows, cols);
+        GpuBuffer buffer = newOutputBuffer(rows, cols);
+        pendingUploadIds.add(new int[]{buffer.id, buffer.floatCount()});
+        pendingUploadData.add(null);
+        return buffer;
+    }
+
     public Tensor createOutputTensor(GpuBuffer buf) {
         Tensor t = Tensor.deviceOnly(buf.rows, buf.cols);
         bindTensorToBuffer(t, buf);
         return t;
+    }
+
+    public Tensor copyToDevice(Tensor source) {
+        TensorStorage.requireSource(source);
+        GpuBuffer buffer = newBuffer(source.rows, source.cols, false);
+        scheduleUpload(buffer.id, TensorAdapters.packF32(source));
+        return createOutputTensor(buffer);
+    }
+
+    public void markUpdated(Tensor tensor) {
+        if (!(tensor.getGpuTag() instanceof GpuBuffer buffer)) {
+            throw new IllegalArgumentException("Updated tensor must have a GPU buffer");
+        }
+        buffer.requireLive();
+        if (buffer.owner != this) throw new IllegalArgumentException("GPU buffer belongs to another graph");
+        buffer.cpuStale = true;
+        buffer.needsUpload = false;
+        TensorStorage.discardStaleHostStorage(tensor);
     }
 
     public void bindTensorToBuffer(Tensor t, GpuBuffer buf) {

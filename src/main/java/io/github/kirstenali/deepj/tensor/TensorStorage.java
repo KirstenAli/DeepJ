@@ -7,10 +7,16 @@ import java.util.Arrays;
 import java.util.Random;
 
 final class TensorStorage {
+    static final int RETAIN_DEVICE = 1;
+    static final int LAZY_HOST = 2;
 
     private static final CpuBackend CPU = new CpuBackend();
 
     private TensorStorage() {}
+
+    static void discardStaleHostStorage(Tensor tensor) {
+        if ((tensor.storageFlags & LAZY_HOST) != 0) tensor.data = null;
+    }
 
     static TensorBackend requireBackend(TensorBackend backend) {
         if (backend == null) throw new IllegalArgumentException("backend cannot be null");
@@ -102,6 +108,7 @@ final class TensorStorage {
     }
 
     static void set(Tensor tensor, int row, int column, float value) {
+        tensor.gradientState().beforeMutation();
         requireIndex(tensor, row, column);
         tensor.materialize();
         CPU.set(tensor, row, column, value);

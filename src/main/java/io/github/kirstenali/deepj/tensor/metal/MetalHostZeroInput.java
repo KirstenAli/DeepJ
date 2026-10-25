@@ -12,7 +12,11 @@ final class MetalHostZeroInput {
     private MetalHostZeroInput() {}
 
     static boolean canSkip(Tensor target, Tensor source) {
-        return source.getGpuTag() instanceof GpuBuffer && target.getGpuTag() == null
+        return source.getGpuTag() instanceof GpuBuffer && isUnboundZero(target);
+    }
+
+    static boolean isUnboundZero(Tensor target) {
+        return target.getGpuTag() == null
                 && target.data != null && target.data.length == (long) target.rows * target.cols
                 && positiveZeros(target.data);
     }

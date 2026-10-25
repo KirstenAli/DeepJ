@@ -25,6 +25,8 @@ class MetalRuntimeValidationTest {
         assertThrows(IllegalArgumentException.class, () -> runtime.downloadBuffer(-1, new float[1]));
         assertThrows(NullPointerException.class, () -> runtime.uploadBuffer(1, null));
         assertThrows(NullPointerException.class, () -> runtime.downloadBuffer(1, null));
+        assertThrows(IllegalArgumentException.class, () -> runtime.zeroBuffer(-1, 1));
+        assertThrows(IllegalArgumentException.class, () -> runtime.zeroBuffer(1, 0));
     }
 
     @Test

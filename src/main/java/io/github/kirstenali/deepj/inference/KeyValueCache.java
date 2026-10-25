@@ -11,8 +11,8 @@ final class KeyValueCache implements AutoCloseable {
 
     KeyValueCache(int capacity, int heads, int width) {
         this.heads = heads;
-        keys = new Tensor(Math.multiplyExact(capacity, heads), width).retainDeviceBuffer();
-        values = new Tensor(keys.rows, width).retainDeviceBuffer();
+        keys = Tensor.backend().zeros(Math.multiplyExact(capacity, heads), width).retainDeviceBuffer();
+        values = Tensor.backend().zeros(keys.rows, width).retainDeviceBuffer();
     }
 
     Tensor attend(Tensor query, Tensor key, Tensor value, int queryHeads, int offset, float scale) {

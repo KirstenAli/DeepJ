@@ -8,7 +8,7 @@ abstract class MetalCacheOps extends MetalTrainingOps {
         HeadCacheOps.requireWrite(cache, update, heads, offset);
         GpuBuffer destination = gpuIn(cache);
         graph.recordHeadCacheWrite(gpuIn(update), destination, heads, offset);
-        destination.cpuStale = true;
+        graph.markUpdated(cache);
     }
 
     @Override
