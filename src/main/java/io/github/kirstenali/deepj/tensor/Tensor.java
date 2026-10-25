@@ -7,8 +7,8 @@ import java.util.Random;
 
 public class Tensor {
 
-    /** Unsafe storage access for backend kernels and initialization. Use set() for managed writes. */
-    public final float[] data;
+    /** Raw CPU storage; call materialize() before access. GPU results allocate it lazily. */
+    public float[] data;
     public final int rows, cols;
 
     Object gpuTag;
@@ -18,8 +18,7 @@ public class Tensor {
     public GradientState gradientState() { return gradientState; }
     public boolean requiresGrad() { return gradientState.required(); }
     public Tensor requiresGrad(boolean required) {
-        gradientState.require(required);
-        return this;
+        return TensorMutation.requireGrad(this, required);
     }
     public Tensor grad() { return gradientState.gradient(); }
     public void zeroGrad() { gradientState.bindGradient(null); }
@@ -45,8 +44,7 @@ public class Tensor {
 
     private static volatile TensorBackend BACKEND = new CpuBackend();
     public static void setBackend(TensorBackend backend) {
-        if (backend == null) throw new IllegalArgumentException("backend cannot be null");
-        BACKEND = backend;
+        BACKEND = TensorStorage.requireBackend(backend);
     }
 
     public static TensorBackend backend() {
@@ -54,17 +52,27 @@ public class Tensor {
     }
 
     public Tensor(int rows, int cols) {
+        this(rows, cols, true);
+    }
+
+    private Tensor(int rows, int cols, boolean hostStorage) {
         this.rows = rows;
         this.cols = cols;
-        this.data = new float[TensorStorage.checkedSize(rows, cols)];
+        data = TensorStorage.initialStorage(rows, cols, hostStorage);
     }
+
+    static Tensor deviceOnly(int rows, int cols) { return new Tensor(rows, cols, false); }
+
+    float[] hostStorage() { return TensorStorage.hostStorage(this); }
+
+    /** Returns current CPU values, downloading GPU results only when needed. */
+    public float[] data() { return TensorStorage.hostData(this); }
 
     public Tensor(Tensor source) {
         TensorStorage.requireSource(source);
         this.rows = source.rows;
         this.cols = source.cols;
         this.data = TensorStorage.copyData(source);
-        this.gpuTag = null;
     }
 
     public float[] rowData(int r) {
@@ -175,10 +183,7 @@ public class Tensor {
     public static void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                                    float lr, float beta1, float beta2, float eps,
                                    float weightDecay, float bc1, float bc2) {
-        w.gradientState.beforeMutation();
-        mt.gradientState.beforeMutation();
-        vt.gradientState.beforeMutation();
-        backend().adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+        TensorMutation.adamW(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
     }
 
     public Tensor maxAlongRows() {

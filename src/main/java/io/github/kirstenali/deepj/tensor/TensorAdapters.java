@@ -7,6 +7,7 @@ public final class TensorAdapters {
     private TensorAdapters() {}
 
     public static float[] packF32(Tensor t) {
+        if (t.data == null && t.getGpuTag() == null) return new float[TensorStorage.checkedSize(t.rows, t.cols)];
         t.materialize();
         return java.util.Arrays.copyOf(t.data, t.data.length);
     }
@@ -31,14 +32,16 @@ public final class TensorAdapters {
     }
 
     public static void unpackF32Into(float[] flat, Tensor t) {
-        if (flat.length != t.data.length) {
+        int size = TensorStorage.checkedSize(t.rows, t.cols);
+        if (flat.length != size) {
             throw new IllegalArgumentException(
                     "Flat buffer length " + flat.length +
-                            " does not match tensor size " + t.data.length);
+                            " does not match tensor size " + size);
         }
         try (var ignored = GradMode.noGrad()) {
+            t.materialize();
             t.gradientState().beforeMutation();
-            System.arraycopy(flat, 0, t.data, 0, flat.length);
+            System.arraycopy(flat, 0, t.hostStorage(), 0, flat.length);
             TensorStorage.markGpuNeedsUpload(t);
         }
     }

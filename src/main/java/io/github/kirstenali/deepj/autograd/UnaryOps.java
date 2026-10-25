@@ -51,7 +51,7 @@ public final class UnaryOps {
     }
 
     static Tensor record(Tensor input, Tensor output, Function<Tensor, Tensor> derivative, Tensor... saved) {
-        return Autograd.recordSaved(output, g -> new Tensor[]{derivative.apply(g)},
+        return Autograd.recordBuiltinSaved(output, g -> new Tensor[]{derivative.apply(g)},
                 new Tensor[]{input}, saved);
     }
 }

@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.tensor;
 
 public final class GpuBuffer {
+    GraphExecution owner;
+    private volatile boolean released;
     public final int id;
     public final int rows;
     public final int cols;
@@ -20,4 +22,13 @@ public final class GpuBuffer {
     }
 
     public int floatCount() { return rows * cols; }
+
+    void requireLive() {
+        if (released) throw new IllegalStateException("GPU buffer has been released");
+    }
+
+    void markReleased() {
+        released = true;
+        allocatedOnGpu = false;
+    }
 }

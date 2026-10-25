@@ -2,23 +2,23 @@ package io.github.kirstenali.deepj.tensor;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 abstract class GraphCore extends GraphOpMetadata {
 
     final GpuRuntime runtime;
 
-    static final AtomicInteger NEXT_BUFFER_ID = new AtomicInteger();
-
     int[] cmdStream = new int[4096];
     int cmdPos = 0;
     int opCount = 0;
+    private int operationStart;
 
     final List<int[]> pendingAllocs = new ArrayList<>();
     final List<int[]> pendingUploadIds = new ArrayList<>();
     final List<float[]> pendingUploadData = new ArrayList<>();
     final Map<Integer, WeakReference<Tensor>> bufIdToTensor = new HashMap<>();
     final Set<Integer> allocatedBufferIds = new HashSet<>();
+    final Set<Integer> backwardBufferIds = new HashSet<>();
+    final Map<Integer, GpuBuffer> managedBuffers = new HashMap<>();
 
     GraphCore(GpuRuntime runtime) {
         this.runtime = Objects.requireNonNull(runtime, "runtime");
@@ -36,6 +36,12 @@ abstract class GraphCore extends GraphOpMetadata {
 
     public GpuBuffer ensureGpuBuffer(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer existing) {
+            existing.requireLive();
+            if (existing.owner != null && existing.owner != this) {
+                existing.owner.materialize(t);
+                t.setGpuTag(null);
+                return createAndUploadInputBuffer(t);
+            }
             return reuseExistingInputBuffer(t, existing);
         }
 
@@ -43,6 +49,7 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     GpuBuffer reuseExistingInputBuffer(Tensor t, GpuBuffer existing) {
+        existing.owner = (GraphExecution) this;
         trackTensorBinding(existing.id, t);
         if (existing.needsUpload) {
             scheduleUpload(existing.id, TensorAdapters.packF32(t));
@@ -53,17 +60,13 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     GpuBuffer createAndUploadInputBuffer(Tensor t) {
-        int id = nextBufferId();
-        GpuBuffer buf = new GpuBuffer(id, t.rows, t.cols, true);
-        buf.allocatedOnGpu = false;
-
-        scheduleAlloc(id, buf.floatCount());
-        scheduleUpload(id, TensorAdapters.packF32(t));
+        GpuBuffer buf = newBuffer(t.rows, t.cols, true);
+        scheduleUpload(buf.id, TensorAdapters.packF32(t));
         buf.needsUpload = false;
         buf.cpuStale = false;
 
         t.setGpuTag(buf);
-        trackTensorBinding(id, t);
+        trackTensorBinding(buf.id, t);
         return buf;
     }
 
@@ -72,21 +75,23 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     public GpuBuffer newOutputBuffer(int rows, int cols) {
-        int id = nextBufferId();
-        GpuBuffer buf = new GpuBuffer(id, rows, cols, false);
-        buf.cpuStale = true;
-        buf.allocatedOnGpu = false;
-        scheduleAlloc(id, buf.floatCount());
+        GpuBuffer buf = newBuffer(rows, cols, false);
+        BackwardBuffers.track(buf);
         return buf;
     }
 
     public Tensor createOutputTensor(GpuBuffer buf) {
-        Tensor t = new Tensor(buf.rows, buf.cols);
+        Tensor t = Tensor.deviceOnly(buf.rows, buf.cols);
         bindTensorToBuffer(t, buf);
         return t;
     }
 
     public void bindTensorToBuffer(Tensor t, GpuBuffer buf) {
+        buf.requireLive();
+        if (buf.owner != null && buf.owner != this) {
+            throw new IllegalArgumentException("GPU buffers belong to their creating graph");
+        }
+        buf.owner = (GraphExecution) this;
         t.setGpuTag(buf);
         trackTensorBinding(buf.id, t);
     }
@@ -99,6 +104,17 @@ abstract class GraphCore extends GraphOpMetadata {
 
     void beginOp(int encodedInts) {
         ensureCapacity(encodedInts);
+        operationStart = cmdPos;
+    }
+
+    void emitBuffer(GpuBuffer buffer) {
+        try {
+            buffer.requireLive();
+        } catch (RuntimeException failure) {
+            cmdPos = operationStart;
+            throw failure;
+        }
+        emitInt(buffer.id);
     }
 
     void emitInt(int value) {
@@ -113,10 +129,12 @@ abstract class GraphCore extends GraphOpMetadata {
         opCount++;
     }
 
-    static int nextBufferId() {
-        int id = NEXT_BUFFER_ID.getAndIncrement();
-        if (id < 0) throw new IllegalStateException("GPU buffer id space exhausted");
-        return id;
+    private GpuBuffer newBuffer(int rows, int cols, boolean upload) {
+        GpuBuffer buffer = new GpuBuffer(GpuBufferIds.SHARED.acquire(), rows, cols, upload);
+        buffer.owner = (GraphExecution) this;
+        managedBuffers.put(buffer.id, buffer);
+        scheduleAlloc(buffer.id, buffer.floatCount());
+        return buffer;
     }
 
 }

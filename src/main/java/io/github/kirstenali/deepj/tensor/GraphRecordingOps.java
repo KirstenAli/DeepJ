@@ -1,9 +1,5 @@
 package io.github.kirstenali.deepj.tensor;
 
-import java.lang.ref.WeakReference;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
 abstract class GraphRecordingOps extends GraphCore {
     GraphRecordingOps(GpuRuntime runtime) {
         super(runtime);
@@ -11,9 +7,9 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordBinary(int opCode, GpuBuffer a, GpuBuffer b, GpuBuffer out) {
         beginOp(5);
         emitInt(opCode);
-        emitInt(a.id);
-        emitInt(b.id);
-        emitInt(out.id);
+        emitBuffer(a);
+        emitBuffer(b);
+        emitBuffer(out);
         emitInt(out.floatCount());
         endOp();
     }
@@ -21,9 +17,9 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordMatmul(GpuBuffer a, GpuBuffer b, GpuBuffer out, int m, int n, int k) {
         beginOp(7);
         emitInt(OP_MATMUL);
-        emitInt(a.id);
-        emitInt(b.id);
-        emitInt(out.id);
+        emitBuffer(a);
+        emitBuffer(b);
+        emitBuffer(out);
         emitInt(m);
         emitInt(n);
         emitInt(k);
@@ -36,9 +32,9 @@ abstract class GraphRecordingOps extends GraphCore {
                                     boolean transposeLeft, boolean transposeRight) {
         beginOp(11);
         emitInt(OP_BATCHED_MATMUL);
-        emitInt(left.id);
-        emitInt(right.id);
-        emitInt(out.id);
+        emitBuffer(left);
+        emitBuffer(right);
+        emitBuffer(out);
         emitInt(batches);
         emitInt(leftRows);
         emitInt(leftCols);
@@ -53,8 +49,8 @@ abstract class GraphRecordingOps extends GraphCore {
                                       int sequenceLength, int heads, int headDim, int modelWidth) {
         beginOp(7);
         emitInt(opCode);
-        emitInt(input.id);
-        emitInt(output.id);
+        emitBuffer(input);
+        emitBuffer(output);
         emitInt(sequenceLength);
         emitInt(heads);
         emitInt(headDim);
@@ -66,8 +62,8 @@ abstract class GraphRecordingOps extends GraphCore {
                                  int rows, int sequenceLength) {
         beginOp(5);
         emitInt(OP_CAUSAL_MASK);
-        emitInt(input.id);
-        emitInt(output.id);
+        emitBuffer(input);
+        emitBuffer(output);
         emitInt(rows);
         emitInt(sequenceLength);
         endOp();
@@ -77,8 +73,8 @@ abstract class GraphRecordingOps extends GraphCore {
                                     int rows, int sequenceLength, float scale) {
         beginOp(7);
         emitInt(OP_CAUSAL_SOFTMAX);
-        emitInt(input.id);
-        emitInt(output.id);
+        emitBuffer(input);
+        emitBuffer(output);
         emitInt(rows);
         emitInt(sequenceLength);
         emitInt(sequenceLength);
@@ -90,9 +86,9 @@ abstract class GraphRecordingOps extends GraphCore {
                                  int inputRows, int columns, int outputRows) {
         beginOp(7);
         emitInt(OP_GATHER_ROWS);
-        emitInt(input.id);
-        emitInt(indices.id);
-        emitInt(output.id);
+        emitBuffer(input);
+        emitBuffer(indices);
+        emitBuffer(output);
         emitInt(inputRows);
         emitInt(columns);
         emitInt(outputRows);
@@ -104,10 +100,10 @@ abstract class GraphRecordingOps extends GraphCore {
                              int headDim, boolean inverse) {
         beginOp(9);
         emitInt(OP_ROTARY);
-        emitInt(input.id);
-        emitInt(cosine.id);
-        emitInt(sine.id);
-        emitInt(output.id);
+        emitBuffer(input);
+        emitBuffer(cosine);
+        emitBuffer(sine);
+        emitBuffer(output);
         emitInt(rows);
         emitInt(sequenceLength);
         emitInt(headDim);
@@ -118,8 +114,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordUnary(int opCode, GpuBuffer in, GpuBuffer out) {
         beginOp(4);
         emitInt(opCode);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitInt(out.floatCount());
         endOp();
     }
@@ -127,8 +123,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordMultiplyScalar(GpuBuffer in, GpuBuffer out, float scalar) {
         beginOp(5);
         emitInt(OP_MULTIPLY_SCALAR);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitFloatBits(scalar);
         emitInt(out.floatCount());
         endOp();
@@ -137,8 +133,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordScalarUnary(int opCode, GpuBuffer in, GpuBuffer out, float scalar) {
         beginOp(5);
         emitInt(opCode);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitFloatBits(scalar);
         emitInt(out.floatCount());
         endOp();
@@ -147,8 +143,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordPow(GpuBuffer in, GpuBuffer out, float exponent) {
         beginOp(5);
         emitInt(OP_POW);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitFloatBits(exponent);
         emitInt(out.floatCount());
         endOp();
@@ -157,8 +153,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordClamp(GpuBuffer in, GpuBuffer out, float min, float max) {
         beginOp(6);
         emitInt(OP_CLAMP);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitFloatBits(min);
         emitFloatBits(max);
         emitInt(out.floatCount());
@@ -169,9 +165,9 @@ abstract class GraphRecordingOps extends GraphCore {
                                      int targetRows, int targetCols, int nIndices) {
         beginOp(7);
         emitInt(OP_SCATTER_ADD_ROWS);
-        emitInt(target.id);
-        emitInt(indices.id);
-        emitInt(grad.id);
+        emitBuffer(target);
+        emitBuffer(indices);
+        emitBuffer(grad);
         emitInt(targetRows);
         emitInt(targetCols);
         emitInt(nIndices);
@@ -182,9 +178,9 @@ abstract class GraphRecordingOps extends GraphCore {
                                            int targetRows, int targetCols, int nIndices) {
         beginOp(7);
         emitInt(OP_SCATTER_ADD_ROWS_ATOMIC);
-        emitInt(target.id);
-        emitInt(indices.id);
-        emitInt(grad.id);
+        emitBuffer(target);
+        emitBuffer(indices);
+        emitBuffer(grad);
         emitInt(targetRows);
         emitInt(targetCols);
         emitInt(nIndices);
@@ -194,8 +190,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordSumAbs(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SUM_ABS);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -204,8 +200,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordSumSquares(GpuBuffer in, GpuBuffer out, int rows, int cols) {
         beginOp(5);
         emitInt(OP_SUM_SQUARES);
-        emitInt(in.id);
-        emitInt(out.id);
+        emitBuffer(in);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -214,8 +210,8 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordSumSquaresScalar(GpuBuffer input, GpuBuffer total) {
         beginOp(4);
         emitInt(OP_SUM_SQUARES_SCALAR);
-        emitInt(input.id);
-        emitInt(total.id);
+        emitBuffer(input);
+        emitBuffer(total);
         emitInt(input.floatCount());
         endOp();
     }
@@ -223,9 +219,9 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordCrossEntropyLoss(GpuBuffer logits, GpuBuffer targets, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_CROSS_ENTROPY_LOSS);
-        emitInt(logits.id);
-        emitInt(targets.id);
-        emitInt(out.id);
+        emitBuffer(logits);
+        emitBuffer(targets);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();
@@ -234,9 +230,9 @@ abstract class GraphRecordingOps extends GraphCore {
     public void recordCrossEntropyGradient(GpuBuffer logits, GpuBuffer targets, GpuBuffer out, int rows, int cols) {
         beginOp(6);
         emitInt(OP_CROSS_ENTROPY_GRADIENT);
-        emitInt(logits.id);
-        emitInt(targets.id);
-        emitInt(out.id);
+        emitBuffer(logits);
+        emitBuffer(targets);
+        emitBuffer(out);
         emitInt(rows);
         emitInt(cols);
         endOp();

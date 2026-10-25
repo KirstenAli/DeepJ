@@ -11,6 +11,12 @@ import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 
 abstract class CpuElementwiseOps implements TensorBackend {
 
+    static void prepare(Tensor... tensors) {
+        for (Tensor tensor : tensors) {
+            if (tensor.data == null || tensor.getGpuTag() != null) tensor.materialize();
+        }
+    }
+
     @FunctionalInterface
     interface FloatUnaryOp {
         float apply(float x);
@@ -46,10 +52,12 @@ abstract class CpuElementwiseOps implements TensorBackend {
     }
 
     static void applyUnary(Tensor a, Tensor out, FloatUnaryOp fn) {
+        prepare(a, out);
+        float[] input = a.data, output = out.data;
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) {
-                out.data[base + c] = fn.apply(a.data[base + c]);
+                output[base + c] = fn.apply(input[base + c]);
             }
         });
     }
@@ -61,10 +69,12 @@ abstract class CpuElementwiseOps implements TensorBackend {
     }
 
     static void applyBinary(Tensor a, Tensor b, Tensor out, FloatBinaryOp fn) {
+        prepare(a, b, out);
+        float[] left = a.data, right = b.data, output = out.data;
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) {
-                out.data[base + c] = fn.apply(a.data[base + c], b.data[base + c]);
+                output[base + c] = fn.apply(left[base + c], right[base + c]);
             }
         });
     }
@@ -76,10 +86,12 @@ abstract class CpuElementwiseOps implements TensorBackend {
     }
 
     static void applyScalar(Tensor a, float s, Tensor out, FloatBinaryOp fn) {
+        prepare(a, out);
+        float[] input = a.data, output = out.data;
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) {
-                out.data[base + c] = fn.apply(a.data[base + c], s);
+                output[base + c] = fn.apply(input[base + c], s);
             }
         });
     }
@@ -91,11 +103,13 @@ abstract class CpuElementwiseOps implements TensorBackend {
     }
 
     static void applyColBroadcast(Tensor a, Tensor col, Tensor out, FloatBinaryOp fn) {
+        prepare(a, col, out);
+        float[] input = a.data, column = col.data, output = out.data;
         DeepJExecutor.forRange(0, a.rows, r -> {
-            float v = col.data[r];
+            float v = column[r];
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) {
-                out.data[base + c] = fn.apply(a.data[base + c], v);
+                output[base + c] = fn.apply(input[base + c], v);
             }
         });
     }
@@ -107,10 +121,12 @@ abstract class CpuElementwiseOps implements TensorBackend {
     }
 
     static void applyRowBroadcast(Tensor a, Tensor row, Tensor out, FloatBinaryOp fn) {
+        prepare(a, row, out);
+        float[] input = a.data, vector = row.data, output = out.data;
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
             for (int c = 0; c < a.cols; c++) {
-                out.data[base + c] = fn.apply(a.data[base + c], row.data[c]);
+                output[base + c] = fn.apply(input[base + c], vector[c]);
             }
         });
     }
@@ -152,22 +168,24 @@ abstract class CpuElementwiseOps implements TensorBackend {
 
     @Override
     public Tensor matmul(Tensor a, Tensor b) {
+        prepare(a, b);
         requireMatmulCompatible(a, b);
         Tensor result = new Tensor(a.rows, b.cols);
-
-        DeepJExecutor.forRange(0, a.rows, r -> {
-            int aBase   = r * a.cols;
-            int outBase = r * b.cols;
-            for (int k = 0; k < a.cols; k++) {
-                float aVal = a.data[aBase + k];
-                int bBase = k * b.cols;
-                for (int c = 0; c < b.cols; c++) {
-                    result.data[outBase + c] += aVal * b.data[bBase + c];
-                }
-            }
-        });
-
+        float[] left = a.data, right = b.data, output = result.data;
+        DeepJExecutor.forRange(0, a.rows, row -> matmulRow(left, right, output, row, a.cols, b.cols));
         return result;
+    }
+
+    private static void matmulRow(float[] left, float[] right, float[] output,
+                                   int row, int inner, int columns) {
+        int aBase = row * inner, outBase = row * columns;
+        for (int k = 0; k < inner; k++) {
+            float value = left[aBase + k];
+            int bBase = k * columns;
+            for (int column = 0; column < columns; column++) {
+                output[outBase + column] += value * right[bBase + column];
+            }
+        }
     }
 
     @Override

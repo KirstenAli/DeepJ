@@ -71,7 +71,7 @@ abstract class GraphAttentionRecordingOps extends GraphAdvancedRecordingOps {
 
     private void emitBuffers(GpuBuffer... buffers) {
         for (GpuBuffer buffer : buffers) {
-            emitInt(buffer.id);
+            emitBuffer(buffer);
         }
     }
 }

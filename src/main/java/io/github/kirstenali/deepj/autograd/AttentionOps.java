@@ -42,7 +42,7 @@ public final class AttentionOps {
     private static Tensor fused(CausalAttentionBackend backend, Tensor query, Tensor key,
                                  Tensor value, int queryHeads, int keyValueHeads, float scale) {
         var saved = backend.causalAttention(query, key, value, queryHeads, keyValueHeads, scale);
-        return Autograd.recordSaved(saved.output(), gradient -> {
+        return Autograd.recordBuiltinSaved(saved.output(), gradient -> {
             var result = backend.causalAttentionBackward(query, key, value, saved, gradient,
                     queryHeads, keyValueHeads, scale);
             return new Tensor[]{result.query(), result.key(), result.value()};

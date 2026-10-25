@@ -37,7 +37,7 @@ public final class LayoutOps {
             throw new IllegalArgumentException("Rotary tables must be constants");
         }
         Tensor output = Tensor.backend().rotary(input, cosine, sine, length, inverse);
-        return Autograd.recordSaved(output,
+        return Autograd.recordBuiltinSaved(output,
                 g -> new Tensor[]{Tensor.backend().rotary(g, cosine, sine, length, !inverse)},
                 new Tensor[]{input}, cosine, sine);
     }

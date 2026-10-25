@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Objects;
@@ -114,6 +116,33 @@ public final class ModelSerializer {
         }
     }
 
+    public static ModelInspection inspect(Path path) throws IOException {
+        try (FileChannel channel = FileChannel.open(path);
+             var input = new DataInputStream(Channels.newInputStream(channel))) {
+            Format format = readFormat(input);
+            if (format.settings() == null) throw new IOException("Model has no embedded settings: " + path);
+            if (format.count() < 1) throw new IOException("Model has no tensors");
+            long parameters = 0;
+            for (int index = 0; index < format.count(); index++) {
+                parameters += inspectTensor(channel, input);
+            }
+            if (channel.position() != channel.size()) throw new IOException("Unexpected trailing checkpoint data");
+            return new ModelInspection(format.settings(), parameters, format.count(), channel.size());
+        }
+    }
+
+    private static long inspectTensor(FileChannel channel, DataInputStream input) throws IOException {
+        int rows = input.readInt(), columns = input.readInt();
+        long count = (long) rows * columns;
+        if (rows < 1 || columns < 1 || count > Integer.MAX_VALUE) {
+            throw new IOException("Invalid checkpoint tensor shape");
+        }
+        long bytes = count * Float.BYTES;
+        if (bytes > channel.size() - channel.position()) throw new IOException("Truncated checkpoint tensor");
+        channel.position(channel.position() + bytes);
+        return count;
+    }
+
     private static void validateSettings(ModelSettings settings, TransformerConfig expected)
             throws IOException {
         if (settings != null && expected != null && !Objects.equals(settings.config(), expected)) {
@@ -148,8 +177,9 @@ public final class ModelSerializer {
     private static void readTensorData(DataInputStream in, Tensor t, boolean legacy) throws IOException {
         try (var ignored = GradMode.noGrad()) {
             t.gradientState().beforeMutation();
-            for (int j = 0; j < t.data.length; j++) {
-                t.data[j] = legacy ? (float) in.readDouble() : in.readFloat();
+            float[] data = t.data();
+            for (int j = 0; j < data.length; j++) {
+                data[j] = legacy ? (float) in.readDouble() : in.readFloat();
             }
         }
     }

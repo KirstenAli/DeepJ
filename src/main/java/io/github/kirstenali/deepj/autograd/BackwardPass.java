@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.autograd;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.BackwardBuffers;
+import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -13,6 +15,8 @@ import java.util.Set;
 final class BackwardPass {
     private final List<GradientEdge> order = new ArrayList<>();
     private final Map<GradientState, Tensor> gradients = new IdentityHashMap<>();
+    private BackwardBuffers buffers;
+    private final boolean privateBuffers = Tensor.backend() instanceof MetalBackend;
 
     BackwardPass(Tensor output, Tensor upstream) {
         visit(new GradientEdge(output));
@@ -40,6 +44,17 @@ final class BackwardPass {
     }
 
     void run() {
+        if (!privateBuffers) {
+            execute();
+            return;
+        }
+        try (var scratch = BackwardBuffers.begin()) {
+            buffers = scratch;
+            execute();
+        }
+    }
+
+    private void execute() {
         try {
             validate();
             for (int index = order.size() - 1; index >= 0; index--) {
@@ -68,7 +83,7 @@ final class BackwardPass {
     private void propagateInputs(BackwardNode node, Tensor gradient) {
         try {
             if (node.accumulateLeaf(gradient)) return;
-            Tensor[] contributions = node.apply(gradient);
+            Tensor[] contributions = apply(node, gradient);
             for (int index = 0; index < contributions.length; index++) {
                 accumulate(node.inputs().get(index), contributions[index]);
             }
@@ -77,12 +92,23 @@ final class BackwardPass {
         }
     }
 
+    private Tensor[] apply(BackwardNode node, Tensor gradient) {
+        if (privateBuffers && node.isBuiltin()) return buffers.capture(() -> node.apply(gradient));
+        if (privateBuffers) buffers.expose(gradient);
+        return node.apply(gradient);
+    }
+
     private void accumulate(GradientEdge input, Tensor contribution) {
         if (!input.state().required()) return;
         if (contribution == null) throw new IllegalStateException("Missing gradient for a tracked input");
         input.requireShape(contribution);
         if (input.state().node() == null) input.state().accumulate(contribution);
-        else gradients.merge(input.state(), contribution, (left, right) -> Tensor.backend().add(left, right));
+        else gradients.merge(input.state(), contribution, this::combine);
+    }
+
+    private Tensor combine(Tensor left, Tensor right) {
+        return privateBuffers ? buffers.capture(() -> Tensor.backend().add(left, right))
+                : Tensor.backend().add(left, right);
     }
 
     private void release() {

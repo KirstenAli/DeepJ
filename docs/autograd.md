@@ -69,6 +69,17 @@ code. Direct array writes and raw backend calls bypass autograd's managed mutati
 Do not use them to modify tensors belonging to a live backward graph. Use tensor operations for
 differentiable code, and managed writes or `TensorAdapters.unpackF32Into(...)` for explicit value replacement.
 
+Metal results allocate CPU storage only when requested. Use `tensor.data()` to download and access
+current values, or call `tensor.materialize()` before accessing the raw `tensor.data` field, which can
+be `null` beforehand. `get`, `rowData`, copying and serialization handle this automatically. Ordinary
+CPU tensor constructors still allocate their arrays immediately. Scratch GPU buffers can share storage
+when their command lifetimes do not overlap. Library-owned backward scratch is retired explicitly,
+without waiting for garbage collection. Custom backward inputs, live public tensors, saved values and
+retained parameter/cache buffers remain protected.
+
+GPU buffer IDs are opaque and may be reused after release. Raw handles must not be retained across
+resource cleanup; attempts to reuse a disposed handle are rejected.
+
 ## Migrating from manual backpropagation
 
 - Replace `model.backward(gradient)` with `output.backward(gradient)` on the actual forward result.

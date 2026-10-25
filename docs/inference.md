@@ -1,6 +1,6 @@
 # Incremental generation
 
-Model-aware `TextGenerator.generate(...)`, `TextGenerator.stream(...)`, `DeepJChat`, and the desktop UI use a separate key/value cache for each request. Origin, Orbit, Prism, Nova and Loop support this on CPU and Metal. Generic `Function<int[], Tensor>` overloads remain uncached.
+Model-aware `TextGenerator.generate(...)`, `TextGenerator.stream(...)`, `DeepJChat`, the desktop UI and the CLI use a separate key/value cache for each request. Origin, Orbit, Prism, Nova and Loop support this on CPU and Metal. Generic `Function<int[], Tensor>` overloads remain uncached.
 
 The first forward pass processes the prompt. Subsequent passes process only the newly appended token, reusing earlier attention keys and values. Only the final hidden row is projected to vocabulary logits. This does not change the model's parameters, checkpoint format, training path, prompt format or sampling settings.
 

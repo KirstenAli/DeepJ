@@ -12,9 +12,11 @@ final class BackwardNode {
     private BackwardRule rule;
     private final TensorBackend backend = Tensor.backend();
     private boolean released;
+    private final boolean builtin;
 
-    BackwardNode(BackwardRule rule, Tensor[] inputs, Tensor[] saved) {
+    BackwardNode(BackwardRule rule, Tensor[] inputs, Tensor[] saved, boolean builtin) {
         this.rule = rule;
+        this.builtin = builtin;
         this.inputs = Arrays.stream(inputs).map(GradientEdge::new).toList();
         this.inputs.forEach(edge -> edge.state().saveFor(this));
         this.saved = Arrays.stream(saved).map(tensor -> new SavedTensor(tensor, this)).toList();
@@ -22,6 +24,7 @@ final class BackwardNode {
 
     List<GradientEdge> inputs() { return inputs; }
     boolean released() { return released; }
+    boolean isBuiltin() { return builtin || rule instanceof GatherBackward; }
 
     void validate() {
         if (released) throw new IllegalStateException("Backward graph was already released; run forward again");

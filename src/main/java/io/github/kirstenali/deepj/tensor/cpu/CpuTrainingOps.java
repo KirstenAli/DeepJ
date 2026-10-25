@@ -12,6 +12,7 @@ import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 abstract class CpuTrainingOps extends CpuReductionOps {
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets) {
+        prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
 
         float lossSum = 0.0f;
@@ -29,6 +30,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
+        prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
 
         Tensor grad = new Tensor(logits.rows, logits.cols);
@@ -46,6 +48,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask) {
+        prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
         float sum = 0.0f;
         for (int row = 0; row < logits.rows; row++) {
@@ -56,6 +59,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask) {
+        prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
         Tensor gradient = new Tensor(logits.rows, logits.cols);
         int included = includedRows(mask);
@@ -94,6 +98,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             float lr, float beta1, float beta2, float eps,
                             float weightDecay, float bc1, float bc2) {
+        prepare(w, g, mt, vt);
         int n = w.data.length;
         for (int i = 0; i < n; i++) {
             float grad = g.data[i];
@@ -117,54 +122,51 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
+        prepare(dXHat, xHat, std);
         Tensor dX = new Tensor(dXHat.rows, dXHat.cols);
-
-        DeepJExecutor.forRange(0, dXHat.rows, r -> {
-            int base = r * dim;
-
-            float invStd = 1.0f / std.data[r];
-            float sumD = 0.0f;
-            float sumDXHatXHat = 0.0f;
-
-            for (int c = 0; c < dim; c++) {
-                float d = dXHat.data[base + c];
-                sumD += d;
-                sumDXHatXHat += d * xHat.data[base + c];
-            }
-
-            for (int c = 0; c < dim; c++) {
-                float d  = dXHat.data[base + c];
-                float xh = xHat.data[base + c];
-                dX.data[base + c] = invStd * (d - sumD / dim - xh * (sumDXHatXHat / dim));
-            }
-        });
-
+        DeepJExecutor.forRange(0, dXHat.rows, row -> layerNormGradientRow(dX, dXHat, xHat, std, row, dim));
         return dX;
     }
 
-    public float get(Tensor t, int r, int c)           { return t.data[r * t.cols + c]; }
-    public void   set(Tensor t, int r, int c, float v) { t.data[r * t.cols + c] = v; }
+    private static void layerNormGradientRow(Tensor output, Tensor gradient, Tensor normalized,
+                                             Tensor std, int row, int width) {
+        int base = row * width;
+        float inverse = 1.0f / std.data[row], sum = 0.0f, dot = 0.0f;
+        for (int column = 0; column < width; column++) {
+            float value = gradient.data[base + column];
+            sum += value;
+            dot += value * normalized.data[base + column];
+        }
+        for (int column = 0; column < width; column++) {
+            float value = gradient.data[base + column], norm = normalized.data[base + column];
+            output.data[base + column] = inverse * (value - sum / width - norm * (dot / width));
+        }
+    }
+
+    public float get(Tensor t, int r, int c)           { return t.data()[r * t.cols + c]; }
+    public void   set(Tensor t, int r, int c, float v) { t.data()[r * t.cols + c] = v; }
 
     public Tensor getRow(Tensor t, int row) {
         Tensor result = new Tensor(1, t.cols);
-        System.arraycopy(t.data, row * t.cols, result.data, 0, t.cols);
+        System.arraycopy(t.data(), row * t.cols, result.data(), 0, t.cols);
         return result;
     }
 
     public void setRow(Tensor t, int row, Tensor source, int srcRow) {
-        System.arraycopy(source.data, srcRow * source.cols, t.data, row * t.cols, t.cols);
+        System.arraycopy(source.data(), srcRow * source.cols, t.data(), row * t.cols, t.cols);
     }
 
     public Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
         Tensor out = new Tensor(rowIndices.length, cols);
         for (int i = 0; i < rowIndices.length; i++) {
-            System.arraycopy(t.data, rowIndices[i] * t.cols, out.data, i * cols, cols);
+            System.arraycopy(t.data(), rowIndices[i] * t.cols, out.data(), i * cols, cols);
         }
         return out;
     }
 
     @Override
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
+        prepare(target, grad);
         for (int i = 0; i < indices.length; i++) {
             int tBase = indices[i] * target.cols;
             int gBase = i * target.cols;
@@ -178,7 +180,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         Tensor out = new Tensor(n, t.cols);
         for (int i = 0; i < n; i++) {
             int r = rnd.nextInt(t.rows);
-            System.arraycopy(t.data, r * t.cols, out.data, i * t.cols, t.cols);
+            System.arraycopy(t.data(), r * t.cols, out.data(), i * t.cols, t.cols);
         }
         return out;
     }
@@ -206,7 +208,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         for (int r = 0; r < t.rows; r++) {
             int base = r * t.cols;
             for (int c = 0; c < t.cols; c++) {
-                System.out.printf("%.4f ", t.data[base + c]);
+                System.out.printf("%.4f ", t.data()[base + c]);
             }
             System.out.println();
         }

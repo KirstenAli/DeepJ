@@ -40,7 +40,8 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
         var actual = metal.causalAttentionBackward(query, key, value, saved, gradient, heads, scale);
         assertTensorClose(expected.output(), saved.output(), 2e-5f, 2e-4f);
         assertGradients(expected.gradients(), actual);
-        assertEquals(query.rows * 2, saved.normalization().data.length);
+        assertEquals(query.rows, saved.normalization().rows);
+        assertEquals(2, saved.normalization().cols);
     }
 
     private static Reference reference(TensorBackend backend, Tensor q, Tensor k, Tensor v,

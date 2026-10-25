@@ -15,12 +15,24 @@ public final class Autograd {
         return recordSaved(output, rule, inputs, inputs);
     }
 
+    static Tensor recordBuiltin(Tensor output, BackwardRule rule, Tensor... inputs) {
+        return recordBuiltinSaved(output, rule, inputs, inputs);
+    }
+
+    static Tensor recordBuiltinSaved(Tensor output, BackwardRule rule, Tensor[] inputs, Tensor... saved) {
+        return attach(output, rule, inputs, saved, true);
+    }
+
     public static Tensor recordSaved(Tensor output, BackwardRule rule, Tensor[] inputs, Tensor... saved) {
+        return attach(output, rule, inputs, saved, false);
+    }
+
+    private static Tensor attach(Tensor output, BackwardRule rule, Tensor[] inputs, Tensor[] saved, boolean builtin) {
         if (!tracks(inputs)) return output;
         if (output.requiresGrad() || Arrays.asList(inputs).contains(output)) {
             throw new IllegalArgumentException("A tracked operation must return a new, untracked tensor");
         }
-        output.gradientState().attach(new BackwardNode(rule, inputs, saved));
+        output.gradientState().attach(new BackwardNode(rule, inputs, saved, builtin));
         return output;
     }
 

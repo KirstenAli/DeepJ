@@ -12,6 +12,7 @@ import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor sumRows(Tensor a) {
+        prepare(a);
         Tensor result = new Tensor(1, a.cols);
         for (int r = 0; r < a.rows; r++) {
             int base = r * a.cols;
@@ -24,6 +25,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor sumAlongRows(Tensor a) {
+        prepare(a);
         Tensor result = new Tensor(a.rows, 1);
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
@@ -36,6 +38,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor meanAlongRows(Tensor a) {
+        prepare(a);
         Tensor result = new Tensor(a.rows, 1);
         float invCols = 1.0f / a.cols;
         DeepJExecutor.forRange(0, a.rows, r -> {
@@ -47,6 +50,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor varianceAlongRows(Tensor a) {
+        prepare(a);
         Tensor result = new Tensor(a.rows, 1);
         float invCols = 1.0f / a.cols;
         DeepJExecutor.forRange(0, a.rows, r -> {
@@ -64,6 +68,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor maxAlongRows(Tensor a) {
+        prepare(a);
         Tensor result = new Tensor(a.rows, 1);
         DeepJExecutor.forRange(0, a.rows, r -> {
             int base = r * a.cols;
@@ -78,6 +83,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public float sum(Tensor a) {
+        prepare(a);
         float s = 0.0f;
         for (float v : a.data) {
             s += v;
@@ -87,6 +93,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public float sumAbs(Tensor a) {
+        prepare(a);
         float s = 0.0f;
         for (float v : a.data) {
             s += Math.abs(v);
@@ -96,6 +103,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor transpose(Tensor a) {
+        prepare(a);
         Tensor result = new Tensor(a.cols, a.rows);
         DeepJExecutor.forRange(0, a.rows, r -> {
             int aBase = r * a.cols;
@@ -207,6 +215,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor softmaxRows(Tensor logits) {
+        prepare(logits);
         Tensor result = new Tensor(logits.rows, logits.cols);
 
         DeepJExecutor.forRange(0, logits.rows, r -> {
@@ -219,6 +228,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
+        prepare(gradOutput, softmaxOut);
         requireSameShape(gradOutput, softmaxOut, "softmaxBackward");
         Tensor result = new Tensor(gradOutput.rows, gradOutput.cols);
 

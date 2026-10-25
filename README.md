@@ -40,7 +40,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - [KV-cached text generation](docs/inference.md) on CPU and Metal.
-- Bounded-memory sequential, random-access, and response-only datasets.
+- File-backed dataset loaders for sequential reading, random sampling and response-only fine-tuning.
 - Versioned model bundles for sharing DeepJ checkpoints on Hugging Face.
 - A small optional JavaFX chat UI.
 
@@ -87,6 +87,18 @@ The loader reads the tokenizer and checkpoint settings, applies the saved prompt
 and returns only the generated answer. `chat.stream(prompt, listener)` delivers partial
 answers as they are generated. Each call is independent; conversation history is not
 retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced use.
+
+## Command line
+
+Build the optional terminal app with JDK 20 or newer:
+
+```bash
+mvn package -Pcli
+java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
+```
+
+Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
+or check backend availability. See the [CLI guide](docs/cli.md) for commands and controls.
 
 ## Models
 

@@ -12,6 +12,26 @@ final class TensorStorage {
 
     private TensorStorage() {}
 
+    static TensorBackend requireBackend(TensorBackend backend) {
+        if (backend == null) throw new IllegalArgumentException("backend cannot be null");
+        return backend;
+    }
+
+    static float[] initialStorage(int rows, int cols, boolean host) {
+        int size = checkedSize(rows, cols);
+        return host ? new float[size] : null;
+    }
+
+    static float[] hostStorage(Tensor tensor) {
+        if (tensor.data == null) tensor.data = new float[checkedSize(tensor.rows, tensor.cols)];
+        return tensor.data;
+    }
+
+    static float[] hostData(Tensor tensor) {
+        materialize(tensor);
+        return tensor.data;
+    }
+
     static float item(Tensor tensor) {
         if (tensor.rows != 1 || tensor.cols != 1) throw new IllegalStateException("item requires a scalar tensor");
         return tensor.get(0, 0);
@@ -43,6 +63,10 @@ final class TensorStorage {
 
     static void materialize(Tensor tensor) {
         if (tensor.gpuTag != null) Tensor.backend().materializeTensor(tensor);
+        if (tensor.gpuTag instanceof GpuBuffer buffer && buffer.cpuStale && buffer.owner != null) {
+            buffer.owner.materialize(tensor);
+        }
+        tensor.hostStorage();
     }
 
     static Tensor from2D(float[][] data) {
