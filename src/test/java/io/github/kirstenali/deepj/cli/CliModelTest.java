@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import io.github.kirstenali.deepj.models.DeepJChat;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
@@ -20,6 +22,18 @@ import static org.junit.jupiter.api.Assertions.*;
 class CliModelTest {
     @TempDir Path directory;
     private TensorBackend previous;
+
+    @Test
+    void terminalGenerationUsesTheSelectedRollingMode() throws IOException {
+        var mode = ContextWindowMode.ROLLING;
+        Path path = save(256);
+        var settings = new SamplingSettings(12, 0.8f, 20, 47, 1.1f, mode);
+        try (var model = CliModel.load(path, BackendChoice.CPU)) {
+            String prompt = "A prompt long enough to fill this small context window.";
+            assertEquals(DeepJChat.load(directory).withContextWindow(mode)
+                    .generate(prompt, 12, 0.8f, 20, 47, 1.1f), model.stream(prompt, settings, text -> {}));
+        }
+    }
 
     @BeforeEach void selectCpu() {
         previous = Tensor.backend();

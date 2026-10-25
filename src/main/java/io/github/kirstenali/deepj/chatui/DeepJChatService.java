@@ -1,9 +1,18 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
 public final class DeepJChatService implements ChatService {
+
+    @Override
+    public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
+                           float repetitionPenalty, ContextWindowMode mode, Consumer<String> listener) {
+        if (model == null) throw new IllegalStateException("Load a model first");
+        return model.generate(prompt, maxTokens, temperature, topK, seed, repetitionPenalty, mode, listener);
+    }
 
     private ChatService model;
 

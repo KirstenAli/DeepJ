@@ -20,7 +20,41 @@ try (GenerationSession session = model.openGeneration()) {
 
 Cached sessions return one logit row. Closing the session releases its cache retention, including after cancellation or failure. Separate sessions never reuse each other's cache. Loop has a distinct cache for every logical attention visit, including repeated visits to the same shared core layer.
 
-If the supplied context is not the previous context plus one token, the session re-prefills it. In particular, once a sliding window reaches its configured limit, generation re-prefills after each window shift. This preserves the previous position-reset behaviour rather than reusing incompatible cached states. Caching therefore does not accelerate decoding at a continually shifting context limit.
+If the supplied context is not the previous context plus one token, the session rebuilds the cache. Once a sliding window is full, each new token drops the oldest token and shifts the window. DeepJ rebuilds the cache after each such shift to preserve its existing generation behaviour: positions restart at zero, and the remaining tokens are recalculated without the dropped token. Their old cached states were computed with that token present, so simply discarding its cache entry would not reproduce a fresh pass over the shifted window, even for models using RoPE.
+
+Caching accelerates incremental generation while the context grows within its configured limit, but not once the window shifts on every step. For example, a 40-token prompt followed by 80 generated tokens stays within a 1,024-token window and can reuse the cache. This limitation concerns generation, not training.
+
+## Rolling generation
+
+Orbit, Prism, Nova and Loop can opt into a bounded rolling KV cache:
+
+```java
+DeepJChat chat = DeepJChat.load(Path.of("downloaded-model"))
+        .withContextWindow(ContextWindowMode.ROLLING);
+String answer = chat.generate("What is a computer?");
+```
+
+Import `io.github.kirstenali.deepj.models.ContextWindowMode`. For explicit sessions, use
+`model.openGeneration(ContextWindowMode.ROLLING)` with the same complete-context calling convention.
+
+Until the first token is evicted, rolling mode follows the same cached calculation as the default
+`REBUILD` mode. After that, it overwrites the oldest key/value entries in fixed-capacity storage,
+processes only the new token and continues the RoPE positions. Position rows beyond the original
+table are computed on demand; neither the KV cache nor the persistent position tables grow.
+
+This changes the attention semantics after eviction. Retained cached states still contain influence
+from earlier tokens, unlike a fresh calculation over only the latest window. Rolling mode is not
+an exact shortcut for cropped-context recomputation, does not guarantee better answers and does not
+extend the model's trained context capability. It changes neither weights nor training.
+
+Each full-length context supplied after capacity is reached must represent exactly one token shift.
+Even an identical window of repeated tokens counts as a new step. Start a new session to restart
+the same prompt. Changed contexts without the required overlap reset the request's cache and positions.
+
+In the desktop UI, select **Rolling KV cache** under Settings → Generation settings. In the CLI,
+add `--rolling-cache`, or use `/set context-window rolling`. The default remains `REBUILD`.
+Origin and custom models without rolling support report an error instead of silently changing
+their positional behaviour. Long-output quality still needs to be evaluated for each checkpoint.
 
 Changing model weights or the global tensor backend invalidates an open session; close it and create another. Custom `CausalLM` implementations keep the ordinary forward fallback. A `DecoderOnlyModel` extension must explicitly opt into cached generation and use layers that support incremental inference.
 

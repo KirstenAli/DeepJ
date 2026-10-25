@@ -85,9 +85,9 @@ public final class MultiHeadLatentAttention implements Layer {
     public Tensor forward(Tensor input, InferenceContext context) {
         Tensor query = input.matmul(Wdq.value).matmul(Wuq.value);
         Tensor compressed = input.matmul(Wdkv.value);
-        Tensor queries = rope.apply(HeadOps.splitHeads(query, nHeads), input.rows, nHeads, context.position());
-        Tensor keys = rope.apply(HeadOps.splitHeads(compressed.matmul(Wuk.value), nHeads),
-                input.rows, nHeads, context.position());
+        Tensor queries = context.rotate(rope, HeadOps.splitHeads(query, nHeads), input.rows, nHeads);
+        Tensor keys = context.rotate(rope, HeadOps.splitHeads(compressed.matmul(Wuk.value), nHeads),
+                input.rows, nHeads);
         Tensor values = HeadOps.splitHeads(compressed.matmul(Wuv.value), nHeads);
         Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
         return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);

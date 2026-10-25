@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
 import picocli.CommandLine.Option;
+import io.github.kirstenali.deepj.models.ContextWindowMode;
 
 final class SamplingOptions {
     @Option(names = "--max-tokens", description = "Maximum generated tokens (default: ${DEFAULT-VALUE}).")
@@ -21,5 +22,11 @@ final class SamplingOptions {
             description = "Discourage token repeats; 1 is off (default: ${DEFAULT-VALUE}).")
     float penalty = 1;
 
-    SamplingSettings settings() { return new SamplingSettings(maxTokens, temperature, topK, seed, penalty); }
+    @Option(names = "--rolling-cache", description = "Reuse a rolling KV cache beyond the window (RoPE models only).")
+    boolean rollingCache;
+
+    SamplingSettings settings() {
+        return new SamplingSettings(maxTokens, temperature, topK, seed, penalty,
+                rollingCache ? ContextWindowMode.ROLLING : ContextWindowMode.REBUILD);
+    }
 }

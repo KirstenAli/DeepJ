@@ -43,6 +43,9 @@ public final class DeepJLoop extends DecoderOnlyModel {
     protected boolean supportsCachedGeneration() { return true; }
 
     @Override
+    protected boolean supportsRollingGeneration() { return true; }
+
+    @Override
     public List<Parameter> parameters() {
         return trainable;
     }

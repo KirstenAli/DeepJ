@@ -61,16 +61,16 @@ public final class GroupedQueryAttention implements Layer {
 
     @Override
     public Tensor forward(Tensor input, InferenceContext context) {
-        Tensor queries = cachedTransform(queryNorm, query.forward(input), config.nHeads(), context.position());
-        Tensor keys = cachedTransform(keyNorm, key.forward(input), config.kvHeads(), context.position());
+        Tensor queries = cachedTransform(queryNorm, query.forward(input), config.nHeads(), context);
+        Tensor keys = cachedTransform(keyNorm, key.forward(input), config.kvHeads(), context);
         Tensor values = HeadOps.splitHeads(value.forward(input), config.kvHeads());
         Tensor attended = context.attend(this, queries, keys, values, config.nHeads(), config.kvHeads(), scale());
         return output.forward(HeadOps.mergeHeads(attended, config.nHeads()));
     }
 
-    private Tensor cachedTransform(HeadNormalization norm, Tensor projection, int heads, int offset) {
+    private Tensor cachedTransform(HeadNormalization norm, Tensor projection, int heads, InferenceContext context) {
         Tensor split = norm.forward(HeadOps.splitHeads(projection, heads));
-        return rotary.apply(split, projection.rows, heads, offset);
+        return context.rotate(rotary, split, projection.rows, heads);
     }
 
     @Override

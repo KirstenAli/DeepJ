@@ -32,17 +32,13 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 - A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
 - CPU execution and an optional Metal backend with fused training operations and a custom FP32 implementation of FlashAttention for supported devices and shapes.
-- DeepJ Origin with learned positional embeddings, LayerNorm, and GELU.
-- DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
-- DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
-- DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
-- DeepJ Loop with a shared decoder core reused across multiple passes and context reinjection.
+- Trainable decoder-only Transformer architectures, described in [Model architectures](#model-architectures).
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
 - [KV-cached text generation](docs/inference.md) on CPU and Metal.
 - File-backed dataset loaders for sequential reading, random sampling and response-only fine-tuning.
 - Export model bundles with weights, configuration, tokenizer files, and a model card for sharing on Hugging Face.
-- A small optional JavaFX chat UI.
+- An optional JavaFX desktop chat UI and streaming CLI.
 
 ## Desktop chat
 
@@ -60,6 +56,7 @@ Under Settings → Generation settings:
 | Max tokens | Limits how many new tokens are generated; they are not words. |
 | Seed | Controls sampling randomness; changing it can change the response. |
 | Repetition penalty | Makes the model less likely to repeat itself. `1.0` turns it off; try `1.1` if responses loop. |
+| Rolling KV cache | Keeps decoding incremental after the window fills for RoPE models. Off by default; long responses may change. |
 
 Run it from this repository with JDK 20 or newer:
 
@@ -100,15 +97,17 @@ java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-
 Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
 or check backend availability. See the [CLI guide](docs/cli.md) for commands and controls.
 
-## Models
+## Model architectures
+
+DeepJ provides the following decoder-only Transformer architectures:
 
 | Model | Main components |
 |---|---|
-| `DeepJOrigin` | Learned positional embeddings, causal multi-head attention, LayerNorm, GELU MLP |
-| `DeepJOrbit` | RoPE attention, RMSNorm, SwiGLU MLP |
+| `DeepJOrigin` | Causal multi-head attention, learned positional embeddings, LayerNorm, GELU MLP |
+| `DeepJOrbit` | Causal multi-head attention, RoPE, RMSNorm, SwiGLU MLP |
 | `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
-| `DeepJNova` | Grouped-query attention, optional QK normalization, tied embeddings, bias-free SwiGLU MLP |
-| `DeepJLoop` | Repeated shared core, context reinjection, loop-aware residual scaling, grouped-query attention, bias-free SwiGLU MLP |
+| `DeepJNova` | Grouped-query attention, RoPE, RMSNorm, bias-free SwiGLU MLP; optional QK normalization and tied input/output embeddings |
+| `DeepJLoop` | Grouped-query attention, RoPE, RMSNorm, bias-free SwiGLU MLP; repeated shared core, context reinjection and loop-aware residual scaling |
 
 ## Frisky 90M
 
@@ -121,7 +120,7 @@ Download its `model.dj` and `tokenizer.bpe` files to try the quick start above o
 - The public API and checkpoint format may change before a stable release.
 - Tensors are currently two-dimensional and use `float32` values.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
-- Sliding-window generation re-prefills the cache after each context shift.
+- Default generation rebuilds the KV cache after each context-window shift. Optional [rolling generation](docs/inference.md#rolling-generation) avoids this for RoPE models, with different behaviour after eviction.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
 - The library has not been validated for safety-critical or production inference workloads.
 

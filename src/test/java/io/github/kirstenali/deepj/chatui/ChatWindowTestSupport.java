@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import javafx.scene.web.WebView;
 
 import java.nio.file.Path;
@@ -23,6 +25,14 @@ final class ChatWindowTestSupport {
     static final class TestService implements ChatService {
         final CountDownLatch generated = new CountDownLatch(1);
         volatile float repetitionPenalty;
+        volatile ContextWindowMode contextWindow;
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
+                               float penalty, ContextWindowMode mode, Consumer<String> listener) {
+            contextWindow = mode;
+            return generate(prompt, maxTokens, temperature, topK, seed, penalty, listener);
+        }
 
         @Override public void loadModel(Path modelPath) {}
         @Override public boolean isModelLoaded() { return true; }
@@ -48,6 +58,14 @@ final class ChatWindowTestSupport {
         final CountDownLatch first = new CountDownLatch(1);
         final CountDownLatch extra = new CountDownLatch(2);
         final List<Invocation> calls = new CopyOnWriteArrayList<>();
+        final List<ContextWindowMode> modes = new CopyOnWriteArrayList<>();
+
+        @Override
+        public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
+                               float penalty, ContextWindowMode mode, Consumer<String> listener) {
+            modes.add(mode);
+            return generate(prompt, maxTokens, temperature, topK, seed, penalty, listener);
+        }
 
         @Override public void loadModel(Path modelPath) {}
         @Override public boolean isModelLoaded() { return true; }

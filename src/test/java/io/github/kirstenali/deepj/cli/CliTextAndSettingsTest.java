@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.PrintWriter;
@@ -9,6 +11,21 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CliTextAndSettingsTest {
+
+    @Test
+    void rollingModeSurvivesEditsAndBothAlternativeSettings() {
+        var settings = new SamplingSettings(80, 0.8f, 40, 7, 1).edit("context-window", "rolling");
+        var rolling = ContextWindowMode.ROLLING;
+        assertEquals(rolling, settings.contextWindow());
+        assertEquals(rolling, settings.edit("seed", "9").contextWindow());
+        assertEquals(rolling, settings.alternativePenalty().contextWindow());
+        assertEquals(rolling, settings.alternativeSeed().contextWindow());
+        assertThrows(IllegalArgumentException.class, () -> settings.edit("context-window", "invalid"));
+        assertThrows(NullPointerException.class, () -> new SamplingSettings(80, 1, 0, 1, 1, null));
+        var options = new SamplingOptions();
+        options.rollingCache = true;
+        assertEquals(rolling, options.settings().contextWindow());
+    }
     @Test
     void streamingIsAppendOnlyAndWaitsForIncompleteUnicodeTails() {
         StringWriter text = new StringWriter();

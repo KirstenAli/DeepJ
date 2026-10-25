@@ -13,6 +13,9 @@ public final class DeepJOrbit extends DecoderOnlyModel {
     @Override
     protected boolean supportsCachedGeneration() { return true; }
 
+    @Override
+    protected boolean supportsRollingGeneration() { return true; }
+
     private final DeepJOrbitConfig cfg;
 
     public DeepJOrbit(DeepJOrbitConfig cfg, long seed) {

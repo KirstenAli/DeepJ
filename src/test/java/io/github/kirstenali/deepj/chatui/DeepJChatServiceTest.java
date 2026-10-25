@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.models.ContextWindowMode;
+
 import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.models.nova.DeepJNova;
@@ -22,6 +24,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DeepJChatServiceTest {
 
     @TempDir Path directory;
+
+    @Test
+    void embeddedServiceStreamsRollingModeAndRejectsAnUnsupportedOrigin() throws Exception {
+        var mode = ContextWindowMode.ROLLING;
+        Path path = directory.resolve("model.dj");
+        new DeepJNova(new DeepJNovaConfig(256, 8, 8, 2, 1, 1, 16), 2).save(path);
+        var service = new DeepJChatService();
+        assertThrows(IllegalStateException.class, () -> service.generate("Hello", 12, 1, 1, 1, 1, mode, t -> {}));
+        service.loadModel(path);
+        assertDoesNotThrow(() -> service.generate("Hello", 12, 1, 1, 1, 1, mode, t -> {}));
+        new DeepJOrigin(new DeepJOriginConfig(256, 8, 8, 2, 1, 16), 2).save(path);
+        service.loadModel(path);
+        assertThrows(UnsupportedOperationException.class,
+                () -> service.generate("Hello", 12, 1, 1, 1, 1, mode, t -> {}));
+    }
 
     @Test
     void loadsAnExportedOriginCheckpointUsingEmbeddedConfiguration() throws Exception {

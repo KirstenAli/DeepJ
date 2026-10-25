@@ -41,6 +41,7 @@ final class CliView {
         row("top-k", settings.topK());
         row("seed", settings.seed());
         row("repetition-penalty", settings.repetitionPenalty());
+        row("context-window", settings.contextWindow().name().toLowerCase(Locale.ROOT));
         note("\n/set <setting> <value> changes the next response.");
     }
 

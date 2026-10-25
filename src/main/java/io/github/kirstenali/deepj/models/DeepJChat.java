@@ -20,10 +20,25 @@ public final class DeepJChat {
 
     private final DecoderOnlyModel model;
     private final Tokenizer tokenizer;
+    private final ContextWindowMode contextWindow;
 
     private DeepJChat(DecoderOnlyModel model, Tokenizer tokenizer) {
+        this(model, tokenizer, ContextWindowMode.REBUILD);
+    }
+
+    private DeepJChat(DecoderOnlyModel model, Tokenizer tokenizer, ContextWindowMode contextWindow) {
         this.model = model;
         this.tokenizer = tokenizer;
+        this.contextWindow = contextWindow;
+    }
+
+    /** Returns a view sharing this model and tokenizer, with independent request-scoped caches. */
+    public DeepJChat withContextWindow(ContextWindowMode mode) {
+        Objects.requireNonNull(mode, "mode");
+        if (mode == ContextWindowMode.ROLLING && !model.supportsRollingGeneration()) {
+            throw new UnsupportedOperationException("This model does not support rolling cached generation");
+        }
+        return new DeepJChat(model, tokenizer, mode);
     }
 
     public static DeepJChat load(Path path) throws IOException {
@@ -56,9 +71,11 @@ public final class DeepJChat {
                            long seed, float repetitionPenalty) {
         String formatted = model.promptFormat().apply(prompt);
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
-        String result = TextGenerator.generate(model, tokenizer, model.config(),
-                formatted, maxTokens, temperature, topK, seed, repetitionPenalty);
-        return continuation(prefix, result);
+        try (var session = model.openGeneration(contextWindow)) {
+            String result = TextGenerator.generate(session, model.config().maxSeqLen(), tokenizer,
+                    formatted, maxTokens, temperature, topK, seed, repetitionPenalty);
+            return continuation(prefix, result);
+        }
     }
 
     public String stream(String prompt, Consumer<String> listener) {
@@ -76,10 +93,12 @@ public final class DeepJChat {
         Objects.requireNonNull(listener, "listener");
         String formatted = model.promptFormat().apply(prompt);
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
-        String result = TextGenerator.stream(model, tokenizer, model.config(), formatted,
-                maxTokens, temperature, topK, seed, repetitionPenalty,
-                text -> listener.accept(continuation(prefix, text)));
-        return continuation(prefix, result);
+        try (var session = model.openGeneration(contextWindow)) {
+            String result = TextGenerator.stream(session, model.config().maxSeqLen(), tokenizer, formatted,
+                    maxTokens, temperature, topK, seed, repetitionPenalty,
+                    text -> listener.accept(continuation(prefix, text)));
+            return continuation(prefix, result);
+        }
     }
 
     private static String continuation(String prefix, String result) {

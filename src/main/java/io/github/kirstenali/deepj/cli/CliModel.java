@@ -47,7 +47,8 @@ interface CliModel extends AutoCloseable {
 
         @Override
         public String stream(String prompt, SamplingSettings settings, Consumer<String> listener) {
-            return chat.stream(prompt, settings.maxTokens(), settings.temperature(), settings.topK(),
+            return chat.withContextWindow(settings.contextWindow()).stream(
+                    prompt, settings.maxTokens(), settings.temperature(), settings.topK(),
                     settings.seed(), settings.repetitionPenalty(), listener);
         }
 

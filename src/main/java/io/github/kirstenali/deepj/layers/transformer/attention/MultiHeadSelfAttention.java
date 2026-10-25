@@ -68,6 +68,10 @@ public class MultiHeadSelfAttention implements Layer {
         return transformQueryKey(heads, length);
     }
 
+    protected Tensor transformQueryKey(Tensor heads, int length, InferenceContext context) {
+        return transformQueryKey(heads, length, context.position());
+    }
+
     @Override
     public boolean supportsIncrementalInference() { return causalMask; }
 
@@ -77,9 +81,9 @@ public class MultiHeadSelfAttention implements Layer {
         validateInput(input);
         Projections projections = projectInputs(input);
         Tensor queries = transformQueryKey(HeadOps.splitHeads(projections.Q, nHeads),
-                input.rows, context.position());
+                input.rows, context);
         Tensor keys = transformQueryKey(HeadOps.splitHeads(projections.K, nHeads),
-                input.rows, context.position());
+                input.rows, context);
         Tensor values = HeadOps.splitHeads(projections.V, nHeads);
         Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
         return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);

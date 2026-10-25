@@ -6,20 +6,23 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 /** Fixed-capacity head-major scratch storage; never part of a checkpoint or backward graph. */
 final class KeyValueCache implements AutoCloseable {
     private final Tensor keys, values;
-    private final int heads;
-    private int length;
+    private final int heads, capacity;
+    private int length, processed;
 
     KeyValueCache(int capacity, int heads, int width) {
         this.heads = heads;
+        this.capacity = capacity;
         keys = Tensor.backend().zeros(Math.multiplyExact(capacity, heads), width).retainDeviceBuffer();
         values = Tensor.backend().zeros(keys.rows, width).retainDeviceBuffer();
     }
 
     Tensor attend(Tensor query, Tensor key, Tensor value, int queryHeads, int offset, float scale) {
-        if (offset != length) throw new IllegalStateException("Head cache position mismatch");
-        Tensor.backend().writeHeadCache(keys, key, heads, offset);
-        Tensor.backend().writeHeadCache(values, value, heads, offset);
-        length += key.rows / heads;
+        if (offset != processed) throw new IllegalStateException("Head cache position mismatch");
+        int next = Math.addExact(offset, key.rows / heads);
+        Tensor.backend().writeHeadCache(keys, key, heads, offset % capacity);
+        Tensor.backend().writeHeadCache(values, value, heads, offset % capacity);
+        processed = next;
+        length = Math.min(capacity, processed);
         if (offset == 0) return AttentionOps.causal(query, key, value, queryHeads, heads, scale);
         return decode(query, scale);
     }

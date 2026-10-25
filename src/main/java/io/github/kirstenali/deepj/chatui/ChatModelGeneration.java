@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.models.ContextWindowMode;
 import io.github.kirstenali.deepj.models.TextGenerator;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
@@ -19,11 +20,20 @@ final class ChatModelGeneration {
     static String stream(DecoderOnlyModel model, Tokenizer tokenizer, String prompt,
                          int maxTokens, float temperature, int topK, long seed,
                          float repetitionPenalty, Consumer<String> listener) {
+        return stream(model, tokenizer, prompt, maxTokens, temperature, topK, seed,
+                repetitionPenalty, ContextWindowMode.REBUILD, listener);
+    }
+
+    static String stream(DecoderOnlyModel model, Tokenizer tokenizer, String prompt,
+                         int maxTokens, float temperature, int topK, long seed, float repetitionPenalty,
+                         ContextWindowMode mode, Consumer<String> listener) {
         String formatted = model.promptFormat().apply(prompt);
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
-        String result = TextGenerator.stream(model, tokenizer, model.config(), formatted,
-                maxTokens, temperature, topK, seed, repetitionPenalty,
-                text -> listener.accept(GeneratedText.continuation(prefix, text)));
-        return GeneratedText.continuation(prefix, result);
+        try (var session = model.openGeneration(mode)) {
+            String result = TextGenerator.stream(session, model.config().maxSeqLen(), tokenizer, formatted,
+                    maxTokens, temperature, topK, seed, repetitionPenalty,
+                    text -> listener.accept(GeneratedText.continuation(prefix, text)));
+            return GeneratedText.continuation(prefix, result);
+        }
     }
 }

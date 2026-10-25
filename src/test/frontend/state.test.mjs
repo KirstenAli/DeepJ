@@ -71,6 +71,16 @@ test('shift-enter and ordinary keys do not submit', (context) => {
   assert.deepEqual(ui.calls, []);
 });
 
+test('rolling cache is opt-in and reaches Java with unchanged sampling settings', (context) => {
+  const ui = fixture(context);
+  ui.window.setModel('frisky.dj');
+  assert.equal(ui.element('rollingCache').checked, false);
+  ui.element('rollingCache').checked = true;
+  ui.element('prompt').value = 'Hello';
+  ui.window.submitPrompt();
+  assert.deepEqual(ui.calls, [['sendWithWindowSettings', 'Hello', 80, 0.8, 40, 1234, 1, true]]);
+});
+
 test('the send button uses the normal submission path when not generating', (context) => {
   const ui = fixture(context);
   ui.window.setModel('nova.dj');

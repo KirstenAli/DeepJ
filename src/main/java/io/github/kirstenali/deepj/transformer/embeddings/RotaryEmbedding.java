@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.autograd.LayoutOps;
+import io.github.kirstenali.deepj.autograd.GradMode;
 
 import java.util.stream.IntStream;
 
@@ -61,6 +62,16 @@ public final class RotaryEmbedding {
     public Tensor applyBackward(Tensor t, int seqLen, int nHeads) {
         validateInput(t, seqLen, nHeads);
         return LayoutOps.rotary(t, cosTable, sinTable, seqLen, true);
+    }
+
+    /** Continuing positions for rolling inference; persistent rotary tables never grow. */
+    public Tensor applyInference(Tensor input, int length, int heads, int offset) {
+        if ((long) offset + length <= cosTable.rows) return apply(input, length, heads, offset);
+        if (GradMode.isEnabled()) throw new IllegalStateException("Rolling RoPE requires noGrad inference");
+        validateInput(input, length, heads);
+        Math.addExact(offset, length);
+        RotaryPositionRows rows = RotaryPositionRows.at(headDim, length, offset);
+        return LayoutOps.rotary(input, rows.cosine(), rows.sine(), length, false);
     }
 
     public int headDim() {

@@ -195,7 +195,7 @@ String answer = chat.generate(
             <ul>
                 <li>The public API and checkpoint format may change before a stable release.</li>
                 <li>Tensors are currently two-dimensional and use float32 values.</li>
-                <li>Sliding-window generation re-prefills the key/value cache after each context shift.</li>
+                <li>Default generation rebuilds the cache after each window shift. Optional rolling generation for RoPE models avoids this but changes behaviour after eviction.</li>
                 <li>Metal is Apple Silicon-only, and Hugging Face bundles use DeepJ—not PyTorch—formats.</li>
                 <li>DeepJ is not validated for safety-critical or production inference workloads.</li>
             </ul>

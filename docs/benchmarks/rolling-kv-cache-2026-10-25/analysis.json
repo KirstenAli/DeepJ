@@ -1,0 +1,383 @@
+{
+  "caseCount": 90,
+  "models": {
+    "prism": {
+      "numerics": {
+        "preWindowExact": true,
+        "trainingStateExact": true,
+        "postWindowOracle": 0.121614518327
+      },
+      "realData": {
+        "updates": 200,
+        "validations": 5,
+        "exact": true
+      },
+      "defaultPreWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 0.158392209,
+            "candidateSeconds": 0.1644505,
+            "ratio": 1.0382486679000733,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9981767332319559
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 0.161656917,
+            "candidateSeconds": 0.159312542,
+            "ratio": 0.9854978367551077,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9948653920671232
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 0.150828833,
+            "candidateSeconds": 0.165946625,
+            "ratio": 1.100231445800552,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0042914923420003
+          }
+        ],
+        "pairedMedianRatio": 1.0382486679000733,
+        "timeReductionPercent": -3.8248667900073308
+      },
+      "rollingPreWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 0.158392209,
+            "candidateSeconds": 0.159573875,
+            "ratio": 1.0074603795695531,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0002352479202963
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 0.161656917,
+            "candidateSeconds": 0.16006925,
+            "ratio": 0.99017878709143,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9946384570248857
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 0.150828833,
+            "candidateSeconds": 0.1497865,
+            "ratio": 0.9930892987814869,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9932310510524468
+          }
+        ],
+        "pairedMedianRatio": 0.9930892987814869,
+        "timeReductionPercent": 0.6910701218513116
+      },
+      "rollingPostWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 2.175593708,
+            "candidateSeconds": 0.270889709,
+            "ratio": 0.12451300442904203,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9887815628235174
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 2.272387709,
+            "candidateSeconds": 0.274751084,
+            "ratio": 0.12090854166822988,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0134607464444774
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 2.28818925,
+            "candidateSeconds": 0.248865583,
+            "ratio": 0.10876092657108673,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9789930788200957
+          }
+        ],
+        "pairedMedianRatio": 0.12090854166822988,
+        "timeReductionPercent": 87.90914583317702
+      },
+      "endurance": {
+        "model": "prism",
+        "longTokens": 2048,
+        "requests": 50,
+        "nativeLive": 363137024,
+        "nativePeak": 1484225544,
+        "swapoutPages": 0,
+        "footprint": 3264662120,
+        "rss": 2141765632
+      }
+    },
+    "nova": {
+      "numerics": {
+        "preWindowExact": true,
+        "trainingStateExact": true,
+        "postWindowOracle": 0.035350603753
+      },
+      "realData": {
+        "updates": 200,
+        "validations": 5,
+        "exact": true
+      },
+      "defaultPreWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 0.262624917,
+            "candidateSeconds": 0.266163625,
+            "ratio": 1.013474380269866,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0003176330745167
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 0.258917416,
+            "candidateSeconds": 0.256707542,
+            "ratio": 0.9914649464908919,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9741212380268082
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 0.243865208,
+            "candidateSeconds": 0.244644875,
+            "ratio": 1.003197122731833,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0013977313797315
+          }
+        ],
+        "pairedMedianRatio": 1.003197122731833,
+        "timeReductionPercent": -0.31971227318330353
+      },
+      "rollingPreWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 0.262624917,
+            "candidateSeconds": 0.275286167,
+            "ratio": 1.0482103912478342,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0141157969249661
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 0.258917416,
+            "candidateSeconds": 0.264564291,
+            "ratio": 1.0218095603116941,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9765755910384897
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 0.243865208,
+            "candidateSeconds": 0.244581666,
+            "ratio": 1.0029379262662184,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0178398551910617
+          }
+        ],
+        "pairedMedianRatio": 1.0218095603116941,
+        "timeReductionPercent": -2.180956031169412
+      },
+      "rollingPostWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 3.168933,
+            "candidateSeconds": 0.409390625,
+            "ratio": 0.12918879162165942,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0170039154488557
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 3.421547167,
+            "candidateSeconds": 0.404264875,
+            "ratio": 0.1181526529574216,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0148535664104554
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 3.377788791,
+            "candidateSeconds": 0.382502,
+            "ratio": 0.1132403544647798,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0002270558572388
+          }
+        ],
+        "pairedMedianRatio": 0.1181526529574216,
+        "timeReductionPercent": 88.18473470425783
+      },
+      "endurance": {
+        "model": "nova",
+        "longTokens": 2048,
+        "requests": 50,
+        "nativeLive": 405137664,
+        "nativePeak": 1920668680,
+        "swapoutPages": 0,
+        "footprint": 3875687328,
+        "rss": 2367930368
+      }
+    },
+    "loop": {
+      "numerics": {
+        "preWindowExact": true,
+        "trainingStateExact": true,
+        "postWindowOracle": 0.0507192025483
+      },
+      "realData": {
+        "updates": 200,
+        "validations": 5,
+        "exact": true
+      },
+      "defaultPreWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 0.381258084,
+            "candidateSeconds": 0.377865208,
+            "ratio": 0.9911008418119208,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9925226557962142
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 0.388166208,
+            "candidateSeconds": 0.3805385,
+            "ratio": 0.9803493765227498,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9935616720024606
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 0.362618417,
+            "candidateSeconds": 0.361161583,
+            "ratio": 0.9959824599863056,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0187986279765795
+          }
+        ],
+        "pairedMedianRatio": 0.9911008418119208,
+        "timeReductionPercent": 0.8899158188079181
+      },
+      "rollingPreWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 0.381258084,
+            "candidateSeconds": 0.383846042,
+            "ratio": 1.0067879426262867,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.997519121993032
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 0.388166208,
+            "candidateSeconds": 0.369106375,
+            "ratio": 0.9508977530573707,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9499533905232778
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 0.362618417,
+            "candidateSeconds": 0.360036083,
+            "ratio": 0.9928786463154187,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0278984089472172
+          }
+        ],
+        "pairedMedianRatio": 0.9928786463154187,
+        "timeReductionPercent": 0.7121353684581333
+      },
+      "rollingPostWindow": {
+        "pairs": [
+          {
+            "round": 1,
+            "baselineSeconds": 4.558879208,
+            "candidateSeconds": 0.602738125,
+            "ratio": 0.13221190944087854,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.0231876155519535
+          },
+          {
+            "round": 2,
+            "baselineSeconds": 5.395089959,
+            "candidateSeconds": 0.605971792,
+            "ratio": 0.11231912657714406,
+            "nativePeakRatio": 1,
+            "footprintRatio": 1.009356354299875
+          },
+          {
+            "round": 3,
+            "baselineSeconds": 5.373619875,
+            "candidateSeconds": 0.686431834,
+            "ratio": 0.1277410479281436,
+            "nativePeakRatio": 1,
+            "footprintRatio": 0.9771182626966602
+          }
+        ],
+        "pairedMedianRatio": 0.1277410479281436,
+        "timeReductionPercent": 87.22589520718564
+      },
+      "endurance": {
+        "model": "loop",
+        "longTokens": 4096,
+        "requests": 200,
+        "nativeLive": 407794176,
+        "nativePeak": 2814360840,
+        "swapoutPages": 0,
+        "footprint": 5748051904,
+        "rss": 2986016768
+      }
+    }
+  },
+  "samples": {
+    "prompts": 8,
+    "seeds": 2,
+    "exact": true
+  },
+  "quality": {
+    "defaultExact": true,
+    "tokens": 260,
+    "rebuildLoss": 1.4938588014,
+    "rollingLoss": 1.50792391209,
+    "rollingMinusRebuild": 0.014065110690000049
+  },
+  "cpu": {
+    "ratios": [
+      0.9880195250923411,
+      0.9918145147521599,
+      0.987840853930935
+    ],
+    "pairedMedianRatio": 0.9880195250923411
+  },
+  "review": [
+    {
+      "type": "systemWideSwapouts",
+      "name": "prism-state-candidate",
+      "pages": 14196
+    },
+    {
+      "type": "systemWideSwapouts",
+      "name": "loop-pre-baseline",
+      "pages": 30992
+    },
+    {
+      "type": "systemWideSwapouts",
+      "name": "loop-pre-candidate-rebuild",
+      "pages": 20144
+    },
+    {
+      "type": "systemWideSwapouts",
+      "name": "loop-pre-candidate-rolling",
+      "pages": 5256
+    }
+  ]
+}

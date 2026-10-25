@@ -27,16 +27,25 @@ export function fixture(context) {
   const window = dom.window;
   const calls = [];
   const timers = fakeTimers(window);
-  window.chatBridge = Object.fromEntries(
-    ['chooseModel', 'sendWithSettings', 'stop', 'copy', 'newChat', 'alternatives'].map((name) => [
-      name,
-      (...args) => calls.push([name, ...args]),
-    ]),
-  );
+  window.chatBridge = recordingBridge(calls);
   script.runInContext(dom.getInternalVMContext());
   context.after(() => window.close());
   const element = (id) => window.document.getElementById(id);
   return { window, calls, timers, element, click: (id) => element(id).click() };
+}
+
+function recordingBridge(calls) {
+  return Object.fromEntries(
+    [
+      'chooseModel',
+      'sendWithSettings',
+      'sendWithWindowSettings',
+      'stop',
+      'copy',
+      'newChat',
+      'alternatives',
+    ].map((name) => [name, (...args) => calls.push([name, ...args])]),
+  );
 }
 
 export function finish(ui, id = 1, text = 'A useful response') {

@@ -15,12 +15,15 @@ final class CachedGenerationSession implements GenerationSession {
     private final InferenceContext context;
     private final List<Parameter> parameters;
     private final long[] versions;
+    private final boolean rolling;
     private int[] previous = new int[0];
+    private int processed;
     private boolean closed;
 
-    CachedGenerationSession(DecoderOnlyModel model) {
+    CachedGenerationSession(DecoderOnlyModel model, ContextWindowMode mode) {
         this.model = model;
-        context = new InferenceContext(model.config().maxSeqLen());
+        rolling = mode == ContextWindowMode.ROLLING;
+        context = new InferenceContext(model.config().maxSeqLen(), rolling);
         parameters = model.parameters();
         versions = parameters.stream().mapToLong(p -> p.value.gradientState().version()).toArray();
     }
@@ -28,13 +31,15 @@ final class CachedGenerationSession implements GenerationSession {
     @Override
     public Tensor apply(int[] tokens) {
         requireUsable(tokens);
-        int offset = extendsPrevious(tokens) ? previous.length : 0;
+        int offset = extendsPrevious(tokens) || rollsPrevious(tokens) ? processed : 0;
         if (offset == 0) reset();
+        int next = Math.addExact(offset, offset == 0 ? tokens.length : 1);
         context.begin(offset);
         try (var ignored = GradMode.noGrad()) {
-            Tensor logits = model.forwardCached(offset == 0 ? tokens : new int[]{tokens[offset]}, context);
+            Tensor logits = model.forwardCached(offset == 0 ? tokens : new int[]{tokens[tokens.length - 1]}, context);
             context.finish();
             previous = tokens.clone();
+            processed = next;
             return logits;
         } catch (RuntimeException | Error failure) {
             close();
@@ -45,6 +50,11 @@ final class CachedGenerationSession implements GenerationSession {
     private boolean extendsPrevious(int[] tokens) {
         return previous.length > 0 && tokens.length == previous.length + 1
                 && Arrays.equals(previous, 0, previous.length, tokens, 0, previous.length);
+    }
+
+    private boolean rollsPrevious(int[] tokens) {
+        return rolling && previous.length == model.config().maxSeqLen() && tokens.length == previous.length
+                && Arrays.equals(previous, 1, previous.length, tokens, 0, tokens.length - 1);
     }
 
     private void requireUsable(int[] tokens) {
@@ -67,6 +77,7 @@ final class CachedGenerationSession implements GenerationSession {
     private void reset() {
         context.close();
         previous = new int[0];
+        processed = 0;
         backend.releaseTemporaryResources();
     }
 

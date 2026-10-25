@@ -26,6 +26,11 @@ The CLI selects Metal when available and otherwise uses the CPU. Use `--backend 
 
 Use `--help` after any command for its options. Generation options match the [desktop settings](../README.md#desktop-chat): `--max-tokens`, `--temperature`, `--top-k`, `--seed` and `--repetition-penalty`.
 
+For Orbit, Prism, Nova and Loop, `--rolling-cache` keeps incremental decoding after the context
+window fills. It is opt-in: responses may change after the first token is evicted. See
+[rolling generation](inference.md#rolling-generation) for the behaviour and limitations. In chat,
+use `/set context-window rolling` or `/set context-window rebuild` to select the next request's mode.
+
 ## Terminal controls
 
 Enter sends a prompt; Alt+Enter inserts a line. Up-arrow recalls session prompts and Tab completes slash commands. `/help` lists the available chat commands; `/settings` shows sampling values and `/set seed 42` changes a setting for the next response. Ctrl+C stops generation or cancels the current input; Ctrl+D or `/exit` closes the model and exits.

@@ -252,14 +252,20 @@ function submitPrompt() {
   if (!prompt || busy) return;
   if (!modelLoaded) return chooseModel();
   if (!validGenerationSettings()) return;
-  chatBridge.sendWithSettings(
+  sendPrompt(prompt);
+}
+
+function sendPrompt(prompt) {
+  const values = [
     prompt,
     generationValue('maxTokens'),
     generationValue('temperature'),
     generationValue('topK'),
     generationValue('seed'),
     generationValue('repetitionPenalty'),
-  );
+  ];
+  if (element('rollingCache').checked) chatBridge.sendWithWindowSettings(...values, true);
+  else chatBridge.sendWithSettings(...values);
 }
 
 function chooseModel() {
