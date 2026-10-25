@@ -1,13 +1,27 @@
 package io.github.kirstenali.deepj.tensor;
 
+import io.github.kirstenali.deepj.autograd.GradientState;
+
 /** Shared physical storage plumbing; logical Tensor operations remain on the concrete facade. */
 public abstract class TensorStorageAccess {
     private final TensorMemory memory;
+    private final GradientState gradientState;
     private boolean deviceRetained;
 
-    TensorStorageAccess(TensorMemory memory) { this.memory = memory; }
+    TensorStorageAccess(TensorMemory memory) {
+        this.memory = memory;
+        gradientState = new GradientState();
+        memory.bindRootState(gradientState);
+    }
+
+    TensorStorageAccess(TensorStorageAccess source) {
+        memory = source.memory;
+        gradientState = memory.aliasState(source.gradientState);
+    }
 
     final TensorMemory memory() { return memory; }
+
+    public final GradientState gradientState() { return gradientState; }
 
     public final Object getGpuTag() { return memory.gpuTag; }
 

@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
+import io.github.kirstenali.deepj.autograd.GradientState;
+
 import java.util.Objects;
 
 /** Physical typed allocation and device binding, independent of any logical tensor layout. */
@@ -9,6 +11,8 @@ final class TensorMemory {
     private final boolean lazyHost;
     private Object values;
     private int deviceRetentions;
+    private GradientState rootState;
+    private StorageAliases aliases;
     Object gpuTag;
 
     TensorMemory(DType dtype, int length) { this(dtype, length, true); }
@@ -55,6 +59,24 @@ final class TensorMemory {
     }
 
     boolean hasHostStorage() { return values != null; }
+
+    void bindRootState(GradientState state) { rootState = state; }
+
+    GradientState aliasState(GradientState source) {
+        if (aliases == null) {
+            aliases = new StorageAliases(rootState);
+            rootState = null;
+        }
+        GradientState state = source.newAlias();
+        aliases.add(state);
+        return state;
+    }
+
+    boolean canReleaseTemporary() {
+        if (deviceRetained()) return false;
+        if (aliases != null) return !aliases.liveViews() && !aliases.savedForBackward();
+        return rootState == null || !rootState.savedForBackward();
+    }
 
     void discardStaleHost() {
         if (lazyHost) values = null;

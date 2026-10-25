@@ -42,23 +42,23 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     }
 
     void markAllocatedBuffers() {
-        for (var entry : bufIdToTensor.entrySet()) {
-            Tensor t = entry.getValue().get();
-            if (ownsBuffer(t, entry.getKey())) {
-                ((GpuBuffer) t.getGpuTag()).allocatedOnGpu = true;
+        for (var entry : bufIdToMemory.entrySet()) {
+            TensorMemory memory = entry.getValue().get();
+            if (ownsBuffer(memory, entry.getKey())) {
+                ((GpuBuffer) memory.gpuTag).allocatedOnGpu = true;
             }
         }
     }
 
     void releaseOrphanedBuffers() {
-        if (bufIdToTensor.isEmpty()) return;
+        if (bufIdToMemory.isEmpty()) return;
 
         List<Integer> orphanIds = collectOrphanIds();
         if (orphanIds.isEmpty()) return;
 
         for (int id : orphanIds) {
             removePendingForId(id);
-            bufIdToTensor.remove(id);
+            bufIdToMemory.remove(id);
         }
 
         int[] ids = orphanIds.stream().mapToInt(Integer::intValue).toArray();
@@ -67,30 +67,29 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
 
     List<Integer> collectOrphanIds() {
         List<Integer> orphanIds = new ArrayList<>();
-        for (var entry : bufIdToTensor.entrySet()) {
+        for (var entry : bufIdToMemory.entrySet()) {
             int id = entry.getKey();
-            Tensor t = entry.getValue().get();
-            if (isOrphanedBuffer(id, t) && !isBufferReferencedByPendingOps(id)) {
+            TensorMemory memory = entry.getValue().get();
+            if (isOrphanedBuffer(id, memory) && !isBufferReferencedByPendingOps(id)) {
                 orphanIds.add(id);
             }
         }
         return orphanIds;
     }
 
-    boolean isOrphanedBuffer(int id, Tensor t) {
+    boolean isOrphanedBuffer(int id, TensorMemory memory) {
         if (backwardBufferIds.contains(id)) return true;
-        if (t == null) return true;
-        return !(t.getGpuTag() instanceof GpuBuffer gb) || gb.id != id;
+        return !ownsBuffer(memory, id);
     }
 
     void retireBackwardBuffer(GpuBuffer buffer) {
         if (managedBuffers.get(buffer.id) != buffer) return;
-        var reference = bufIdToTensor.get(buffer.id);
-        Tensor tensor = reference == null ? null : reference.get();
-        if (tensor != null && !canReleaseTemporary(tensor)) return;
+        var reference = bufIdToMemory.get(buffer.id);
+        TensorMemory memory = reference == null ? null : reference.get();
+        if (memory != null && !memory.canReleaseTemporary()) return;
         backwardBufferIds.add(buffer.id);
-        if (ownsBuffer(tensor, buffer.id)) tensor.setGpuTag(null);
-        bufIdToTensor.putIfAbsent(buffer.id, new WeakReference<>(null));
+        if (ownsBuffer(memory, buffer.id)) memory.gpuTag = null;
+        bufIdToMemory.putIfAbsent(buffer.id, new WeakReference<>(null));
     }
 
     static int getOpStride(int op) {
@@ -182,48 +181,44 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     List<Integer> temporaryBufferIds() {
         List<Integer> ids = new ArrayList<>();
         for (int id : allocatedBufferIds) {
-            WeakReference<Tensor> reference = bufIdToTensor.get(id);
-            Tensor tensor = reference == null ? null : reference.get();
-            if (tensor == null || canReleaseTemporary(tensor)) ids.add(id);
+            WeakReference<TensorMemory> reference = bufIdToMemory.get(id);
+            TensorMemory memory = reference == null ? null : reference.get();
+            if (memory == null || memory.canReleaseTemporary()) ids.add(id);
         }
         return ids;
     }
 
-    private static boolean canReleaseTemporary(Tensor tensor) {
-        return !tensor.retainsDeviceBuffer() && !tensor.gradientState().savedForBackward();
-    }
-
     void clearTensorGpuTags(List<Integer> ids) {
         for (int id : ids) {
-            WeakReference<Tensor> reference = bufIdToTensor.remove(id);
-            Tensor tensor = reference == null ? null : reference.get();
-            if (ownsBuffer(tensor, id)) tensor.setGpuTag(null);
+            WeakReference<TensorMemory> reference = bufIdToMemory.remove(id);
+            TensorMemory memory = reference == null ? null : reference.get();
+            if (ownsBuffer(memory, id)) memory.gpuTag = null;
         }
     }
 
-    boolean ownsBuffer(Tensor tensor, int id) {
-        return tensor != null && tensor.getGpuTag() instanceof GpuBuffer buffer
+    boolean ownsBuffer(TensorMemory memory, int id) {
+        return memory != null && memory.gpuTag instanceof GpuBuffer buffer
                 && buffer.id == id && buffer.owner == this;
     }
 
     void materializeTrackedTensors() {
         flush();
-        for (var entry : bufIdToTensor.entrySet()) {
-            Tensor t = entry.getValue().get();
-            if (!ownsBuffer(t, entry.getKey())) continue;
-            GpuBuffer gb = (GpuBuffer) t.getGpuTag();
+        for (var entry : bufIdToMemory.entrySet()) {
+            TensorMemory memory = entry.getValue().get();
+            if (!ownsBuffer(memory, entry.getKey())) continue;
+            GpuBuffer gb = (GpuBuffer) memory.gpuTag;
             if (!gb.cpuStale) continue;
 
-            runtime.downloadBuffer(gb.id, t.hostStorage());
+            runtime.downloadBuffer(gb.id, memory.floats());
             gb.cpuStale = false;
             gb.needsUpload = false;
         }
     }
 
     void clearTensorGpuTags() {
-        for (var entry : bufIdToTensor.entrySet()) {
-            Tensor t = entry.getValue().get();
-            if (ownsBuffer(t, entry.getKey())) t.setGpuTag(null);
+        for (var entry : bufIdToMemory.entrySet()) {
+            TensorMemory memory = entry.getValue().get();
+            if (ownsBuffer(memory, entry.getKey())) memory.gpuTag = null;
         }
     }
 
@@ -240,7 +235,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     }
 
     void resetGraphState() {
-        bufIdToTensor.clear();
+        bufIdToMemory.clear();
         pendingAllocs.clear();
         pendingUploadIds.clear();
         pendingUploadData.clear();

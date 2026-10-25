@@ -28,11 +28,11 @@ class GraphBufferReuseTest extends ComputeGraphTestSupport {
     @Test
     void liveAndExplicitlyRetainedTensorsNeverBecomeScratch() {
         List<GpuBuffer> buffers = chain(4, 4);
-        List<Tensor> live = new ArrayList<>();
+        List<TensorMemory> live = new ArrayList<>();
         for (GpuBuffer buffer : buffers) {
-            live.add(graph.bufIdToTensor.get(buffer.id).get());
+            live.add(graph.bufIdToMemory.get(buffer.id).get());
         }
-        live.get(1).retainDeviceBuffer();
+        owners.get(0).retainDeviceBuffer();
         GraphBufferReuse.Plan plan = GraphBufferReuse.prepare(graph);
         assertEquals(5, plan.allocations().size());
         assertSame(graph.cmdStream, plan.commands());
@@ -65,7 +65,7 @@ class GraphBufferReuseTest extends ComputeGraphTestSupport {
         assertEquals(4, GraphBufferReuse.prepare(graph).allocations().size());
         GpuBuffer large = graph.newOutputBuffer(1, 8);
         graph.createOutputTensor(large);
-        graph.bufIdToTensor.get(large.id).clear();
+        graph.bufIdToMemory.get(large.id).clear();
         graph.recordUnary(ComputeGraph.OP_NEG, buffers.get(3), large);
         assertEquals(5, GraphBufferReuse.prepare(graph).allocations().size());
     }
@@ -94,7 +94,7 @@ class GraphBufferReuseTest extends ComputeGraphTestSupport {
     @Test
     void unusedPendingBuffersDoNotChangeCommandsOrBorrowAnotherLifetime() {
         graph.createOutputTensor(graph.newOutputBuffer(1, 4));
-        graph.bufIdToTensor.values().forEach(Reference::clear);
+        graph.bufIdToMemory.values().forEach(Reference::clear);
         var plan = GraphBufferReuse.prepare(graph);
         assertEquals(1, plan.allocations().size());
         assertSame(graph.cmdStream, plan.commands());
@@ -114,7 +114,7 @@ class GraphBufferReuseTest extends ComputeGraphTestSupport {
 
     private void unreachable(List<GpuBuffer> buffers) {
         for (GpuBuffer buffer : buffers) {
-            graph.bufIdToTensor.get(buffer.id).clear();
+            graph.bufIdToMemory.get(buffer.id).clear();
         }
     }
 }

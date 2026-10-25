@@ -36,7 +36,7 @@ final class GraphBufferReuse {
         Map<Integer, Lifetime> result = new HashMap<>();
         for (int[] allocation : graph.pendingAllocs) {
             int id = allocation[0];
-            var reference = graph.bufIdToTensor.get(id);
+            var reference = graph.bufIdToMemory.get(id);
             if (!uploads.contains(id) && (graph.backwardBufferIds.contains(id)
                     || reference != null && reference.get() == null)) {
                 result.put(id, new Lifetime(id, allocation[1]));

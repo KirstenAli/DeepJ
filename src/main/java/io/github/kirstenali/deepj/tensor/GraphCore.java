@@ -15,7 +15,7 @@ abstract class GraphCore extends GraphOpMetadata {
     final List<int[]> pendingAllocs = new ArrayList<>();
     final List<int[]> pendingUploadIds = new ArrayList<>();
     final List<float[]> pendingUploadData = new ArrayList<>();
-    final Map<Integer, WeakReference<Tensor>> bufIdToTensor = new HashMap<>();
+    final Map<Integer, WeakReference<TensorMemory>> bufIdToMemory = new HashMap<>();
     final Set<Integer> allocatedBufferIds = new HashSet<>();
     final Set<Integer> backwardBufferIds = new HashSet<>();
     final Map<Integer, GpuBuffer> managedBuffers = new HashMap<>();
@@ -82,7 +82,7 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     void trackTensorBinding(int id, Tensor t) {
-        bufIdToTensor.put(id, new WeakReference<>(t));
+        bufIdToMemory.put(id, new WeakReference<>(t.memory()));
     }
 
     public GpuBuffer newOutputBuffer(int rows, int cols) {
@@ -129,9 +129,21 @@ abstract class GraphCore extends GraphOpMetadata {
         if (buf.owner != null && buf.owner != this) {
             throw new IllegalArgumentException("GPU buffers belong to their creating graph");
         }
+        requireStorageBinding(t, buf);
         buf.owner = (GraphExecution) this;
         t.setGpuTag(buf);
         trackTensorBinding(buf.id, t);
+    }
+
+    private void requireStorageBinding(Tensor tensor, GpuBuffer buffer) {
+        if (tensor.memory().length() != buffer.floatCount()) {
+            throw new IllegalArgumentException("GPU allocation size must match physical tensor storage");
+        }
+        var reference = bufIdToMemory.get(buffer.id);
+        TensorMemory bound = reference == null ? null : reference.get();
+        if (bound != null && bound != tensor.memory()) {
+            throw new IllegalArgumentException("A GPU allocation can only bind one shared tensor storage");
+        }
     }
 
     void ensureCapacity(int needed) {

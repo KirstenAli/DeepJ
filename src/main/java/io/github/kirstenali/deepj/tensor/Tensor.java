@@ -9,15 +9,12 @@ public class Tensor extends TensorStorageAccess {
 
     public final int rows, cols;
 
-    private final GradientState gradientState = new GradientState();
-
-    public GradientState gradientState() { return gradientState; }
-    public boolean requiresGrad() { return gradientState.required(); }
+    public boolean requiresGrad() { return gradientState().required(); }
     public Tensor requiresGrad(boolean required) {
         return TensorMutation.requireGrad(this, required);
     }
-    public Tensor grad() { return gradientState.gradient(); }
-    public void zeroGrad() { gradientState.bindGradient(null); }
+    public Tensor grad() { return gradientState().gradient(); }
+    public void zeroGrad() { gradientState().bindGradient(null); }
     public void backward() { Autograd.backward(this); }
     public void backward(Tensor gradient) { Autograd.backward(this, gradient); }
     public Tensor detach() { return new Tensor(this); }
@@ -50,6 +47,14 @@ public class Tensor extends TensorStorageAccess {
     }
 
     static Tensor deviceOnly(int rows, int cols) { return new Tensor(rows, cols, false); }
+
+    private Tensor(TensorStorageAccess source, int rows, int cols) {
+        super(source);
+        this.rows = rows;
+        this.cols = cols;
+    }
+
+    static Tensor aliasStorage(Tensor source) { return new Tensor(source, source.rows, source.cols); }
 
     float[] hostStorage() { return TensorStorage.hostStorage(this); }
 
