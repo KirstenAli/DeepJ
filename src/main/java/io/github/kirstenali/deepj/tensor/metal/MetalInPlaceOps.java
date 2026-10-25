@@ -12,10 +12,20 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void addInPlace(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "addInPlace");
+        if (MetalHostZeroInput.canSkip(a, b)) {
+            addToHostZero(a, b);
+            return;
+        }
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
         graph.recordBinary(ComputeGraph.OP_ADD, ga, gb, gOut);
         bindInPlaceResult(a, gOut);
+    }
+
+    private void addToHostZero(Tensor target, Tensor source) {
+        GpuBuffer output = graph.newOutputBuffer(target.rows, target.cols);
+        graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, gpuIn(source), output, 0.0f);
+        bindInPlaceResult(target, output);
     }
 
     @Override

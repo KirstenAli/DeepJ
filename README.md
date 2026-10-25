@@ -32,7 +32,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 - A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
 - CPU execution and an optional Metal backend with fused training operations and a custom FP32 implementation of FlashAttention for supported devices and shapes.
-- DeepJ Origin, a GPT-style decoder with learned positional embeddings, LayerNorm, and GELU.
+- DeepJ Origin with learned positional embeddings, LayerNorm, and GELU.
 - DeepJ Orbit with RoPE, RMSNorm, and SwiGLU.
 - DeepJ Prism with low-rank Q/KV attention, RoPE, RMSNorm, and SwiGLU.
 - DeepJ Nova with grouped-query attention, optional QK normalization, and shared input/output embeddings.
