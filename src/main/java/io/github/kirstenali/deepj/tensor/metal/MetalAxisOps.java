@@ -31,6 +31,18 @@ abstract class MetalAxisOps extends MetalCoreOps {
         return graph.layoutSliceGradient(gradient, shape, axis, start, step);
     }
 
+    @Override public Tensor indexSelect(Tensor input, int axis, int[] indices) {
+        return graph.layoutIndexSelect(input, axis, indices);
+    }
+
+    @Override public void indexAdd(Tensor target, int axis, int[] indices, Tensor updates) {
+        graph.layoutIndexAdd(target, axis, indices, updates);
+    }
+
+    @Override public Tensor indexSelectGradient(Tensor gradient, int[] shape, int axis, int[] indices) {
+        return graph.layoutIndexGradient(gradient, shape, axis, indices);
+    }
+
     final Tensor axisSoftmaxBackward(Tensor gradient, Tensor probabilities, int axis) {
         Tensor.requireSameShape(gradient, probabilities, "Softmax gradient");
         Tensor product = multiply(gradient, probabilities);

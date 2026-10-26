@@ -14,6 +14,15 @@ final class GraphLayouts {
         return offsets.computeIfAbsent(tensor.layout(), this::append);
     }
 
+    int addIndices(int[] indices) {
+        long[] description = IndexGroups.describe(indices);
+        int start = size, needed = Math.addExact(size, description.length);
+        if (needed > words.length) words = Arrays.copyOf(words, Math.max(needed, words.length * 2));
+        System.arraycopy(description, 0, words, size, description.length);
+        size = needed;
+        return start;
+    }
+
     private int append(TensorLayout layout) {
         int rank = layout.shape().rank(), start = size;
         int needed = Math.addExact(size, Math.addExact(4, Math.multiplyExact(rank, 2)));

@@ -98,6 +98,8 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor sliceRows(Tensor input, int[] rows) {
+        if (input.rank() != 2) throw new IllegalArgumentException("Row selection requires a matrix");
+        if (!MetalDenseOps.matrix(input)) return graph.layoutIndexSelect(input, 0, rows);
         for (int row : rows) {
             requireRow(input, row);
         }

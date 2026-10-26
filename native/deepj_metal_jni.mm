@@ -27,6 +27,8 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutSoftmaxPSO;
     id<MTLComputePipelineState> layoutMaximumBackwardPSO;
     id<MTLComputePipelineState> layoutMatmulPSO;
+    id<MTLComputePipelineState> layoutIndexSelectPSO;
+    id<MTLComputePipelineState> layoutIndexAddPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -504,6 +506,42 @@ kernel void kernel_layout_matmul(device const unsigned char* a [[buffer(0)]],
                                  constant uint* params [[buffer(4)]], uint index [[thread_position_in_grid]]) {
     float sum = layout_matmul_dot(a, b, layouts, params, index);
     storage_write_bits(output, index, params[4], as_type<uint>(sum));
+}
+
+kernel void kernel_layout_index_select(device const unsigned char* input [[buffer(0)]],
+                                       device unsigned char* output [[buffer(1)]],
+                                       device const ulong* layouts [[buffer(2)]],
+                                       constant uint* params [[buffer(3)]], uint index [[thread_position_in_grid]]) {
+    uint row = index / params[3], selected = uint(layouts[params[1] + 2 + row % params[4]]);
+    uint logical = (row / params[4] * params[2] + selected) * params[3] + index % params[3];
+    layout_raw_copy(input, output, layout_address(layouts, params[0], logical), index, params[5]);
+}
+
+inline float layout_index_sum(device const unsigned char* updates, device const ulong* layouts,
+                               constant uint* params, uint other, uint group, float sum) {
+    uint start = params[2], count = uint(layouts[start]), groups = params[7];
+    uint offsets = start + 2 + count + groups, positions = offsets + groups + 1;
+    uint first = uint(layouts[offsets + group]), end = uint(layouts[offsets + group + 1]);
+    uint base = other / params[4] * count * params[4] + other % params[4];
+    for (uint position = first; position < end; position++) {
+        uint row = uint(layouts[positions + position]);
+        uint address = layout_address(layouts, params[1], base + row * params[4]);
+        sum += as_type<float>(storage_float_bits(updates, address, params[6]));
+    }
+    return sum;
+}
+
+kernel void kernel_layout_index_add(device unsigned char* target [[buffer(0)]],
+                                    device const unsigned char* updates [[buffer(1)]],
+                                    device const ulong* layouts [[buffer(2)]],
+                                    constant uint* params [[buffer(3)]], uint index [[thread_position_in_grid]]) {
+    uint other = index / params[7], group = index % params[7], count = uint(layouts[params[2]]);
+    uint selected = uint(layouts[params[2] + 2 + count + group]);
+    uint logical = (other / params[4] * params[3] + selected) * params[4] + other % params[4];
+    uint address = layout_address(layouts, params[0], logical);
+    float initial = as_type<float>(storage_float_bits(target, address, params[5]));
+    float sum = layout_index_sum(updates, layouts, params, other, group, initial);
+    storage_write_bits(target, address, params[5], as_type<uint>(sum));
 }
 
 inline float layout_gelu(float x) {
@@ -1825,7 +1863,7 @@ static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
     return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions() error:nil];
 }
 
-static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
     ctx->layoutTransferPSO = makePSO(library, @"kernel_layout_transfer");
     ctx->layoutBinaryPSO = makePSO(library, @"kernel_layout_binary");
@@ -1835,6 +1873,12 @@ static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutSoftmaxPSO = makePSO(library, @"kernel_layout_softmax");
     ctx->layoutMaximumBackwardPSO = makePSO(library, @"kernel_layout_maximum_backward");
     ctx->layoutMatmulPSO = makePSO(library, @"kernel_layout_matmul");
+    ctx->layoutIndexSelectPSO = makePSO(library, @"kernel_layout_index_select");
+    ctx->layoutIndexAddPSO = makePSO(library, @"kernel_layout_index_add");
+}
+
+static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    initLayoutPipelines(ctx, library);
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
     ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
@@ -2061,6 +2105,8 @@ static constexpr int OP_LAYOUT_REDUCE = 67;
 static constexpr int OP_LAYOUT_SOFTMAX = 68;
 static constexpr int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
 static constexpr int OP_LAYOUT_MATMUL = 70;
+static constexpr int OP_LAYOUT_INDEX_SELECT = 71;
+static constexpr int OP_LAYOUT_INDEX_ADD = 72;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -2812,6 +2858,122 @@ static void encodeLayoutMaximumBackward(GraphState& state, const jint* cmd, int 
     [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:4];
     bindValue(encoder, params, 5);
     dispatch1D(encoder, state.ctx->layoutMaximumBackwardPSO, params[7]);
+}
+
+struct IndexPlan {
+    uint32_t count, groups;
+    const jlong* indices;
+    const jlong* targets;
+    const jlong* offsets;
+    const jlong* positions;
+};
+
+static IndexPlan indexPlanHeader(const GraphLayoutWords& stream, int start) {
+    if (stream.words == nullptr || start < 0 || start > stream.count - 2) {
+        throw std::runtime_error("Missing GPU index metadata");
+    }
+    const jlong* words = stream.words + start;
+    uint32_t count = layoutWord(words[0]), groups = layoutWord(words[1]);
+    if (count == 0 || groups == 0 || groups > count ||
+        3 + 2ULL * count + 2ULL * groups > (uint64_t)(stream.count - start)) {
+        throw std::runtime_error("Invalid or truncated GPU index metadata");
+    }
+    const jlong* indices = words + 2;
+    return {count, groups, indices, indices + count, indices + count + groups,
+            indices + count + 2 * groups + 1};
+}
+
+static void validateIndexGroup(const IndexPlan& plan, uint32_t group, std::vector<bool>& seen) {
+    uint32_t first = layoutWord(plan.offsets[group]), end = layoutWord(plan.offsets[group + 1]);
+    if (first >= end || end > plan.count) throw std::runtime_error("Invalid GPU index group bounds");
+    int64_t previous = -1;
+    for (uint32_t position = first; position < end; position++) {
+        uint32_t source = layoutWord(plan.positions[position]);
+        if (source >= plan.count || seen[source] || source <= previous ||
+            plan.indices[source] != plan.targets[group]) {
+            throw std::runtime_error("GPU index groups must preserve each source position once in order");
+        }
+        seen[source] = true;
+        previous = source;
+    }
+}
+
+static IndexPlan requireIndexPlan(const GraphLayoutWords& stream, int start, uint32_t width) {
+    auto plan = indexPlanHeader(stream, start);
+    for (uint32_t index = 0; index < plan.count; index++) {
+        if (layoutWord(plan.indices[index]) >= width) throw std::runtime_error("GPU index out of range");
+    }
+    std::vector<jlong> targets(plan.targets, plan.targets + plan.groups);
+    std::sort(targets.begin(), targets.end());
+    if (targets.front() < 0 || targets.back() >= width ||
+        std::adjacent_find(targets.begin(), targets.end()) != targets.end() ||
+        plan.offsets[0] != 0 || plan.offsets[plan.groups] != plan.count) {
+        throw std::runtime_error("Invalid GPU index destinations or coverage");
+    }
+    std::vector<bool> seen(plan.count, false);
+    for (uint32_t group = 0; group < plan.groups; group++) {
+        validateIndexGroup(plan, group, seen);
+    }
+    return plan;
+}
+
+static uint32_t indexTrailing(const LogicalLayout& layout, int axis) {
+    if (axis < 0 || (uint32_t)axis >= layout.rank) throw std::runtime_error("Invalid GPU index axis");
+    uint32_t trailing = 1;
+    for (uint32_t next = axis + 1; next < layout.rank; next++) {
+        trailing *= layout.axes[next];
+    }
+    return trailing;
+}
+
+static std::array<uint32_t, 7> layoutIndexSelectParams(GraphState& state, const jint* cmd, int pos) {
+    int input = cmd[pos + 1], output = cmd[pos + 2], dtype = gBufferDTypes.at(input);
+    auto source = requireLogicalLayout(state.layouts, cmd[pos + 3], requireStorageBuffer(input, "gather"), dtype);
+    uint32_t trailing = indexTrailing(source, cmd[pos + 5]), width = source.axes[cmd[pos + 5]];
+    auto plan = requireIndexPlan(state.layouts, cmd[pos + 4], width);
+    uint64_t count = (uint64_t)(source.count / width) * plan.count;
+    if (input == output || gBufferDTypes.at(output) != dtype || count > INT32_MAX ||
+        [requireStorageBuffer(output, "gather output") length] != count * (dtype == 1 ? 4 : 2)) {
+        throw std::runtime_error("Invalid typed GPU gather output");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], width, trailing, plan.count,
+            (uint32_t)dtype, (uint32_t)count};
+}
+
+static void encodeLayoutIndexSelect(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutIndexSelectParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutIndexSelectPSO, requireStorageBuffer(cmd[pos + 1], "gather"),
+                     requireStorageBuffer(cmd[pos + 2], "gather"), params, params[6]);
+}
+
+static void requireIndexUpdateShape(const LogicalLayout& target, const LogicalLayout& updates,
+                                    uint32_t axis, uint32_t count) {
+    if (target.rank != updates.rank) throw std::runtime_error("Indexed updates must match target rank");
+    for (uint32_t dimension = 0; dimension < target.rank; dimension++) {
+        uint32_t expected = dimension == axis ? count : target.axes[dimension];
+        if (updates.axes[dimension] != expected) throw std::runtime_error("Invalid indexed update shape");
+    }
+    requireWritableLayout(target);
+}
+
+static std::array<uint32_t, 9> layoutIndexAddParams(GraphState& state, const jint* cmd, int pos) {
+    int target = cmd[pos + 1], input = cmd[pos + 2], dtype = gBufferDTypes.at(target), from = gBufferDTypes.at(input);
+    auto output = requireLogicalLayout(state.layouts, cmd[pos + 3], requireStorageBuffer(target, "scatter"), dtype);
+    auto updates = requireLogicalLayout(state.layouts, cmd[pos + 4], requireStorageBuffer(input, "scatter"), from);
+    uint32_t trailing = indexTrailing(output, cmd[pos + 6]), width = output.axes[cmd[pos + 6]];
+    auto plan = requireIndexPlan(state.layouts, cmd[pos + 5], width);
+    requireIndexUpdateShape(output, updates, cmd[pos + 6], plan.count);
+    if (target == input || (dtype != 1 && from != dtype)) {
+        throw std::runtime_error("Indexed updates require an alias snapshot and cannot narrow dtype");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], width, trailing,
+            (uint32_t)dtype, (uint32_t)from, plan.groups, output.count / width * plan.groups};
+}
+
+static void encodeLayoutIndexAdd(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutIndexAddParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutIndexAddPSO, requireStorageBuffer(cmd[pos + 1], "scatter"),
+                     requireStorageBuffer(cmd[pos + 2], "scatter"), params, params[8]);
 }
 
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
@@ -3774,6 +3936,8 @@ static int layoutCommandWidth(int op) {
     if (op == OP_LAYOUT_ASSIGN) return 5;
     if (op == OP_LAYOUT_SOFTMAX) return 6;
     if (op == OP_LAYOUT_MATMUL) return 6;
+    if (op == OP_LAYOUT_INDEX_SELECT) return 6;
+    if (op == OP_LAYOUT_INDEX_ADD) return 7;
     if (op == OP_LAYOUT_MAXIMUM_BACKWARD) return 10;
     throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
 }
@@ -3860,6 +4024,8 @@ static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_LAYOUT_SOFTMAX) encodeLayoutSoftmax(state, cmd, pos);
     else if (op == OP_LAYOUT_MAXIMUM_BACKWARD) encodeLayoutMaximumBackward(state, cmd, pos);
     else if (op == OP_LAYOUT_MATMUL) encodeLayoutMatmul(state, cmd, pos);
+    else if (op == OP_LAYOUT_INDEX_SELECT) encodeLayoutIndexSelect(state, cmd, pos);
+    else if (op == OP_LAYOUT_INDEX_ADD) encodeLayoutIndexAdd(state, cmd, pos);
     else return false;
     return true;
 }

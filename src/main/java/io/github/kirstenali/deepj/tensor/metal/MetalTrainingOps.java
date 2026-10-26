@@ -212,6 +212,10 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     @Override
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
         validateScatterAddRowsInputs(target, indices, grad);
+        if (!MetalDenseOps.matrix(target) || !MetalDenseOps.matrix(grad)) {
+            graph.layoutIndexAdd(target, 0, indices, grad);
+            return;
+        }
         if (indices.length == 0) return;
 
         Tensor indexTensor = immutableIntColumn(indices);

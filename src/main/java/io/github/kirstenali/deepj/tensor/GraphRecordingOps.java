@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.tensor;
 
-abstract class GraphRecordingOps extends GraphSliceRecordingOps {
+abstract class GraphRecordingOps extends GraphIndexRecordingOps {
     GraphRecordingOps(GpuRuntime runtime) {
         super(runtime);
     }
