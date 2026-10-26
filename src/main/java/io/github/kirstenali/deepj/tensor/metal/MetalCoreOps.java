@@ -44,6 +44,11 @@ abstract class MetalCoreOps implements TensorBackend {
     }
 
     @Override
+    public Tensor zeros(DType dtype, int... shape) {
+        return graph.zeroToDevice(dtype, shape);
+    }
+
+    @Override
     public Tensor copy(Tensor source) {
         return graph.copyToDevice(source);
     }
@@ -51,6 +56,11 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor cast(Tensor input, DType dtype) {
         return graph.castToDevice(input, dtype);
+    }
+
+    @Override
+    public void copyInto(Tensor target, Tensor source) {
+        graph.assignToDevice(target, source);
     }
 
     static void markNeedsUpload(Tensor t) {
@@ -183,6 +193,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor add(Tensor a, Tensor b) {
+        if (!MetalDenseOps.sameMatrices(a, b)) return graph.layoutBinary(a, b, ComputeGraph.OP_ADD);
         Tensor.requireSameShape(a, b, "add");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
@@ -192,6 +203,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor subtract(Tensor a, Tensor b) {
+        if (!MetalDenseOps.sameMatrices(a, b)) return graph.layoutBinary(a, b, ComputeGraph.OP_SUBTRACT);
         Tensor.requireSameShape(a, b, "subtract");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
@@ -201,6 +213,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor multiply(Tensor a, Tensor b) {
+        if (!MetalDenseOps.sameMatrices(a, b)) return graph.layoutBinary(a, b, ComputeGraph.OP_MULTIPLY);
         Tensor.requireSameShape(a, b, "multiply");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
@@ -210,6 +223,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor divide(Tensor a, Tensor b) {
+        if (!MetalDenseOps.sameMatrices(a, b)) return graph.layoutBinary(a, b, ComputeGraph.OP_DIVIDE);
         Tensor.requireSameShape(a, b, "divide");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
@@ -220,6 +234,7 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor addRowVector(Tensor a, Tensor v) {
         requireRowVector(v, a);
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(v)) return graph.layoutBinary(a, v, ComputeGraph.OP_ADD);
         GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordRowBroadcast(ComputeGraph.OP_ADD_ROW_VECTOR, ga, gv, gOut, a.matrixRows(), a.matrixCols());
@@ -229,6 +244,7 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor addBroadcastCols(Tensor a, Tensor v) {
         requireColVector(v, a);
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(v)) return graph.layoutBinary(a, v, ComputeGraph.OP_ADD);
         GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordColBroadcast(ComputeGraph.OP_ADD_BROADCAST_COLS, ga, gv, gOut, a.matrixRows(), a.matrixCols());
@@ -238,6 +254,9 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor divideBroadcastCols(Tensor a, Tensor v) {
         requireColVector(v, a);
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(v)) {
+            return graph.layoutBinary(a, v, ComputeGraph.OP_DIVIDE);
+        }
         GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordColBroadcast(ComputeGraph.OP_DIVIDE_BROADCAST_COLS, ga, gv, gOut, a.matrixRows(), a.matrixCols());
@@ -247,6 +266,9 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor subtractBroadcastCols(Tensor a, Tensor v) {
         requireColVector(v, a);
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(v)) {
+            return graph.layoutBinary(a, v, ComputeGraph.OP_SUBTRACT);
+        }
         GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordColBroadcast(ComputeGraph.OP_SUBTRACT_BROADCAST_COLS, ga, gv, gOut, a.matrixRows(), a.matrixCols());
@@ -256,6 +278,9 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor multiplyBroadcastCols(Tensor a, Tensor v) {
         requireColVector(v, a);
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(v)) {
+            return graph.layoutBinary(a, v, ComputeGraph.OP_MULTIPLY);
+        }
         GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordColBroadcast(ComputeGraph.OP_MULTIPLY_BROADCAST_COLS, ga, gv, gOut, a.matrixRows(), a.matrixCols());
@@ -270,6 +295,9 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor multiplyBroadcastRows(Tensor a, Tensor v) {
         requireRowVector(v, a);
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(v)) {
+            return graph.layoutBinary(a, v, ComputeGraph.OP_MULTIPLY);
+        }
         GpuBuffer ga = gpuIn(a), gv = gpuIn(v);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordRowBroadcast(ComputeGraph.OP_MULTIPLY_BROADCAST_ROWS, ga, gv, gOut, a.matrixRows(), a.matrixCols());

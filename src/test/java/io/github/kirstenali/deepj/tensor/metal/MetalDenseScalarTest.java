@@ -30,7 +30,8 @@ class MetalDenseScalarTest extends MetalDifferentialTestSupport {
         assertScalars(empty);
         assertScalars(new Tensor(0, 3));
         assertScalars(new Tensor(2, 0));
-        assertThrows(UnsupportedOperationException.class, () -> metal.addScalar(new Tensor(DType.FLOAT16, 3), 1));
+        assertScalars(new Tensor(DType.FLOAT16, 3));
+        assertScalars(new Tensor(DType.BFLOAT16, 3));
     }
 
     private void assertScalars(Tensor input) {

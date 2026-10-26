@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 struct MetalContext {
     id<MTLDevice>       device;
@@ -19,6 +20,9 @@ struct MetalContext {
     id<MTLComputePipelineState> addPSO;
     id<MTLComputePipelineState> storageCopyPSO;
     id<MTLComputePipelineState> layoutTransferPSO;
+    id<MTLComputePipelineState> layoutBinaryPSO;
+    id<MTLComputePipelineState> layoutUnaryPSO;
+    id<MTLComputePipelineState> layoutAssignPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -470,6 +474,87 @@ kernel void kernel_layout_transfer(device const unsigned char* input [[buffer(0)
     uint address = layout_address(layouts, params.x, id);
     if (params.y == params.z) layout_raw_copy(input, output, address, id, params.y);
     else storage_write_bits(output, id, params.z, storage_float_bits(input, address, params.y));
+}
+
+inline float layout_gelu(float x) {
+    float t = 0.7978845608f * (x + 0.044715f * x * x * x);
+    return 0.5f * x * (1.0f + tanh(t));
+}
+
+inline float layout_gelu_gradient(float x, float gradient) {
+    float x2 = x * x, t = 0.7978845608f * (x + 0.044715f * x2 * x);
+    float tanhT = tanh(t), sech2 = 1.0f - tanhT * tanhT;
+    float derivative = 0.7978845608f * (1.0f + 3.0f * 0.044715f * x2);
+    return gradient * (0.5f * (1.0f + tanhT) + 0.5f * x * sech2 * derivative);
+}
+
+inline float layout_binary_value(float a, float b, uint operation) {
+    switch (operation) {
+        case 1: return a + b;
+        case 2: return a - b;
+        case 3: return a * b;
+        case 4: return a / b;
+        case 14: return a > 0.0f ? b : 0.0f;
+        default: return layout_gelu_gradient(a, b);
+    }
+}
+
+inline float layout_activation_value(float x, uint operation) {
+    switch (operation) {
+        case 9: return exp(x);
+        case 10: return log(x);
+        case 11: return tanh(x);
+        case 12: return 1.0f / (1.0f + exp(-x));
+        case 13: return max(0.0f, x);
+        default: return layout_gelu(x);
+    }
+}
+
+inline float layout_unary_value(float x, uint operation, float first, float second) {
+    switch (operation) {
+        case 6: return x * first;
+        case 7: return sqrt(x);
+        case 8: return -x;
+        case 21: return x + first;
+        case 22: return x / first;
+        case 35: return min(second, max(first, x));
+        case 36: return pow(x, first);
+        default: return layout_activation_value(x, operation);
+    }
+}
+
+kernel void kernel_layout_binary(device const unsigned char* a [[buffer(0)]],
+                                 device const unsigned char* b [[buffer(1)]],
+                                 device unsigned char* output [[buffer(2)]],
+                                 device const ulong* layouts [[buffer(3)]],
+                                 constant uint* params [[buffer(4)]],
+                                 uint index [[thread_position_in_grid]]) {
+    uint first = layout_address(layouts, params[0], index), second = layout_address(layouts, params[1], index);
+    float left = as_type<float>(storage_float_bits(a, first, params[2]));
+    float right = as_type<float>(storage_float_bits(b, second, params[3]));
+    float result = layout_binary_value(left, right, params[5]);
+    storage_write_bits(output, index, params[4], as_type<uint>(result));
+}
+
+kernel void kernel_layout_unary(device const unsigned char* input [[buffer(0)]],
+                                device unsigned char* output [[buffer(1)]],
+                                device const ulong* layouts [[buffer(2)]],
+                                constant uint* params [[buffer(3)]],
+                                uint index [[thread_position_in_grid]]) {
+    uint address = layout_address(layouts, params[0], index);
+    float value = as_type<float>(storage_float_bits(input, address, params[1]));
+    float result = layout_unary_value(value, params[2], as_type<float>(params[3]), as_type<float>(params[4]));
+    storage_write_bits(output, index, params[1], as_type<uint>(result));
+}
+
+kernel void kernel_layout_assign(device const unsigned char* input [[buffer(0)]],
+                                 device unsigned char* output [[buffer(1)]],
+                                 device const ulong* layouts [[buffer(2)]],
+                                 constant uint4& params [[buffer(3)]],
+                                 uint index [[thread_position_in_grid]]) {
+    uint source = layout_address(layouts, params.x, index), target = layout_address(layouts, params.y, index);
+    if (params.z == params.w) layout_raw_copy(input, output, source, target, params.z);
+    else storage_write_bits(output, target, params.w, storage_float_bits(input, source, params.z));
 }
 
 kernel void kernel_storage_copy(device const unsigned char* input [[buffer(0)]],
@@ -1576,6 +1661,9 @@ static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
     ctx->layoutTransferPSO = makePSO(library, @"kernel_layout_transfer");
+    ctx->layoutBinaryPSO = makePSO(library, @"kernel_layout_binary");
+    ctx->layoutUnaryPSO = makePSO(library, @"kernel_layout_unary");
+    ctx->layoutAssignPSO = makePSO(library, @"kernel_layout_assign");
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
     ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
@@ -1795,6 +1883,9 @@ static constexpr int OP_HEAD_CACHE_WRITE = 60;
 static constexpr int OP_HEAD_PREFIX_MATMUL = 61;
 static constexpr int OP_STORAGE_COPY = 62;
 static constexpr int OP_LAYOUT_TRANSFER = 63;
+static constexpr int OP_LAYOUT_BINARY = 64;
+static constexpr int OP_LAYOUT_UNARY = 65;
+static constexpr int OP_LAYOUT_ASSIGN = 66;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -2324,18 +2415,119 @@ static std::array<uint32_t, 4> layoutTransferParams(GraphState& state, const jin
     return {(uint32_t)cmd[pos + 3], (uint32_t)sourceType, (uint32_t)targetType, layout.count};
 }
 
-static void encodeLayoutTransfer(GraphState& state, const jint* cmd, int pos) {
-    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout transfer");
-    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout transfer");
-    auto params = layoutTransferParams(state, cmd, pos, input, output);
+template <typename T>
+static void encodeLayoutPair(GraphState& state, id<MTLComputePipelineState> pipeline,
+                             id<MTLBuffer> input, id<MTLBuffer> output, const T& params, uint32_t count) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
-    [encoder setComputePipelineState:state.ctx->layoutTransferPSO];
+    [encoder setComputePipelineState:pipeline];
     [encoder setBuffer:input offset:0 atIndex:0];
     [encoder setBuffer:output offset:0 atIndex:1];
     [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:2];
     bindValue(encoder, params, 3);
-    dispatch1D(encoder, state.ctx->layoutTransferPSO, params[3]);
+    dispatch1D(encoder, pipeline, count);
+}
+
+static void encodeLayoutTransfer(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout transfer");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout transfer");
+    auto params = layoutTransferParams(state, cmd, pos, input, output);
+    encodeLayoutPair(state, state.ctx->layoutTransferPSO, input, output, params, params[3]);
+}
+
+static void requireSameLayoutShape(const LogicalLayout& first, const LogicalLayout& second) {
+    if (first.rank != second.rank || first.count != second.count ||
+        !std::equal(first.axes, first.axes + first.rank, second.axes)) {
+        throw std::runtime_error("GPU operand layout shapes must match");
+    }
+}
+
+static void requireWritableLayout(const LogicalLayout& layout) {
+    std::vector<std::pair<uint64_t, uint32_t>> axes;
+    for (uint32_t axis = 0; axis < layout.rank; axis++) {
+        if (layout.axes[axis] > 1) axes.emplace_back(layout.axes[layout.rank + axis], layout.axes[axis]);
+    }
+    std::sort(axes.begin(), axes.end());
+    uint64_t span = 1;
+    for (auto [stride, dimension] : axes) {
+        if (stride < span) throw std::runtime_error("Overlapping GPU output layouts cannot be written");
+        span += (dimension - 1) * stride;
+    }
+}
+
+static std::array<uint32_t, 5> layoutAssignParams(GraphState& state, const jint* cmd, int pos,
+                                                id<MTLBuffer> input, id<MTLBuffer> output) {
+    if (cmd[pos + 1] == cmd[pos + 2]) throw std::runtime_error("GPU assignment requires an alias snapshot");
+    int sourceType = gBufferDTypes.at(cmd[pos + 1]), targetType = gBufferDTypes.at(cmd[pos + 2]);
+    auto source = requireLogicalLayout(state.layouts, cmd[pos + 3], input, sourceType);
+    auto target = requireLogicalLayout(state.layouts, cmd[pos + 4], output, targetType);
+    requireSameLayoutShape(source, target);
+    requireWritableLayout(target);
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], (uint32_t)sourceType,
+            (uint32_t)targetType, source.count};
+}
+
+static void encodeLayoutAssign(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout assign");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout assign");
+    auto params = layoutAssignParams(state, cmd, pos, input, output);
+    encodeLayoutPair(state, state.ctx->layoutAssignPSO, input, output, params, params[4]);
+}
+
+static void requireLayoutBinaryOperation(int operation) {
+    if (operation >= OP_ADD && operation <= OP_DIVIDE) return;
+    if (operation == OP_RELU_BACKWARD || operation == OP_GELU_BACKWARD) return;
+    throw std::runtime_error("Invalid GPU layout binary operation");
+}
+
+static void requireLayoutUnaryOperation(int operation) {
+    if (operation >= OP_MULTIPLY_SCALAR && operation <= OP_RELU) return;
+    if (operation == OP_GELU || operation == OP_ADD_SCALAR || operation == OP_DIVIDE_SCALAR ||
+        operation == OP_CLAMP || operation == OP_POW) return;
+    throw std::runtime_error("Invalid GPU layout unary operation");
+}
+
+static std::array<uint32_t, 6> layoutUnaryParams(GraphState& state, const jint* cmd, int pos,
+                                               id<MTLBuffer> input, id<MTLBuffer> output) {
+    requireLayoutUnaryOperation(cmd[pos + 4]);
+    auto transfer = layoutTransferParams(state, cmd, pos, input, output);
+    if (transfer[1] != transfer[2]) throw std::runtime_error("GPU unary output must retain input dtype");
+    return {transfer[0], transfer[1], (uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
+            (uint32_t)cmd[pos + 6], transfer[3]};
+}
+
+static void encodeLayoutUnary(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout unary");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout unary");
+    auto params = layoutUnaryParams(state, cmd, pos, input, output);
+    encodeLayoutPair(state, state.ctx->layoutUnaryPSO, input, output, params, params[5]);
+}
+
+static std::array<uint32_t, 7> layoutBinaryParams(GraphState& state, const jint* cmd, int pos) {
+    requireLayoutBinaryOperation(cmd[pos + 6]);
+    int a = cmd[pos + 1], b = cmd[pos + 2], out = cmd[pos + 3];
+    if (a == out || b == out) throw std::runtime_error("GPU binary output must be independent");
+    int at = gBufferDTypes.at(a), bt = gBufferDTypes.at(b), ot = gBufferDTypes.at(out);
+    auto first = requireLogicalLayout(state.layouts, cmd[pos + 4], requireStorageBuffer(a, "binary"), at);
+    auto second = requireLogicalLayout(state.layouts, cmd[pos + 5], requireStorageBuffer(b, "binary"), bt);
+    requireSameLayoutShape(first, second);
+    if (ot != (at == bt ? at : 1) || storageBytes((int)first.count, ot) !=
+        [requireStorageBuffer(out, "binary output") length]) throw std::runtime_error("Invalid GPU binary output");
+    return {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], (uint32_t)at, (uint32_t)bt,
+            (uint32_t)ot, (uint32_t)cmd[pos + 6], first.count};
+}
+
+static void encodeLayoutBinary(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutBinaryParams(state, cmd, pos);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->layoutBinaryPSO];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 1], "binary") offset:0 atIndex:0];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 2], "binary") offset:0 atIndex:1];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 3], "binary") offset:0 atIndex:2];
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    bindValue(encoder, params, 4);
+    dispatch1D(encoder, state.ctx->layoutBinaryPSO, params[6]);
 }
 
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
@@ -3156,9 +3348,16 @@ static int attentionCommandWidth(int op) {
     throw std::runtime_error("Unknown attention op code: " + std::to_string(op));
 }
 
-static int commandWidth(int op) {
+static int layoutCommandWidth(int op) {
     if (op == OP_STORAGE_COPY) return 6;
     if (op == OP_LAYOUT_TRANSFER) return 4;
+    if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY) return 7;
+    if (op == OP_LAYOUT_ASSIGN) return 5;
+    throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
+}
+
+static int commandWidth(int op) {
+    if (op >= OP_STORAGE_COPY) return layoutCommandWidth(op);
     if (op >= OP_TILED_CAUSAL_ATTENTION) return attentionCommandWidth(op);
     if (isUnaryOp(op) || op == OP_SUM_SQUARES_SCALAR) return 4;
     if (isFiveWidthOp(op)) return 5;
@@ -3228,15 +3427,19 @@ static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
     return true;
 }
 
+static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
+    int op = cmd[pos];
+    if (op == OP_STORAGE_COPY) encodeStorageCopy(state, cmd, pos);
+    else if (op == OP_LAYOUT_TRANSFER) encodeLayoutTransfer(state, cmd, pos);
+    else if (op == OP_LAYOUT_BINARY) encodeLayoutBinary(state, cmd, pos);
+    else if (op == OP_LAYOUT_UNARY) encodeLayoutUnary(state, cmd, pos);
+    else if (op == OP_LAYOUT_ASSIGN) encodeLayoutAssign(state, cmd, pos);
+    else return false;
+    return true;
+}
+
 static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
-    if (cmd[pos] == OP_LAYOUT_TRANSFER) {
-        encodeLayoutTransfer(state, cmd, pos);
-        return;
-    }
-    if (cmd[pos] == OP_STORAGE_COPY) {
-        encodeStorageCopy(state, cmd, pos);
-        return;
-    }
+    if (encodeLayoutCommand(state, cmd, pos)) return;
     if (encodeBasicCommand(state, cmd, pos)) return;
     if (encodeSpecialCommand(state, cmd, pos)) return;
     throw std::runtime_error("Unknown op code in graph: " + std::to_string(cmd[pos]));

@@ -121,6 +121,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor clamp(Tensor a, float min, float max) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_CLAMP, min, max);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordClamp(ga, gOut, min, max);
@@ -129,6 +130,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor pow(Tensor a, float exponent) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_POW, exponent, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordPow(ga, gOut, exponent);
@@ -137,6 +139,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor sqrt(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_SQRT, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_SQRT, ga, gOut);
@@ -145,6 +148,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor neg(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_NEG, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_NEG, ga, gOut);
@@ -153,6 +157,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor exp(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_EXP, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_EXP, ga, gOut);
@@ -161,6 +166,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor log(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_LOG, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_LOG, ga, gOut);
@@ -169,6 +175,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor tanh(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_TANH, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_TANH, ga, gOut);
@@ -177,6 +184,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor sigmoid(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_SIGMOID, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_SIGMOID, ga, gOut);
@@ -185,6 +193,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor relu(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_RELU, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_RELU, ga, gOut);
@@ -193,6 +202,10 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor reluBackward(Tensor input, Tensor gradOutput) {
+        if (!MetalDenseOps.sameMatrices(input, gradOutput)) {
+            Tensor.requireSameShape(input, gradOutput, "reluBackward");
+            return graph.layoutBinary(input, gradOutput, ComputeGraph.OP_RELU_BACKWARD);
+        }
         GpuBuffer gi = gpuIn(input), gg = gpuIn(gradOutput);
         GpuBuffer gOut = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordBinary(ComputeGraph.OP_RELU_BACKWARD, gi, gg, gOut);
@@ -201,6 +214,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor gelu(Tensor a) {
+        if (!MetalDenseOps.matrix(a)) return graph.layoutUnary(a, ComputeGraph.OP_GELU, 0, 0);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_GELU, ga, gOut);
@@ -209,6 +223,10 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor geluBackward(Tensor input, Tensor gradOutput) {
+        if (!MetalDenseOps.sameMatrices(input, gradOutput)) {
+            Tensor.requireSameShape(input, gradOutput, "geluBackward");
+            return graph.layoutBinary(input, gradOutput, ComputeGraph.OP_GELU_BACKWARD);
+        }
         GpuBuffer gi = gpuIn(input), gg = gpuIn(gradOutput);
         GpuBuffer gOut = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordBinary(ComputeGraph.OP_GELU_BACKWARD, gi, gg, gOut);

@@ -28,10 +28,24 @@ abstract class GraphLayoutRecordingOps extends GraphCore {
         return createOutputTensor(output, input.shape());
     }
 
-    private void requireLayoutSupport() {
+    final void requireLayoutSupport() {
         if (!runtime.supportsLayouts()) {
             throw new UnsupportedOperationException("Runtime does not support GPU layout descriptors");
         }
+    }
+
+    final GpuBuffer layoutOutput(DType dtype, int... shape) {
+        int count = new TensorShape(shape).elements();
+        int rows = shape.length == 2 ? shape[0] : 1;
+        return newOutputBuffer(rows, count / rows, dtype);
+    }
+
+    public Tensor zeroToDevice(DType dtype, int... shape) {
+        Objects.requireNonNull(dtype, "dtype");
+        int count = new TensorShape(shape).elements();
+        if (count == 0) return Tensor.deviceOnly(dtype, shape);
+        int rows = shape.length == 2 ? shape[0] : 1;
+        return createOutputTensor(newZeroBuffer(rows, count / rows, dtype), shape);
     }
 
     public Tensor castToDevice(Tensor input, DType dtype) {
