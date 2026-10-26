@@ -6,7 +6,7 @@ import io.github.kirstenali.deepj.autograd.ActivationOps;
 public final class Softmax implements ActivationFunction {
     @Override
     public Tensor forward(Tensor input) {
-        return input.softmaxRows();
+        return input.rank() == 2 ? input.softmaxRows() : input.softmax(-1);
     }
 
     public Tensor forwardCausal(Tensor logits, int sequenceLength, float scale) {

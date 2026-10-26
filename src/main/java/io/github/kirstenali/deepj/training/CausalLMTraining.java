@@ -40,6 +40,10 @@ public final class CausalLMTraining {
     }
 
     private static float accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
+        if (batchSize > 1 && model.supportsBatchedForward()) {
+            BatchedCausalLoss.requireBatch(batch, batchSize);
+            return backwardAndLoss(BatchedCausalLoss.sum(model.forwardBatch(batch.x()), batch, batchSize));
+        }
         float lossSum = 0.0f;
 
         for (int b = 0; b < batchSize; b++) {
@@ -53,7 +57,10 @@ public final class CausalLMTraining {
     }
 
     private static float backwardAndLoss(Tensor logits, int[] targets, boolean[] mask) {
-        Tensor loss = CrossEntropyLoss.forward(logits, targets, mask);
+        return backwardAndLoss(CrossEntropyLoss.forward(logits, targets, mask));
+    }
+
+    private static float backwardAndLoss(Tensor loss) {
         if (loss.requiresGrad()) loss.backward();
         return loss.item();
     }

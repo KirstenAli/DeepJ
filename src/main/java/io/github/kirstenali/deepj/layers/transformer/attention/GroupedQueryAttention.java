@@ -7,6 +7,7 @@ import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.SequenceLayout;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 
 import java.util.List;
@@ -35,7 +36,7 @@ public final class GroupedQueryAttention implements Layer {
 
     @Override
     public Tensor forward(Tensor input) {
-        int length = input.matrixRows();
+        int length = SequenceLayout.length(input);
         Tensor queries = transform(queryNorm, query.forward(input), length, config.nHeads());
         Tensor keys = transform(keyNorm, key.forward(input), length, config.kvHeads());
         Tensor values = HeadOps.splitHeads(value.forward(input), config.kvHeads());
@@ -70,7 +71,7 @@ public final class GroupedQueryAttention implements Layer {
 
     private Tensor cachedTransform(HeadNormalization norm, Tensor projection, int heads, InferenceContext context) {
         Tensor split = norm.forward(HeadOps.splitHeads(projection, heads));
-        return context.rotate(rotary, split, projection.matrixRows(), heads);
+        return context.rotate(rotary, split, SequenceLayout.length(projection), heads);
     }
 
     @Override

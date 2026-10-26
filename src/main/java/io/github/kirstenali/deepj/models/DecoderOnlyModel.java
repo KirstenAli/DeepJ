@@ -73,6 +73,8 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
     protected Tensor embed(int[] inputIds, int offset) { return embed(inputIds); }
 
+    protected Tensor embedBatch(int[][] inputIds) { return tokEmb.forwardBatch(inputIds); }
+
     protected boolean supportsCachedGeneration() { return false; }
 
     protected boolean supportsRollingGeneration() { return false; }
@@ -111,10 +113,31 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
     @Override
     public Tensor forward(int[] inputIds) {
-        Tensor x = embed(inputIds);
-        x = stack.forward(x);
-        x = normF.forward(x);
-        return lmHead.forward(x);
+        requireLength(inputIds.length);
+        Tensor matrix = embed(inputIds);
+        Tensor logits = forwardEmbedded(matrix.reshape(1, inputIds.length, config().dModel()));
+        return logits.reshape(inputIds.length, config().vocabSize());
+    }
+
+    @Override public final boolean supportsBatchedForward() { return true; }
+
+    @Override
+    public Tensor forwardBatch(int[][] inputIds) {
+        if (inputIds == null || inputIds.length == 0 || inputIds[0] == null) {
+            throw new IllegalArgumentException("A model batch must contain nonempty token sequences");
+        }
+        requireLength(inputIds[0].length);
+        return forwardEmbedded(embedBatch(inputIds));
+    }
+
+    private Tensor forwardEmbedded(Tensor input) {
+        return lmHead.forward(normF.forward(stack.forward(input)));
+    }
+
+    private void requireLength(int length) {
+        if (length < 1 || length > config().maxSeqLen()) {
+            throw new IllegalArgumentException("Sequence length exceeds the configured model context");
+        }
     }
 
     @Override

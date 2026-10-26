@@ -47,6 +47,13 @@ public final class DeepJOrigin extends DecoderOnlyModel {
     }
 
     @Override
+    protected Tensor embedBatch(int[][] inputIds) {
+        Tensor embedded = super.embedBatch(inputIds);
+        Tensor positions = posEmb.forward(embedded.size(1)).reshape(1, embedded.size(1), cfg.dModel());
+        return embedded.add(positions);
+    }
+
+    @Override
     protected List<Parameter> embeddingParameters() {
         List<Parameter> ps = new ArrayList<>(tokEmb.parameters());
         ps.addAll(posEmb.parameters());

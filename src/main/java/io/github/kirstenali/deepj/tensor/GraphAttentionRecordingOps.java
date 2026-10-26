@@ -40,7 +40,7 @@ abstract class GraphAttentionRecordingOps extends GraphAdvancedRecordingOps {
         beginOp(10);
         emitInt(OP_TILED_CAUSAL_ATTENTION);
         emitBuffers(query, key, value, output, normalization);
-        emitInt(query.rows);
+        emitInt(output.rows);
         emitInt(queryHeads);
         emitInt(keyValueHeads);
         emitFloatBits(scale);
@@ -62,7 +62,7 @@ abstract class GraphAttentionRecordingOps extends GraphAdvancedRecordingOps {
         beginOp(15);
         emitInt(OP_TILED_CAUSAL_ATTENTION_BACKWARD);
         emitBuffers(query, key, value, output, gradient, normalization, delta, dq, dk, dv);
-        emitInt(query.rows);
+        emitInt(dq.rows);
         emitInt(queryHeads);
         emitInt(keyValueHeads);
         emitFloatBits(scale);

@@ -27,6 +27,11 @@ public final class Embedding implements Trainable {
         return Tensor.sliceRows(weight.value, ids, dModel);
     }
 
+    public Tensor forwardBatch(int[][] sequences) {
+        TokenBatch batch = TokenBatch.from(sequences);
+        return forward(batch.tokens()).reshape(batch.batches(), batch.length(), dModel);
+    }
+
     public Parameter weight() {
         return weight;
     }

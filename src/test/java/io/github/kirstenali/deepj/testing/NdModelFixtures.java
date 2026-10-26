@@ -1,0 +1,30 @@
+package io.github.kirstenali.deepj.testing;
+
+import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.models.origin.*;
+import io.github.kirstenali.deepj.models.orbit.*;
+import io.github.kirstenali.deepj.models.prism.*;
+import io.github.kirstenali.deepj.models.nova.*;
+import io.github.kirstenali.deepj.models.loop.*;
+import java.util.stream.Stream;
+
+/** Small architecture-complete cases,including compact KV groups and repeated Loop visits. */
+public final class NdModelFixtures {
+    private NdModelFixtures() {}
+    public static Stream<String> families() { return Stream.of("origin", "orbit", "prism", "nova", "loop"); }
+
+    public static DecoderOnlyModel model(String family, long seed) {
+        return switch (family) {
+            case "origin" -> new DeepJOrigin(new DeepJOriginConfig(19, 8, 8, 2, 1, 16), seed);
+            case "orbit" -> new DeepJOrbit(new DeepJOrbitConfig(19, 8, 8, 2, 1, 16), seed);
+            case "prism" -> new DeepJPrism(new DeepJPrismConfig(19, 8, 8, 2, 1, 16, 4, 3), seed);
+            case "nova" -> new DeepJNova(new DeepJNovaConfig(19, 8, 8, 2, 1, 1, 16), seed);
+            case "loop" -> new DeepJLoop(new DeepJLoopConfig(19, 8, 8, 2, 1, 1, 1, 1, 2, 16), seed);
+            default -> throw new IllegalArgumentException(family);
+        };
+    }
+
+    public static int[][] inputs() { return new int[][]{{1, 2, 1, 3}, {4, 4, 2, 1}}; }
+    public static int[][] targets() { return new int[][]{{2, 1, 3, 5}, {4, 2, 1, 5}}; }
+    public static boolean[][] masks() { return new boolean[][]{{false, false, false, true}, {true, true, true, true}}; }
+}

@@ -12,6 +12,9 @@ public final class AttentionOps {
 
     public static Tensor causal(Tensor query, Tensor key, Tensor value,
                                  int queryHeads, int keyValueHeads, float scale) {
+        if (query.rank() == 4 || key.rank() == 4 || value.rank() == 4) {
+            return NdAttentionOps.causal(query, key, value, queryHeads, keyValueHeads, scale);
+        }
         requireLayout(query, key, value, queryHeads, keyValueHeads, scale);
         if (Tensor.backend() instanceof CausalAttentionBackend backend
                 && backend.supportsCausalAttention(query, key, value, queryHeads, keyValueHeads, scale)) {

@@ -4,6 +4,8 @@ import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.ProjectionOps;
+import io.github.kirstenali.deepj.tensor.SequenceLayout;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 
 import java.util.List;
@@ -53,11 +55,11 @@ public class MultiHeadSelfAttention implements Layer {
     public Tensor forward(Tensor x) {
         validateInput(x);
         Projections proj = projectInputs(x);
-        Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), x.matrixRows());
-        Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), x.matrixRows());
+        Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), SequenceLayout.length(x));
+        Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), SequenceLayout.length(x));
         Tensor values = HeadOps.splitHeads(proj.V, nHeads);
         Tensor context = attend(queries, keys, values);
-        return HeadOps.mergeHeads(context, nHeads).matmul(Wo.value);
+        return ProjectionOps.linear(HeadOps.mergeHeads(context, nHeads), Wo.value);
     }
 
     protected Tensor transformQueryKey(Tensor heads, int seqLen) {
@@ -81,25 +83,23 @@ public class MultiHeadSelfAttention implements Layer {
         validateInput(input);
         Projections projections = projectInputs(input);
         Tensor queries = transformQueryKey(HeadOps.splitHeads(projections.Q, nHeads),
-                input.matrixRows(), context);
+                SequenceLayout.length(input), context);
         Tensor keys = transformQueryKey(HeadOps.splitHeads(projections.K, nHeads),
-                input.matrixRows(), context);
+                SequenceLayout.length(input), context);
         Tensor values = HeadOps.splitHeads(projections.V, nHeads);
         Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
-        return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);
+        return ProjectionOps.linear(HeadOps.mergeHeads(attended, nHeads), Wo.value);
     }
 
     private void validateInput(Tensor x) {
-        if (x.matrixCols() != dModel) {
-            throw new IllegalArgumentException("Expected cols=" + dModel + " got " + x.matrixCols());
-        }
+        SequenceLayout.requireWidth(x, dModel);
     }
 
     private Projections projectInputs(Tensor x) {
         return new Projections(
-                x.matmul(Wq.value),
-                x.matmul(Wk.value),
-                x.matmul(Wv.value));
+                ProjectionOps.linear(x, Wq.value),
+                ProjectionOps.linear(x, Wk.value),
+                ProjectionOps.linear(x, Wv.value));
     }
 
     private Tensor attend(Tensor queries, Tensor keys, Tensor values) {

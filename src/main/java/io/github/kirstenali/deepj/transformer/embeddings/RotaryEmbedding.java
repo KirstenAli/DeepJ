@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.HeadLayout;
 import io.github.kirstenali.deepj.autograd.LayoutOps;
 import io.github.kirstenali.deepj.autograd.GradMode;
 
@@ -84,9 +85,20 @@ public final class RotaryEmbedding {
                     "seqLen must be in [1, " + cosTable.matrixRows() + "], got " + seqLen);
         }
         if (nHeads <= 0) throw new IllegalArgumentException("nHeads must be > 0");
+        if (tensor.rank() == 4) {
+            validateBatched(tensor, seqLen, nHeads);
+            return;
+        }
         if (tensor.matrixCols() != headDim) throw new IllegalArgumentException("Tensor width must equal headDim");
         if ((long) tensor.matrixRows() != (long) seqLen * nHeads) {
             throw new IllegalArgumentException("Tensor rows must equal seqLen * nHeads");
+        }
+    }
+
+    private void validateBatched(Tensor tensor, int seqLen, int nHeads) {
+        HeadLayout.require(tensor, nHeads);
+        if (tensor.size(2) != seqLen || tensor.size(3) != headDim) {
+            throw new IllegalArgumentException("Rotary time or head-width axis mismatch");
         }
     }
 }
