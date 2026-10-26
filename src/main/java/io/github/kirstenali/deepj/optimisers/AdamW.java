@@ -90,7 +90,8 @@ public final class AdamW implements ParameterOptimizer {
         return Tensor.backend().copy(tensor).retainDeviceBuffer();
     }
 
-    private void validateState(List<Parameter> params, State state) {
+    /** Checks a prospective checkpoint without changing parameters, counters or optimizer buffers. */
+    public void validateState(List<Parameter> params, State state) {
         if (state.step() < 0 || state.learningRate() <= 0) {
             throw new IllegalArgumentException("invalid AdamW state counters");
         }
