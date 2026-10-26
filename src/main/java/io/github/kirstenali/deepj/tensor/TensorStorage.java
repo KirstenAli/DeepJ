@@ -145,9 +145,7 @@ final class TensorStorage {
     }
 
     static void requireTargetsMatchRows(Tensor logits, int[] targets) {
-        if (targets.length == logits.matrixRows()) return;
-        throw new IllegalArgumentException(
-                "targets length " + targets.length + " must match logits rows " + logits.matrixRows());
+        CrossEntropyChecks.requireTargets(logits, targets);
     }
 
     private static void requireRow(Tensor tensor, int row) {

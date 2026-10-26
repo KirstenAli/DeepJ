@@ -5,6 +5,12 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 public final class LayoutOps {
     private LayoutOps() {}
 
+    public static Tensor indexSelect(Tensor input, int axis, int[] indices) {
+        int[] saved = indices.clone();
+        Tensor output = Tensor.backend().indexSelect(input, axis, saved);
+        return Autograd.recordSaved(output, new IndexSelectBackward(input, axis, saved), new Tensor[]{input});
+    }
+
     public static Tensor gather(Tensor input, int[] indices) {
         int[] saved = indices.clone();
         Tensor output = Tensor.backend().sliceRows(input, saved);

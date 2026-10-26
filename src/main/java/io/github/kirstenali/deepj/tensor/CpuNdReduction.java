@@ -11,15 +11,20 @@ public final class CpuNdReduction {
     private static Tensor reduce(Tensor input, int[] axes, boolean keep, boolean mean) {
         var shape = new ReductionShape(input.layout().shape(), axes, keep);
         Tensor output = new Tensor(input.dtype(), shape.output().dimensions());
-        input.materialize();
-        float[] sums = new float[output.numel()];
-        for (int index = 0; index < input.numel(); index++) {
-            sums[shape.outputIndex(index)] += input.memory().get(input.layout().addressAt(index));
-        }
+        float[] sums = sums(input, shape);
         for (int index = 0; index < sums.length; index++) {
             output.memory().set(index, mean ? sums[index] / shape.count() : sums[index]);
         }
         return output;
+    }
+
+    static float[] sums(Tensor input, ReductionShape shape) {
+        input.materialize();
+        float[] sums = new float[shape.output().elements()];
+        for (int index = 0; index < input.numel(); index++) {
+            sums[shape.outputIndex(index)] += input.memory().get(input.layout().addressAt(index));
+        }
+        return sums;
     }
 
     public static float total(Tensor input, boolean absolute) {

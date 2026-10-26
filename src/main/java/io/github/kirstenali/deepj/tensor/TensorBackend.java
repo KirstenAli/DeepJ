@@ -37,10 +37,38 @@ public interface TensorBackend {
         throw new UnsupportedOperationException("This backend does not support axis reductions");
     }
 
+    default Tensor meanAxes(Tensor input, int[] axes, boolean keepDimensions) {
+        throw new UnsupportedOperationException("This backend does not support axis means");
+    }
+
+    default Tensor varianceAxes(Tensor input, int[] axes, boolean keepDimensions, int correction) {
+        throw new UnsupportedOperationException("This backend does not support axis variance");
+    }
+
+    default Tensor maximumAxes(Tensor input, int[] axes, boolean keepDimensions) {
+        throw new UnsupportedOperationException("This backend does not support axis maxima");
+    }
+
+    default Tensor maximumAxesBackward(Tensor input, Tensor maximum, Tensor gradient, int[] axes, boolean keep) {
+        throw new UnsupportedOperationException("This backend does not support axis maximum gradients");
+    }
+
     default Tensor sumToShape(Tensor input, int... shape) { return GradientShapes.sumTo(this, input, shape); }
 
     default Tensor sliceGradient(Tensor gradient, int[] shape, int axis, int start, int step) {
         throw new UnsupportedOperationException("This backend does not support slice gradients");
+    }
+
+    default Tensor indexSelect(Tensor input, int axis, int[] indices) {
+        throw new UnsupportedOperationException("This backend does not support ND index selection");
+    }
+
+    default void indexAdd(Tensor target, int axis, int[] indices, Tensor updates) {
+        throw new UnsupportedOperationException("This backend does not support ND indexed updates");
+    }
+
+    default Tensor indexSelectGradient(Tensor gradient, int[] shape, int axis, int[] indices) {
+        throw new UnsupportedOperationException("This backend does not support ND index selection gradients");
     }
 
     default Tensor softmaxAxis(Tensor input, int axis) {
@@ -166,18 +194,14 @@ public interface TensorBackend {
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
 
     default CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
-        Tensor loss = new Tensor(1, 1);
-        loss.rawData()[0] = crossEntropyLoss(logits, targets);
-        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets));
+        return CrossEntropyDefaults.apply(this, logits, targets, null);
     }
 
     float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask);
     Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask);
 
     default CrossEntropyResult crossEntropy(Tensor logits, int[] targets, boolean[] mask) {
-        Tensor loss = new Tensor(1, 1);
-        loss.rawData()[0] = crossEntropyLoss(logits, targets, mask);
-        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets, mask));
+        return CrossEntropyDefaults.apply(this, logits, targets, mask);
     }
 
     void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,

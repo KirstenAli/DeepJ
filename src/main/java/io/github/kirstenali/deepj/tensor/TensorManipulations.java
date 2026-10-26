@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.autograd.AxisReductionOps;
 import io.github.kirstenali.deepj.autograd.ViewOps;
+import io.github.kirstenali.deepj.autograd.LayoutOps;
 
 /** Shape transformations retain one Tensor system and participate in first-order autograd. */
 public abstract class TensorManipulations extends TensorStorageAccess {
@@ -30,5 +31,26 @@ public abstract class TensorManipulations extends TensorStorageAccess {
         return AxisReductionOps.sum(tensor(), new int[]{axis}, keepDimensions);
     }
     public final Tensor sumAxes(int... axes) { return AxisReductionOps.sum(tensor(), axes, false); }
+    public final Tensor mean(int axis, boolean keep) { return AxisReductionOps.mean(tensor(), new int[]{axis}, keep); }
+    public final Tensor meanAxes(int... axes) { return AxisReductionOps.mean(tensor(), axes, false); }
+    public final Tensor variance(int axis, boolean keep, int correction) {
+        return AxisReductionOps.variance(tensor(), new int[]{axis}, keep, correction);
+    }
+    /** Population variance; use the correction overload for a different denominator. */
+    public final Tensor variance(int axis, boolean keep) { return variance(axis, keep, 0); }
+    public final Tensor varianceAxes(int[] axes, boolean keep, int correction) {
+        return AxisReductionOps.variance(tensor(), axes, keep, correction);
+    }
+    /** Tied maxima share their gradient equally. */
+    public final Tensor maximum(int axis, boolean keep) {
+        return AxisReductionOps.maximum(tensor(), new int[]{axis}, keep);
+    }
+    public final Tensor maxAxes(int... axes) { return AxisReductionOps.maximum(tensor(), axes, false); }
     public final Tensor softmax(int axis) { return AxisReductionOps.softmax(tensor(), axis); }
+
+    public final Tensor indexSelect(int axis, int... indices) { return LayoutOps.indexSelect(tensor(), axis, indices); }
+
+    public final Tensor indexAddInPlace(int axis, int[] indices, Tensor updates) {
+        return TensorMutation.indexAdd(tensor(), axis, indices, updates);
+    }
 }

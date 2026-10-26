@@ -6,6 +6,8 @@ import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.CpuNdElementwise;
 import io.github.kirstenali.deepj.tensor.CpuNdReduction;
 import io.github.kirstenali.deepj.tensor.CpuNdSoftmax;
+import io.github.kirstenali.deepj.tensor.CpuNdStatistics;
+import io.github.kirstenali.deepj.tensor.MatrixShapeChecks;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -15,6 +17,7 @@ import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor sumRows(Tensor a) {
+        MatrixShapeChecks.requireMatrix(a);
         if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.sum(a, new int[]{0}, true);
         prepare(a);
         Tensor result = new Tensor(1, a.matrixCols());
@@ -29,6 +32,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor sumAlongRows(Tensor a) {
+        MatrixShapeChecks.requireMatrix(a);
         if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.sum(a, new int[]{1}, true);
         prepare(a);
         Tensor result = new Tensor(a.matrixRows(), 1);
@@ -43,6 +47,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor meanAlongRows(Tensor a) {
+        MatrixShapeChecks.requireMatrix(a);
         if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.mean(a, new int[]{1}, true);
         prepare(a);
         Tensor result = new Tensor(a.matrixRows(), 1);
@@ -56,6 +61,8 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor varianceAlongRows(Tensor a) {
+        MatrixShapeChecks.requireMatrix(a);
+        if (!CpuNdElementwise.matrix(a)) return CpuNdStatistics.variance(a, new int[]{1}, true, 0);
         prepare(a);
         Tensor result = new Tensor(a.matrixRows(), 1);
         float invCols = 1.0f / a.matrixCols();
@@ -74,6 +81,8 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor maxAlongRows(Tensor a) {
+        MatrixShapeChecks.requireMatrix(a);
+        if (!CpuNdElementwise.matrix(a)) return CpuNdStatistics.maximum(a, new int[]{1}, true);
         prepare(a);
         Tensor result = new Tensor(a.matrixRows(), 1);
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
@@ -224,6 +233,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor softmaxRows(Tensor logits) {
+        MatrixShapeChecks.requireMatrix(logits);
         if (!CpuNdElementwise.matrix(logits)) return CpuNdSoftmax.apply(logits, 1);
         prepare(logits);
         Tensor result = new Tensor(logits.matrixRows(), logits.matrixCols());

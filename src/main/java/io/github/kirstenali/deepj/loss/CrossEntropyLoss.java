@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.loss;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorAdapters;
 import io.github.kirstenali.deepj.tensor.CrossEntropyResult;
+import io.github.kirstenali.deepj.tensor.CrossEntropyChecks;
 import io.github.kirstenali.deepj.autograd.Autograd;
 
 public final class CrossEntropyLoss implements LossFunction {
@@ -32,6 +33,7 @@ public final class CrossEntropyLoss implements LossFunction {
             float scale = scalar.item();
             return scale == 1.0f ? gradient : gradient.multiplyScalar(scale);
         }
+        if (gradient.rank() != 2) return gradient.multiply(scalar);
         Tensor weights = Tensor.ones(gradient.matrixRows(), 1).multiplyBroadcastRows(scalar);
         return gradient.multiplyBroadcastCols(weights);
     }
@@ -76,17 +78,10 @@ public final class CrossEntropyLoss implements LossFunction {
     }
 
     public static int[] toIntTargets(Tensor actual) {
-        if (actual.matrixCols() != 1) {
-            throw new IllegalArgumentException(
-                    "CrossEntropyLoss expects targets shape [n x 1], got ["
-                            + actual.matrixRows() + " x " + actual.matrixCols() + "]"
-            );
-        }
-
-        actual.materialize();
-        int[] y = new int[actual.matrixRows()];
-        for (int i = 0; i < actual.matrixRows(); i++) {
-            y[i] = requireIntegerTarget(actual.rawData()[i], i);
+        float[] values = actual.toFloatArray();
+        int[] y = new int[values.length];
+        for (int i = 0; i < values.length; i++) {
+            y[i] = requireIntegerTarget(values[i], i);
         }
         return y;
     }
@@ -108,29 +103,10 @@ public final class CrossEntropyLoss implements LossFunction {
     }
 
     private static void checkTargets(Tensor logits, int[] targets) {
-        if (logits == null) {
-            throw new IllegalArgumentException("logits is null");
-        }
-        if (targets == null) {
-            throw new IllegalArgumentException("targets is null");
-        }
-        Tensor.requireTargetsMatchRows(logits, targets);
-        for (int t : targets) {
-            if (t < 0 || t >= logits.matrixCols()) {
-                throw new IllegalArgumentException(
-                        "target id out of range: " + t + " (vocab=" + logits.matrixCols() + ")"
-                );
-            }
-        }
+        CrossEntropyChecks.requireTargets(logits, targets);
     }
 
     private static void checkMask(Tensor logits, boolean[] mask) {
-        if (mask == null || mask.length != logits.matrixRows()) {
-            throw new IllegalArgumentException("loss mask must match logits rows");
-        }
-        for (boolean included : mask) {
-            if (included) return;
-        }
-        throw new IllegalArgumentException("loss mask must include at least one row");
+        CrossEntropyChecks.included(mask, CrossEntropyChecks.positions(logits));
     }
 }

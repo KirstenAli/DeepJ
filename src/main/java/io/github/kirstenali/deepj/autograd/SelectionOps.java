@@ -7,6 +7,9 @@ public final class SelectionOps {
 
     /** Tied maxima share the row gradient equally. */
     public static Tensor maximum(Tensor input) {
+        if (input.dtype() != io.github.kirstenali.deepj.tensor.DType.FLOAT32) {
+            return AxisReductionOps.maximum(input, new int[]{1}, true);
+        }
         Tensor output = Tensor.backend().maxAlongRows(input);
         return UnaryOps.record(input, output, g -> maximumGradient(input, output, g), input, output);
     }

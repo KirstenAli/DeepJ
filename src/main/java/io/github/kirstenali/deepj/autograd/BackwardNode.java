@@ -24,7 +24,7 @@ final class BackwardNode {
 
     List<GradientEdge> inputs() { return inputs; }
     boolean released() { return released; }
-    boolean isBuiltin() { return builtin || rule instanceof GatherBackward; }
+    boolean isBuiltin() { return builtin || rule instanceof GatherBackward || rule instanceof IndexSelectBackward; }
 
     void validate() {
         if (released) throw new IllegalStateException("Backward graph was already released; run forward again");

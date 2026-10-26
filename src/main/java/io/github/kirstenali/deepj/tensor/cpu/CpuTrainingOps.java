@@ -3,6 +3,10 @@ package io.github.kirstenali.deepj.tensor.cpu;
 import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
+import io.github.kirstenali.deepj.tensor.CpuNdIndexing;
+import io.github.kirstenali.deepj.tensor.CpuNdCrossEntropy;
+import io.github.kirstenali.deepj.tensor.CpuNdElementwise;
+import io.github.kirstenali.deepj.tensor.CrossEntropyChecks;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -12,6 +16,7 @@ import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 abstract class CpuTrainingOps extends CpuReductionOps {
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets) {
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.loss(logits, targets, null);
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
 
@@ -30,6 +35,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.apply(logits, targets, null).gradient();
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
 
@@ -48,6 +54,8 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask) {
+        CrossEntropyChecks.included(mask, CrossEntropyChecks.positions(logits));
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.loss(logits, targets, mask);
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
         float sum = 0.0f;
@@ -59,6 +67,8 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask) {
+        CrossEntropyChecks.included(mask, CrossEntropyChecks.positions(logits));
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.apply(logits, targets, mask).gradient();
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
         Tensor gradient = new Tensor(logits.matrixRows(), logits.matrixCols());
@@ -167,13 +177,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     @Override
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
         prepare(target, grad);
-        for (int i = 0; i < indices.length; i++) {
-            int tBase = indices[i] * target.matrixCols();
-            int gBase = i * target.matrixCols();
-            for (int c = 0; c < target.matrixCols(); c++) {
-                target.rawData()[tBase + c] += grad.rawData()[gBase + c];
-            }
-        }
+        CpuNdIndexing.addMatrixRows(target, indices, grad);
     }
 
     public Tensor sampleRows(Tensor t, int n, Random rnd) {

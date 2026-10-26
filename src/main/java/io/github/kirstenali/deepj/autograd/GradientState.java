@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.autograd;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -101,5 +102,15 @@ public final class GradientState {
         if (gradient.gradientState().savedForBackward()) gradient = Tensor.backend().addScalar(gradient, 0.0f);
         gradient.gradientState().beforeMutation();
         Tensor.backend().scatterAddRows(gradient, indices, contribution);
+    }
+
+    void accumulateIndexed(int[] shape, int axis, int[] indices, Tensor contribution) {
+        if (gradient == null) gradient = Tensor.backend().zeros(DType.FLOAT32, shape);
+        if (!java.util.Arrays.equals(shape, gradient.shape())) {
+            throw new IllegalArgumentException("Indexed leaf gradient must match its tensor shape");
+        }
+        if (gradient.gradientState().savedForBackward()) gradient = Tensor.backend().addScalar(gradient, 0);
+        gradient.gradientState().beforeMutation();
+        Tensor.backend().indexAdd(gradient, axis, indices, contribution);
     }
 }

@@ -4,6 +4,10 @@ package io.github.kirstenali.deepj.tensor;
 public final class MatrixShapeChecks {
     private MatrixShapeChecks() {}
 
+    public static void requireMatrix(Tensor input) {
+        if (input.rank() != 2) throw new IllegalArgumentException("This matrix helper requires rank two");
+    }
+
     public static void requireCausal(Tensor input, int sequenceLength) {
         if (sequenceLength <= 0 || input.matrixCols() != sequenceLength
                 || input.matrixRows() % sequenceLength != 0) {

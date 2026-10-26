@@ -24,14 +24,20 @@ public final class ReductionOps {
     }
 
     public static Tensor variance(Tensor input) {
+        if (input.dtype() != io.github.kirstenali.deepj.tensor.DType.FLOAT32) {
+            return AxisReductionOps.variance(input, new int[]{1}, true, 0);
+        }
         return UnaryOps.record(input, Tensor.backend().varianceAlongRows(input),
                 g -> input.subtractBroadcastCols(input.meanAlongRows())
                         .multiplyBroadcastCols(g).multiplyScalar(2.0f / input.matrixCols()), input);
     }
 
     public static Tensor sum(Tensor input) {
-        if (input.rank() != 2 || input.dtype() != io.github.kirstenali.deepj.tensor.DType.FLOAT32) {
+        if (input.rank() != 2) {
             return AxisReductionOps.sum(input, new int[0], false);
+        }
+        if (input.dtype() != io.github.kirstenali.deepj.tensor.DType.FLOAT32) {
+            return AxisReductionOps.sum(input, new int[0], true);
         }
         return columns(input).sumRows();
     }

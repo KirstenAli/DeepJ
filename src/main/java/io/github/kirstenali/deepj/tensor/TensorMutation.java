@@ -48,4 +48,10 @@ final class TensorMutation {
     private static void markHostMutation(Tensor target) {
         if (target.getGpuTag() instanceof GpuBuffer buffer && !buffer.cpuStale) buffer.needsUpload = true;
     }
+
+    static Tensor indexAdd(Tensor target, int axis, int[] indices, Tensor updates) {
+        int[] saved = indices.clone();
+        IndexSelection.requireUpdates(target, updates, axis, saved);
+        return apply(target, () -> Tensor.backend().indexAdd(target, axis, saved, updates), updates);
+    }
 }
