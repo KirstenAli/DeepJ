@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.layers.transformer.norm;
 
 import io.github.kirstenali.deepj.autograd.NormalizationOps;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.util.List;
@@ -12,9 +13,13 @@ public final class RMSNorm1D implements NormLayer {
     private final Parameter gamma;
 
     public RMSNorm1D(int dim) {
+        this(dim, ParameterFactory.float32());
+    }
+
+    public RMSNorm1D(int dim, ParameterFactory parameters) {
         if (dim <= 0) throw new IllegalArgumentException("dim must be > 0");
         this.dim = dim;
-        gamma = new Parameter(Tensor.ones(1, dim));
+        gamma = parameters.ones("gamma", 1, dim);
     }
 
     @Override

@@ -4,14 +4,23 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.DType;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public final class Parameter {
     public final Tensor value;
+    private final String name;
 
     public Parameter(Tensor value) {
+        this("", value);
+    }
+
+    public Parameter(String name, Tensor value) {
+        this.name = Objects.requireNonNull(name, "name");
         this.value = value.retainDeviceBuffer().requiresGrad(true);
         zeroGrad();
     }
+
+    public String name() { return name; }
 
     public Tensor grad() { return value.grad(); }
 

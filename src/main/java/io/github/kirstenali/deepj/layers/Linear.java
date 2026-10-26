@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.layers;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 
 import java.util.List;
 import java.util.Random;
@@ -12,8 +13,12 @@ public final class Linear implements Projection {
     private final Parameter b;
 
     public Linear(int dIn, int dOut, Random rnd) {
-        this.W = new Parameter(Tensor.random(dIn, dOut, rnd));
-        this.b = new Parameter(Tensor.zeros(1, dOut));
+        this(dIn, dOut, rnd, ParameterFactory.float32());
+    }
+
+    public Linear(int dIn, int dOut, Random rnd, ParameterFactory parameters) {
+        this.W = parameters.random("weight", dIn, dOut, rnd);
+        this.b = parameters.zeros("bias", 1, dOut);
     }
 
     @Override

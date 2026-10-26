@@ -6,6 +6,12 @@ import io.github.kirstenali.deepj.autograd.LayoutOps;
 
 /** Shape transformations retain one Tensor system and participate in first-order autograd. */
 public abstract class TensorManipulations extends TensorStorageAccess {
+    public static Tensor zeros(DType dtype, int... shape) { return new Tensor(dtype, shape); }
+    public static Tensor ones(DType dtype, int... shape) { return TensorInitializers.ones(dtype, shape); }
+    public static Tensor random(DType dtype, java.util.Random random, int... shape) {
+        return TensorInitializers.random(dtype, random, shape);
+    }
+
     TensorManipulations(DType dtype, boolean host, int... shape) { super(dtype, host, shape); }
     TensorManipulations(TensorMemory memory, TensorLayout layout) { super(memory, layout); }
     TensorManipulations(TensorStorageAccess source, TensorLayout layout) { super(source, layout); }
