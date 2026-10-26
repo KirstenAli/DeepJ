@@ -1171,17 +1171,23 @@ inline float reduce_sum(threadgroup float* scratch, float value,
     return result;
 }
 
-inline float reduce_max(threadgroup float* scratch, float value,
-                        uint tid, uint width) {
+template<bool PreserveNaN>
+inline float reduce_row_max(threadgroup float* scratch, float value,
+                            uint tid, uint width) {
     scratch[tid] = value;
     threadgroup_barrier(mem_flags::mem_threadgroup);
     for (uint stride = width >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) scratch[tid] = max(scratch[tid], scratch[tid + stride]);
+        if (tid < stride) scratch[tid] = PreserveNaN ? layout_maximum(scratch[tid], scratch[tid + stride])
+                                                  : max(scratch[tid], scratch[tid + stride]);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
     float result = scratch[0];
     threadgroup_barrier(mem_flags::mem_threadgroup);
     return result;
+}
+
+inline float reduce_max(threadgroup float* scratch, float value, uint tid, uint width) {
+    return reduce_row_max<false>(scratch, value, tid, width);
 }
 
 inline void write_row_value(device float* output, uint base, uint cols,
@@ -1320,8 +1326,11 @@ kernel void kernel_max_along_rows(device const float* a      [[buffer(0)]],
     uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
     threadgroup float scratch[1024];
-    float value = row_max(a, row * cols, cols, tid, tptg.x);
-    float maximum = reduce_max(scratch, value, tid, tptg.x);
+    float value = -INFINITY;
+    for (uint column = tid; column < cols; column += tptg.x) {
+        value = layout_maximum(value, a[row * cols + column]);
+    }
+    float maximum = reduce_row_max<true>(scratch, value, tid, tptg.x);
     if (tid == 0) out[row] = maximum;
 }
 

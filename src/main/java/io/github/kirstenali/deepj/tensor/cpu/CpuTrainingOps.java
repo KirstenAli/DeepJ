@@ -9,6 +9,8 @@ import io.github.kirstenali.deepj.tensor.CpuNdElementwise;
 import io.github.kirstenali.deepj.tensor.CrossEntropyChecks;
 import io.github.kirstenali.deepj.tensor.CpuNdAdamW;
 import io.github.kirstenali.deepj.tensor.OptimizerChecks;
+import io.github.kirstenali.deepj.tensor.NormalizationChecks;
+import io.github.kirstenali.deepj.tensor.CpuNdNormalization;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -145,6 +147,12 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
+        Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
+        if (dim != NormalizationChecks.width(xHat)) throw new IllegalArgumentException("LayerNorm width mismatch");
+        NormalizationChecks.statistics(xHat, std);
+        if (!CpuNdElementwise.sameMatrices(dXHat, xHat) || !CpuNdElementwise.matrix(std)) {
+            return CpuNdNormalization.backward(dXHat, xHat, std, Tensor.ones(1, dim), true);
+        }
         prepare(dXHat, xHat, std);
         Tensor dX = new Tensor(dXHat.matrixRows(), dXHat.matrixCols());
         DeepJExecutor.forRange(0, dXHat.matrixRows(), row -> layerNormGradientRow(dX, dXHat, xHat, std, row, dim));
@@ -189,8 +197,8 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
-        prepare(target, grad);
-        CpuNdIndexing.addMatrixRows(target, indices, grad);
+        if (target.rank() != 2 || grad.rank() != 2) throw new IllegalArgumentException("Row scatter requires matrices");
+        CpuNdIndexing.add(target, 0, indices, grad);
     }
 
     public Tensor sampleRows(Tensor t, int n, Random rnd) {

@@ -19,10 +19,8 @@ public final class RMSNorm1D implements NormLayer {
 
     @Override
     public Tensor forward(Tensor input) {
-        if (input.rank() == 0 || input.size(-1) != dim) {
-            throw new IllegalArgumentException("Expected final axis width=" + dim);
-        }
-        return NormalizationOps.rmsNorm(input, gamma.value, EPS);
+        Tensor matrix = PositionNormalization.matrix(input, dim);
+        return PositionNormalization.restore(input, NormalizationOps.rmsNorm(matrix, gamma.value, EPS));
     }
 
     @Override

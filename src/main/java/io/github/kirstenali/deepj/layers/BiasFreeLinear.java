@@ -17,7 +17,7 @@ public final class BiasFreeLinear implements Projection {
 
     @Override
     public Tensor forward(Tensor value) {
-        return value.matmul(weight.value);
+        return ProjectionOps.linear(value, weight.value);
     }
 
     @Override

@@ -8,6 +8,11 @@ public final class MatrixShapeChecks {
         if (input.rank() != 2) throw new IllegalArgumentException("This matrix helper requires rank two");
     }
 
+    public static void requireRowMaximum(Tensor input) {
+        requireMatrix(input);
+        if (input.size(1) == 0) throw new IllegalArgumentException("Maximum cannot reduce an empty axis");
+    }
+
     public static void requireCausal(Tensor input, int sequenceLength) {
         if (sequenceLength <= 0 || input.matrixCols() != sequenceLength
                 || input.matrixRows() % sequenceLength != 0) {

@@ -48,6 +48,7 @@ abstract class MetalRowReductionOps extends MetalAxisOps {
 
     @Override
     public Tensor maxAlongRows(Tensor a) {
+        MatrixShapeChecks.requireRowMaximum(a);
         if (!MetalDenseOps.matrix(a)) return MetalNdReductions.matrix(graph, a, 1, 3);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), 1);

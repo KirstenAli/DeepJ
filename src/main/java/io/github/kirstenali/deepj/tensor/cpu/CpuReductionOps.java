@@ -81,7 +81,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor maxAlongRows(Tensor a) {
-        MatrixShapeChecks.requireMatrix(a);
+        MatrixShapeChecks.requireRowMaximum(a);
         if (!CpuNdElementwise.matrix(a)) return CpuNdStatistics.maximum(a, new int[]{1}, true);
         prepare(a);
         Tensor result = new Tensor(a.matrixRows(), 1);
@@ -89,7 +89,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
             int base = r * a.matrixCols();
             float max = Float.NEGATIVE_INFINITY;
             for (int c = 0; c < a.matrixCols(); c++) {
-                if (a.rawData()[base + c] > max) max = a.rawData()[base + c];
+                max = Math.max(max, a.rawData()[base + c]);
             }
             result.rawData()[r] = max;
         });
