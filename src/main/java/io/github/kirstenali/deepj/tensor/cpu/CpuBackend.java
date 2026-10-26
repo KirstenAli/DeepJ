@@ -3,6 +3,11 @@ package io.github.kirstenali.deepj.tensor.cpu;
 import io.github.kirstenali.deepj.tensor.*;
 
 public final class CpuBackend extends CpuTrainingOps {
+    @Override public Tensor causalSoftmax(Tensor input, int length, float scale) {
+        return CpuNdElementwise.matrix(input) ? super.causalSoftmax(input, length, scale)
+                : CpuNdPosition.softmax(input, length, scale);
+    }
+
     @Override public Tensor sliceRows(Tensor input, int[] rows) {
         MatrixShapeChecks.requireMatrix(input);
         for (int row : rows) {

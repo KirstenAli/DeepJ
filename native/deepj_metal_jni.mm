@@ -34,6 +34,9 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutSwiGluBackwardPSO;
     id<MTLComputePipelineState> layoutAdamWPSO;
     id<MTLComputePipelineState> layoutCrossEntropyPSO;
+    id<MTLComputePipelineState> layoutCausalMaskPSO;
+    id<MTLComputePipelineState> layoutCausalSoftmaxPSO;
+    id<MTLComputePipelineState> layoutRotaryPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -1514,6 +1517,79 @@ kernel void kernel_layout_cross_entropy(device const unsigned char* input [[buff
     }
 }
 
+struct LayoutCausalParams {
+    uint layout, rows, length, dtype, mode;
+    float scale;
+};
+
+kernel void kernel_layout_causal_mask(device const unsigned char* input [[buffer(0)]],
+                                      device unsigned char* output [[buffer(1)]],
+                                      device const ulong* words [[buffer(2)]],
+                                      constant LayoutCausalParams& params [[buffer(3)]],
+                                      uint index [[thread_position_in_grid]]) {
+    if (index % params.length > index / params.length % params.length) {
+        storage_write_bits(output, index, params.dtype, as_type<uint>(-1.0e9f));
+    } else {
+        layout_raw_copy(input, output, layout_address(words, params.layout, index), index, params.dtype);
+    }
+}
+
+inline float layout_causal_partial(device const unsigned char* input, device const ulong* words,
+                                    constant LayoutCausalParams& params, uint row, uint tid,
+                                    uint width, float maximum, bool exponentials) {
+    float result = exponentials ? 0.0f : -INFINITY;
+    for (uint column = tid; column <= row % params.length; column += width) {
+        float value = layout_value(input, words, params.layout, params.dtype, row * params.length + column)
+                        * params.scale;
+        result = exponentials ? result + exp(value - maximum) : max(result, value);
+    }
+    return result;
+}
+
+inline void layout_causal_write(device const unsigned char* input, device unsigned char* output,
+                                device const ulong* words, constant LayoutCausalParams& params,
+                                uint row, uint tid, uint width, float maximum, float total) {
+    for (uint column = tid; column < params.length; column += width) {
+        float probability = 0.0f;
+        if (column <= row % params.length) {
+            float value = layout_value(input, words, params.layout, params.dtype, row * params.length + column);
+            probability = exp(value * params.scale - maximum) / total;
+        }
+        storage_write_bits(output, row * params.length + column, params.dtype, as_type<uint>(probability));
+    }
+}
+
+kernel void kernel_layout_causal_softmax(device const unsigned char* input [[buffer(0)]],
+                                         device unsigned char* output [[buffer(1)]],
+                                         device const ulong* words [[buffer(2)]],
+                                         constant LayoutCausalParams& params [[buffer(3)]],
+                                         uint3 group [[threadgroup_position_in_grid]],
+                                         uint tid [[thread_index_in_threadgroup]],
+                                         uint3 width [[threads_per_threadgroup]]) {
+    threadgroup float scratch[1024];
+    float maximum = reduce_max(scratch,
+            layout_causal_partial(input, words, params, group.y, tid, width.x, 0.0f, false), tid, width.x);
+    float total = reduce_sum(scratch,
+            layout_causal_partial(input, words, params, group.y, tid, width.x, maximum, true), tid, width.x);
+    layout_causal_write(input, output, words, params, group.y, tid, width.x, maximum, total);
+}
+
+kernel void kernel_layout_rotary(device const unsigned char* input [[buffer(0)]],
+                                 device const unsigned char* cosine [[buffer(1)]],
+                                 device const unsigned char* sine [[buffer(2)]],
+                                 device unsigned char* output [[buffer(3)]],
+                                 device const ulong* words [[buffer(4)]], constant uint* params [[buffer(5)]],
+                                 uint pair [[thread_position_in_grid]]) {
+    uint width = params[4], index = pair * 2, row = index / width;
+    uint table = row % params[5] * (width / 2) + pair % (width / 2);
+    float x = layout_value(input, words, params[0], params[6], index);
+    float y = layout_value(input, words, params[0], params[6], index + 1);
+    float c = layout_value(cosine, words, params[1], params[7], table);
+    float s = layout_value(sine, words, params[2], params[8], table) * (params[9] == 0 ? 1.0f : -1.0f);
+    storage_write_bits(output, index, params[6], as_type<uint>(x * c - y * s));
+    storage_write_bits(output, index + 1, params[6], as_type<uint>(x * s + y * c));
+}
+
 struct RmsNormParams {
     uint rows;
     uint cols;
@@ -2109,7 +2185,14 @@ static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
     return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions() error:nil];
 }
 
+static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->layoutCausalMaskPSO = makePSO(library, @"kernel_layout_causal_mask");
+    ctx->layoutCausalSoftmaxPSO = makePSO(library, @"kernel_layout_causal_softmax");
+    ctx->layoutRotaryPSO = makePSO(library, @"kernel_layout_rotary");
+}
+
 static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    initPositionPipelines(ctx, library);
     ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
     ctx->layoutTransferPSO = makePSO(library, @"kernel_layout_transfer");
     ctx->layoutBinaryPSO = makePSO(library, @"kernel_layout_binary");
@@ -2363,6 +2446,8 @@ static constexpr int OP_LAYOUT_NORMALIZATION_BACKWARD = 74;
 static constexpr int OP_LAYOUT_SWIGLU_BACKWARD = 75;
 static constexpr int OP_LAYOUT_ADAMW = 76;
 static constexpr int OP_LAYOUT_CROSS_ENTROPY = 77;
+static constexpr int OP_LAYOUT_CAUSAL = 78;
+static constexpr int OP_LAYOUT_ROTARY = 79;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -3437,6 +3522,80 @@ static void encodeLayoutCrossEntropy(GraphState& state, const jint* cmd, int pos
            threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(pipeline), 1, 1)];
 }
 
+static std::array<uint32_t, 6> layoutCausalParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 3);
+    uint32_t length = (uint32_t)positiveCount(cmd[pos + 4], "causal length");
+    float scale = floatFromBits(cmd[pos + 5]);
+    if (input.rank != 2 || input.axes[1] != length || input.axes[0] % length != 0 ||
+        !std::isfinite(scale) || (cmd[pos + 6] != 1 && cmd[pos + 6] != 2)) {
+        throw std::runtime_error("Invalid typed causal shape,scale or mode");
+    }
+    requireOutputSeparation(cmd, pos, 1, 2);
+    uint32_t dtype = gBufferDTypes.at(cmd[pos + 1]);
+    requireTypedCount(cmd[pos + 2], dtype, input.count);
+    return {(uint32_t)cmd[pos + 3], (uint32_t)input.axes[0], length, dtype,
+            (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 5]};
+}
+
+static void encodeLayoutCausalSoftmax(GraphState& state, const jint* cmd, int pos,
+                                      const std::array<uint32_t, 6>& params) {
+    auto pipeline = state.ctx->layoutCausalSoftmaxPSO;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 1], "causal softmax") offset:0 atIndex:0];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 2], "causal softmax") offset:0 atIndex:1];
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:2];
+    bindValue(encoder, params, 3);
+    [encoder dispatchThreadgroups:MTLSizeMake(1, params[1], 1)
+           threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(pipeline), 1, 1)];
+}
+
+static void encodeLayoutCausal(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutCausalParams(state, cmd, pos);
+    if (params[4] == 2) encodeLayoutCausalSoftmax(state, cmd, pos, params);
+    else encodeLayoutPair(state, state.ctx->layoutCausalMaskPSO,
+            requireStorageBuffer(cmd[pos + 1], "causal mask"), requireStorageBuffer(cmd[pos + 2], "causal mask"),
+            params, params[1] * params[2]);
+}
+
+static void requireRotaryLayouts(const LogicalLayout& input, const LogicalLayout& cosine,
+                                  const LogicalLayout& sine, uint32_t length) {
+    requireSameLayoutShape(cosine, sine);
+    if (input.rank != 2 || cosine.rank != 2 || input.axes[1] % 2 != 0 || input.axes[0] % length != 0 ||
+        cosine.axes[0] < length || cosine.axes[1] != input.axes[1] / 2) {
+        throw std::runtime_error("Invalid typed rotary activation or table shape");
+    }
+}
+
+static std::array<uint32_t, 10> layoutRotaryParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 5), cosine = commandLayout(state, cmd, pos, 2, 6);
+    auto sine = commandLayout(state, cmd, pos, 3, 7);
+    uint32_t length = (uint32_t)positiveCount(cmd[pos + 8], "rotary length");
+    requireRotaryLayouts(input, cosine, sine, length);
+    if (cmd[pos + 9] != 0 && cmd[pos + 9] != 1) throw std::runtime_error("Invalid inverse rotary flag");
+    requireOutputSeparation(cmd, pos, 3, 4);
+    uint32_t dtype = gBufferDTypes.at(cmd[pos + 1]);
+    requireTypedCount(cmd[pos + 4], dtype, input.count);
+    return {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7],
+            (uint32_t)input.axes[0], (uint32_t)input.axes[1], length, dtype,
+            (uint32_t)gBufferDTypes.at(cmd[pos + 2]), (uint32_t)gBufferDTypes.at(cmd[pos + 3]), (uint32_t)cmd[pos + 9]};
+}
+
+static void encodeLayoutRotary(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutRotaryParams(state, cmd, pos);
+    auto pipeline = state.ctx->layoutRotaryPSO;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 4; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + index + 1], "rotary") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:4];
+    bindValue(encoder, params, 5);
+    dispatch1D(encoder, pipeline, params[3] * (params[4] / 2));
+}
+
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
     switch (op) {
         case OP_ADD: return ctx->addPSO;
@@ -4390,6 +4549,17 @@ static int attentionCommandWidth(int op) {
     throw std::runtime_error("Unknown attention op code: " + std::to_string(op));
 }
 
+static int layoutTrainingCommandWidth(int op) {
+    if (op == OP_LAYOUT_NORMALIZE) return 12;
+    if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) return 11;
+    if (op == OP_LAYOUT_SWIGLU_BACKWARD) return 9;
+    if (op == OP_LAYOUT_ADAMW) return 16;
+    if (op == OP_LAYOUT_CROSS_ENTROPY) return 7;
+    if (op == OP_LAYOUT_CAUSAL) return 7;
+    if (op == OP_LAYOUT_ROTARY) return 10;
+    throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
+}
+
 static int layoutCommandWidth(int op) {
     if (op == OP_STORAGE_COPY) return 6;
     if (op == OP_LAYOUT_TRANSFER) return 4;
@@ -4399,13 +4569,8 @@ static int layoutCommandWidth(int op) {
     if (op == OP_LAYOUT_MATMUL) return 6;
     if (op == OP_LAYOUT_INDEX_SELECT) return 6;
     if (op == OP_LAYOUT_INDEX_ADD) return 7;
-    if (op == OP_LAYOUT_NORMALIZE) return 12;
-    if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) return 11;
-    if (op == OP_LAYOUT_SWIGLU_BACKWARD) return 9;
-    if (op == OP_LAYOUT_ADAMW) return 16;
-    if (op == OP_LAYOUT_CROSS_ENTROPY) return 7;
     if (op == OP_LAYOUT_MAXIMUM_BACKWARD) return 10;
-    throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
+    return layoutTrainingCommandWidth(op);
 }
 
 static int commandWidth(int op) {
@@ -4486,6 +4651,8 @@ static bool encodeLayoutTrainingCommand(GraphState& state, const jint* cmd, int 
     else if (op == OP_LAYOUT_SWIGLU_BACKWARD) encodeLayoutSwiGluBackward(state, cmd, pos);
     else if (op == OP_LAYOUT_ADAMW) encodeLayoutAdamW(state, cmd, pos);
     else if (op == OP_LAYOUT_CROSS_ENTROPY) encodeLayoutCrossEntropy(state, cmd, pos);
+    else if (op == OP_LAYOUT_CAUSAL) encodeLayoutCausal(state, cmd, pos);
+    else if (op == OP_LAYOUT_ROTARY) encodeLayoutRotary(state, cmd, pos);
     else return false;
     return true;
 }

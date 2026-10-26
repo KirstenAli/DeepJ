@@ -93,6 +93,7 @@ final class TensorBackendDefaults {
 
     static Tensor causalMask(Tensor input, int sequenceLength) {
         MatrixShapeChecks.requireCausal(input, sequenceLength);
+        if (!CpuNdElementwise.matrix(input)) return CpuNdPosition.mask(input, sequenceLength);
         input.materialize();
         Tensor output = new Tensor(input.matrixRows(), input.matrixCols());
         DeepJExecutor.forRange(0, input.matrixRows(), row -> maskRow(input, output, row, sequenceLength));
@@ -110,6 +111,9 @@ final class TensorBackendDefaults {
     static Tensor rotary(Tensor input, Tensor cosine, Tensor sine,
                          int sequenceLength, boolean inverse) {
         MatrixShapeChecks.requireRotary(input, cosine, sine, sequenceLength);
+        if (!CpuNdElementwise.matrix(input) || !CpuNdElementwise.matrix(cosine) || !CpuNdElementwise.matrix(sine)) {
+            return CpuNdPosition.rotary(input, cosine, sine, sequenceLength, inverse);
+        }
         input.materialize();
         cosine.materialize();
         sine.materialize();

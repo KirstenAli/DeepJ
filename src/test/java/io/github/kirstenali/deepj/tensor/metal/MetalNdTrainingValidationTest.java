@@ -3,13 +3,9 @@ package io.github.kirstenali.deepj.tensor.metal;
 import io.github.kirstenali.deepj.tensor.*;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
-class MetalNdTrainingValidationTest extends MetalDifferentialTestSupport {
-    private final List<Tensor> owners = new ArrayList<>();
+class MetalNdTrainingValidationTest extends MetalCommandValidationSupport {
     private static final long[] WORDS = {2, 6, 6, 0, 2, 3, 3, 1,
             1, 3, 3, 0, 3, 1, 2, 2, 2, 0, 2, 1, 1, 1,
             2, 6, 6, 0, 2, 3, 0, 1};
@@ -86,21 +82,5 @@ class MetalNdTrainingValidationTest extends MetalDifferentialTestSupport {
         assertNull(w.getGpuTag());
     }
 
-    private int buffer(DType dtype, int count) {
-        Tensor owner = new Tensor(dtype, count);
-        owners.add(owner);
-        int id = metal.graph.ensureStorageBuffer(owner).id;
-        metal.graph.flush();
-        return id;
-    }
-    private static int bits(float value) { return Float.floatToRawIntBits(value); }
-    private static void invalidField(int[] original, int field, int value) {
-        int[] command = original.clone();
-        command[field] = value;
-        invalid(command, WORDS);
-    }
-    private static void invalid(int[] command, long[] words) {
-        assertThrows(RuntimeException.class,
-                () -> MetalNative.nativeFlushLayoutOps(command, command.length, words));
-    }
+    @Override protected long[] words() { return WORDS; }
 }

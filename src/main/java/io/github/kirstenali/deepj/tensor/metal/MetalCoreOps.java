@@ -157,6 +157,7 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor causalMask(Tensor input, int sequenceLength) {
         MatrixShapeChecks.requireCausal(input, sequenceLength);
+        if (!MetalDenseOps.matrix(input)) return graph.layoutCausal(input, sequenceLength, 1, 1);
         GpuBuffer output = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordCausalMask(gpuIn(input), output, input.matrixRows(), sequenceLength);
         return gpuOut(output);
@@ -165,6 +166,7 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor causalSoftmax(Tensor input, int sequenceLength, float scale) {
         MatrixShapeChecks.requireCausal(input, sequenceLength);
+        if (!MetalDenseOps.matrix(input)) return graph.layoutCausal(input, sequenceLength, scale, 2);
         GpuBuffer output = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordCausalSoftmax(gpuIn(input), output, input.matrixRows(), sequenceLength, scale);
         return gpuOut(output);
@@ -174,6 +176,9 @@ abstract class MetalCoreOps implements TensorBackend {
     public Tensor rotary(Tensor input, Tensor cosine, Tensor sine,
                          int sequenceLength, boolean inverse) {
         MatrixShapeChecks.requireRotary(input, cosine, sine, sequenceLength);
+        if (!MetalDenseOps.matrix(input) || !MetalDenseOps.matrix(cosine) || !MetalDenseOps.matrix(sine)) {
+            return graph.layoutRotary(input, cosine, sine, sequenceLength, inverse);
+        }
         GpuBuffer output = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordRotary(gpuIn(input), gpuIn(cosine), gpuIn(sine), output,
                 input.matrixRows(), sequenceLength, input.matrixCols(), inverse);

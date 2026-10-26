@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.tensor;
 
-abstract class GraphRecordingOps extends GraphCrossEntropyRecordingOps {
+abstract class GraphRecordingOps extends GraphPositionRecordingOps {
     GraphRecordingOps(GpuRuntime runtime) {
         super(runtime);
     }
