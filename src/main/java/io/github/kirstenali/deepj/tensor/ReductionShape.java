@@ -21,6 +21,22 @@ final class ReductionShape {
     TensorShape output() { return output; }
     long count() { return count; }
 
+    int retainedRank() {
+        int count = 0;
+        for (boolean axis : reduced) { if (!axis) count++; }
+        return count;
+    }
+
+    int[] groupedAxes() {
+        int[] axes = new int[input.rank()];
+        int retained = 0, selected = retainedRank();
+        for (int axis = 0; axis < input.rank(); axis++) {
+            if (reduced[axis]) axes[selected++] = axis;
+            else axes[retained++] = axis;
+        }
+        return axes;
+    }
+
     int outputIndex(int index) {
         int result = 0, stride = 1;
         for (int axis = input.rank() - 1; axis >= 0; axis--) {

@@ -73,13 +73,16 @@ abstract class GraphOpMetadata {
     public static final int OP_LAYOUT_BINARY = 64;
     public static final int OP_LAYOUT_UNARY = 65;
     public static final int OP_LAYOUT_ASSIGN = 66;
+    public static final int OP_LAYOUT_REDUCE = 67;
+    public static final int OP_LAYOUT_SOFTMAX = 68;
+    public static final int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_LAYOUT_ASSIGN + 1];
+        OpMeta[] meta = new OpMeta[OP_LAYOUT_MAXIMUM_BACKWARD + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -87,12 +90,19 @@ abstract class GraphOpMetadata {
         registerAttentionMeta(meta);
         registerBroadcastMeta(meta);
         registerComplexMeta(meta);
+        registerLayoutMeta(meta);
+        return meta;
+    }
+
+    private static void registerLayoutMeta(OpMeta[] meta) {
         registerMeta(meta, OP_STORAGE_COPY, 6, 1, 2);
         registerMeta(meta, OP_LAYOUT_TRANSFER, 4, 1, 2);
         registerMeta(meta, OP_LAYOUT_BINARY, 7, 1, 2, 3);
         registerMeta(meta, OP_LAYOUT_UNARY, 7, 1, 2);
         registerMeta(meta, OP_LAYOUT_ASSIGN, 5, 1, 2);
-        return meta;
+        registerMeta(meta, OP_LAYOUT_REDUCE, 7, 1, 2);
+        registerMeta(meta, OP_LAYOUT_SOFTMAX, 6, 1, 2);
+        registerMeta(meta, OP_LAYOUT_MAXIMUM_BACKWARD, 10, 1, 2, 3, 4);
     }
 
     static void registerUnaryMeta(OpMeta[] meta) {

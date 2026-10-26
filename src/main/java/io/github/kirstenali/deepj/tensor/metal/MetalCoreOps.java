@@ -40,6 +40,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor zeros(int rows, int columns) {
+        if (rows == 0 || columns == 0) return graph.zeroToDevice(DType.FLOAT32, rows, columns);
         return gpuOut(graph.newZeroBuffer(rows, columns));
     }
 

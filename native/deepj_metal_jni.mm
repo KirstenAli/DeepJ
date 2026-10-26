@@ -23,6 +23,9 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutBinaryPSO;
     id<MTLComputePipelineState> layoutUnaryPSO;
     id<MTLComputePipelineState> layoutAssignPSO;
+    id<MTLComputePipelineState> layoutReducePSO;
+    id<MTLComputePipelineState> layoutSoftmaxPSO;
+    id<MTLComputePipelineState> layoutMaximumBackwardPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -555,6 +558,143 @@ kernel void kernel_layout_assign(device const unsigned char* input [[buffer(0)]]
     uint source = layout_address(layouts, params.x, index), target = layout_address(layouts, params.y, index);
     if (params.z == params.w) layout_raw_copy(input, output, source, target, params.z);
     else storage_write_bits(output, target, params.w, storage_float_bits(input, source, params.z));
+}
+
+inline float layout_value(device const unsigned char* input, device const ulong* layouts,
+                          uint start, uint dtype, uint logical) {
+    return as_type<float>(storage_float_bits(input, layout_address(layouts, start, logical), dtype));
+}
+
+inline bool layout_nan(float value) {
+    return (as_type<uint>(value) & 0x7fffffffu) > 0x7f800000u;
+}
+
+inline float layout_maximum(float first, float second) {
+    if (layout_nan(first) || layout_nan(second)) return as_type<float>(0x7fc00000u);
+    if (first == 0.0f && second == 0.0f) return as_type<float>(as_type<uint>(first) & as_type<uint>(second));
+    return first > second ? first : second;
+}
+
+inline float layout_group_sum(device const unsigned char* input, device const ulong* layouts,
+                              uint start, uint dtype, uint base, uint width, uint operation) {
+    float sum = 0.0f;
+    for (uint index = 0; index < width; index++) {
+        float value = layout_value(input, layouts, start, dtype, base + index);
+        if (operation == 4) value = abs(value);
+        if (operation == 5) value *= value;
+        sum += value;
+    }
+    return sum;
+}
+
+inline float layout_group_maximum(device const unsigned char* input, device const ulong* layouts,
+                                  uint start, uint dtype, uint base, uint width) {
+    float maximum = -INFINITY;
+    for (uint index = 0; index < width; index++) {
+        maximum = layout_maximum(maximum, layout_value(input, layouts, start, dtype, base + index));
+    }
+    return maximum;
+}
+
+inline float layout_group_variance(device const unsigned char* input, device const ulong* layouts,
+                                   constant uint* params, uint base, float mean) {
+    if (params[4] <= params[6]) return as_type<float>(0x7fc00000u);
+    float sum = 0.0f;
+    for (uint index = 0; index < params[4]; index++) {
+        float centered = layout_value(input, layouts, params[0], params[1], base + index) - mean;
+        sum += centered * centered;
+    }
+    return sum / float(params[4] - params[6]);
+}
+
+inline float layout_reduced_value(device const unsigned char* input, device const ulong* layouts,
+                                  constant uint* params, uint group) {
+    uint base = group * params[4];
+    if (params[5] == 3) return layout_group_maximum(input, layouts, params[0], params[1], base, params[4]);
+    float sum = layout_group_sum(input, layouts, params[0], params[1], base, params[4], params[5]);
+    if (params[5] == 1) return sum / float(params[4]);
+    if (params[5] == 2) return layout_group_variance(input, layouts, params, base, sum / float(params[4]));
+    return sum;
+}
+
+kernel void kernel_layout_reduce(device const unsigned char* input [[buffer(0)]],
+                                 device unsigned char* output [[buffer(1)]],
+                                 device const ulong* layouts [[buffer(2)]],
+                                 constant uint* params [[buffer(3)]],
+                                 uint group [[thread_position_in_grid]]) {
+    float value = layout_reduced_value(input, layouts, params, group);
+    storage_write_bits(output, group, params[2], as_type<uint>(value));
+}
+
+inline float layout_softmax_sum(device const unsigned char* input, device const ulong* layouts,
+                                constant uint* params, uint base, float maximum) {
+    float sum = 0.0f;
+    for (uint index = 0; index < params[3]; index++) {
+        sum += exp(layout_value(input, layouts, params[0], params[2], base + index) - maximum);
+    }
+    return sum;
+}
+
+inline void layout_softmax_write(device const unsigned char* input, device unsigned char* output,
+                                 device const ulong* layouts, constant uint* params, uint base,
+                                 float maximum, float sum) {
+    bool invalid = (as_type<uint>(maximum) & 0x7fffffffu) >= 0x7f800000u;
+    for (uint index = 0; index < params[3]; index++) {
+        float value = invalid ? as_type<float>(0x7fc00000u)
+                : exp(layout_value(input, layouts, params[0], params[2], base + index) - maximum) / sum;
+        uint address = layout_address(layouts, params[1], base + index);
+        storage_write_bits(output, address, params[2], as_type<uint>(value));
+    }
+}
+
+kernel void kernel_layout_softmax(device const unsigned char* input [[buffer(0)]],
+                                  device unsigned char* output [[buffer(1)]],
+                                  device const ulong* layouts [[buffer(2)]],
+                                  constant uint* params [[buffer(3)]],
+                                  uint group [[thread_position_in_grid]]) {
+    uint base = group * params[3];
+    float maximum = layout_group_maximum(input, layouts, params[0], params[2], base, params[3]);
+    float sum = layout_softmax_sum(input, layouts, params, base, maximum);
+    layout_softmax_write(input, output, layouts, params, base, maximum, sum);
+}
+
+inline uint layout_maximum_ties(device const unsigned char* input, device const ulong* layouts,
+                                constant uint* params, uint base, float maximum) {
+    uint count = 0;
+    for (uint index = 0; index < params[6]; index++) {
+        if (layout_value(input, layouts, params[0], params[4], base + index) == maximum) count++;
+    }
+    return count;
+}
+
+inline float layout_maximum_derivative(float value, float maximum, float gradient, uint ties) {
+    if (layout_nan(maximum)) return as_type<float>(0x7fc00000u);
+    return value == maximum ? gradient / float(ties) : 0.0f;
+}
+
+inline void layout_maximum_write(device const unsigned char* input, device unsigned char* output,
+                                 device const ulong* layouts, constant uint* params, uint base,
+                                 float maximum, float gradient, uint ties) {
+    for (uint index = 0; index < params[6]; index++) {
+        float value = layout_value(input, layouts, params[0], params[4], base + index);
+        float derivative = layout_maximum_derivative(value, maximum, gradient, ties);
+        uint address = layout_address(layouts, params[3], base + index);
+        storage_write_bits(output, address, 1, as_type<uint>(derivative));
+    }
+}
+
+kernel void kernel_layout_maximum_backward(device const unsigned char* input [[buffer(0)]],
+                                           device const unsigned char* maximum [[buffer(1)]],
+                                           device const unsigned char* gradient [[buffer(2)]],
+                                           device unsigned char* output [[buffer(3)]],
+                                           device const ulong* layouts [[buffer(4)]],
+                                           constant uint* params [[buffer(5)]],
+                                           uint group [[thread_position_in_grid]]) {
+    uint base = group * params[6];
+    float winner = layout_value(maximum, layouts, params[1], params[5], group);
+    float upstream = layout_value(gradient, layouts, params[2], 1, group);
+    uint ties = layout_maximum_ties(input, layouts, params, base, winner);
+    layout_maximum_write(input, output, layouts, params, base, winner, upstream, ties);
 }
 
 kernel void kernel_storage_copy(device const unsigned char* input [[buffer(0)]],
@@ -1664,6 +1804,9 @@ static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutBinaryPSO = makePSO(library, @"kernel_layout_binary");
     ctx->layoutUnaryPSO = makePSO(library, @"kernel_layout_unary");
     ctx->layoutAssignPSO = makePSO(library, @"kernel_layout_assign");
+    ctx->layoutReducePSO = makePSO(library, @"kernel_layout_reduce");
+    ctx->layoutSoftmaxPSO = makePSO(library, @"kernel_layout_softmax");
+    ctx->layoutMaximumBackwardPSO = makePSO(library, @"kernel_layout_maximum_backward");
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
     ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
@@ -1886,6 +2029,9 @@ static constexpr int OP_LAYOUT_TRANSFER = 63;
 static constexpr int OP_LAYOUT_BINARY = 64;
 static constexpr int OP_LAYOUT_UNARY = 65;
 static constexpr int OP_LAYOUT_ASSIGN = 66;
+static constexpr int OP_LAYOUT_REDUCE = 67;
+static constexpr int OP_LAYOUT_SOFTMAX = 68;
+static constexpr int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -2528,6 +2674,115 @@ static void encodeLayoutBinary(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
     bindValue(encoder, params, 4);
     dispatch1D(encoder, state.ctx->layoutBinaryPSO, params[6]);
+}
+
+struct GroupedLayout {
+    LogicalLayout layout;
+    uint32_t groups, width;
+};
+
+static GroupedLayout requireGroupedLayout(GraphState& state, int start, int retained, int buffer) {
+    auto layout = requireLogicalLayout(state.layouts, start, requireStorageBuffer(buffer, "grouped layout"),
+                                       gBufferDTypes.at(buffer));
+    if (retained < 0 || (uint32_t)retained > layout.rank) throw std::runtime_error("Invalid retained GPU axes");
+    uint32_t groups = 1;
+    for (int axis = 0; axis < retained; axis++) {
+        groups *= (uint32_t)layout.axes[axis];
+    }
+    return {layout, groups, layout.count / groups};
+}
+
+static void requireReductionOperation(int operation, int correction) {
+    if (operation < 0 || operation > 5) throw std::runtime_error("Invalid GPU reduction operation");
+    if (correction < 0 || (operation != 2 && correction != 0)) {
+        throw std::runtime_error("Invalid GPU variance correction");
+    }
+}
+
+static std::array<uint32_t, 7> layoutReduceParams(GraphState& state, const jint* cmd, int pos) {
+    requireReductionOperation(cmd[pos + 5], cmd[pos + 6]);
+    int source = cmd[pos + 1], target = cmd[pos + 2];
+    if (source == target) throw std::runtime_error("Reduction output requires independent storage");
+    auto group = requireGroupedLayout(state, cmd[pos + 3], cmd[pos + 4], source);
+    int sourceType = gBufferDTypes.at(source), targetType = gBufferDTypes.at(target);
+    if ((targetType != sourceType && targetType != 1) || (cmd[pos + 5] >= 4 && targetType != 1) ||
+        storageBytes((int)group.groups, targetType) != [requireStorageBuffer(target, "reduce output") length]) {
+        throw std::runtime_error("Invalid grouped GPU reduction output");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)sourceType, (uint32_t)targetType, group.groups,
+            group.width, (uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6]};
+}
+
+static void encodeLayoutReduce(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutReduceParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutReducePSO, requireStorageBuffer(cmd[pos + 1], "reduce"),
+                     requireStorageBuffer(cmd[pos + 2], "reduce"), params, params[3]);
+}
+
+static LogicalLayout requireCompleteOutput(GraphState& state, int start, int target,
+                                           const LogicalLayout& input, int dtype) {
+    auto output = requireLogicalLayout(state.layouts, start, requireStorageBuffer(target, "layout output"),
+                                       gBufferDTypes.at(target));
+    requireSameLayoutShape(input, output);
+    requireWritableLayout(output);
+    if (gBufferDTypes.at(target) != dtype || output.count != output.storage) {
+        throw std::runtime_error("Invalid complete GPU output layout");
+    }
+    return output;
+}
+
+static std::array<uint32_t, 5> layoutSoftmaxParams(GraphState& state, const jint* cmd, int pos) {
+    int source = cmd[pos + 1], target = cmd[pos + 2];
+    if (source == target) throw std::runtime_error("Softmax output requires independent storage");
+    auto group = requireGroupedLayout(state, cmd[pos + 3], cmd[pos + 5], source);
+    if ((uint32_t)cmd[pos + 5] + 1 != group.layout.rank) throw std::runtime_error("Softmax requires one axis");
+    int dtype = gBufferDTypes.at(source);
+    requireCompleteOutput(state, cmd[pos + 4], target, group.layout, dtype);
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], (uint32_t)dtype, group.width, group.groups};
+}
+
+static void encodeLayoutSoftmax(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutSoftmaxParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutSoftmaxPSO, requireStorageBuffer(cmd[pos + 1], "softmax"),
+                     requireStorageBuffer(cmd[pos + 2], "softmax"), params, params[4]);
+}
+
+static void requireMaximumUpstream(GraphState& state, const jint* cmd, int pos, uint32_t groups, int dtype) {
+    int maximum = cmd[pos + 2], gradient = cmd[pos + 3];
+    auto winner = requireLogicalLayout(state.layouts, cmd[pos + 6], requireStorageBuffer(maximum, "maximum"),
+                                       gBufferDTypes.at(maximum));
+    auto upstream = requireLogicalLayout(state.layouts, cmd[pos + 7], requireStorageBuffer(gradient, "gradient"),
+                                         gBufferDTypes.at(gradient));
+    requireSameLayoutShape(winner, upstream);
+    if (winner.count != groups || gBufferDTypes.at(maximum) != dtype || gBufferDTypes.at(gradient) != 1) {
+        throw std::runtime_error("Invalid maximum adjoint values or dtypes");
+    }
+}
+
+static std::array<uint32_t, 8> layoutMaximumParams(GraphState& state, const jint* cmd, int pos) {
+    int target = cmd[pos + 4];
+    if (target == cmd[pos + 1] || target == cmd[pos + 2] || target == cmd[pos + 3]) {
+        throw std::runtime_error("Maximum adjoint output requires independent storage");
+    }
+    auto group = requireGroupedLayout(state, cmd[pos + 5], cmd[pos + 9], cmd[pos + 1]);
+    int dtype = gBufferDTypes.at(cmd[pos + 1]);
+    requireMaximumUpstream(state, cmd, pos, group.groups, dtype);
+    requireCompleteOutput(state, cmd[pos + 8], target, group.layout, 1);
+    return {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7],
+            (uint32_t)cmd[pos + 8], (uint32_t)dtype, (uint32_t)dtype, group.width, group.groups};
+}
+
+static void encodeLayoutMaximumBackward(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutMaximumParams(state, cmd, pos);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->layoutMaximumBackwardPSO];
+    for (NSUInteger index = 0; index < 4; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + 1 + index], "maximum adjoint") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:4];
+    bindValue(encoder, params, 5);
+    dispatch1D(encoder, state.ctx->layoutMaximumBackwardPSO, params[7]);
 }
 
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
@@ -3351,8 +3606,10 @@ static int attentionCommandWidth(int op) {
 static int layoutCommandWidth(int op) {
     if (op == OP_STORAGE_COPY) return 6;
     if (op == OP_LAYOUT_TRANSFER) return 4;
-    if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY) return 7;
+    if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY || op == OP_LAYOUT_REDUCE) return 7;
     if (op == OP_LAYOUT_ASSIGN) return 5;
+    if (op == OP_LAYOUT_SOFTMAX) return 6;
+    if (op == OP_LAYOUT_MAXIMUM_BACKWARD) return 10;
     throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
 }
 
@@ -3434,6 +3691,9 @@ static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_LAYOUT_BINARY) encodeLayoutBinary(state, cmd, pos);
     else if (op == OP_LAYOUT_UNARY) encodeLayoutUnary(state, cmd, pos);
     else if (op == OP_LAYOUT_ASSIGN) encodeLayoutAssign(state, cmd, pos);
+    else if (op == OP_LAYOUT_REDUCE) encodeLayoutReduce(state, cmd, pos);
+    else if (op == OP_LAYOUT_SOFTMAX) encodeLayoutSoftmax(state, cmd, pos);
+    else if (op == OP_LAYOUT_MAXIMUM_BACKWARD) encodeLayoutMaximumBackward(state, cmd, pos);
     else return false;
     return true;
 }

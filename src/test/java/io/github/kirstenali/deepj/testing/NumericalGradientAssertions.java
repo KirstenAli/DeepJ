@@ -71,14 +71,27 @@ public final class NumericalGradientAssertions {
 
     private static float centralDifference(Tensor variable, int index, Supplier<Tensor> forward,
                                            Tensor upstream, float epsilon) {
-        float original = variable.rawData()[index];
+        int[] coordinates = coordinates(variable, index);
+        float original = variable.get(coordinates);
         float step = epsilon * Math.max(1.0f, Math.abs(original));
-        variable.rawData()[index] = original + step;
-        float plus = objective(forward.get(), upstream);
-        variable.rawData()[index] = original - step;
-        float minus = objective(forward.get(), upstream);
-        variable.rawData()[index] = original;
-        return (plus - minus) / (2.0f * step);
+        try (var ignored = GradMode.noGrad()) {
+            try {
+                variable.setAt(original + step, coordinates);
+                float plus = objective(forward.get(), upstream);
+                variable.setAt(original - step, coordinates);
+                float minus = objective(forward.get(), upstream);
+                return (plus - minus) / (2.0f * step);
+            } finally { variable.setAt(original, coordinates); }
+        }
+    }
+
+    private static int[] coordinates(Tensor input, int index) {
+        int[] coordinates = new int[input.rank()];
+        for (int axis = input.rank() - 1; axis >= 0; axis--) {
+            coordinates[axis] = index % input.size(axis);
+            index /= input.size(axis);
+        }
+        return coordinates;
     }
 
     private static float objective(Tensor output, Tensor upstream) {

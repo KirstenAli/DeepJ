@@ -2,9 +2,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.*;
 
-import java.util.List;
-
-abstract class MetalMathOps extends MetalCoreOps {
+abstract class MetalMathOps extends MetalRowReductionOps {
     @Override
     public Tensor multiplyScalar(Tensor a, float scalar) {
         if (!MetalDenseOps.matrix(a)) return MetalDenseOps.scalar(graph, a, ComputeGraph.OP_MULTIPLY_SCALAR, scalar);
@@ -32,92 +30,6 @@ abstract class MetalMathOps extends MetalCoreOps {
         return gpuOut(gOut);
     }
 
-    @Override
-    public Tensor sumRows(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(1, a.matrixCols());
-        graph.recordReduction(ComputeGraph.OP_SUM_ROWS, ga, gOut, a.matrixRows(), a.matrixCols());
-        return gpuOut(gOut);
-    }
-
-    @Override
-    public Tensor sumAlongRows(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), 1);
-        graph.recordReduction(ComputeGraph.OP_SUM_ALONG_ROWS, ga, gOut, a.matrixRows(), a.matrixCols());
-        return gpuOut(gOut);
-    }
-
-    @Override
-    public Tensor sumAlongCols(Tensor a) {
-        return sumRows(a);
-    }
-
-    @Override
-    public Tensor meanAlongRows(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), 1);
-        graph.recordReduction(ComputeGraph.OP_MEAN_ALONG_ROWS, ga, gOut, a.matrixRows(), a.matrixCols());
-        return gpuOut(gOut);
-    }
-
-    @Override
-    public Tensor varianceAlongRows(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), 1);
-        graph.recordReduction(ComputeGraph.OP_VARIANCE_ALONG_ROWS, ga, gOut, a.matrixRows(), a.matrixCols());
-        return gpuOut(gOut);
-    }
-
-    @Override
-    public Tensor maxAlongRows(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), 1);
-        graph.recordReduction(ComputeGraph.OP_MAX_ALONG_ROWS, ga, gOut, a.matrixRows(), a.matrixCols());
-        return gpuOut(gOut);
-    }
-
-    @Override
-    public float sum(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(1, 1);
-        graph.recordSumScalar(ga, gOut, a.matrixRows(), a.matrixCols());
-        Tensor scalar = gpuOut(gOut);
-        scalar.materialize();
-        return scalar.rawData()[0];
-    }
-
-    @Override
-    public float sumAbs(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gRowAbsSums = graph.newOutputBuffer(a.matrixRows(), 1);
-        graph.recordSumAbs(ga, gRowAbsSums, a.matrixRows(), a.matrixCols());
-        Tensor rowAbsSums = gpuOut(gRowAbsSums);
-        Tensor scalar = sumRows(rowAbsSums);
-        scalar.materialize();
-        return scalar.rawData()[0];
-    }
-
-    @Override
-    public float l2Norm(List<Tensor> tensors) {
-        if (tensors.isEmpty()) return 0.0f;
-        Tensor total = new Tensor(1, 1);
-        GpuBuffer output = gpuIn(total);
-        for (Tensor tensor : tensors) {
-            graph.recordSumSquaresScalar(gpuIn(tensor), output);
-        }
-        output.cpuStale = true;
-        total.materialize();
-        return (float) Math.sqrt(total.rawData()[0]);
-    }
-
-    @Override
-    public Tensor transpose(Tensor a) {
-        GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.matrixCols(), a.matrixRows());
-        graph.recordTranspose(ga, gOut, a.matrixRows(), a.matrixCols());
-        return gpuOut(gOut);
-    }
 
     @Override
     public Tensor clamp(Tensor a, float min, float max) {
@@ -235,6 +147,8 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor softmaxRows(Tensor logits) {
+        MatrixShapeChecks.requireMatrix(logits);
+        if (!MetalDenseOps.matrix(logits)) return graph.layoutSoftmax(logits, 1);
         GpuBuffer ga = gpuIn(logits);
         GpuBuffer gOut = graph.newOutputBuffer(logits.matrixRows(), logits.matrixCols());
         graph.recordSoftmaxRows(ga, gOut, logits.matrixRows(), logits.matrixCols());
@@ -244,6 +158,10 @@ abstract class MetalMathOps extends MetalCoreOps {
     @Override
     public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
         Tensor.requireSameShape(gradOutput, softmaxOut, "softmaxBackward");
+        if (!MetalDenseOps.sameMatrices(gradOutput, softmaxOut)) {
+            MatrixShapeChecks.requireMatrix(softmaxOut);
+            return axisSoftmaxBackward(gradOutput, softmaxOut, 1);
+        }
         GpuBuffer gGrad = gpuIn(gradOutput);
         GpuBuffer gSoftmax = gpuIn(softmaxOut);
         GpuBuffer gOut = graph.newOutputBuffer(gradOutput.matrixRows(), gradOutput.matrixCols());
@@ -254,6 +172,10 @@ abstract class MetalMathOps extends MetalCoreOps {
     @Override
     public Tensor softmaxBackward(Tensor gradient, Tensor probabilities, float scale) {
         Tensor.requireSameShape(gradient, probabilities, "softmaxBackward");
+        if (!MetalDenseOps.sameMatrices(gradient, probabilities)) {
+            MatrixShapeChecks.requireMatrix(probabilities);
+            return multiplyScalar(axisSoftmaxBackward(gradient, probabilities, 1), scale);
+        }
         GpuBuffer output = graph.newOutputBuffer(gradient.matrixRows(), gradient.matrixCols());
         graph.recordScaledSoftmaxBackward(gpuIn(gradient), gpuIn(probabilities), output, scale);
         return gpuOut(output);

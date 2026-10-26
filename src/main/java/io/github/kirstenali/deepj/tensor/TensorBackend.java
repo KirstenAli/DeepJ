@@ -163,14 +163,7 @@ public interface TensorBackend {
     float sumAbs(Tensor a);
 
     default float l2Norm(List<Tensor> tensors) {
-        float squares = 0.0f;
-        for (Tensor tensor : tensors) {
-            tensor.materialize();
-            for (float value : tensor.rawData()) {
-                squares += value * value;
-            }
-        }
-        return (float) Math.sqrt(squares);
+        return CpuNdNorm.norm(tensors);
     }
 
     Tensor transpose(Tensor a);
