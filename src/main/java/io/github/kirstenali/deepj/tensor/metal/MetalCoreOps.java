@@ -103,6 +103,7 @@ abstract class MetalCoreOps implements TensorBackend {
         for (int row : rows) {
             requireRow(input, row);
         }
+        if (!MetalIndexMetadata.fitsFloat(rows)) return graph.layoutIndexSelect(input, 0, rows);
         Tensor indices = immutableIntColumn(rows);
         GpuBuffer output = graph.newOutputBuffer(rows.length, input.matrixCols());
         graph.recordGatherRows(gpuIn(input), gpuIn(indices), output,

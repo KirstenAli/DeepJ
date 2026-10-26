@@ -58,4 +58,16 @@ class MetalNdIndexGradientTest extends MetalDifferentialTestSupport {
         empty.indexSelect(0).sumTensor().backward();
         assertArrayEquals(new int[]{0, 2}, empty.grad().shape());
     }
+
+    @Test
+    void legacyEmbeddingGradientsAlsoKeepIndicesBeyondFloatPrecisionExact() {
+        Tensor table = new Tensor(DType.FLOAT16, 16_777_218, 1).requiresGrad(true);
+        Tensor.sliceRows(table, new int[]{16_777_216, 16_777_217}, 1).sumTensor().backward();
+        Tensor selected = table.grad().indexSelect(0, 16_777_216, 16_777_217);
+        assertArrayEquals(new float[]{1, 1}, selected.toFloatArray());
+        Tensor floatTable = metal.zeros(DType.FLOAT32, 16_777_218, 1);
+        metal.indexAdd(floatTable, 0, new int[]{16_777_217}, Tensor.from(new float[]{7}, 1, 1));
+        Tensor gathered = Tensor.sliceRows(floatTable, new int[]{16_777_216, 16_777_217}, 1);
+        assertArrayEquals(new float[]{0, 7}, gathered.toFloatArray());
+    }
 }
