@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
 /** Slice adjoints initialize one dense result, then assign only the selected logical region on GPU. */
-abstract class GraphSliceRecordingOps extends GraphMaximumRecordingOps {
+abstract class GraphSliceRecordingOps extends GraphMatmulRecordingOps {
     GraphSliceRecordingOps(GpuRuntime runtime) { super(runtime); }
 
     public Tensor layoutSliceGradient(Tensor gradient, int[] dimensions, int axis, int start, int step) {

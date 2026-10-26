@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static io.github.kirstenali.deepj.testing.NdMatmulReference.assertBroadcastFixture;
 
 class CpuNdMatmulTest {
     @BeforeEach void cpu() { Tensor.setBackend(new CpuBackend()); }
@@ -21,13 +22,7 @@ class CpuNdMatmulTest {
 
     @Test
     void multipleBatchAxesBroadcastWithoutCrossingExampleBoundaries() {
-        Tensor left = Tensor.from(new float[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, 2, 1, 2, 3);
-        Tensor right = Tensor.from(new float[]{1, 0, 0, 1, 1, 1, 2, 0, 0, 2, 2, 2,
-                3, 0, 0, 3, 3, 3}, 1, 3, 3, 2);
-        Tensor output = left.matmul(right);
-        assertArrayEquals(new int[]{2, 3, 2, 2}, output.shape());
-        assertArrayEquals(new float[]{4, 5, 10, 11, 8, 10, 20, 22, 12, 15, 30, 33,
-                16, 17, 22, 23, 32, 34, 44, 46, 48, 51, 66, 69}, output.toFloatArray());
+        assertBroadcastFixture(DType.FLOAT32);
     }
 
     @Test

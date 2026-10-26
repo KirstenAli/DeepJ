@@ -26,6 +26,7 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutReducePSO;
     id<MTLComputePipelineState> layoutSoftmaxPSO;
     id<MTLComputePipelineState> layoutMaximumBackwardPSO;
+    id<MTLComputePipelineState> layoutMatmulPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -477,6 +478,32 @@ kernel void kernel_layout_transfer(device const unsigned char* input [[buffer(0)
     uint address = layout_address(layouts, params.x, id);
     if (params.y == params.z) layout_raw_copy(input, output, address, id, params.y);
     else storage_write_bits(output, id, params.z, storage_float_bits(input, address, params.y));
+}
+
+inline float layout_matmul_dot(device const unsigned char* a, device const unsigned char* b,
+                               device const ulong* layouts, constant uint* params, uint index) {
+    uint m = params[5], n = params[6], k = params[7], batch = index / (m * n);
+    uint first = layout_address(layouts, params[0], (batch * m + index / n % m) * k);
+    uint second = layout_address(layouts, params[1], batch * k * n + index % n);
+    uint aRank = uint(layouts[params[0]]), bRank = uint(layouts[params[1]]);
+    ulong aStep = layouts[params[0] + 3 + 2 * aRank];
+    ulong bStep = layouts[params[1] + 2 + 2 * bRank];
+    float sum = 0.0f;
+    for (uint inner = 0; inner < k; inner++) {
+        float x = as_type<float>(storage_float_bits(a, uint(first + inner * aStep), params[2]));
+        float y = as_type<float>(storage_float_bits(b, uint(second + inner * bStep), params[3]));
+        sum += x * y;
+    }
+    return sum;
+}
+
+kernel void kernel_layout_matmul(device const unsigned char* a [[buffer(0)]],
+                                 device const unsigned char* b [[buffer(1)]],
+                                 device unsigned char* output [[buffer(2)]],
+                                 device const ulong* layouts [[buffer(3)]],
+                                 constant uint* params [[buffer(4)]], uint index [[thread_position_in_grid]]) {
+    float sum = layout_matmul_dot(a, b, layouts, params, index);
+    storage_write_bits(output, index, params[4], as_type<uint>(sum));
 }
 
 inline float layout_gelu(float x) {
@@ -1807,6 +1834,7 @@ static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutReducePSO = makePSO(library, @"kernel_layout_reduce");
     ctx->layoutSoftmaxPSO = makePSO(library, @"kernel_layout_softmax");
     ctx->layoutMaximumBackwardPSO = makePSO(library, @"kernel_layout_maximum_backward");
+    ctx->layoutMatmulPSO = makePSO(library, @"kernel_layout_matmul");
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
     ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
@@ -2032,6 +2060,7 @@ static constexpr int OP_LAYOUT_ASSIGN = 66;
 static constexpr int OP_LAYOUT_REDUCE = 67;
 static constexpr int OP_LAYOUT_SOFTMAX = 68;
 static constexpr int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
+static constexpr int OP_LAYOUT_MATMUL = 70;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -3274,6 +3303,141 @@ static void encodeBatchedMatmul(GraphState& state, const jint* cmd, int pos) {
         rightMatrix:right resultMatrix:output];
 }
 
+struct LayoutMatmulSpec {
+    LogicalLayout left, right;
+    uint32_t rows, columns, inner, batches, count, leftType, rightType, outputType;
+};
+
+static void requireMatmulLayouts(const LogicalLayout& left, const LogicalLayout& right) {
+    if (left.rank < 2 || left.rank != right.rank ||
+        !std::equal(left.axes, left.axes + left.rank - 2, right.axes) ||
+        left.axes[left.rank - 1] != right.axes[right.rank - 2]) {
+        throw std::runtime_error("Invalid promoted GPU matmul dimensions");
+    }
+}
+
+static LayoutMatmulSpec layoutMatmulSpec(GraphState& state, const jint* cmd, int pos) {
+    uint32_t a = gBufferDTypes.at(cmd[pos + 1]), b = gBufferDTypes.at(cmd[pos + 2]);
+    auto left = requireLogicalLayout(state.layouts, cmd[pos + 4],
+                                     requireStorageBuffer(cmd[pos + 1], "matmul left"), a);
+    auto right = requireLogicalLayout(state.layouts, cmd[pos + 5],
+                                      requireStorageBuffer(cmd[pos + 2], "matmul right"), b);
+    requireMatmulLayouts(left, right);
+    uint32_t m = left.axes[left.rank - 2], k = left.axes[left.rank - 1], n = right.axes[right.rank - 1];
+    uint32_t batches = left.count / m / k, dtype = a == b ? a : 1;
+    uint64_t count = (uint64_t)batches * m * n;
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 3], "matmul output");
+    if (count > INT32_MAX || output.length != count * (dtype == 1 ? 4 : 2) ||
+        gBufferDTypes.at(cmd[pos + 3]) != (int)dtype || cmd[pos + 3] == cmd[pos + 1] ||
+        cmd[pos + 3] == cmd[pos + 2]) throw std::runtime_error("Invalid GPU matmul output storage");
+    return {left, right, m, n, k, batches, (uint32_t)count, a, b, dtype};
+}
+
+struct MpsLayoutMatrix {
+    uint32_t rows, columns;
+    uint64_t rowStride;
+    bool transposed;
+};
+
+static bool mpsLayoutMatrix(const LogicalLayout& layout, MpsLayoutMatrix& matrix) {
+    uint32_t rows = layout.axes[layout.rank - 2], cols = layout.axes[layout.rank - 1];
+    uint64_t rowStride = layout.axes[2 * layout.rank - 2], colStride = layout.axes[2 * layout.rank - 1];
+    if ((cols == 1 || colStride == 1) && (rows == 1 || rowStride >= cols)) {
+        matrix = {rows, cols, rows == 1 ? cols : rowStride, false};
+        return true;
+    }
+    if ((rows == 1 || rowStride == 1) && (cols == 1 || colStride >= rows)) {
+        matrix = {cols, rows, cols == 1 ? rows : colStride, true};
+        return true;
+    }
+    return false;
+}
+
+static NSUInteger matmulBatchAddress(const LogicalLayout& layout, uint32_t batch) {
+    NSUInteger address = layout.offset;
+    for (int axis = (int)layout.rank - 3; axis >= 0; axis--) {
+        address += (batch % layout.axes[axis]) * layout.axes[layout.rank + axis];
+        batch /= layout.axes[axis];
+    }
+    return address;
+}
+
+static uint64_t matmulBatchStride(const LogicalLayout& layout) {
+    if (layout.rank == 2) return 0;
+    uint64_t stride = 0, expected = 0;
+    for (int axis = (int)layout.rank - 3; axis >= 0; axis--) {
+        if (layout.axes[axis] == 1) continue;
+        uint64_t step = layout.axes[layout.rank + axis];
+        if (stride == 0) {
+            stride = step;
+            expected = step;
+        }
+        if (expected == 0 || step != expected) return 0;
+        expected *= layout.axes[axis];
+    }
+    return stride;
+}
+
+static MPSMatrix* layoutMpsMatrix(id<MTLBuffer> buffer, const MpsLayoutMatrix& matrix,
+                                  NSUInteger offset, uint32_t batches, uint64_t batchStride) {
+    auto descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:matrix.rows columns:matrix.columns
+        matrices:batches rowBytes:matrix.rowStride * sizeof(float)
+        matrixBytes:batchStride * sizeof(float) dataType:MPSDataTypeFloat32];
+    return [[MPSMatrix alloc] initWithBuffer:buffer offset:offset * sizeof(float) descriptor:descriptor];
+}
+
+static bool mpsBatchCompatible(const MpsLayoutMatrix& matrix, uint64_t stride) {
+    return stride >= matrix.rows * matrix.rowStride && stride % matrix.rowStride == 0;
+}
+
+static void encodeLayoutMpsBatch(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec,
+                                 const MpsLayoutMatrix& a, const MpsLayoutMatrix& b,
+                                 uint32_t batch, uint32_t count, uint64_t firstStride, uint64_t secondStride) {
+    auto left = layoutMpsMatrix(requireBuffer(cmd[pos + 1], "layout matmul"), a,
+                                matmulBatchAddress(spec.left, batch), count, firstStride);
+    auto right = layoutMpsMatrix(requireBuffer(cmd[pos + 2], "layout matmul"), b,
+                                 matmulBatchAddress(spec.right, batch), count, secondStride);
+    MpsLayoutMatrix result{spec.rows, spec.columns, spec.columns, false};
+    auto output = layoutMpsMatrix(requireBuffer(cmd[pos + 3], "layout matmul"), result,
+                                  (NSUInteger)batch * spec.rows * spec.columns, count,
+                                  (uint64_t)spec.rows * spec.columns);
+    [configuredMatmulKernel(state.ctx, spec.rows, spec.columns, spec.inner, a.transposed, b.transposed, count)
+        encodeToCommandBuffer:state.commandBuffer leftMatrix:left rightMatrix:right resultMatrix:output];
+}
+
+static bool encodeLayoutMpsMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
+    MpsLayoutMatrix a, b;
+    if (spec.leftType != 1 || spec.rightType != 1 ||
+        !mpsLayoutMatrix(spec.left, a) || !mpsLayoutMatrix(spec.right, b)) return false;
+    endGraphEncoder(state);
+    uint64_t first = matmulBatchStride(spec.left), second = matmulBatchStride(spec.right);
+    if (mpsBatchCompatible(a, first) && mpsBatchCompatible(b, second)) {
+        encodeLayoutMpsBatch(state, cmd, pos, spec, a, b, 0, spec.batches, first, second);
+    } else {
+        for (uint32_t batch = 0; batch < spec.batches; batch++) {
+            encodeLayoutMpsBatch(state, cmd, pos, spec, a, b, batch, 1,
+                                 a.rows * a.rowStride, b.rows * b.rowStride);
+        }
+    }
+    return true;
+}
+
+static void encodeLayoutMatmul(GraphState& state, const jint* cmd, int pos) {
+    auto spec = layoutMatmulSpec(state, cmd, pos);
+    if (encodeLayoutMpsMatmul(state, cmd, pos, spec)) return;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->layoutMatmulPSO];
+    for (int index = 0; index < 3; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + 1 + index], "layout matmul") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    std::array<uint32_t, 8> params{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], spec.leftType,
+        spec.rightType, spec.outputType, spec.rows, spec.columns, spec.inner};
+    bindValue(encoder, params, 4);
+    dispatch1D(encoder, state.ctx->layoutMatmulPSO, spec.count);
+}
+
 static NSUInteger cacheElementCount(uint32_t heads, uint32_t length, uint32_t width) {
     if ((uint64_t)heads * length > INT32_MAX / width) {
         throw std::runtime_error("Head cache shape exceeds supported storage");
@@ -3609,6 +3773,7 @@ static int layoutCommandWidth(int op) {
     if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY || op == OP_LAYOUT_REDUCE) return 7;
     if (op == OP_LAYOUT_ASSIGN) return 5;
     if (op == OP_LAYOUT_SOFTMAX) return 6;
+    if (op == OP_LAYOUT_MATMUL) return 6;
     if (op == OP_LAYOUT_MAXIMUM_BACKWARD) return 10;
     throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
 }
@@ -3694,6 +3859,7 @@ static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_LAYOUT_REDUCE) encodeLayoutReduce(state, cmd, pos);
     else if (op == OP_LAYOUT_SOFTMAX) encodeLayoutSoftmax(state, cmd, pos);
     else if (op == OP_LAYOUT_MAXIMUM_BACKWARD) encodeLayoutMaximumBackward(state, cmd, pos);
+    else if (op == OP_LAYOUT_MATMUL) encodeLayoutMatmul(state, cmd, pos);
     else return false;
     return true;
 }

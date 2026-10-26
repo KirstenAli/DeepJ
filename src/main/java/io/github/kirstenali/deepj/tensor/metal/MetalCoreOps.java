@@ -86,6 +86,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor matmul(Tensor a, Tensor b) {
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(b)) return graph.layoutMatmul(a, b);
         if (a.matrixCols() != b.matrixRows()) throw new IllegalArgumentException(
                 "Shape mismatch for matmul: " + a.matrixRows() + "x" + a.matrixCols()
                         + " vs " + b.matrixRows() + "x" + b.matrixCols());
@@ -138,6 +139,9 @@ abstract class MetalCoreOps implements TensorBackend {
     public Tensor batchedMatmul(Tensor left, Tensor right, int batches,
                                 boolean transposeLeft, boolean transposeRight) {
         BatchedShape shape = batchedShape(left, right, batches, transposeLeft, transposeRight);
+        if (!MetalDenseOps.matrix(left) || !MetalDenseOps.matrix(right)) {
+            return MetalMatmulViews.batched(this, left, right, batches, transposeLeft, transposeRight);
+        }
         GpuBuffer output = graph.newOutputBuffer(batches * shape.rows(), shape.cols());
         graph.recordBatchedMatmul(gpuIn(left), gpuIn(right), output, batches,
                 shape.leftRows(), left.matrixCols(), shape.rightRows(), right.matrixCols(),

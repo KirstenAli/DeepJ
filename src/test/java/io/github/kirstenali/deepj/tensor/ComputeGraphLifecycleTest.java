@@ -110,7 +110,7 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
         for (int index = 0; index < fields.size(); index++) {
             codes[index] = fields.get(index).getInt(null);
         }
-        assertEquals(69, fields.size());
+        assertEquals(70, fields.size());
         assertEquals(fields.size(), java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
     }

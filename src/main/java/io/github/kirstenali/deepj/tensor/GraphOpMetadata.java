@@ -76,13 +76,14 @@ abstract class GraphOpMetadata {
     public static final int OP_LAYOUT_REDUCE = 67;
     public static final int OP_LAYOUT_SOFTMAX = 68;
     public static final int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
+    public static final int OP_LAYOUT_MATMUL = 70;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_LAYOUT_MAXIMUM_BACKWARD + 1];
+        OpMeta[] meta = new OpMeta[OP_LAYOUT_MATMUL + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -103,6 +104,7 @@ abstract class GraphOpMetadata {
         registerMeta(meta, OP_LAYOUT_REDUCE, 7, 1, 2);
         registerMeta(meta, OP_LAYOUT_SOFTMAX, 6, 1, 2);
         registerMeta(meta, OP_LAYOUT_MAXIMUM_BACKWARD, 10, 1, 2, 3, 4);
+        registerMeta(meta, OP_LAYOUT_MATMUL, 6, 1, 2, 3);
     }
 
     static void registerUnaryMeta(OpMeta[] meta) {
