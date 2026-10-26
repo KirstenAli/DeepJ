@@ -210,6 +210,15 @@ public interface TensorBackend {
 
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
 
+    default NormalizationResult normalize(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
+        throw new UnsupportedOperationException("This backend does not support ND normalization");
+    }
+
+    default Tensor normalizationBackward(Tensor gradient, Tensor normalized, Tensor denominator,
+                                            Tensor gamma, boolean centered) {
+        throw new UnsupportedOperationException("This backend does not support ND normalization gradients");
+    }
+
     default RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
         Tensor meanSquare = meanAlongRows(multiply(input, input));
         Tensor rms = sqrt(addScalar(meanSquare, epsilon));

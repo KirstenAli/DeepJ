@@ -56,4 +56,40 @@ public final class CpuBackend extends CpuTrainingOps {
         return CpuNdElementwise.matrix(logits) ? CrossEntropyDefaults.apply(this, logits, targets, mask)
                 : CpuNdCrossEntropy.apply(logits, targets, mask);
     }
+
+    @Override public NormalizationResult normalize(Tensor input, Tensor gamma, Tensor beta,
+                                                    float epsilon, boolean centered) {
+        return CpuNdNormalization.apply(input, gamma, beta, epsilon, centered);
+    }
+
+    @Override public Tensor normalizationBackward(Tensor gradient, Tensor normalized, Tensor denominator,
+                                                    Tensor gamma, boolean centered) {
+        return CpuNdNormalization.backward(gradient, normalized, denominator, gamma, centered);
+    }
+
+    @Override public RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
+        if (CpuNdElementwise.matrix(input) && CpuNdElementwise.matrix(gamma)) {
+            return super.rmsNorm(input, gamma, epsilon);
+        }
+        var result = normalize(input, gamma, null, epsilon, false);
+        return new RmsNormResult(result.output(), result.normalized(), result.denominator());
+    }
+
+    @Override public Tensor rmsNormBackward(Tensor gradient, Tensor normalized, Tensor rms, Tensor gamma) {
+        if (CpuNdElementwise.sameMatrices(gradient, normalized) && CpuNdElementwise.matrix(gamma)
+                && CpuNdElementwise.matrix(rms)) return super.rmsNormBackward(gradient, normalized, rms, gamma);
+        return normalizationBackward(gradient, normalized, rms, gamma, false);
+    }
+
+    @Override public Tensor swiGlu(Tensor gate, Tensor up) {
+        Tensor.requireSameShape(gate, up, "SwiGLU");
+        return CpuNdElementwise.sameMatrices(gate, up) ? super.swiGlu(gate, up) : CpuNdSwiGlu.apply(gate, up);
+    }
+
+    @Override public SwiGluBackwardResult swiGluBackward(Tensor gradient, Tensor gate, Tensor up) {
+        Tensor.requireSameShape(gate, up, "SwiGLU");
+        Tensor.requireSameShape(gate, gradient, "SwiGLU gradient");
+        return CpuNdElementwise.sameMatrices(gate, up) && CpuNdElementwise.sameMatrices(gate, gradient)
+                ? super.swiGluBackward(gradient, gate, up) : CpuNdSwiGlu.backward(gradient, gate, up);
+    }
 }
