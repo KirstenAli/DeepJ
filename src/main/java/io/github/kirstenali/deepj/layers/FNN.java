@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.layers;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,9 +24,16 @@ public final class FNN implements Layer {
             ActivationFunction outputActivation,
             Random rnd
     ) {
+        this(inputSize, hiddenSizes, outputSize, hiddenActivationFactory, outputActivation, rnd,
+                ParameterFactory.float32());
+    }
+
+    public FNN(int inputSize, int[] hiddenSizes, int outputSize,
+               Supplier<ActivationFunction> hiddenActivationFactory, ActivationFunction outputActivation,
+               Random rnd, ParameterFactory parameters) {
         validateArguments(inputSize, hiddenSizes, outputSize, hiddenActivationFactory, rnd);
-        int lastSize = buildHiddenLayers(inputSize, hiddenSizes, hiddenActivationFactory, rnd);
-        linears.add(new Linear(lastSize, outputSize, rnd));
+        int lastSize = buildHiddenLayers(inputSize, hiddenSizes, hiddenActivationFactory, rnd, parameters);
+        linears.add(new Linear(lastSize, outputSize, rnd, parameters.scope("output")));
         this.outputActivation = outputActivation;
     }
 
@@ -39,11 +47,12 @@ public final class FNN implements Layer {
     }
 
     private int buildHiddenLayers(int inputSize, int[] sizes,
-                                  Supplier<ActivationFunction> activationFactory, Random rnd) {
+                                  Supplier<ActivationFunction> activationFactory, Random rnd,
+                                  ParameterFactory parameters) {
         int currentSize = inputSize;
         for (int size : sizes) {
             requirePositive(size, "hidden layer size");
-            linears.add(new Linear(currentSize, size, rnd));
+            linears.add(new Linear(currentSize, size, rnd, parameters.scope("hidden." + linears.size())));
             activations.add(activationFactory.get());
             currentSize = size;
         }

@@ -7,6 +7,7 @@ import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.ProjectionOps;
 import io.github.kirstenali.deepj.tensor.SequenceLayout;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 
 import java.util.List;
 import java.util.Random;
@@ -29,6 +30,11 @@ public class MultiHeadSelfAttention implements Layer {
     private final Softmax softmax;
 
     public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd) {
+        this(dModel, nHeads, causalMask, rnd, ParameterFactory.float32());
+    }
+
+    public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd,
+                                   ParameterFactory parameters) {
         validateDimensions(dModel, nHeads);
 
         this.dModel = dModel;
@@ -37,10 +43,10 @@ public class MultiHeadSelfAttention implements Layer {
         this.causalMask = causalMask;
         this.scale = (float) (1.0 / Math.sqrt(headDim));
 
-        this.Wq = new Parameter(Tensor.random(dModel, dModel, rnd));
-        this.Wk = new Parameter(Tensor.random(dModel, dModel, rnd));
-        this.Wv = new Parameter(Tensor.random(dModel, dModel, rnd));
-        this.Wo = new Parameter(Tensor.random(dModel, dModel, rnd));
+        this.Wq = parameters.random("query.weight", dModel, dModel, rnd);
+        this.Wk = parameters.random("key.weight", dModel, dModel, rnd);
+        this.Wv = parameters.random("value.weight", dModel, dModel, rnd);
+        this.Wo = parameters.random("output.weight", dModel, dModel, rnd);
 
         this.softmax = new Softmax();
     }

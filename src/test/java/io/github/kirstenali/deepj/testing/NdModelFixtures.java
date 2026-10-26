@@ -6,12 +6,31 @@ import io.github.kirstenali.deepj.models.orbit.*;
 import io.github.kirstenali.deepj.models.prism.*;
 import io.github.kirstenali.deepj.models.nova.*;
 import io.github.kirstenali.deepj.models.loop.*;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
+import io.github.kirstenali.deepj.tensor.DType;
+import org.junit.jupiter.params.provider.Arguments;
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 /** Small architecture-complete cases,including compact KV groups and repeated Loop visits. */
 public final class NdModelFixtures {
     private NdModelFixtures() {}
     public static Stream<String> families() { return Stream.of("origin", "orbit", "prism", "nova", "loop"); }
+
+    public static Stream<Arguments> typedCases() {
+        return families().flatMap(family -> Arrays.stream(DType.values()).map(dtype -> Arguments.of(family, dtype)));
+    }
+
+    public static DecoderOnlyModel model(String family, long seed, ParameterFactory parameters) {
+        return switch (family) {
+            case "origin" -> new DeepJOrigin(new DeepJOriginConfig(19, 8, 8, 2, 1, 16), seed, parameters);
+            case "orbit" -> new DeepJOrbit(new DeepJOrbitConfig(19, 8, 8, 2, 1, 16), seed, parameters);
+            case "prism" -> new DeepJPrism(new DeepJPrismConfig(19, 8, 8, 2, 1, 16, 4, 3), seed, parameters);
+            case "nova" -> new DeepJNova(new DeepJNovaConfig(19, 8, 8, 2, 1, 1, 16), seed, parameters);
+            case "loop" -> new DeepJLoop(new DeepJLoopConfig(19, 8, 8, 2, 1, 1, 1, 1, 2, 16), seed, parameters);
+            default -> throw new IllegalArgumentException(family);
+        };
+    }
 
     public static DecoderOnlyModel model(String family, long seed) {
         return switch (family) {

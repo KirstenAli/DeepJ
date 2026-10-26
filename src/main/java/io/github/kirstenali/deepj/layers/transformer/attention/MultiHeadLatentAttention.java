@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.ProjectionOps;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.SequenceLayout;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
@@ -30,6 +31,11 @@ public final class MultiHeadLatentAttention implements Layer {
 
     public MultiHeadLatentAttention(int dModel, int nHeads, int qRank, int kvRank,
                                     RotaryEmbedding rope, Random rnd) {
+        this(dModel, nHeads, qRank, kvRank, rope, rnd, ParameterFactory.float32());
+    }
+
+    public MultiHeadLatentAttention(int dModel, int nHeads, int qRank, int kvRank,
+                                    RotaryEmbedding rope, Random rnd, ParameterFactory parameters) {
         validateDimensions(dModel, nHeads, qRank, kvRank, rope);
 
         this.nHeads  = nHeads;
@@ -37,12 +43,12 @@ public final class MultiHeadLatentAttention implements Layer {
         this.scale   = (float) (1.0 / Math.sqrt(headDim));
         this.rope    = rope;
 
-        this.Wdq  = new Parameter(Tensor.random(dModel, qRank,  rnd));
-        this.Wuq  = new Parameter(Tensor.random(qRank,  dModel, rnd));
-        this.Wdkv = new Parameter(Tensor.random(dModel, kvRank, rnd));
-        this.Wuk  = new Parameter(Tensor.random(kvRank, dModel, rnd));
-        this.Wuv  = new Parameter(Tensor.random(kvRank, dModel, rnd));
-        this.Wo   = new Parameter(Tensor.random(dModel, dModel, rnd));
+        this.Wdq  = parameters.random("queryDown.weight", dModel, qRank, rnd);
+        this.Wuq  = parameters.random("queryUp.weight", qRank, dModel, rnd);
+        this.Wdkv = parameters.random("keyValueDown.weight", dModel, kvRank, rnd);
+        this.Wuk  = parameters.random("keyUp.weight", kvRank, dModel, rnd);
+        this.Wuv  = parameters.random("valueUp.weight", kvRank, dModel, rnd);
+        this.Wo   = parameters.random("output.weight", dModel, dModel, rnd);
     }
 
     private static void validateDimensions(int dModel, int nHeads, int qRank, int kvRank,

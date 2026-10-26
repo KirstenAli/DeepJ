@@ -7,6 +7,7 @@ import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.persistence.ModelSettings;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.transformer.TransformerStack;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
@@ -169,8 +170,10 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     }
 
     private static boolean isFilledWith(Tensor tensor, float value) {
-        for (float element : tensor.rawData()) {
-            if (element != value) return false;
+        float[] values = tensor.dtype() == DType.FLOAT32 ? tensor.rawData() : null;
+        Tensor flat = values == null ? tensor.reshape(tensor.numel()) : null;
+        for (int index = 0; index < tensor.numel(); index++) {
+            if ((values == null ? flat.get(index) : values[index]) != value) return false;
         }
         return true;
     }

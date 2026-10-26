@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.transformer;
 
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
+
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJPrismTransformerBlock;
 
@@ -18,6 +20,12 @@ public final class DeepJPrismTransformerBuilder {
     private int kvRank;
     private Random rnd;
     private long seed = 42;
+    private ParameterFactory parameters = ParameterFactory.float32();
+
+    public DeepJPrismTransformerBuilder parameters(ParameterFactory factory) {
+        this.parameters = java.util.Objects.requireNonNull(factory, "factory");
+        return this;
+    }
 
     public DeepJPrismTransformerBuilder dModel(int dModel) {
         this.dModel = dModel;
@@ -75,7 +83,8 @@ public final class DeepJPrismTransformerBuilder {
         Random random = (rnd != null) ? rnd : new Random(seed);
         List<Layer> blocks = new ArrayList<>(nLayers);
         for (int i = 0; i < nLayers; i++) {
-            blocks.add(new DeepJPrismTransformerBlock(dModel, nHeads, qRank, kvRank, dFF, maxSeqLen, random));
+            blocks.add(new DeepJPrismTransformerBlock(dModel, nHeads, qRank, kvRank, dFF, maxSeqLen, random,
+                    parameters.scope(Integer.toString(i))));
         }
         return new TransformerStack(blocks);
     }

@@ -6,6 +6,7 @@ import io.github.kirstenali.deepj.layers.BiasFreeLinear;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.SequenceLayout;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
@@ -22,15 +23,19 @@ public final class GroupedQueryAttention implements Layer {
     private final RotaryEmbedding rotary;
 
     public GroupedQueryAttention(DeepJNovaConfig config, Random random) {
+        this(config, random, ParameterFactory.float32());
+    }
+
+    public GroupedQueryAttention(DeepJNovaConfig config, Random random, ParameterFactory parameters) {
         this.config = config;
         int width = config.dModel(), headWidth = width / config.nHeads();
         int keyValueWidth = config.kvHeads() * headWidth;
-        query = new BiasFreeLinear(width, width, random);
-        key = new BiasFreeLinear(width, keyValueWidth, random);
-        value = new BiasFreeLinear(width, keyValueWidth, random);
-        output = new BiasFreeLinear(width, width, random);
-        queryNorm = new HeadNormalization(headWidth, config.qkNorm());
-        keyNorm = new HeadNormalization(headWidth, config.qkNorm());
+        query = new BiasFreeLinear(width, width, random, parameters.scope("query"));
+        key = new BiasFreeLinear(width, keyValueWidth, random, parameters.scope("key"));
+        value = new BiasFreeLinear(width, keyValueWidth, random, parameters.scope("value"));
+        output = new BiasFreeLinear(width, width, random, parameters.scope("output"));
+        queryNorm = new HeadNormalization(headWidth, config.qkNorm(), parameters.scope("queryNorm"));
+        keyNorm = new HeadNormalization(headWidth, config.qkNorm(), parameters.scope("keyNorm"));
         rotary = new RotaryEmbedding(headWidth, config.maxSeqLen());
     }
 

@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.transformer;
 
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
+
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJOrbitTransformerBlock;
 
@@ -16,6 +18,12 @@ public final class DeepJOrbitTransformerBuilder {
     private int maxSeqLen;
     private Random rnd;
     private long seed = 42;
+    private ParameterFactory parameters = ParameterFactory.float32();
+
+    public DeepJOrbitTransformerBuilder parameters(ParameterFactory factory) {
+        this.parameters = java.util.Objects.requireNonNull(factory, "factory");
+        return this;
+    }
 
     public DeepJOrbitTransformerBuilder dModel(int dModel) {
         this.dModel = dModel;
@@ -61,7 +69,8 @@ public final class DeepJOrbitTransformerBuilder {
         Random random = (rnd != null) ? rnd : new Random(seed);
         List<Layer> blocks = new ArrayList<>(nLayers);
         for (int i = 0; i < nLayers; i++) {
-            blocks.add(new DeepJOrbitTransformerBlock(dModel, nHeads, dFF, maxSeqLen, random));
+            blocks.add(new DeepJOrbitTransformerBlock(dModel, nHeads, dFF, maxSeqLen, random,
+                    parameters.scope(Integer.toString(i))));
         }
         return new TransformerStack(blocks);
     }
