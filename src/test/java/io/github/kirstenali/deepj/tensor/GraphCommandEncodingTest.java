@@ -102,6 +102,17 @@ class GraphCommandEncodingTest extends ComputeGraphTestSupport {
         assertCommand(ComputeGraph.OP_HEAD_PREFIX_MATMUL, a.id, b.id, c.id, 1, 2, 3, 2, 3, 0);
     }
 
+    @Test
+    void ndCacheCommandsEncodeLogicalGeometryIndependentlyOfPhysicalAllocationShape() {
+        GpuBuffer physical = graph.newOutputBuffer(1, 512 * 64), cache = graph.newOutputBuffer(1, 2048 * 64);
+        GpuBuffer output = graph.newOutputBuffer(512, 1024);
+        graph.recordHeadCacheWrite(physical, cache, 2, 256, 1024, 64, 0);
+        assertCommand(ComputeGraph.OP_HEAD_CACHE_WRITE, physical.id, cache.id, 2, 256, 1024, 64, 0);
+        graph.recordHeadPrefixMatmul(physical, cache, output, 2, 1024, true, 512, 64, 64);
+        assertCommand(ComputeGraph.OP_HEAD_PREFIX_MATMUL, physical.id, cache.id, output.id,
+                2, 256, 64, 1024, 64, 1);
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void rotaryRecordsTheInverseFlag(boolean inverse) {

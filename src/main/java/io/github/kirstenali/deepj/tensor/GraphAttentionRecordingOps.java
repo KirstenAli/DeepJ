@@ -4,27 +4,38 @@ abstract class GraphAttentionRecordingOps extends GraphAdvancedRecordingOps {
     GraphAttentionRecordingOps(GpuRuntime runtime) { super(runtime); }
 
     public void recordHeadCacheWrite(GpuBuffer update, GpuBuffer cache, int heads, int offset) {
+        recordHeadCacheWrite(update, cache, heads, update.rows / heads, cache.rows / heads, cache.cols, offset);
+    }
+
+    public void recordHeadCacheWrite(GpuBuffer update, GpuBuffer cache, int heads,
+                                      int length, int capacity, int width, int offset) {
         beginOp(8);
         emitInt(OP_HEAD_CACHE_WRITE);
         emitBuffers(update, cache);
         emitInt(heads);
-        emitInt(update.rows / heads);
-        emitInt(cache.rows / heads);
-        emitInt(cache.cols);
+        emitInt(length);
+        emitInt(capacity);
+        emitInt(width);
         emitInt(offset);
         endOp();
     }
 
     public void recordHeadPrefixMatmul(GpuBuffer left, GpuBuffer cache, GpuBuffer output,
                                        int heads, int length, boolean transposeCache) {
+        recordHeadPrefixMatmul(left, cache, output, heads, length, transposeCache, left.rows, left.cols, cache.cols);
+    }
+
+    public void recordHeadPrefixMatmul(GpuBuffer left, GpuBuffer cache, GpuBuffer output,
+                                       int heads, int length, boolean transposeCache,
+                                       int rows, int columns, int cacheWidth) {
         beginOp(10);
         emitInt(OP_HEAD_PREFIX_MATMUL);
         emitBuffers(left, cache, output);
         emitInt(heads);
-        emitInt(left.rows / heads);
-        emitInt(left.cols);
+        emitInt(rows / heads);
+        emitInt(columns);
         emitInt(length);
-        emitInt(cache.cols);
+        emitInt(cacheWidth);
         emitInt(transposeCache ? 1 : 0);
         endOp();
     }

@@ -7,7 +7,8 @@ abstract class MetalCacheOps extends MetalTrainingOps {
     public void writeHeadCache(Tensor cache, Tensor update, int heads, int offset) {
         HeadCacheOps.requireWrite(cache, update, heads, offset);
         GpuBuffer destination = gpuIn(cache);
-        graph.recordHeadCacheWrite(gpuIn(update), destination, heads, offset);
+        graph.recordHeadCacheWrite(gpuIn(update), destination, heads, update.matrixRows() / heads,
+                cache.matrixRows() / heads, cache.matrixCols(), offset);
         graph.markUpdated(cache);
     }
 
@@ -19,7 +20,8 @@ abstract class MetalCacheOps extends MetalTrainingOps {
         if (left.matrixCols() != inner) throw new IllegalArgumentException("Head cache matmul shape mismatch");
         int columns = transposeCache ? length : cache.matrixCols();
         GpuBuffer output = graph.newOutputBuffer(left.matrixRows(), columns);
-        graph.recordHeadPrefixMatmul(gpuIn(left), gpuIn(cache), output, heads, length, transposeCache);
+        graph.recordHeadPrefixMatmul(gpuIn(left), gpuIn(cache), output, heads, length, transposeCache,
+                left.matrixRows(), left.matrixCols(), cache.matrixCols());
         return gpuOut(output);
     }
 }

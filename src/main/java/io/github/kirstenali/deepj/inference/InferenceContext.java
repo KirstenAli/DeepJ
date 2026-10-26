@@ -42,17 +42,17 @@ public final class InferenceContext implements AutoCloseable {
     public Tensor attend(Object owner, Tensor query, Tensor key, Tensor value,
                           int queryHeads, int keyValueHeads, float scale) {
         if (GradMode.isEnabled()) throw new IllegalStateException("Inference caches require noGrad");
-        if (position > 0 && key.matrixRows() != keyValueHeads) {
+        CacheInputs input = CacheInputs.of(query, key, value, queryHeads, keyValueHeads);
+        if (position > 0 && input.length() != 1) {
             throw new IllegalArgumentException("Incremental attention accepts one token at a time");
         }
-        KeyValueCache cache = slot(owner, keyValueHeads, key.matrixCols());
-        return cache.attend(query, key, value, queryHeads, position, scale);
+        return slot(owner, input).attend(input, position, scale).reshape(query.shape());
     }
 
-    private KeyValueCache slot(Object owner, int heads, int width) {
+    private KeyValueCache slot(Object owner, CacheInputs input) {
         if (cursor == entries.size()) {
             if (position != 0) throw new IllegalStateException("Attention layout changed during generation");
-            entries.add(new Entry(owner, new KeyValueCache(capacity, heads, width)));
+            entries.add(new Entry(owner, new KeyValueCache(capacity, input)));
         }
         Entry entry = entries.get(cursor++);
         if (entry.owner() != owner) throw new IllegalStateException("Attention visit order changed");

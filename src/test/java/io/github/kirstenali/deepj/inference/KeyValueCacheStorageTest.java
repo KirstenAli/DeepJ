@@ -24,6 +24,7 @@ class KeyValueCacheStorageTest {
     void cpuCacheStorageRemainsEagerAndZeroInitialized() throws Exception {
         Tensor.setBackend(new CpuBackend());
         try (var cache = new KeyValueCache(8, 1, 2)) {
+            assertArrayEquals(new int[]{1, 1, 8, 2}, tensor(cache, "keys").shape());
             assertArrayEquals(new float[16], tensor(cache, "keys").rawData());
             assertArrayEquals(new float[16], tensor(cache, "values").rawData());
         }
