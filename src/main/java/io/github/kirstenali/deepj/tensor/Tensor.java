@@ -47,6 +47,7 @@ public class Tensor extends TensorManipulations {
     private Tensor(DType dtype, boolean host, int... shape) { super(dtype, host, shape); }
 
     static Tensor deviceOnly(int rows, int cols) { return new Tensor(DType.FLOAT32, false, rows, cols); }
+    static Tensor deviceOnly(DType dtype, int... shape) { return new Tensor(dtype, false, shape); }
 
     private Tensor(TensorStorageAccess source, TensorLayout layout) { super(source, layout); }
 

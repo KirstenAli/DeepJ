@@ -29,14 +29,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     private void allocatePendingBuffers(List<int[]> allocations) {
         if (allocations.isEmpty()) return;
 
-        int count = allocations.size();
-        int[] ids   = new int[count];
-        int[] sizes = new int[count];
-        for (int i = 0; i < count; i++) {
-            ids[i]   = allocations.get(i)[0];
-            sizes[i] = allocations.get(i)[1];
-        }
-        runtime.allocBuffers(ids, sizes, count);
+        GpuAllocations.allocate(runtime, allocations);
         markAllocatedBuffers();
         pendingAllocs.clear();
     }
@@ -158,8 +151,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
 
         flush();
 
-        runtime.downloadBuffer(buf.id, t.hostStorage());
-        buf.cpuStale = false;
+        GraphTransfers.download(runtime, buf, t.memory());
     }
 
     public void releaseAll() {
@@ -209,9 +201,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
             GpuBuffer gb = (GpuBuffer) memory.gpuTag;
             if (!gb.cpuStale) continue;
 
-            runtime.downloadBuffer(gb.id, memory.floats());
-            gb.cpuStale = false;
-            gb.needsUpload = false;
+            GraphTransfers.download(runtime, gb, memory);
         }
     }
 

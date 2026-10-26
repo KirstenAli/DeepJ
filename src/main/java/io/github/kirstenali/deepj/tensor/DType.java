@@ -4,15 +4,30 @@ import java.util.Objects;
 
 /** Dense floating-point storage formats. Existing tensor factories default to FLOAT32. */
 public enum DType {
-    FLOAT32(4),
-    FLOAT16(2),
-    BFLOAT16(2);
+    FLOAT32(1, 4),
+    FLOAT16(2, 2),
+    BFLOAT16(3, 2);
 
+    private final int storageCode;
     private final int bytes;
 
-    DType(int bytes) { this.bytes = bytes; }
+    DType(int storageCode, int bytes) {
+        this.storageCode = storageCode;
+        this.bytes = bytes;
+    }
 
     public int bytes() { return bytes; }
+    /** Stable storage identifier shared by checkpoint and native buffer descriptors. */
+    public int storageCode() { return storageCode; }
+
+    public static DType fromStorageCode(int code) {
+        return switch (code) {
+            case 1 -> FLOAT32;
+            case 2 -> FLOAT16;
+            case 3 -> BFLOAT16;
+            default -> throw new IllegalArgumentException("Unknown tensor dtype: " + code);
+        };
+    }
 
     public long storageBytes(int elements) {
         if (elements < 0) throw new IllegalArgumentException("Element count cannot be negative");

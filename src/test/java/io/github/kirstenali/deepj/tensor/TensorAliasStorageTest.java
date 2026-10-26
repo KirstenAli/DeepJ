@@ -129,7 +129,7 @@ class TensorAliasStorageTest extends ComputeGraphTestSupport {
         GpuBuffer moved = other.ensureGpuBuffer(alias);
         assertNotSame(old, moved);
         assertSame(moved, source.getGpuTag());
-        assertArrayEquals(new float[]{5, 9}, other.pendingUploadData.get(0));
+        assertArrayEquals(new float[]{5, 9}, (float[]) other.pendingUploadData.get(0));
         graph.flush();
         assertThrows(IllegalStateException.class, old::requireLive);
         assertSame(moved, alias.getGpuTag());

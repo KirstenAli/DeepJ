@@ -34,7 +34,7 @@ public record TensorDescriptor(DType dtype, int[] shape) {
     }
 
     public void write(DataOutput output) throws IOException {
-        output.writeInt(code(dtype));
+        output.writeInt(dtype.storageCode());
         output.writeInt(shape.length);
         for (int dimension : shape) {
             output.writeInt(dimension);
@@ -63,21 +63,12 @@ public record TensorDescriptor(DType dtype, int[] shape) {
         }
     }
 
-    private static int code(DType dtype) {
-        return switch (dtype) {
-            case FLOAT32 -> 1;
-            case FLOAT16 -> 2;
-            case BFLOAT16 -> 3;
-        };
-    }
-
     private static DType dtype(int code) throws IOException {
-        return switch (code) {
-            case 1 -> DType.FLOAT32;
-            case 2 -> DType.FLOAT16;
-            case 3 -> DType.BFLOAT16;
-            default -> throw new IOException("Unknown checkpoint tensor dtype: " + code);
-        };
+        try {
+            return DType.fromStorageCode(code);
+        } catch (IllegalArgumentException error) {
+            throw new IOException("Unknown checkpoint tensor dtype: " + code, error);
+        }
     }
 
     @Override public boolean equals(Object other) {

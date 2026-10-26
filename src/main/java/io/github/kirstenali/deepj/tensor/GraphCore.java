@@ -14,7 +14,7 @@ abstract class GraphCore extends GraphOpMetadata {
 
     final List<int[]> pendingAllocs = new ArrayList<>();
     final List<int[]> pendingUploadIds = new ArrayList<>();
-    final List<float[]> pendingUploadData = new ArrayList<>();
+    final List<Object> pendingUploadData = new ArrayList<>();
     final Map<Integer, WeakReference<TensorMemory>> bufIdToMemory = new HashMap<>();
     final Set<Integer> allocatedBufferIds = new HashSet<>();
     final Set<Integer> backwardBufferIds = new HashSet<>();
@@ -24,22 +24,22 @@ abstract class GraphCore extends GraphOpMetadata {
         this.runtime = Objects.requireNonNull(runtime, "runtime");
     }
 
-    void scheduleAlloc(int id, int floatCount) {
-        pendingAllocs.add(new int[]{id, floatCount});
-        allocatedBufferIds.add(id);
+    void scheduleAlloc(GpuBuffer buffer) {
+        int[] allocation = buffer.dtype == DType.FLOAT32
+                ? new int[]{buffer.id, buffer.elementCount()}
+                : new int[]{buffer.id, buffer.elementCount(), buffer.dtype.storageCode()};
+        pendingAllocs.add(allocation);
+        allocatedBufferIds.add(buffer.id);
     }
 
-    void scheduleUpload(int id, float[] data) {
+    void scheduleUpload(int id, Object data) {
         pendingUploadIds.add(new int[]{id});
         pendingUploadData.add(data);
     }
 
     void uploadPendingData() {
         for (int i = 0; i < pendingUploadIds.size(); i++) {
-            int[] upload = pendingUploadIds.get(i);
-            float[] data = pendingUploadData.get(i);
-            if (data == null) runtime.zeroBuffer(upload[0], upload[1]);
-            else runtime.uploadBuffer(upload[0], data);
+            GraphTransfers.upload(runtime, pendingUploadIds.get(i), pendingUploadData.get(i));
         }
         pendingUploadIds.clear();
         pendingUploadData.clear();
@@ -47,6 +47,12 @@ abstract class GraphCore extends GraphOpMetadata {
 
     public GpuBuffer ensureGpuBuffer(Tensor t) {
         requireMatrixStorage(t);
+        return ensureStorageBuffer(t);
+    }
+
+    /** Physical shared storage only; logical ND kernels must supply their own layouts. */
+    public GpuBuffer ensureStorageBuffer(Tensor t) {
+        TensorStorage.requireSource(t);
         if (t.getGpuTag() instanceof GpuBuffer existing) {
             existing.requireLive();
             if (existing.owner != null && existing.owner != this) {
@@ -61,10 +67,14 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     GpuBuffer reuseExistingInputBuffer(Tensor t, GpuBuffer existing) {
+        requireStorageBinding(t, existing);
         existing.owner = (GraphExecution) this;
         trackTensorBinding(existing.id, t);
         if (existing.needsUpload) {
-            scheduleUpload(existing.id, TensorAdapters.packF32(t));
+            if (((GraphExecution) this).isBufferReferencedByPendingOps(existing.id)) {
+                ((GraphExecution) this).flush();
+            }
+            scheduleUpload(existing.id, GraphTransfers.snapshot(t));
             existing.needsUpload = false;
             existing.cpuStale = false;
         }
@@ -72,8 +82,10 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     GpuBuffer createAndUploadInputBuffer(Tensor t) {
-        GpuBuffer buf = newBuffer(t.matrixRows(), t.matrixCols(), true);
-        scheduleUpload(buf.id, TensorAdapters.packF32(t));
+        if (t.memory().length() == 0) throw new IllegalArgumentException("Empty tensors need no GPU allocation");
+        int rows = t.rank() == 2 && t.coversStorage() ? t.matrixRows() : 1;
+        GpuBuffer buf = newBuffer(rows, t.memory().length() / rows, t.dtype(), true);
+        scheduleUpload(buf.id, GraphTransfers.snapshot(t));
         buf.needsUpload = false;
         buf.cpuStale = false;
 
@@ -87,22 +99,38 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     public GpuBuffer newOutputBuffer(int rows, int cols) {
-        GpuBuffer buf = newBuffer(rows, cols, false);
+        return newOutputBuffer(rows, cols, DType.FLOAT32);
+    }
+
+    public GpuBuffer newOutputBuffer(int rows, int cols, DType dtype) {
+        GpuBuffer buf = newBuffer(rows, cols, dtype, false);
         BackwardBuffers.track(buf);
         return buf;
     }
 
     /** Queues explicit zero initialization before any operations consume this buffer. */
     public GpuBuffer newZeroBuffer(int rows, int cols) {
-        TensorStorage.checkedSize(rows, cols);
-        GpuBuffer buffer = newOutputBuffer(rows, cols);
-        pendingUploadIds.add(new int[]{buffer.id, buffer.floatCount()});
+        return newZeroBuffer(rows, cols, DType.FLOAT32);
+    }
+
+    public GpuBuffer newZeroBuffer(int rows, int cols, DType dtype) {
+        GpuBuffer buffer = newOutputBuffer(rows, cols, dtype);
+        int[] initialization = dtype == DType.FLOAT32 ? new int[]{buffer.id, buffer.elementCount()}
+                : new int[]{buffer.id, buffer.elementCount(), dtype.storageCode()};
+        pendingUploadIds.add(initialization);
         pendingUploadData.add(null);
         return buffer;
     }
 
     public Tensor createOutputTensor(GpuBuffer buf) {
-        Tensor t = Tensor.deviceOnly(buf.rows, buf.cols);
+        return createOutputTensor(buf, buf.rows, buf.cols);
+    }
+
+    public Tensor createOutputTensor(GpuBuffer buf, int... shape) {
+        if (new TensorShape(shape).elements() != buf.elementCount()) {
+            throw new IllegalArgumentException("Output shape must cover the GPU allocation");
+        }
+        Tensor t = Tensor.deviceOnly(buf.dtype, shape);
         bindTensorToBuffer(t, buf);
         return t;
     }
@@ -110,7 +138,7 @@ abstract class GraphCore extends GraphOpMetadata {
     public Tensor copyToDevice(Tensor source) {
         TensorStorage.requireSource(source);
         requireMatrixStorage(source);
-        GpuBuffer buffer = newBuffer(source.matrixRows(), source.matrixCols(), false);
+        GpuBuffer buffer = newBuffer(source.matrixRows(), source.matrixCols(), DType.FLOAT32, false);
         scheduleUpload(buffer.id, TensorAdapters.packF32(source));
         return createOutputTensor(buffer);
     }
@@ -138,9 +166,8 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     private void requireStorageBinding(Tensor tensor, GpuBuffer buffer) {
-        requireMatrixStorage(tensor);
-        if (tensor.memory().length() != buffer.floatCount()) {
-            throw new IllegalArgumentException("GPU allocation size must match physical tensor storage");
+        if (tensor.memory().length() != buffer.elementCount() || tensor.dtype() != buffer.dtype) {
+            throw new IllegalArgumentException("GPU allocation size and dtype must match physical tensor storage");
         }
         var reference = bufIdToMemory.get(buffer.id);
         TensorMemory bound = reference == null ? null : reference.get();
@@ -170,6 +197,7 @@ abstract class GraphCore extends GraphOpMetadata {
     void emitBuffer(GpuBuffer buffer) {
         try {
             buffer.requireLive();
+            buffer.requireFloat32();
         } catch (RuntimeException failure) {
             cmdPos = operationStart;
             throw failure;
@@ -189,11 +217,13 @@ abstract class GraphCore extends GraphOpMetadata {
         opCount++;
     }
 
-    private GpuBuffer newBuffer(int rows, int cols, boolean upload) {
-        GpuBuffer buffer = new GpuBuffer(GpuBufferIds.SHARED.acquire(), rows, cols, upload);
+    private GpuBuffer newBuffer(int rows, int cols, DType dtype, boolean upload) {
+        TensorStorage.checkedSize(rows, cols);
+        Objects.requireNonNull(dtype, "dtype");
+        GpuBuffer buffer = new GpuBuffer(GpuBufferIds.SHARED.acquire(), rows, cols, dtype, upload);
         buffer.owner = (GraphExecution) this;
         managedBuffers.put(buffer.id, buffer);
-        scheduleAlloc(buffer.id, buffer.floatCount());
+        scheduleAlloc(buffer);
         return buffer;
     }
 

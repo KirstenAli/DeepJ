@@ -1619,6 +1619,7 @@ using BufferPool = std::unordered_map<int, id<MTLBuffer>>;
 using BufferEntry = BufferPool::iterator;
 
 static BufferPool gBufferPool;
+static std::unordered_map<int, int> gBufferDTypes;
 static std::mutex gBufferMutex;
 
 static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCaches[4];
@@ -1706,6 +1707,9 @@ static id<MTLBuffer> requireBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
     if (it == gBufferPool.end() || it->second == nil) {
         throw std::runtime_error(std::string(opName) + ": missing GPU buffer id=" + std::to_string(id));
+    }
+    if (gBufferDTypes.at(id) != 1) {
+        throw std::runtime_error(std::string(opName) + ": matrix opcode requires FLOAT32 storage");
     }
     return it->second;
 }
@@ -1838,13 +1842,18 @@ static void releaseAllocationArrays(JNIEnv* env, jintArray ids, jintArray sizes,
     if (arrays.sizes != nullptr) env->ReleaseIntArrayElements(sizes, arrays.sizes, JNI_ABORT);
 }
 
-static void allocateBuffer(MetalContext* ctx, int bufferId, int floatCount) {
-    if (bufferId < 0 || floatCount <= 0) throw std::runtime_error("Invalid GPU buffer allocation");
-    NSUInteger bytes = (NSUInteger)floatCount * sizeof(float);
+static NSUInteger storageBytes(int elements, int dtype) {
+    if (elements <= 0 || dtype < 1 || dtype > 3) throw std::runtime_error("Invalid typed GPU allocation");
+    return (NSUInteger)elements * (dtype == 1 ? sizeof(float) : sizeof(jshort));
+}
+
+static void allocateTypedBuffer(MetalContext* ctx, int bufferId, int elements, int dtype) {
+    if (bufferId < 0) throw std::runtime_error("Invalid GPU buffer id");
+    NSUInteger bytes = storageBytes(elements, dtype);
     auto existing = gBufferPool.find(bufferId);
     if (existing != gBufferPool.end()) {
-        if ([existing->second length] != bytes) {
-            throw std::runtime_error("GPU buffer id already has a different size");
+        if ([existing->second length] != bytes || gBufferDTypes.at(bufferId) != dtype) {
+            throw std::runtime_error("GPU buffer id already has a different size or dtype");
         }
         return;
     }
@@ -1852,17 +1861,18 @@ static void allocateBuffer(MetalContext* ctx, int bufferId, int floatCount) {
                                                     options:MTLResourceStorageModeShared];
     if (buffer == nil) throw std::runtime_error("Failed to allocate Metal buffer");
     gBufferPool[bufferId] = buffer;
+    gBufferDTypes[bufferId] = dtype;
 }
 
 static void allocateBuffers(const jint* ids, const jint* sizes, int count) {
     MetalContext* ctx = getContext();
     for (int i = 0; i < count; i++) {
-        allocateBuffer(ctx, ids[i], sizes[i]);
+        allocateTypedBuffer(ctx, ids[i], sizes[i], 1);
     }
 }
 
-static BufferEntry transferEntry(JNIEnv* env, int bufferId, jfloatArray values,
-                                 const char* operation) {
+static BufferEntry transferEntry(JNIEnv* env, int bufferId, jarray values,
+                                 NSUInteger valueBytes, const char* operation) {
     if (values == nullptr) {
         throwJavaRuntimeException(env, (std::string(operation) + " data cannot be null").c_str());
         return gBufferPool.end();
@@ -1872,9 +1882,10 @@ static BufferEntry transferEntry(JNIEnv* env, int bufferId, jfloatArray values,
         throwJavaRuntimeException(env, (std::string(operation) + " buffer was not found").c_str());
         return entry;
     }
-    NSUInteger bytes = (NSUInteger)env->GetArrayLength(values) * sizeof(float);
-    if (bytes == [entry->second length]) return entry;
-    throwJavaRuntimeException(env, (std::string(operation) + " length does not match buffer size").c_str());
+    int dtype = gBufferDTypes.at(bufferId);
+    NSUInteger bytes = (NSUInteger)env->GetArrayLength(values) * valueBytes;
+    if (bytes == [entry->second length] && (dtype == 1) == (valueBytes == sizeof(float))) return entry;
+    throwJavaRuntimeException(env, (std::string(operation) + " length or dtype does not match buffer").c_str());
     return gBufferPool.end();
 }
 
@@ -1900,9 +1911,81 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
     @autoreleasepool { allocateRequestedBuffers(env, idsArr, sizesArr, count); }
 }
 
+struct IntArrayView {
+    JNIEnv* env;
+    jintArray source;
+    jint* values;
+
+    IntArrayView(JNIEnv* environment, jintArray array) : env(environment), source(array),
+            values(env->GetIntArrayElements(source, nullptr)) {}
+    ~IntArrayView() {
+        if (values != nullptr) env->ReleaseIntArrayElements(source, values, JNI_ABORT);
+    }
+};
+
+static void allocateRequestedTypedBuffers(JNIEnv* env, jintArray idsArr, jintArray sizesArr,
+                                          jintArray typesArr, jint count) {
+    if (!validateAllocationArrays(env, idsArr, sizesArr, count) ||
+        !validateAllocationArrays(env, idsArr, typesArr, count)) return;
+    IntArrayView ids(env, idsArr), sizes(env, sizesArr), types(env, typesArr);
+    if (ids.values == nullptr || sizes.values == nullptr || types.values == nullptr) return;
+    for (int index = 0; index < count; index++) {
+        if (ids.values[index] < 0) throw std::runtime_error("Invalid GPU buffer id");
+        storageBytes(sizes.values[index], types.values[index]);
+    }
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    MetalContext* ctx = getContext();
+    for (int index = 0; index < count; index++) {
+        allocateTypedBuffer(ctx, ids.values[index], sizes.values[index], types.values[index]);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocTypedBuffers(
+        JNIEnv* env, jclass, jintArray ids, jintArray elements, jintArray dtypes, jint count) {
+    @autoreleasepool {
+        try { allocateRequestedTypedBuffers(env, ids, elements, dtypes, count); }
+        catch (const std::exception& error) { throwJavaRuntimeException(env, error.what()); }
+    }
+}
+
+static void transferBuffer16(JNIEnv* env, jint bufferId, jshortArray values, bool upload) {
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    BufferEntry entry = transferEntry(env, bufferId, values, sizeof(jshort), "16-bit transfer");
+    if (entry == gBufferPool.end()) return;
+    jint length = env->GetArrayLength(values);
+    jshort* memory = (jshort*)[entry->second contents];
+    if (upload) env->GetShortArrayRegion(values, 0, length, memory);
+    else env->SetShortArrayRegion(values, 0, length, memory);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer16(
+        JNIEnv* env, jclass, jint bufferId, jshortArray values) {
+    @autoreleasepool { transferBuffer16(env, bufferId, values, true); }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer16(
+        JNIEnv* env, jclass, jint bufferId, jshortArray values) {
+    @autoreleasepool { transferBuffer16(env, bufferId, values, false); }
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeBufferByteLength(
+        JNIEnv* env, jclass, jint bufferId) {
+    @autoreleasepool {
+        std::lock_guard<std::mutex> lock(gBufferMutex);
+        auto entry = gBufferPool.find(bufferId);
+        if (entry != gBufferPool.end()) return (jlong)[entry->second length];
+        throwJavaRuntimeException(env, "GPU buffer was not found");
+        return 0;
+    }
+}
+
 static void uploadBuffer(JNIEnv* env, jint bufId, jfloatArray dataArr) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    BufferEntry entry = transferEntry(env, bufId, dataArr, "Upload");
+    BufferEntry entry = transferEntry(env, bufId, dataArr, sizeof(float), "Upload");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(dataArr);
     env->GetFloatArrayRegion(dataArr, 0, len, (jfloat*)[entry->second contents]);
@@ -1914,11 +1997,11 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
     @autoreleasepool { uploadBuffer(env, bufId, dataArr); }
 }
 
-static void zeroBuffer(JNIEnv* env, jint bufferId, jint floatCount) {
+static void zeroTypedBuffer(JNIEnv* env, jint bufferId, jint elements, jint dtype) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
     auto entry = gBufferPool.find(bufferId);
-    if (entry == gBufferPool.end() || floatCount <= 0 ||
-        (NSUInteger)floatCount * sizeof(float) != [entry->second length]) {
+    if (entry == gBufferPool.end() || elements <= 0 || dtype < 1 || dtype > 3 ||
+        gBufferDTypes.at(bufferId) != dtype || storageBytes(elements, dtype) != [entry->second length]) {
         throwJavaRuntimeException(env, "Zero buffer was not found or its size does not match");
         return;
     }
@@ -1928,12 +2011,18 @@ static void zeroBuffer(JNIEnv* env, jint bufferId, jint floatCount) {
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeZeroBuffer(
         JNIEnv* env, jclass, jint bufferId, jint floatCount) {
-    @autoreleasepool { zeroBuffer(env, bufferId, floatCount); }
+    @autoreleasepool { zeroTypedBuffer(env, bufferId, floatCount, 1); }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeZeroTypedBuffer(
+        JNIEnv* env, jclass, jint bufferId, jint elements, jint dtype) {
+    @autoreleasepool { zeroTypedBuffer(env, bufferId, elements, dtype); }
 }
 
 static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    BufferEntry entry = transferEntry(env, bufId, outArr, "Download");
+    BufferEntry entry = transferEntry(env, bufId, outArr, sizeof(float), "Download");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(outArr);
     env->SetFloatArrayRegion(outArr, 0, len, (const jfloat*)[entry->second contents]);
@@ -1958,6 +2047,7 @@ static void releaseBuffers(JNIEnv* env, jintArray idsArr, jint count) {
     if (ids == nullptr) return;
     for (int i = 0; i < count; i++) {
         gBufferPool.erase(ids[i]);
+        gBufferDTypes.erase(ids[i]);
     }
     env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
 }

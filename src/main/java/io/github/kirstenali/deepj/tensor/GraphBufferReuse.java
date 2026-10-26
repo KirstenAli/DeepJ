@@ -39,7 +39,8 @@ final class GraphBufferReuse {
             var reference = graph.bufIdToMemory.get(id);
             if (!uploads.contains(id) && (graph.backwardBufferIds.contains(id)
                     || reference != null && reference.get() == null)) {
-                result.put(id, new Lifetime(id, allocation[1]));
+                long key = ((long) GpuAllocations.type(allocation).storageCode() << 32) | allocation[1];
+                result.put(id, new Lifetime(id, key));
             }
         }
         return result;
@@ -80,7 +81,7 @@ final class GraphBufferReuse {
                 .toList();
         var active = new PriorityQueue<>(Comparator.comparingInt((Lifetime value) -> value.last)
                 .thenComparingInt(value -> value.id));
-        Map<Integer, ArrayDeque<Integer>> available = new HashMap<>();
+        Map<Long, ArrayDeque<Integer>> available = new HashMap<>();
         Map<Integer, Integer> aliases = new HashMap<>();
         for (Lifetime lifetime : ordered) {
             expire(active, available, lifetime.first);
@@ -95,7 +96,7 @@ final class GraphBufferReuse {
     }
 
     private static void expire(PriorityQueue<Lifetime> active,
-                               Map<Integer, ArrayDeque<Integer>> available, int first) {
+                               Map<Long, ArrayDeque<Integer>> available, int first) {
         while (!active.isEmpty() && active.peek().last < first) {
             Lifetime expired = active.remove();
             available.computeIfAbsent(expired.size, ignored -> new ArrayDeque<>()).addLast(expired.physical);
@@ -103,10 +104,11 @@ final class GraphBufferReuse {
     }
 
     private static final class Lifetime {
-        private final int id, size;
+        private final int id;
+        private final long size;
         private int first = Integer.MAX_VALUE, last = -1, physical;
 
-        private Lifetime(int id, int size) {
+        private Lifetime(int id, long size) {
             this.id = id;
             this.size = size;
             physical = id;
