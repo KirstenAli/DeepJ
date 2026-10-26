@@ -7,6 +7,7 @@ import java.util.List;
 abstract class MetalMathOps extends MetalCoreOps {
     @Override
     public Tensor multiplyScalar(Tensor a, float scalar) {
+        if (!MetalDenseOps.matrix(a)) return MetalDenseOps.scalar(graph, a, ComputeGraph.OP_MULTIPLY_SCALAR, scalar);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordMultiplyScalar(ga, gOut, scalar);
@@ -15,6 +16,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor addScalar(Tensor a, float scalar) {
+        if (!MetalDenseOps.matrix(a)) return MetalDenseOps.scalar(graph, a, ComputeGraph.OP_ADD_SCALAR, scalar);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, scalar);
@@ -23,6 +25,7 @@ abstract class MetalMathOps extends MetalCoreOps {
 
     @Override
     public Tensor divideScalar(Tensor a, float scalar) {
+        if (!MetalDenseOps.matrix(a)) return MetalDenseOps.scalar(graph, a, ComputeGraph.OP_DIVIDE_SCALAR, scalar);
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, scalar);

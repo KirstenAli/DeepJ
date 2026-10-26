@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Byte-faithful transport double; its only arithmetic is the existing NEG opcode. */
+/** Byte-faithful transport/copy double; its only arithmetic is the existing NEG opcode. */
 final class GpuStorageRuntime implements GpuRuntime {
     final Map<Integer, Object> values = new HashMap<>();
     final Map<Integer, DType> types = new HashMap<>();
@@ -50,13 +50,25 @@ final class GpuStorageRuntime implements GpuRuntime {
     }
 
     @Override public void flushOps(int[] commands, int length) {
-        for (int position = 0; position < length; position += 4) {
-            if (commands[position] != ComputeGraph.OP_NEG) throw new AssertionError("Unexpected opcode");
-            float[] input = (float[]) values.get(commands[position + 1]);
-            float[] output = (float[]) values.get(commands[position + 2]);
-            for (int index = 0; index < commands[position + 3]; index++) {
-                output[index] = -input[index];
+        int position = 0;
+        while (position < length) {
+            if (commands[position] == ComputeGraph.OP_STORAGE_COPY) {
+                System.arraycopy(values.get(commands[position + 1]), commands[position + 3],
+                        values.get(commands[position + 2]), commands[position + 4], commands[position + 5]);
+                position += 6;
+            } else {
+                negate(commands, position);
+                position += 4;
             }
+        }
+    }
+
+    private void negate(int[] commands, int position) {
+        if (commands[position] != ComputeGraph.OP_NEG) throw new AssertionError("Unexpected opcode");
+        float[] input = (float[]) values.get(commands[position + 1]);
+        float[] output = (float[]) values.get(commands[position + 2]);
+        for (int index = 0; index < commands[position + 3]; index++) {
+            output[index] = -input[index];
         }
     }
 }

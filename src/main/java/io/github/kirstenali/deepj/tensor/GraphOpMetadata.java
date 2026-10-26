@@ -68,13 +68,14 @@ abstract class GraphOpMetadata {
     public static final int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
     public static final int OP_HEAD_CACHE_WRITE = 60;
     public static final int OP_HEAD_PREFIX_MATMUL = 61;
+    public static final int OP_STORAGE_COPY = 62;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_HEAD_PREFIX_MATMUL + 1];
+        OpMeta[] meta = new OpMeta[OP_STORAGE_COPY + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -82,6 +83,7 @@ abstract class GraphOpMetadata {
         registerAttentionMeta(meta);
         registerBroadcastMeta(meta);
         registerComplexMeta(meta);
+        registerMeta(meta, OP_STORAGE_COPY, 6, 1, 2);
         return meta;
     }
 

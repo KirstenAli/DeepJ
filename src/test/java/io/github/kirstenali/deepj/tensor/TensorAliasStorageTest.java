@@ -12,8 +12,7 @@ class TensorAliasStorageTest extends ComputeGraphTestSupport {
         Tensor strided = Tensor.aliasStorage(matrix, LayoutTransforms.permute(matrix.layout(), 1, 0));
         assertThrows(UnsupportedOperationException.class, () -> graph.ensureGpuBuffer(strided));
         assertThrows(UnsupportedOperationException.class, () -> graph.ensureGpuBuffer(new Tensor(2, 3, 4)));
-        assertThrows(UnsupportedOperationException.class,
-                () -> graph.copyToDevice(new Tensor(DType.FLOAT16, 2, 3)));
+        assertThrows(UnsupportedOperationException.class, () -> graph.copyToDevice(strided));
         assertTrue(graph.pendingAllocs.isEmpty());
     }
 

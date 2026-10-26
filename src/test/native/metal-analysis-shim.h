@@ -11,6 +11,7 @@
 
 namespace metal {
 using uint = unsigned int;
+using ulong = unsigned long;
 using uint2 = uint __attribute__((ext_vector_type(2)));
 using uint3 = uint __attribute__((ext_vector_type(3)));
 using uint4 = uint __attribute__((ext_vector_type(4)));

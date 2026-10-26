@@ -5,4 +5,5 @@ public final class TensorTestStorage {
     private TensorTestStorage() {}
 
     public static Tensor lazy(int rows, int columns) { return Tensor.deviceOnly(rows, columns); }
+    public static boolean hasHostStorage(Tensor tensor) { return tensor.memory().hasHostStorage(); }
 }

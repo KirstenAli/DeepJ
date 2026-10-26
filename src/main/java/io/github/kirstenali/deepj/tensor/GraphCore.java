@@ -136,11 +136,7 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     public Tensor copyToDevice(Tensor source) {
-        TensorStorage.requireSource(source);
-        requireMatrixStorage(source);
-        GpuBuffer buffer = newBuffer(source.matrixRows(), source.matrixCols(), DType.FLOAT32, false);
-        scheduleUpload(buffer.id, TensorAdapters.packF32(source));
-        return createOutputTensor(buffer);
+        return GraphCopies.copy((GraphExecution) this, source);
     }
 
     public void markUpdated(Tensor tensor) {
@@ -195,9 +191,17 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     void emitBuffer(GpuBuffer buffer) {
+        emitBuffer(buffer, false);
+    }
+
+    void emitStorageBuffer(GpuBuffer buffer) {
+        emitBuffer(buffer, true);
+    }
+
+    private void emitBuffer(GpuBuffer buffer, boolean typed) {
         try {
             buffer.requireLive();
-            buffer.requireFloat32();
+            if (!typed) buffer.requireFloat32();
         } catch (RuntimeException failure) {
             cmdPos = operationStart;
             throw failure;

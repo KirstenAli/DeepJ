@@ -17,6 +17,7 @@ struct MetalContext {
     id<MTLLibrary>      library;
 
     id<MTLComputePipelineState> addPSO;
+    id<MTLComputePipelineState> storageCopyPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -393,6 +394,17 @@ static std::mutex gContextMutex;
 static NSString* metalShaderSource = @R"(
 #include <metal_stdlib>
 using namespace metal;
+
+kernel void kernel_storage_copy(device const unsigned char* input [[buffer(0)]],
+                                device unsigned char* output [[buffer(1)]],
+                                constant uint4& range [[buffer(2)]],
+                                uint id [[thread_position_in_grid]]) {
+    ulong source = (ulong(range.y) + id) * range.w;
+    ulong target = (ulong(range.z) + id) * range.w;
+    for (uint byte = 0; byte < range.w; byte++) {
+        output[target + byte] = input[source + byte];
+    }
+}
 
 kernel void kernel_add(device const float* a [[buffer(0)]],
                        device const float* b [[buffer(1)]],
@@ -1485,6 +1497,7 @@ static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
 }
 
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
     ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
@@ -1702,16 +1715,22 @@ static constexpr int OP_TILED_CAUSAL_ATTENTION = 58;
 static constexpr int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
 static constexpr int OP_HEAD_CACHE_WRITE = 60;
 static constexpr int OP_HEAD_PREFIX_MATMUL = 61;
+static constexpr int OP_STORAGE_COPY = 62;
 
-static id<MTLBuffer> requireBuffer(int id, const char* opName) {
+static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
     if (it == gBufferPool.end() || it->second == nil) {
         throw std::runtime_error(std::string(opName) + ": missing GPU buffer id=" + std::to_string(id));
     }
-    if (gBufferDTypes.at(id) != 1) {
+    return it->second;
+}
+
+static id<MTLBuffer> requireBuffer(int bufferId, const char* opName) {
+    id<MTLBuffer> buffer = requireStorageBuffer(bufferId, opName);
+    if (gBufferDTypes.at(bufferId) != 1) {
         throw std::runtime_error(std::string(opName) + ": matrix opcode requires FLOAT32 storage");
     }
-    return it->second;
+    return buffer;
 }
 
 static NSUInteger rowReductionWidth(id<MTLComputePipelineState> pso) {
@@ -2111,6 +2130,35 @@ static void dispatch1D(id<MTLComputeCommandEncoder> encoder,
     NSUInteger threads = MIN(count, pipeline.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreads:MTLSizeMake(count, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static std::array<uint32_t, 4> storageCopyRange(const jint* cmd, int pos,
+                                              id<MTLBuffer> input, id<MTLBuffer> output) {
+    int dtype = gBufferDTypes.at(cmd[pos + 1]);
+    if (cmd[pos + 1] == cmd[pos + 2] || dtype != gBufferDTypes.at(cmd[pos + 2])) {
+        throw std::runtime_error("Raw GPU copies require matching dtypes and distinct allocations");
+    }
+    uint32_t count = (uint32_t)positiveCount(cmd[pos + 5], "copy elements");
+    uint32_t width = dtype == 1 ? sizeof(float) : sizeof(jshort);
+    if (cmd[pos + 3] < 0 || cmd[pos + 4] < 0 ||
+        ((NSUInteger)cmd[pos + 3] + count) * width > [input length] ||
+        ((NSUInteger)cmd[pos + 4] + count) * width > [output length]) {
+        throw std::runtime_error("GPU copy range exceeds its physical allocation");
+    }
+    return {count, (uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], width};
+}
+
+static void encodeStorageCopy(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "storage copy");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "storage copy");
+    auto range = storageCopyRange(cmd, pos, input, output);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->storageCopyPSO];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:output offset:0 atIndex:1];
+    bindValue(encoder, range, 2);
+    dispatch1D(encoder, state.ctx->storageCopyPSO, range[0]);
 }
 
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
@@ -2932,6 +2980,7 @@ static int attentionCommandWidth(int op) {
 }
 
 static int commandWidth(int op) {
+    if (op == OP_STORAGE_COPY) return 6;
     if (op >= OP_TILED_CAUSAL_ATTENTION) return attentionCommandWidth(op);
     if (isUnaryOp(op) || op == OP_SUM_SQUARES_SCALAR) return 4;
     if (isFiveWidthOp(op)) return 5;
@@ -3002,6 +3051,10 @@ static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
 }
 
 static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
+    if (cmd[pos] == OP_STORAGE_COPY) {
+        encodeStorageCopy(state, cmd, pos);
+        return;
+    }
     if (encodeBasicCommand(state, cmd, pos)) return;
     if (encodeSpecialCommand(state, cmd, pos)) return;
     throw std::runtime_error("Unknown op code in graph: " + std::to_string(cmd[pos]));

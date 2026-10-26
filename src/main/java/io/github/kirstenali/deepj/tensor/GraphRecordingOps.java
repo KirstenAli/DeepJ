@@ -4,6 +4,19 @@ abstract class GraphRecordingOps extends GraphCore {
     GraphRecordingOps(GpuRuntime runtime) {
         super(runtime);
     }
+
+    public void recordStorageCopy(GpuBuffer input, GpuBuffer output, int source, int target, int count) {
+        GraphCopies.requireRange(this, input, output, source, target, count);
+        beginOp(6);
+        emitInt(OP_STORAGE_COPY);
+        emitStorageBuffer(input);
+        emitStorageBuffer(output);
+        emitInt(source);
+        emitInt(target);
+        emitInt(count);
+        endOp();
+    }
+
     public void recordBinary(int opCode, GpuBuffer a, GpuBuffer b, GpuBuffer out) {
         beginOp(5);
         emitInt(opCode);
