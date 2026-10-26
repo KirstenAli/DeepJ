@@ -3,6 +3,30 @@ package io.github.kirstenali.deepj.tensor.cpu;
 import io.github.kirstenali.deepj.tensor.*;
 
 public final class CpuBackend extends CpuTrainingOps {
+    @Override public Tensor sliceRows(Tensor input, int[] rows) {
+        MatrixShapeChecks.requireMatrix(input);
+        for (int row : rows) {
+            if (row < 0 || row >= input.matrixRows()) throw new IllegalArgumentException("Row index out of range");
+        }
+        return CpuNdIndexing.select(input, 0, rows);
+    }
+
+    @Override public Tensor splitHeads(Tensor input, int heads) {
+        return CpuNdElementwise.matrix(input) ? super.splitHeads(input, heads)
+                : PackedLayouts.split(this, input, heads);
+    }
+
+    @Override public Tensor mergeHeads(Tensor input, int heads) {
+        return CpuNdElementwise.matrix(input) ? super.mergeHeads(input, heads)
+                : PackedLayouts.merge(this, input, heads);
+    }
+
+    @Override public Tensor batchedMatmul(Tensor left, Tensor right, int batches, boolean ta, boolean tb) {
+        return CpuNdElementwise.matrix(left) && CpuNdElementwise.matrix(right)
+                ? super.batchedMatmul(left, right, batches, ta, tb)
+                : PackedLayouts.matmul(this, left, right, batches, ta, tb);
+    }
+
     @Override public void copyInto(Tensor target, Tensor source) { CpuNdAssignment.apply(target, source); }
     @Override public Tensor zeros(DType dtype, int... shape) { return new Tensor(dtype, shape); }
 

@@ -11,9 +11,14 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
     @Override
     public boolean supportsCausalAttention(Tensor query, Tensor key, Tensor value,
                                             int queryHeads, int keyValueHeads, float scale) {
-        return MetalNative.TILED_ATTENTION_AVAILABLE && tiledShape(query, queryHeads, scale)
+        return MetalNative.TILED_ATTENTION_AVAILABLE && denseInputs(query, key, value)
+                && tiledShape(query, queryHeads, scale)
                 && query.matrixRows() / queryHeads >= 256 && groupedShape(query, key, queryHeads, keyValueHeads)
                 && sameShape(key, value);
+    }
+
+    private static boolean denseInputs(Tensor query, Tensor key, Tensor value) {
+        return MetalDenseOps.matrix(query) && MetalDenseOps.matrix(key) && MetalDenseOps.matrix(value);
     }
 
     private static boolean tiledShape(Tensor query, int heads, float scale) {
@@ -81,6 +86,9 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
     private static void requireAttentionShapes(Tensor query, Tensor key, Tensor value,
                                                 int queryHeads, int keyValueHeads, float scale) {
         Tensor.requireSameShape(key, value, "causalAttention");
+        if (!denseInputs(query, key, value)) {
+            throw new UnsupportedOperationException("Fused attention requires full contiguous FLOAT32 matrices");
+        }
         if (!tiledShape(query, queryHeads, scale) || !groupedShape(query, key, queryHeads, keyValueHeads)) {
             throw new IllegalArgumentException("Tiled attention needs complete 32-row tiles and 64-column heads");
         }

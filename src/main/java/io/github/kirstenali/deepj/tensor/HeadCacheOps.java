@@ -10,7 +10,8 @@ public final class HeadCacheOps {
                 || (long) offset + update.matrixRows() / heads > cache.matrixRows() / heads) {
             throw new IllegalArgumentException("Head cache write exceeds its shape or capacity");
         }
-        if (cache.requiresGrad() || cache.gradientState().savedForBackward()) {
+        cache.layout().requireWritable();
+        if (cache.requiresGrad() || cache.gradientState().storageSavedForBackward()) {
             throw new IllegalArgumentException("Head caches must be detached scratch tensors");
         }
     }
@@ -21,8 +22,13 @@ public final class HeadCacheOps {
         }
     }
 
-    static void write(Tensor cache, Tensor update, int heads, int offset) {
+    static void write(TensorBackend backend, Tensor cache, Tensor update, int heads, int offset) {
+        if (!CpuNdElementwise.matrix(cache) || !CpuNdElementwise.matrix(update)) {
+            writeLayouts(backend, cache, update, heads, offset);
+            return;
+        }
         requireWrite(cache, update, heads, offset);
+        cache.gradientState().beforeMutation();
         cache.materialize();
         update.materialize();
         int count = update.matrixRows() / heads * update.matrixCols();
@@ -33,12 +39,24 @@ public final class HeadCacheOps {
         cache.setGpuTag(null);
     }
 
-    static Tensor prefix(Tensor cache, int heads, int length) {
+    public static void writeLayouts(TensorBackend backend, Tensor cache, Tensor update, int heads, int offset) {
+        requireWrite(cache, update, heads, offset);
+        cache.gradientState().beforeMutation();
+        Tensor source = cache.memory() == update.memory() ? backend.copy(update) : update;
+        int count = update.matrixRows() / heads, capacity = cache.matrixRows() / heads;
+        for (int head = 0; head < heads; head++) {
+            Tensor target = backend.slice(cache, 0, head * capacity + offset, head * capacity + offset + count, 1);
+            backend.copyInto(target, backend.slice(source, 0, head * count, (head + 1) * count, 1));
+        }
+        if (cache.getGpuTag() instanceof GpuBuffer buffer && !buffer.cpuStale) buffer.needsUpload = true;
+    }
+
+    public static Tensor prefix(TensorBackend backend, Tensor cache, int heads, int length) {
         requirePrefix(cache, heads, length);
         int[] rows = new int[heads * length];
         for (int row = 0; row < rows.length; row++) {
             rows[row] = row / length * (cache.matrixRows() / heads) + row % length;
         }
-        return Tensor.backend().sliceRows(cache, rows);
+        return backend.sliceRows(cache, rows);
     }
 }

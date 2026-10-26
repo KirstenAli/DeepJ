@@ -57,7 +57,7 @@ final class TensorBackendDefaults {
 
     static Tensor batchedMatmul(Tensor left, Tensor right, int batches,
                                 boolean transposeLeft, boolean transposeRight) {
-        BatchShape shape = shape(left, right, batches, transposeLeft, transposeRight);
+        PackedMatmulShape shape = PackedMatmulShape.of(left, right, batches, transposeLeft, transposeRight);
         left.materialize();
         right.materialize();
         Tensor output = new Tensor(batches * shape.rows(), shape.cols());
@@ -67,7 +67,7 @@ final class TensorBackendDefaults {
     }
 
     private static void multiplyRow(Tensor left, Tensor right, Tensor output,
-                                    BatchShape shape, int index) {
+                                    PackedMatmulShape shape, int index) {
         int batch = index / shape.rows();
         int row = index % shape.rows();
         int outputBase = index * shape.cols();
@@ -79,13 +79,13 @@ final class TensorBackendDefaults {
         }
     }
 
-    private static float leftValue(Tensor tensor, BatchShape shape, int batch, int row, int inner) {
+    private static float leftValue(Tensor tensor, PackedMatmulShape shape, int batch, int row, int inner) {
         int batchBase = batch * shape.leftRows() * tensor.matrixCols();
         int offset = shape.transposeLeft() ? inner * tensor.matrixCols() + row : row * tensor.matrixCols() + inner;
         return tensor.rawData()[batchBase + offset];
     }
 
-    private static float rightValue(Tensor tensor, BatchShape shape, int batch, int inner, int col) {
+    private static float rightValue(Tensor tensor, PackedMatmulShape shape, int batch, int inner, int col) {
         int batchBase = batch * shape.rightRows() * tensor.matrixCols();
         int offset = shape.transposeRight() ? col * tensor.matrixCols() + inner : inner * tensor.matrixCols() + col;
         return tensor.rawData()[batchBase + offset];
@@ -138,26 +138,10 @@ final class TensorBackendDefaults {
         output.rawData()[inputBase + 1] = x * sin + y * cos;
     }
 
-    private static BatchShape shape(Tensor left, Tensor right, int batches,
-                                    boolean transposeLeft, boolean transposeRight) {
-        requireHeads(left.matrixRows(), batches);
-        requireHeads(right.matrixRows(), batches);
-        int leftRows = left.matrixRows() / batches, rightRows = right.matrixRows() / batches;
-        int rows = transposeLeft ? left.matrixCols() : leftRows;
-        int innerLeft = transposeLeft ? leftRows : left.matrixCols();
-        int innerRight = transposeRight ? right.matrixCols() : rightRows;
-        int cols = transposeRight ? rightRows : right.matrixCols();
-        if (innerLeft != innerRight) throw new IllegalArgumentException("Batched matmul shape mismatch");
-        return new BatchShape(leftRows, rightRows, rows, cols, innerLeft,
-                transposeLeft, transposeRight);
-    }
-
     private static void requireHeads(int dimension, int heads) {
         if (heads <= 0 || dimension % heads != 0) {
             throw new IllegalArgumentException("Dimension must be divisible by a positive head count");
         }
     }
 
-    private record BatchShape(int leftRows, int rightRows, int rows, int cols, int inner,
-                              boolean transposeLeft, boolean transposeRight) {}
 }

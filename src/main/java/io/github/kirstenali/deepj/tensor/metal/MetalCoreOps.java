@@ -119,6 +119,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor splitHeads(Tensor input, int heads) {
+        if (!MetalDenseOps.matrix(input)) return PackedLayouts.split(this, input, heads);
         requireDivisible(input.matrixCols(), heads, "model width");
         int headDim = input.matrixCols() / heads;
         GpuBuffer output = graph.newOutputBuffer(heads * input.matrixRows(), headDim);
@@ -129,6 +130,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor mergeHeads(Tensor input, int heads) {
+        if (!MetalDenseOps.matrix(input)) return PackedLayouts.merge(this, input, heads);
         requireDivisible(input.matrixRows(), heads, "head rows");
         int sequenceLength = input.matrixRows() / heads;
         int modelWidth = heads * input.matrixCols();
@@ -141,9 +143,9 @@ abstract class MetalCoreOps implements TensorBackend {
     @Override
     public Tensor batchedMatmul(Tensor left, Tensor right, int batches,
                                 boolean transposeLeft, boolean transposeRight) {
-        BatchedShape shape = batchedShape(left, right, batches, transposeLeft, transposeRight);
+        var shape = PackedMatmulShape.of(left, right, batches, transposeLeft, transposeRight);
         if (!MetalDenseOps.matrix(left) || !MetalDenseOps.matrix(right)) {
-            return MetalMatmulViews.batched(this, left, right, batches, transposeLeft, transposeRight);
+            return PackedLayouts.matmul(this, left, right, batches, transposeLeft, transposeRight);
         }
         GpuBuffer output = graph.newOutputBuffer(batches * shape.rows(), shape.cols());
         graph.recordBatchedMatmul(gpuIn(left), gpuIn(right), output, batches,
@@ -178,26 +180,11 @@ abstract class MetalCoreOps implements TensorBackend {
         return gpuOut(output);
     }
 
-    static BatchedShape batchedShape(Tensor left, Tensor right, int batches,
-                                             boolean transposeLeft, boolean transposeRight) {
-        requireDivisible(left.matrixRows(), batches, "left rows");
-        requireDivisible(right.matrixRows(), batches, "right rows");
-        int leftRows = left.matrixRows() / batches, rightRows = right.matrixRows() / batches;
-        int rows = transposeLeft ? left.matrixCols() : leftRows;
-        int leftInner = transposeLeft ? leftRows : left.matrixCols();
-        int rightInner = transposeRight ? right.matrixCols() : rightRows;
-        int cols = transposeRight ? rightRows : right.matrixCols();
-        if (leftInner != rightInner) throw new IllegalArgumentException("Batched matmul shape mismatch");
-        return new BatchedShape(leftRows, rightRows, rows, cols);
-    }
-
     static void requireDivisible(int dimension, int divisor, String name) {
         if (divisor <= 0 || dimension % divisor != 0) {
             throw new IllegalArgumentException(name + " must be divisible by a positive batch count");
         }
     }
-
-    record BatchedShape(int leftRows, int rightRows, int rows, int cols) {}
 
     @Override
     public Tensor add(Tensor a, Tensor b) {
