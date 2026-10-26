@@ -82,7 +82,7 @@ final class TensorMemory {
         if (lazyHost) values = null;
     }
 
-    private void ensureHost() {
+    void ensureHost() {
         if (values == null) values = dtype == DType.FLOAT32 ? new float[length] : new short[length];
     }
 
@@ -91,6 +91,13 @@ final class TensorMemory {
         var result = new TensorMemory(dtype, length);
         System.arraycopy(values, 0, result.values, 0, length);
         return result;
+    }
+
+    void copyTo(TensorMemory target, int sourceIndex, int targetIndex, int count) {
+        if (dtype != target.dtype) throw new IllegalArgumentException("Raw copies require matching dtypes");
+        ensureHost();
+        target.ensureHost();
+        System.arraycopy(values, sourceIndex, target.values, targetIndex, count);
     }
 
     void retainDevice() { deviceRetentions = Math.incrementExact(deviceRetentions); }

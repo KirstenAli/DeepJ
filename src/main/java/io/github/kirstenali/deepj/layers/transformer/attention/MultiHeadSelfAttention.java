@@ -53,8 +53,8 @@ public class MultiHeadSelfAttention implements Layer {
     public Tensor forward(Tensor x) {
         validateInput(x);
         Projections proj = projectInputs(x);
-        Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), x.rows);
-        Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), x.rows);
+        Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), x.matrixRows());
+        Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), x.matrixRows());
         Tensor values = HeadOps.splitHeads(proj.V, nHeads);
         Tensor context = attend(queries, keys, values);
         return HeadOps.mergeHeads(context, nHeads).matmul(Wo.value);
@@ -81,17 +81,17 @@ public class MultiHeadSelfAttention implements Layer {
         validateInput(input);
         Projections projections = projectInputs(input);
         Tensor queries = transformQueryKey(HeadOps.splitHeads(projections.Q, nHeads),
-                input.rows, context);
+                input.matrixRows(), context);
         Tensor keys = transformQueryKey(HeadOps.splitHeads(projections.K, nHeads),
-                input.rows, context);
+                input.matrixRows(), context);
         Tensor values = HeadOps.splitHeads(projections.V, nHeads);
         Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
         return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);
     }
 
     private void validateInput(Tensor x) {
-        if (x.cols != dModel) {
-            throw new IllegalArgumentException("Expected cols=" + dModel + " got " + x.cols);
+        if (x.matrixCols() != dModel) {
+            throw new IllegalArgumentException("Expected cols=" + dModel + " got " + x.matrixCols());
         }
     }
 

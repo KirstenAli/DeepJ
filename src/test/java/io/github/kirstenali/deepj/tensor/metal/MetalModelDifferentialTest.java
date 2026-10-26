@@ -141,7 +141,7 @@ class MetalModelDifferentialTest extends MetalDifferentialTestSupport {
     private static ModelResult runModel(DecoderOnlyModel model, int[] inputIds, long seed) {
         model.zeroGrad();
         Tensor output = model.forward(inputIds);
-        Tensor upstream = Tensor.random(output.rows, output.cols, new Random(seed));
+        Tensor upstream = Tensor.random(output.matrixRows(), output.matrixCols(), new Random(seed));
         model.forward(inputIds).backward(upstream);
         return new ModelResult(output, copyGradients(model.parameters()));
     }

@@ -20,7 +20,7 @@ public class TransformerBlockTest {
         DeepJOriginTransformerBlock block = new DeepJOriginTransformerBlock(dModel, 2, 8, new Random(1));
 
         for (Parameter p : block.parameters()) {
-            AutogradTestSupport.replaceValues(p.value, Tensor.zeros(p.value.rows, p.value.cols));
+            AutogradTestSupport.replaceValues(p.value, Tensor.zeros(p.value.matrixRows(), p.value.matrixCols()));
             p.zeroGrad();
         }
 
@@ -44,10 +44,10 @@ public class TransformerBlockTest {
         });
 
         Tensor y = block.forward(x);
-        Tensor gradOut = Tensor.ones(y.rows, y.cols);
+        Tensor gradOut = Tensor.ones(y.matrixRows(), y.matrixCols());
         Tensor gradIn = AutogradTestSupport.backward(block::forward, x, gradOut);
 
-        TestSupport.assertTensorShape(gradIn, x.rows, x.cols);
+        TestSupport.assertTensorShape(gradIn, x.matrixRows(), x.matrixCols());
 
         double totalGrad = 0.0f;
         for (Parameter p : block.parameters()) {
@@ -75,7 +75,7 @@ public class TransformerBlockTest {
                 {-0.3f,  0.2f,  0.1f, -0.4f}
         });
 
-        Tensor target = Tensor.zeros(x.rows, x.cols);
+        Tensor target = Tensor.zeros(x.matrixRows(), x.matrixCols());
 
         TestSupport.assertLossDecreases(() -> trainOneStepMSE(block, opt, x, target), 10,
                 "Expected MSE loss to decrease within a few optimizer steps");

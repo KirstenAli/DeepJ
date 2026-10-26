@@ -77,8 +77,8 @@ public final class ModelSerializer {
     }
 
     private static void writeTensorHeader(DataOutputStream out, Tensor t) throws IOException {
-        out.writeInt(t.rows);
-        out.writeInt(t.cols);
+        out.writeInt(t.matrixRows());
+        out.writeInt(t.matrixCols());
     }
 
     private static void writeTensorData(DataOutputStream out, Tensor t) throws IOException {
@@ -164,7 +164,7 @@ public final class ModelSerializer {
     private static void readAndValidateShape(DataInputStream in, Tensor t, int index) throws IOException {
         int rows = in.readInt();
         int cols = in.readInt();
-        if (rows != t.rows || cols != t.cols) {
+        if (rows != t.matrixRows() || cols != t.matrixCols()) {
             throw new IOException("Shape mismatch at parameter " + index);
         }
     }

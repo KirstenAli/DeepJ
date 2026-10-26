@@ -25,7 +25,7 @@ public class UnaryGradientTest {
                 Tensor::maxAlongRows, x -> x.clamp(0.4f, 2.5f),
                 x -> x.softmaxRows().multiply(x),
                 x -> ActivationOps.causalSoftmax(x, 3, 0.7f).multiply(x),
-                x -> Tensor.sliceRows(x, new int[]{1, 0, 1}, x.cols), x -> x.getRow(1), Tensor::copy);
+                x -> Tensor.sliceRows(x, new int[]{1, 0, 1}, x.matrixCols()), x -> x.getRow(1), Tensor::copy);
     }
 
     @ParameterizedTest

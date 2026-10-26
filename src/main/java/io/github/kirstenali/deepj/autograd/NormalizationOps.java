@@ -32,7 +32,7 @@ public final class NormalizationOps {
     private static Tensor[] layerGradients(Tensor g, Tensor gamma, Tensor normalized,
                                             Tensor standardDeviation, RequiredGradients required) {
         return new Tensor[]{required.input() ? Tensor.backend().layerNormBackward(
-                g.multiplyBroadcastRows(gamma), normalized, standardDeviation, normalized.cols) : null,
+                g.multiplyBroadcastRows(gamma), normalized, standardDeviation, normalized.matrixCols()) : null,
                 required.gain() ? g.multiply(normalized).sumRows() : null,
                 required.bias() ? g.sumRows() : null};
     }

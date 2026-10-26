@@ -19,7 +19,7 @@ final class GroupedHeads {
 
     Tensor expand(Tensor heads, int sequenceLength) {
         prepareMapping(sequenceLength);
-        return Tensor.sliceRows(heads, mapping, heads.cols);
+        return Tensor.sliceRows(heads, mapping, heads.matrixCols());
     }
 
     private void prepareMapping(int sequenceLength) {

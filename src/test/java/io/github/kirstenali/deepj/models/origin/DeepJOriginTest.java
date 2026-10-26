@@ -129,9 +129,9 @@ public class DeepJOriginTest {
         int[] ids = new int[]{5, 1, 5, 2};
         Tensor logits = model.forward(ids);
 
-        Tensor dLogits = Tensor.zeros(logits.rows, logits.cols);
-        for (int r = 0; r < dLogits.rows; r++) {
-            dLogits.rawData()[r * dLogits.cols + (r + 3) % dLogits.cols] = 1.0f;
+        Tensor dLogits = Tensor.zeros(logits.matrixRows(), logits.matrixCols());
+        for (int r = 0; r < dLogits.matrixRows(); r++) {
+            dLogits.rawData()[r * dLogits.matrixCols() + (r + 3) % dLogits.matrixCols()] = 1.0f;
         }
 
         for (Parameter p : model.parameters()) {

@@ -38,13 +38,13 @@ class MetalHeadCacheTest extends MetalDifferentialTestSupport {
     }
 
     private static Tensor compact(Tensor initial, Tensor next, int heads, int length) {
-        Tensor result = new Tensor(heads * (length + 1), initial.cols);
+        Tensor result = new Tensor(heads * (length + 1), initial.matrixCols());
         for (int head = 0; head < heads; head++) {
-            int start = head * (length + 1) * initial.cols;
-            System.arraycopy(initial.rawData(), head * length * initial.cols,
-                    result.rawData(), start, length * initial.cols);
-            System.arraycopy(next.rawData(), head * initial.cols,
-                    result.rawData(), start + length * initial.cols, initial.cols);
+            int start = head * (length + 1) * initial.matrixCols();
+            System.arraycopy(initial.rawData(), head * length * initial.matrixCols(),
+                    result.rawData(), start, length * initial.matrixCols());
+            System.arraycopy(next.rawData(), head * initial.matrixCols(),
+                    result.rawData(), start + length * initial.matrixCols(), initial.matrixCols());
         }
         return result;
     }

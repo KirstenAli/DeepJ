@@ -21,7 +21,9 @@ public final class LayerNorm1D implements NormLayer {
 
     @Override
     public Tensor forward(Tensor input) {
-        if (input.cols != dim) throw new IllegalArgumentException("Expected cols=" + dim + " got " + input.cols);
+        if (input.matrixCols() != dim) {
+            throw new IllegalArgumentException("Expected cols=" + dim + " got " + input.matrixCols());
+        }
         return NormalizationOps.layerNorm(input, gamma.value, beta.value, EPS);
     }
 

@@ -54,7 +54,7 @@ class SiLUTest {
     void forward_positive_inputs_are_positive() {
         Tensor x = Tensor.from2D(new float[][]{{0.5f, 1.0f, 2.0f, 5.0f}});
         Tensor y = silu.forward(x);
-        for (int c = 0; c < y.cols; c++) {
+        for (int c = 0; c < y.matrixCols(); c++) {
             assertTrue(y.rawData()[c] > 0, "SiLU of positive input should be positive");
         }
     }

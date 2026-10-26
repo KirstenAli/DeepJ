@@ -29,7 +29,7 @@ class MetalArgumentBindingTest extends MetalDifferentialTestSupport {
         List<Result> results = new ArrayList<>();
         for (int index = 0; index < 64; index++) {
             Tensor input = random(1 + index % 7, 3 + index % 33, index);
-            Tensor row = random(1, input.cols, index + 100);
+            Tensor row = random(1, input.matrixCols(), index + 100);
             results.add(new Result(cpu.transpose(input), metal.transpose(input)));
             results.add(new Result(cpu.addRowVector(input, row), metal.addRowVector(input, row)));
             results.add(new Result(cpu.sumRows(input), metal.sumRows(input)));
@@ -43,13 +43,13 @@ class MetalArgumentBindingTest extends MetalDifferentialTestSupport {
         List<Result> results = new ArrayList<>();
         for (int index = 0; index < 64; index++) {
             Tensor input = random(3 + index % 7, 3 + index % 7, index);
-            Tensor gamma = positive(1, input.cols, index + 100);
+            Tensor gamma = positive(1, input.matrixCols(), index + 100);
             float epsilon = 0.0001f + index * 0.001f;
             float scale = 0.125f + index * 0.01f;
             results.add(new Result(cpu.rmsNorm(input, gamma, epsilon).output(),
                     metal.rmsNorm(input, gamma, epsilon).output()));
-            results.add(new Result(cpu.causalSoftmax(input, input.rows, scale),
-                    metal.causalSoftmax(input, input.rows, scale)));
+            results.add(new Result(cpu.causalSoftmax(input, input.matrixRows(), scale),
+                    metal.causalSoftmax(input, input.matrixRows(), scale)));
         }
         results.forEach(result -> result.verify(1e-5f));
     }
@@ -70,8 +70,8 @@ class MetalArgumentBindingTest extends MetalDifferentialTestSupport {
     }
 
     private List<Tensor> adam(TensorBackend backend, Tensor weights, Tensor gradient, int index) {
-        Tensor first = random(weights.rows, weights.cols, index + 200);
-        Tensor second = positive(weights.rows, weights.cols, index + 300);
+        Tensor first = random(weights.matrixRows(), weights.matrixCols(), index + 200);
+        Tensor second = positive(weights.matrixRows(), weights.matrixCols(), index + 300);
         backend.adamWUpdate(weights, gradient, first, second, 0.0001f * (index + 1),
                 0.8f + index * 0.001f, 0.95f + index * 0.0001f, 1e-8f + index * 1e-5f,
                 index * 0.001f, 0.1f + index * 0.01f, 0.001f + index * 0.001f);

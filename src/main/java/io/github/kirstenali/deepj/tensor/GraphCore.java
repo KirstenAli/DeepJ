@@ -46,6 +46,7 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     public GpuBuffer ensureGpuBuffer(Tensor t) {
+        requireMatrixStorage(t);
         if (t.getGpuTag() instanceof GpuBuffer existing) {
             existing.requireLive();
             if (existing.owner != null && existing.owner != this) {
@@ -71,7 +72,7 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     GpuBuffer createAndUploadInputBuffer(Tensor t) {
-        GpuBuffer buf = newBuffer(t.rows, t.cols, true);
+        GpuBuffer buf = newBuffer(t.matrixRows(), t.matrixCols(), true);
         scheduleUpload(buf.id, TensorAdapters.packF32(t));
         buf.needsUpload = false;
         buf.cpuStale = false;
@@ -108,7 +109,8 @@ abstract class GraphCore extends GraphOpMetadata {
 
     public Tensor copyToDevice(Tensor source) {
         TensorStorage.requireSource(source);
-        GpuBuffer buffer = newBuffer(source.rows, source.cols, false);
+        requireMatrixStorage(source);
+        GpuBuffer buffer = newBuffer(source.matrixRows(), source.matrixCols(), false);
         scheduleUpload(buffer.id, TensorAdapters.packF32(source));
         return createOutputTensor(buffer);
     }
@@ -136,6 +138,7 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     private void requireStorageBinding(Tensor tensor, GpuBuffer buffer) {
+        requireMatrixStorage(tensor);
         if (tensor.memory().length() != buffer.floatCount()) {
             throw new IllegalArgumentException("GPU allocation size must match physical tensor storage");
         }
@@ -143,6 +146,13 @@ abstract class GraphCore extends GraphOpMetadata {
         TensorMemory bound = reference == null ? null : reference.get();
         if (bound != null && bound != tensor.memory()) {
             throw new IllegalArgumentException("A GPU allocation can only bind one shared tensor storage");
+        }
+    }
+
+    private static void requireMatrixStorage(Tensor tensor) {
+        if (tensor.dtype() != DType.FLOAT32 || tensor.rank() != 2 || !tensor.coversStorage()) {
+            throw new UnsupportedOperationException(
+                    "The matrix graph requires full contiguous FLOAT32 rank-two storage");
         }
     }
 

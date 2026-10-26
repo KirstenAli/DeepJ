@@ -42,10 +42,10 @@ public final class InferenceContext implements AutoCloseable {
     public Tensor attend(Object owner, Tensor query, Tensor key, Tensor value,
                           int queryHeads, int keyValueHeads, float scale) {
         if (GradMode.isEnabled()) throw new IllegalStateException("Inference caches require noGrad");
-        if (position > 0 && key.rows != keyValueHeads) {
+        if (position > 0 && key.matrixRows() != keyValueHeads) {
             throw new IllegalArgumentException("Incremental attention accepts one token at a time");
         }
-        KeyValueCache cache = slot(owner, keyValueHeads, key.cols);
+        KeyValueCache cache = slot(owner, keyValueHeads, key.matrixCols());
         return cache.attend(query, key, value, queryHeads, position, scale);
     }
 

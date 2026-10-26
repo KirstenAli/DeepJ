@@ -38,7 +38,7 @@ class DeepJLoopTest {
         assertEquals(decoder.parameters().size(), decoder.parameters().stream().distinct().count());
         assertEquals(3, settings.nLayers());
         assertEquals(loops + 2, settings.executedLayers());
-        assertEquals(1, decoder.parameters().stream().filter(p -> p.value.rows == 11).count());
+        assertEquals(1, decoder.parameters().stream().filter(p -> p.value.matrixRows() == 11).count());
     }
 
     @Test
@@ -107,7 +107,7 @@ class DeepJLoopTest {
         Path saved = directory.resolve("core.dj");
         decoder.save(saved);
         assertEquals(settings, ModelLoader.load(saved).config());
-        assertEquals(3, decoder.forward(new int[]{1, 2, 3}).rows);
+        assertEquals(3, decoder.forward(new int[]{1, 2, 3}).matrixRows());
     }
 
     private static DeepJLoopConfig small(int loops) {

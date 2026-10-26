@@ -64,7 +64,7 @@ class MetalCachedGenerationTest extends MetalDifferentialTestSupport {
     }
 
     private static Tensor last(Tensor logits) {
-        return Tensor.from2D(new float[][]{logits.rowData(logits.rows - 1)});
+        return Tensor.from2D(new float[][]{logits.rowData(logits.matrixRows() - 1)});
     }
 
     @ParameterizedTest

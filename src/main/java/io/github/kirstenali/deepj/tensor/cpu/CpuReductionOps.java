@@ -13,10 +13,10 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor sumRows(Tensor a) {
         prepare(a);
-        Tensor result = new Tensor(1, a.cols);
-        for (int r = 0; r < a.rows; r++) {
-            int base = r * a.cols;
-            for (int c = 0; c < a.cols; c++) {
+        Tensor result = new Tensor(1, a.matrixCols());
+        for (int r = 0; r < a.matrixRows(); r++) {
+            int base = r * a.matrixCols();
+            for (int c = 0; c < a.matrixCols(); c++) {
                 result.rawData()[c] += a.rawData()[base + c];
             }
         }
@@ -26,10 +26,10 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor sumAlongRows(Tensor a) {
         prepare(a);
-        Tensor result = new Tensor(a.rows, 1);
-        DeepJExecutor.forRange(0, a.rows, r -> {
-            int base = r * a.cols;
-            result.rawData()[r] = rowSum(a.rawData(), base, a.cols);
+        Tensor result = new Tensor(a.matrixRows(), 1);
+        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+            int base = r * a.matrixCols();
+            result.rawData()[r] = rowSum(a.rawData(), base, a.matrixCols());
         });
         return result;
     }
@@ -39,11 +39,11 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor meanAlongRows(Tensor a) {
         prepare(a);
-        Tensor result = new Tensor(a.rows, 1);
-        float invCols = 1.0f / a.cols;
-        DeepJExecutor.forRange(0, a.rows, r -> {
-            int base = r * a.cols;
-            result.rawData()[r] = rowSum(a.rawData(), base, a.cols) * invCols;
+        Tensor result = new Tensor(a.matrixRows(), 1);
+        float invCols = 1.0f / a.matrixCols();
+        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+            int base = r * a.matrixCols();
+            result.rawData()[r] = rowSum(a.rawData(), base, a.matrixCols()) * invCols;
         });
         return result;
     }
@@ -51,13 +51,13 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor varianceAlongRows(Tensor a) {
         prepare(a);
-        Tensor result = new Tensor(a.rows, 1);
-        float invCols = 1.0f / a.cols;
-        DeepJExecutor.forRange(0, a.rows, r -> {
-            int base = r * a.cols;
-            float mean = rowSum(a.rawData(), base, a.cols) * invCols;
+        Tensor result = new Tensor(a.matrixRows(), 1);
+        float invCols = 1.0f / a.matrixCols();
+        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+            int base = r * a.matrixCols();
+            float mean = rowSum(a.rawData(), base, a.matrixCols()) * invCols;
             float acc = 0.0f;
-            for (int c = 0; c < a.cols; c++) {
+            for (int c = 0; c < a.matrixCols(); c++) {
                 float diff = a.rawData()[base + c] - mean;
                 acc += diff * diff;
             }
@@ -69,11 +69,11 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor maxAlongRows(Tensor a) {
         prepare(a);
-        Tensor result = new Tensor(a.rows, 1);
-        DeepJExecutor.forRange(0, a.rows, r -> {
-            int base = r * a.cols;
+        Tensor result = new Tensor(a.matrixRows(), 1);
+        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+            int base = r * a.matrixCols();
             float max = Float.NEGATIVE_INFINITY;
-            for (int c = 0; c < a.cols; c++) {
+            for (int c = 0; c < a.matrixCols(); c++) {
                 if (a.rawData()[base + c] > max) max = a.rawData()[base + c];
             }
             result.rawData()[r] = max;
@@ -104,11 +104,11 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor transpose(Tensor a) {
         prepare(a);
-        Tensor result = new Tensor(a.cols, a.rows);
-        DeepJExecutor.forRange(0, a.rows, r -> {
-            int aBase = r * a.cols;
-            for (int c = 0; c < a.cols; c++) {
-                result.rawData()[c * a.rows + r] = a.rawData()[aBase + c];
+        Tensor result = new Tensor(a.matrixCols(), a.matrixRows());
+        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+            int aBase = r * a.matrixCols();
+            for (int c = 0; c < a.matrixCols(); c++) {
+                result.rawData()[c * a.matrixRows() + r] = a.rawData()[aBase + c];
             }
         });
         return result;
@@ -216,11 +216,11 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor softmaxRows(Tensor logits) {
         prepare(logits);
-        Tensor result = new Tensor(logits.rows, logits.cols);
+        Tensor result = new Tensor(logits.matrixRows(), logits.matrixCols());
 
-        DeepJExecutor.forRange(0, logits.rows, r -> {
-            int base = r * logits.cols;
-            rowWriteSoftmax(logits.rawData(), result.rawData(), base, logits.cols);
+        DeepJExecutor.forRange(0, logits.matrixRows(), r -> {
+            int base = r * logits.matrixCols();
+            rowWriteSoftmax(logits.rawData(), result.rawData(), base, logits.matrixCols());
         });
 
         return result;
@@ -230,14 +230,14 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
     public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
         prepare(gradOutput, softmaxOut);
         requireSameShape(gradOutput, softmaxOut, "softmaxBackward");
-        Tensor result = new Tensor(gradOutput.rows, gradOutput.cols);
+        Tensor result = new Tensor(gradOutput.matrixRows(), gradOutput.matrixCols());
 
-        DeepJExecutor.forRange(0, gradOutput.rows, r -> {
-            int base = r * gradOutput.cols;
+        DeepJExecutor.forRange(0, gradOutput.matrixRows(), r -> {
+            int base = r * gradOutput.matrixCols();
 
-            float dot = rowDot(gradOutput.rawData(), softmaxOut.rawData(), base, gradOutput.cols);
+            float dot = rowDot(gradOutput.rawData(), softmaxOut.rawData(), base, gradOutput.matrixCols());
 
-            for (int c = 0; c < gradOutput.cols; c++) {
+            for (int c = 0; c < gradOutput.matrixCols(); c++) {
                 result.rawData()[base + c] = softmaxOut.rawData()[base + c] * (gradOutput.rawData()[base + c] - dot);
             }
         });

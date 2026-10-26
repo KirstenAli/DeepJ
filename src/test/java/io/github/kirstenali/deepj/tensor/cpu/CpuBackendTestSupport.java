@@ -20,12 +20,12 @@ abstract class CpuBackendTestSupport {
     }
 
     protected void assertTensorEquals(double[][] expected, Tensor actual) {
-        assertEquals(expected.length, actual.rows, "Row count mismatch");
-        assertEquals(expected[0].length, actual.cols, "Column count mismatch");
+        assertEquals(expected.length, actual.matrixRows(), "Row count mismatch");
+        assertEquals(expected[0].length, actual.matrixCols(), "Column count mismatch");
 
         for (int r = 0; r < expected.length; r++) {
             for (int c = 0; c < expected[0].length; c++) {
-                assertEquals(expected[r][c], actual.rawData()[r * actual.cols + c], EPS,
+                assertEquals(expected[r][c], actual.rawData()[r * actual.matrixCols() + c], EPS,
                         "Mismatch at [" + r + "][" + c + "]");
             }
         }

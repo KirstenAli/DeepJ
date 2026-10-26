@@ -19,8 +19,8 @@ public final class CausalLMTestSupport {
 
     public static void assertLogitShape(CausalLM model, TransformerConfig config, int[] tokens) {
         Tensor logits = model.forward(tokens);
-        assertEquals(tokens.length, logits.rows);
-        assertEquals(config.vocabSize(), logits.cols);
+        assertEquals(tokens.length, logits.matrixRows());
+        assertEquals(config.vocabSize(), logits.matrixCols());
     }
 
     public static void assertFullContext(CausalLM model, TransformerConfig config) {
@@ -30,7 +30,7 @@ public final class CausalLMTestSupport {
     public static void assertBackward(CausalLM model) {
         Tensor logits = model.forward(new int[]{ 1, 2, 3 });
         model.zeroGrad();
-        model.forward(new int[]{ 1, 2, 3 }).backward(Tensor.ones(logits.rows, logits.cols));
+        model.forward(new int[]{ 1, 2, 3 }).backward(Tensor.ones(logits.matrixRows(), logits.matrixCols()));
         assertTrue(model.parameters().stream().anyMatch(parameter -> parameter.grad().sumAbs() > 0.0f));
     }
 

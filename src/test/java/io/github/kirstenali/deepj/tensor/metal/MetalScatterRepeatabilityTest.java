@@ -11,8 +11,8 @@ class MetalScatterRepeatabilityTest extends MetalDifferentialTestSupport {
     @ValueSource(ints = {17, 1024})
     void duplicateRowsAccumulateInInputOrder(int count) {
         Tensor initial = random(7, 33, 42);
-        Tensor gradient = cancellingGradients(count, initial.cols).retainDeviceBuffer();
-        int[] indices = repeatedIndices(count, initial.rows);
+        Tensor gradient = cancellingGradients(count, initial.matrixCols()).retainDeviceBuffer();
+        int[] indices = repeatedIndices(count, initial.matrixRows());
         Tensor expected = new Tensor(initial);
         cpu.scatterAddRows(expected, indices, gradient);
         for (int round = 0; round < 64; round++) {

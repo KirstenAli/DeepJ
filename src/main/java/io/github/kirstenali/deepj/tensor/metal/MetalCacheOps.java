@@ -14,11 +14,11 @@ abstract class MetalCacheOps extends MetalTrainingOps {
     @Override
     public Tensor headPrefixMatmul(Tensor left, Tensor cache, int heads, int length, boolean transposeCache) {
         HeadCacheOps.requirePrefix(cache, heads, length);
-        requireDivisible(left.rows, heads, "query rows");
-        int inner = transposeCache ? cache.cols : length;
-        if (left.cols != inner) throw new IllegalArgumentException("Head cache matmul shape mismatch");
-        int columns = transposeCache ? length : cache.cols;
-        GpuBuffer output = graph.newOutputBuffer(left.rows, columns);
+        requireDivisible(left.matrixRows(), heads, "query rows");
+        int inner = transposeCache ? cache.matrixCols() : length;
+        if (left.matrixCols() != inner) throw new IllegalArgumentException("Head cache matmul shape mismatch");
+        int columns = transposeCache ? length : cache.matrixCols();
+        GpuBuffer output = graph.newOutputBuffer(left.matrixRows(), columns);
         graph.recordHeadPrefixMatmul(gpuIn(left), gpuIn(cache), output, heads, length, transposeCache);
         return gpuOut(output);
     }

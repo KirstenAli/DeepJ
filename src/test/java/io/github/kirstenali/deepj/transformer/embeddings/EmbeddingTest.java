@@ -76,7 +76,7 @@ public class EmbeddingTest {
         emb.weight().zeroGrad();
 
         Tensor y = emb.forward(new int[]{id});
-        TestSupport.assertTensorShape(y, 1, target.cols);
+        TestSupport.assertTensorShape(y, 1, target.matrixCols());
 
         MSELoss mse = new MSELoss();
         double loss = mse.loss(y, target);
@@ -87,8 +87,8 @@ public class EmbeddingTest {
         Tensor W = emb.weight().value;
         Tensor dW = emb.weight().grad();
 
-        for (int c = 0; c < W.cols; c++) {
-            W.rawData()[id * W.cols + c] -= lr * dW.rawData()[id * dW.cols + c];
+        for (int c = 0; c < W.matrixCols(); c++) {
+            W.rawData()[id * W.matrixCols() + c] -= lr * dW.rawData()[id * dW.matrixCols() + c];
         }
 
         return loss;

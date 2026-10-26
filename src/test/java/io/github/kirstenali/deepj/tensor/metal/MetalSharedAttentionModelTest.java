@@ -81,7 +81,7 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
         Tensor.setBackend(backend(true));
         DecoderOnlyModel model = model(kind);
         Tensor output = model.forward(batch().x()[0]);
-        output.backward(random(output.rows, output.cols, 203));
+        output.backward(random(output.matrixRows(), output.matrixCols(), 203));
         assertEquals(2, calls[0]);
         assertEquals(2, calls[1]);
         assertEquals(0, calls[2], "intermediate downloads");

@@ -45,10 +45,10 @@ public class LossTest {
         Tensor g = CrossEntropyLoss.gradient(logits, target);
         TestSupport.assertTensorShape(g, 2, 3);
 
-        for (int r = 0; r < g.rows; r++) {
+        for (int r = 0; r < g.matrixRows(); r++) {
             float sum = 0.0f;
-            for (int c = 0; c < g.cols; c++) {
-                sum += g.rawData()[r * g.cols + c];
+            for (int c = 0; c < g.matrixCols(); c++) {
+                sum += g.rawData()[r * g.matrixCols() + c];
             }
             Assertions.assertEquals(0.0f, sum, 1e-6f, "softmax-crossentropy grad rows should sum to 0");
         }
@@ -120,7 +120,7 @@ public class LossTest {
                 {0, 0, 0}
         });
         int[] target = new int[]{2, 0};
-        int n = logits.rows;
+        int n = logits.matrixRows();
 
         Tensor g = CrossEntropyLoss.gradient(logits, target);
         TestSupport.assertTensorShape(g, 2, 3);

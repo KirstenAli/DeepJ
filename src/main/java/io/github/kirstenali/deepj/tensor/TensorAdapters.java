@@ -7,7 +7,9 @@ public final class TensorAdapters {
     private TensorAdapters() {}
 
     public static float[] packF32(Tensor t) {
-        if (t.rawData() == null && t.getGpuTag() == null) return new float[TensorStorage.checkedSize(t.rows, t.cols)];
+        if (t.rawData() == null && t.getGpuTag() == null) {
+            return new float[TensorStorage.checkedSize(t.matrixRows(), t.matrixCols())];
+        }
         t.materialize();
         return java.util.Arrays.copyOf(t.rawData(), t.rawData().length);
     }
@@ -32,7 +34,7 @@ public final class TensorAdapters {
     }
 
     public static void unpackF32Into(float[] flat, Tensor t) {
-        int size = TensorStorage.checkedSize(t.rows, t.cols);
+        int size = TensorStorage.checkedSize(t.matrixRows(), t.matrixCols());
         if (flat.length != size) {
             throw new IllegalArgumentException(
                     "Flat buffer length " + flat.length +

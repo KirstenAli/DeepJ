@@ -42,7 +42,7 @@ public final class UnaryOps {
     }
 
     public static Tensor pow(Tensor input, float exponent) {
-        int rows = input.rows, cols = input.cols;
+        int rows = input.matrixRows(), cols = input.matrixCols();
         if (exponent == 0) {
             return record(input, Tensor.backend().pow(input, exponent), g -> Tensor.zeros(rows, cols));
         }

@@ -10,8 +10,8 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
         Tensor targetTensor = immutableIntColumn(targets);
         GpuBuffer gLogits = gpuIn(logits);
         GpuBuffer gTargets = gpuIn(targetTensor);
-        GpuBuffer gOut = graph.newOutputBuffer(logits.rows, logits.cols);
-        graph.recordCrossEntropyGradient(gLogits, gTargets, gOut, logits.rows, logits.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(logits.matrixRows(), logits.matrixCols());
+        graph.recordCrossEntropyGradient(gLogits, gTargets, gOut, logits.matrixRows(), logits.matrixCols());
         return gpuOut(gOut);
     }
 
@@ -19,11 +19,11 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     public CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
         Tensor targetTensor = immutableIntColumn(targets);
-        GpuBuffer losses = graph.newOutputBuffer(logits.rows, 1);
-        GpuBuffer gradient = graph.newOutputBuffer(logits.rows, logits.cols);
+        GpuBuffer losses = graph.newOutputBuffer(logits.matrixRows(), 1);
+        GpuBuffer gradient = graph.newOutputBuffer(logits.matrixRows(), logits.matrixCols());
         graph.recordCrossEntropy(gpuIn(logits), gpuIn(targetTensor), losses,
-                gradient, logits.rows, logits.cols);
-        Tensor meanLoss = divideScalar(sumRows(gpuOut(losses)), logits.rows);
+                gradient, logits.matrixRows(), logits.matrixCols());
+        Tensor meanLoss = divideScalar(sumRows(gpuOut(losses)), logits.matrixRows());
         return new CrossEntropyResult(meanLoss, gpuOut(gradient));
     }
 
@@ -34,11 +34,11 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
         Tensor targetTensor = immutableIntColumn(targets);
         GpuBuffer gLogits = gpuIn(logits);
         GpuBuffer gTargets = gpuIn(targetTensor);
-        GpuBuffer gRowLosses = graph.newOutputBuffer(logits.rows, 1);
-        graph.recordCrossEntropyLoss(gLogits, gTargets, gRowLosses, logits.rows, logits.cols);
+        GpuBuffer gRowLosses = graph.newOutputBuffer(logits.matrixRows(), 1);
+        graph.recordCrossEntropyLoss(gLogits, gTargets, gRowLosses, logits.matrixRows(), logits.matrixCols());
 
         Tensor rowLosses = gpuOut(gRowLosses);
-        Tensor scalar = sumRows(rowLosses).divideScalar(logits.rows);
+        Tensor scalar = sumRows(rowLosses).divideScalar(logits.matrixRows());
         scalar.materialize();
         return scalar.rawData()[0];
     }
@@ -64,14 +64,14 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     public Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask) {
         Tensor gradient = crossEntropyGradient(logits, targets);
         Tensor masked = multiplyBroadcastCols(gradient, maskTensor(mask));
-        return multiplyScalar(masked, (float) logits.rows / includedRows(mask));
+        return multiplyScalar(masked, (float) logits.matrixRows() / includedRows(mask));
     }
 
     Tensor crossEntropyRowLosses(Tensor logits, int[] targets) {
         Tensor targetTensor = immutableIntColumn(targets);
-        GpuBuffer output = graph.newOutputBuffer(logits.rows, 1);
+        GpuBuffer output = graph.newOutputBuffer(logits.matrixRows(), 1);
         graph.recordCrossEntropyLoss(gpuIn(logits), gpuIn(targetTensor), output,
-                logits.rows, logits.cols);
+                logits.matrixRows(), logits.matrixCols());
         return gpuOut(output);
     }
 
@@ -107,7 +107,7 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
                 gw, gg, gmt, gvt,
                 lr, beta1, beta2, eps,
                 weightDecay, bc1, bc2,
-                w.rows * w.cols
+                w.matrixRows() * w.matrixCols()
         );
 
         graph.markUpdated(w);
@@ -118,27 +118,28 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     @Override
     public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
         Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
-        if (dim != dXHat.cols) throw new IllegalArgumentException(
-                "layerNormBackward: dim=" + dim + " must equal tensor cols=" + dXHat.cols);
-        if (std.rows != dXHat.rows || std.cols != 1) throw new IllegalArgumentException(
-                "layerNormBackward: std must be " + dXHat.rows + "x1 but got " + std.rows + "x" + std.cols);
+        if (dim != dXHat.matrixCols()) throw new IllegalArgumentException(
+                "layerNormBackward: dim=" + dim + " must equal tensor cols=" + dXHat.matrixCols());
+        if (std.matrixRows() != dXHat.matrixRows() || std.matrixCols() != 1) throw new IllegalArgumentException(
+                "layerNormBackward: std must be " + dXHat.matrixRows() + "x1 but got "
+                        + std.matrixRows() + "x" + std.matrixCols());
 
         GpuBuffer gDXHat = gpuIn(dXHat);
         GpuBuffer gXHat  = gpuIn(xHat);
         GpuBuffer gStd   = gpuIn(std);
-        GpuBuffer gOut   = graph.newOutputBuffer(dXHat.rows, dXHat.cols);
-        graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.rows, dXHat.cols);
+        GpuBuffer gOut   = graph.newOutputBuffer(dXHat.matrixRows(), dXHat.matrixCols());
+        graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.matrixRows(), dXHat.matrixCols());
         return gpuOut(gOut);
     }
 
     @Override
     public RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
-        requireRmsNormShapes(input, gamma, input.rows, 1);
-        GpuBuffer output = graph.newOutputBuffer(input.rows, input.cols);
-        GpuBuffer normalized = graph.newOutputBuffer(input.rows, input.cols);
-        GpuBuffer rms = graph.newOutputBuffer(input.rows, 1);
+        requireRmsNormShapes(input, gamma, input.matrixRows(), 1);
+        GpuBuffer output = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
+        GpuBuffer normalized = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
+        GpuBuffer rms = graph.newOutputBuffer(input.matrixRows(), 1);
         graph.recordRmsNorm(gpuIn(input), gpuIn(gamma), output, normalized,
-                rms, input.rows, input.cols, epsilon);
+                rms, input.matrixRows(), input.matrixCols(), epsilon);
         return new RmsNormResult(gpuOut(output), gpuOut(normalized), gpuOut(rms));
     }
 
@@ -146,19 +147,19 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     public Tensor rmsNormBackward(Tensor gradient, Tensor normalized,
                                   Tensor rms, Tensor gamma) {
         Tensor.requireSameShape(gradient, normalized, "rmsNormBackward");
-        requireRmsNormShapes(gradient, gamma, rms.rows, rms.cols);
-        GpuBuffer output = graph.newOutputBuffer(gradient.rows, gradient.cols);
+        requireRmsNormShapes(gradient, gamma, rms.matrixRows(), rms.matrixCols());
+        GpuBuffer output = graph.newOutputBuffer(gradient.matrixRows(), gradient.matrixCols());
         graph.recordRmsNormBackward(gpuIn(gradient), gpuIn(normalized), gpuIn(rms),
-                gpuIn(gamma), output, gradient.rows, gradient.cols);
+                gpuIn(gamma), output, gradient.matrixRows(), gradient.matrixCols());
         return gpuOut(output);
     }
 
     static void requireRmsNormShapes(Tensor input, Tensor gamma,
                                              int rmsRows, int rmsCols) {
-        if (gamma.rows != 1 || gamma.cols != input.cols) {
+        if (gamma.matrixRows() != 1 || gamma.matrixCols() != input.matrixCols()) {
             throw new IllegalArgumentException("RMSNorm gamma must match input columns");
         }
-        if (rmsRows != input.rows || rmsCols != 1) {
+        if (rmsRows != input.matrixRows() || rmsCols != 1) {
             throw new IllegalArgumentException("RMSNorm scale must match input rows");
         }
     }
@@ -166,7 +167,7 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     @Override
     public Tensor swiGlu(Tensor gate, Tensor up) {
         Tensor.requireSameShape(gate, up, "swiGlu");
-        GpuBuffer fused = graph.newOutputBuffer(gate.rows, gate.cols);
+        GpuBuffer fused = graph.newOutputBuffer(gate.matrixRows(), gate.matrixCols());
         graph.recordSwiGlu(gpuIn(gate), gpuIn(up), fused);
         return gpuOut(fused);
     }
@@ -175,33 +176,35 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     public SwiGluBackwardResult swiGluBackward(Tensor gradient, Tensor gate, Tensor up) {
         Tensor.requireSameShape(gradient, gate, "swiGluBackward");
         Tensor.requireSameShape(gate, up, "swiGluBackward");
-        GpuBuffer gateGradient = graph.newOutputBuffer(gate.rows, gate.cols);
-        GpuBuffer upGradient = graph.newOutputBuffer(up.rows, up.cols);
+        GpuBuffer gateGradient = graph.newOutputBuffer(gate.matrixRows(), gate.matrixCols());
+        GpuBuffer upGradient = graph.newOutputBuffer(up.matrixRows(), up.matrixCols());
         graph.recordSwiGluBackward(gpuIn(gradient), gpuIn(gate), gpuIn(up),
                 gateGradient, upGradient);
         return new SwiGluBackwardResult(gpuOut(gateGradient), gpuOut(upGradient));
     }
 
     static void validateScatterAddRowsInputs(Tensor target, int[] indices, Tensor grad) {
-        if (indices.length != grad.rows) {
+        if (indices.length != grad.matrixRows()) {
             throw new IllegalArgumentException(
-                    "scatterAddRows: indices length " + indices.length + " must match grad rows " + grad.rows);
+                    "scatterAddRows: indices length " + indices.length + " must match grad rows " + grad.matrixRows());
         }
-        if (target.cols != grad.cols) {
+        if (target.matrixCols() != grad.matrixCols()) {
             throw new IllegalArgumentException(
-                    "scatterAddRows: target cols " + target.cols + " must match grad cols " + grad.cols);
+                    "scatterAddRows: target cols " + target.matrixCols()
+                            + " must match grad cols " + grad.matrixCols());
         }
     }
 
     void recordGpuScatterAddRowsAtomic(Tensor target, Tensor grad, Tensor indexTensor, int[] indices) {
         if (MetalHostZeroInput.isUnboundZero(target)) {
-            graph.bindTensorToBuffer(target, graph.newZeroBuffer(target.rows, target.cols));
+            graph.bindTensorToBuffer(target, graph.newZeroBuffer(target.matrixRows(), target.matrixCols()));
         }
         GpuBuffer gTarget = gpuIn(target);
         GpuBuffer gGrad = gpuIn(grad);
         GpuBuffer gIndices = gpuIn(indexTensor);
 
-        graph.recordScatterAddRowsAtomic(gTarget, gIndices, gGrad, target.rows, target.cols, indices.length);
+        graph.recordScatterAddRowsAtomic(gTarget, gIndices, gGrad,
+                target.matrixRows(), target.matrixCols(), indices.length);
         gTarget.cpuStale = true;
         gTarget.needsUpload = false;
     }

@@ -40,8 +40,8 @@ class TensorAdaptersTest {
         float[] flat = {1f, 2f, 3f, 4f, 5f, 6f};
         Tensor t = TensorAdapters.unpackF32(flat, 2, 3);
 
-        assertEquals(2, t.rows);
-        assertEquals(3, t.cols);
+        assertEquals(2, t.matrixRows());
+        assertEquals(3, t.matrixCols());
         assertEquals(1.0f, t.rawData()[0], 1e-6f);
         assertEquals(3.0f, t.rawData()[2], 1e-6f);
         assertEquals(4.0f, t.rawData()[1 * 3 + 0], 1e-6f);
@@ -84,12 +84,13 @@ class TensorAdaptersTest {
         float[] packed = TensorAdapters.packF32(original);
         Tensor restored = TensorAdapters.unpackF32(packed, 3, 2);
 
-        assertEquals(original.rows, restored.rows);
-        assertEquals(original.cols, restored.cols);
-        for (int r = 0; r < original.rows; r++) {
-            for (int c = 0; c < original.cols; c++) {
+        assertEquals(original.matrixRows(), restored.matrixRows());
+        assertEquals(original.matrixCols(), restored.matrixCols());
+        for (int r = 0; r < original.matrixRows(); r++) {
+            for (int c = 0; c < original.matrixCols(); c++) {
 
-                assertEquals(original.rawData()[r * original.cols + c], restored.rawData()[r * restored.cols + c]);
+                assertEquals(original.rawData()[r * original.matrixCols() + c],
+                        restored.rawData()[r * restored.matrixCols() + c]);
             }
         }
     }

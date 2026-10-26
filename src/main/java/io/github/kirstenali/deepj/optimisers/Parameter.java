@@ -31,7 +31,7 @@ public final class Parameter {
             clearGradData();
             return;
         }
-        setGradient(Tensor.zeros(value.rows, value.cols));
+        setGradient(Tensor.zeros(value.matrixRows(), value.matrixCols()));
     }
 
     private boolean canReuseCpuGradBuffer() {

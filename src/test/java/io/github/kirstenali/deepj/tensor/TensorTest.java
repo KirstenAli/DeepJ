@@ -9,8 +9,8 @@ class TensorTest {
 
     @Test
     void constructorRejectsInvalidShapes() {
-        assertThrows(IllegalArgumentException.class, () -> new Tensor(0, 2));
-        assertThrows(IllegalArgumentException.class, () -> new Tensor(2, 0));
+        assertThrows(IllegalArgumentException.class, () -> new Tensor(-1, 2));
+        assertThrows(IllegalArgumentException.class, () -> new Tensor(2, -1));
         assertThrows(IllegalArgumentException.class, () -> new Tensor(Integer.MAX_VALUE, 2));
     }
 

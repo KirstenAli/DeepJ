@@ -14,14 +14,14 @@ class MetalGroupedAttentionTest extends MetalDifferentialTestSupport {
             int length, int queryHeads, int keyValueHeads, float scale) {
         assumeTrue(MetalNative.TILED_ATTENTION_AVAILABLE);
         Tensor query = random(length * queryHeads, 64, 401), key = random(length * keyValueHeads, 64, 409);
-        Tensor value = random(key.rows, 64, 419), upstream = random(query.rows, 64, 421);
+        Tensor value = random(key.matrixRows(), 64, 419), upstream = random(query.matrixRows(), 64, 421);
         var expected = AttentionDoubleReference.calculate(new AttentionDoubleReference.Inputs(
                 query, key, value, upstream, queryHeads, keyValueHeads, scale));
         var saved = metal.causalAttention(query, key, value, queryHeads, keyValueHeads, scale);
         var actual = metal.causalAttentionBackward(query, key, value, saved, upstream,
                 queryHeads, keyValueHeads, scale);
-        assertEquals(key.rows, actual.key().rows);
-        assertEquals(value.rows, actual.value().rows);
+        assertEquals(key.matrixRows(), actual.key().matrixRows());
+        assertEquals(value.matrixRows(), actual.value().matrixRows());
         MetalAttentionOracleTest.compare("output", expected.output(), saved.output(), 2e-5, 2e-4);
         MetalAttentionOracleTest.compare("query", expected.query(), actual.query(), 3e-5, 5e-4);
         MetalAttentionOracleTest.compare("key", expected.key(), actual.key(), 3e-5, 5e-4);

@@ -83,8 +83,8 @@ class ComputeGraphTest extends ComputeGraphTestSupport {
         GpuBuffer buf = graph.newOutputBuffer(3, 5);
         Tensor t = graph.createOutputTensor(buf);
 
-        assertEquals(3, t.rows);
-        assertEquals(5, t.cols);
+        assertEquals(3, t.matrixRows());
+        assertEquals(5, t.matrixCols());
         assertSame(buf, t.getGpuTag());
     }
 

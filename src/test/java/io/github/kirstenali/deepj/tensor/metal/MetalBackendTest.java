@@ -51,8 +51,8 @@ public final class MetalBackendTest extends MetalBackendTestSupport {
 
         Tensor c = gpu.matmul(a, b);
         c.materialize();
-        assertEquals(2, c.rows);
-        assertEquals(2, c.cols);
+        assertEquals(2, c.matrixRows());
+        assertEquals(2, c.matrixCols());
         assertEquals(58.0f,  c.rawData()[0], 1e-6f);
         assertEquals(64.0f,  c.rawData()[1], 1e-6f);
         assertEquals(139.0f, c.rawData()[1 * 2 + 0], 1e-6f);

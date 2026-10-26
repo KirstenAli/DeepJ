@@ -23,7 +23,7 @@ public final class AutogradTestSupport {
     public static void replaceValues(Tensor target, Tensor source) {
         Tensor.requireSameShape(target, source, "test initialization");
         try (var ignored = GradMode.noGrad()) {
-            for (int row = 0; row < target.rows; row++) {
+            for (int row = 0; row < target.matrixRows(); row++) {
                 target.setRow(row, source, row);
             }
         }

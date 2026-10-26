@@ -18,8 +18,8 @@ public class ParameterTest {
         Assertions.assertSame(originalGrad, p.grad());
         Assertions.assertEquals(0.0f, p.grad().rawData()[0], 1e-12f);
         Assertions.assertEquals(0.0f, p.grad().rawData()[1 * 2 + 1], 1e-12f);
-        Assertions.assertEquals(2, p.grad().rows);
-        Assertions.assertEquals(2, p.grad().cols);
+        Assertions.assertEquals(2, p.grad().matrixRows());
+        Assertions.assertEquals(2, p.grad().matrixCols());
     }
 
     @Test

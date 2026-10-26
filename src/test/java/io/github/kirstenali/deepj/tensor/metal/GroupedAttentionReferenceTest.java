@@ -20,7 +20,7 @@ class GroupedAttentionReferenceTest {
     void compactForwardAndBackwardAgreeWithIndependentDoubleArithmetic(
             int length, int queryHeads, int keyValueHeads, float scale) {
         Tensor query = variable(length * queryHeads, 13), key = variable(length * keyValueHeads, 17);
-        Tensor value = variable(key.rows, 19), upstream = variable(query.rows, 23).requiresGrad(false);
+        Tensor value = variable(key.matrixRows(), 19), upstream = variable(query.matrixRows(), 23).requiresGrad(false);
         var expected = AttentionDoubleReference.calculate(new AttentionDoubleReference.Inputs(
                 query, key, value, upstream, queryHeads, keyValueHeads, scale));
         Tensor output = AttentionOps.causal(query, key, value, queryHeads, keyValueHeads, scale);

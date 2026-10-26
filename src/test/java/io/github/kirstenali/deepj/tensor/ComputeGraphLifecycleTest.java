@@ -289,7 +289,7 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
 
     private Tensor outputFrom(Tensor input) {
         GpuBuffer source = graph.ensureGpuBuffer(input);
-        GpuBuffer output = graph.newOutputBuffer(input.rows, input.cols);
+        GpuBuffer output = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordUnary(ComputeGraph.OP_NEG, source, output);
         return graph.createOutputTensor(output);
     }

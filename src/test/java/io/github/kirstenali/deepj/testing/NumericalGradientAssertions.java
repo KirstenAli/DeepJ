@@ -88,8 +88,8 @@ public final class NumericalGradientAssertions {
     }
 
     private static void requireSameShape(Tensor expected, Tensor actual) {
-        assertEquals(expected.rows, actual.rows, "row count");
-        assertEquals(expected.cols, actual.cols, "column count");
+        assertEquals(expected.matrixRows(), actual.matrixRows(), "row count");
+        assertEquals(expected.matrixCols(), actual.matrixCols(), "column count");
     }
 
     private static void assertClose(float analytic, float numerical, float absoluteTolerance,

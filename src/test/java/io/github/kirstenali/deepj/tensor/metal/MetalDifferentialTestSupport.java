@@ -79,8 +79,8 @@ abstract class MetalDifferentialTestSupport {
                                           float relativeTolerance, String label) {
         expected.materialize();
         actual.materialize();
-        assertEquals(expected.rows, actual.rows, "row count");
-        assertEquals(expected.cols, actual.cols, "column count");
+        assertEquals(expected.matrixRows(), actual.matrixRows(), "row count");
+        assertEquals(expected.matrixCols(), actual.matrixCols(), "column count");
         for (int i = 0; i < expected.rawData().length; i++) {
             assertElementClose(expected.rawData()[i], actual.rawData()[i],
                     absoluteTolerance, relativeTolerance, label, i);

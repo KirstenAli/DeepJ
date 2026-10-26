@@ -7,7 +7,8 @@ public class MSELoss implements LossFunction {
     @Override
     public Tensor forward(Tensor predicted, Tensor actual) {
         Tensor difference = predicted.subtract(actual);
-        return difference.multiply(difference).sumTensor().divideScalar(predicted.rows * predicted.cols);
+        return difference.multiply(difference).sumTensor()
+                .divideScalar(predicted.matrixRows() * predicted.matrixCols());
     }
 
     @Override
@@ -20,7 +21,7 @@ public class MSELoss implements LossFunction {
     @Override
     public Tensor gradient(Tensor predicted, Tensor actual) {
         try (var ignored = GradMode.noGrad()) {
-            return predicted.subtract(actual).multiplyScalar(2.0f / (predicted.rows * predicted.cols));
+            return predicted.subtract(actual).multiplyScalar(2.0f / (predicted.matrixRows() * predicted.matrixCols()));
         }
     }
 }

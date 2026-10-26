@@ -59,8 +59,8 @@ public class MultiHeadSelfAttentionTest {
     }
 
     private static void overwriteLastRow(Tensor tensor, float value) {
-        int offset = (tensor.rows - 1) * tensor.cols;
-        for (int column = 0; column < tensor.cols; column++) {
+        int offset = (tensor.matrixRows() - 1) * tensor.matrixCols();
+        for (int column = 0; column < tensor.matrixCols(); column++) {
             tensor.rawData()[offset + column] = value;
         }
     }
@@ -142,8 +142,8 @@ public class MultiHeadSelfAttentionTest {
 
     private static void assertInputGradients(MultiHeadSelfAttention attn, Tensor x,
                                              Tensor dX, float eps, float tol) {
-        for (int r = 0; r < x.rows; r++) {
-            for (int c = 0; c < x.cols; c++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
+            for (int c = 0; c < x.matrixCols(); c++) {
                 float orig = x.get(r, c);
                 x.set(r, c, orig + eps);
                 float fPlus = sumAll(attn.forward(x));
@@ -188,9 +188,9 @@ public class MultiHeadSelfAttentionTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.rawData()[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;

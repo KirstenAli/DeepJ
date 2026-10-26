@@ -14,8 +14,8 @@ class MetalGroupedAttentionFallbackTest extends MetalDifferentialTestSupport {
             int length, int queryHeads, int keyValueHeads) {
         Tensor query = random(length * queryHeads, 64, 479).requiresGrad(true);
         Tensor key = random(length * keyValueHeads, 64, 487).requiresGrad(true);
-        Tensor value = random(key.rows, 64, 491).requiresGrad(true);
-        Tensor upstream = random(query.rows, 64, 499);
+        Tensor value = random(key.matrixRows(), 64, 491).requiresGrad(true);
+        Tensor upstream = random(query.matrixRows(), 64, 499);
         assertFalse(metal.supportsCausalAttention(query, key, value, queryHeads, keyValueHeads, 0.125f));
         var expected = AttentionDoubleReference.calculate(new AttentionDoubleReference.Inputs(
                 query, key, value, upstream, queryHeads, keyValueHeads, 0.125f));

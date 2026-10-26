@@ -17,7 +17,7 @@ class MetalZeroAdditionTest extends MetalDifferentialTestSupport {
     @Test
     void optimizedAdditionMatchesBinaryAdditionBitForBit() {
         Tensor source = deviceValues();
-        Tensor target = Tensor.zeros(source.rows, source.cols);
+        Tensor target = Tensor.zeros(source.matrixRows(), source.matrixCols());
         Tensor expected = metal.add(new Tensor(target), source);
         assertTrue(MetalHostZeroInput.canSkip(target, source));
         metal.addInPlace(target, source);
@@ -27,7 +27,7 @@ class MetalZeroAdditionTest extends MetalDifferentialTestSupport {
     @Test
     void nonzeroAndNegativeZeroTargetsUseTheExistingBinaryPath() {
         Tensor source = deviceValues();
-        Tensor target = Tensor.zeros(source.rows, source.cols);
+        Tensor target = Tensor.zeros(source.matrixRows(), source.matrixCols());
         target.rawData()[0] = -0.0f;
         target.rawData()[2] = 3;
         Tensor expected = metal.add(new Tensor(target), source);

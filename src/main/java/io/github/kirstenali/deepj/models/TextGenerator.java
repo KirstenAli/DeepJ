@@ -165,7 +165,7 @@ public final class TextGenerator {
         logits.materialize();
 
         float[] lastLogits = Arrays.copyOfRange(logits.rawData(),
-                (logits.rows - 1) * logits.cols, logits.rows * logits.cols);
+                (logits.matrixRows() - 1) * logits.matrixCols(), logits.matrixRows() * logits.matrixCols());
         Tensor.backend().releaseTemporaryResources();
         penalizeRecentTokens(lastLogits, ids, generatedStart, length, repetitionPenalty);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);

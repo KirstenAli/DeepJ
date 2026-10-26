@@ -101,7 +101,7 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
 
     final Tensor forwardCached(int[] inputIds, InferenceContext context) {
         Tensor hidden = stack.forward(embed(inputIds, context.position()), context);
-        Tensor last = Tensor.sliceRows(hidden, new int[]{hidden.rows - 1}, hidden.cols);
+        Tensor last = Tensor.sliceRows(hidden, new int[]{hidden.matrixRows() - 1}, hidden.matrixCols());
         return lmHead.forward(normF.forward(last));
     }
 

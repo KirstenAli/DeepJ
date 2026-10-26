@@ -222,7 +222,7 @@ public final class TrainingCheckpoint {
 
     private static Tensor readTensor(DataInputStream input, Tensor template,
                                      int index) throws IOException {
-        Tensor tensor = new Tensor(template.rows, template.cols);
+        Tensor tensor = new Tensor(template.matrixRows(), template.matrixCols());
         ModelSerializer.readTensor(input, tensor, index);
         return tensor;
     }

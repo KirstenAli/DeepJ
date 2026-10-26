@@ -88,7 +88,7 @@ public class LinearTest {
         Linear lin = new Linear(dIn, dOut, new Random(7));
         Tensor x = gradientInput();
         lin.forward(x);
-        Tensor dX = AutogradTestSupport.backward(lin::forward, x, Tensor.ones(x.rows, dOut));
+        Tensor dX = AutogradTestSupport.backward(lin::forward, x, Tensor.ones(x.matrixRows(), dOut));
         Parameter W = lin.weight();
         Parameter b = lin.bias();
         float[] dW = W.grad().rawData().clone();
@@ -104,7 +104,7 @@ public class LinearTest {
 
     private static void assertInputGradient(Linear lin, Tensor x, Tensor dX, int dIn,
                                             float eps, float tol) {
-        for (int r = 0; r < x.rows; r++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
             for (int c = 0; c < dIn; c++) {
                 float orig = x.get(r, c);
                 x.set(r, c, orig + eps);
@@ -149,9 +149,9 @@ public class LinearTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.rawData()[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;

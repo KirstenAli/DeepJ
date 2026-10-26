@@ -37,7 +37,7 @@ public final class Autograd {
     }
 
     public static void backward(Tensor output) {
-        if (output.rows != 1 || output.cols != 1) {
+        if (output.matrixRows() != 1 || output.matrixCols() != 1) {
             throw new IllegalArgumentException("Non-scalar backward requires an explicit upstream gradient");
         }
         backward(output, Tensor.ones(1, 1));

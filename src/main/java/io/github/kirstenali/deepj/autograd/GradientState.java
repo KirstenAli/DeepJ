@@ -95,7 +95,7 @@ public final class GradientState {
 
     void accumulateRows(int rows, int columns, int[] indices, Tensor contribution) {
         if (gradient == null) gradient = Tensor.zeros(rows, columns);
-        if (gradient.rows != rows || gradient.cols != columns) {
+        if (gradient.matrixRows() != rows || gradient.matrixCols() != columns) {
             throw new IllegalArgumentException("Leaf gradient must match its tensor shape");
         }
         if (gradient.gradientState().savedForBackward()) gradient = Tensor.backend().addScalar(gradient, 0.0f);

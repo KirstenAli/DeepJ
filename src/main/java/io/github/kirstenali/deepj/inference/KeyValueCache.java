@@ -13,12 +13,12 @@ final class KeyValueCache implements AutoCloseable {
         this.heads = heads;
         this.capacity = capacity;
         keys = Tensor.backend().zeros(Math.multiplyExact(capacity, heads), width).retainDeviceBuffer();
-        values = Tensor.backend().zeros(keys.rows, width).retainDeviceBuffer();
+        values = Tensor.backend().zeros(keys.matrixRows(), width).retainDeviceBuffer();
     }
 
     Tensor attend(Tensor query, Tensor key, Tensor value, int queryHeads, int offset, float scale) {
         if (offset != processed) throw new IllegalStateException("Head cache position mismatch");
-        int next = Math.addExact(offset, key.rows / heads);
+        int next = Math.addExact(offset, key.matrixRows() / heads);
         Tensor.backend().writeHeadCache(keys, key, heads, offset % capacity);
         Tensor.backend().writeHeadCache(values, value, heads, offset % capacity);
         processed = next;

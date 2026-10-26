@@ -26,6 +26,12 @@ final class TensorLayout {
     long stride(int axis) { return strides[shape.axis(axis)]; }
     long[] strides() { return strides.clone(); }
 
+    int address(int row, int column) {
+        if (shape.rank() != 2) throw new IllegalArgumentException("Matrix indexing requires rank two");
+        return Math.toIntExact(offset + strides[0] * LayoutValidation.index(row, shape.size(0))
+                + strides[1] * LayoutValidation.index(column, shape.size(1)));
+    }
+
     int address(int... indices) {
         if (indices.length != shape.rank()) throw new IllegalArgumentException("Index rank must match tensor rank");
         long address = offset;

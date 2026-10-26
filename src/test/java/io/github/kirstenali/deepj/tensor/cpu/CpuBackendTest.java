@@ -14,8 +14,8 @@ class CpuBackendTest extends CpuBackendTestSupport {
     void zeros_shouldCreateAllZeros() {
         Tensor t = backend.zeros(2, 3);
 
-        assertEquals(2, t.rows);
-        assertEquals(3, t.cols);
+        assertEquals(2, t.matrixRows());
+        assertEquals(3, t.matrixCols());
         assertTensorEquals(new double[][]{
                 {0.0f, 0.0f, 0.0f},
                 {0.0f, 0.0f, 0.0f}
@@ -40,9 +40,9 @@ class CpuBackendTest extends CpuBackendTestSupport {
         Tensor t1 = backend.random(2, 3, r1);
         Tensor t2 = backend.random(2, 3, r2);
 
-        for (int r = 0; r < t1.rows; r++) {
-            for (int c = 0; c < t1.cols; c++) {
-                assertEquals(t1.rawData()[r * t1.cols + c], t2.rawData()[r * t2.cols + c], EPS);
+        for (int r = 0; r < t1.matrixRows(); r++) {
+            for (int c = 0; c < t1.matrixCols(); c++) {
+                assertEquals(t1.rawData()[r * t1.matrixCols() + c], t2.rawData()[r * t2.matrixCols() + c], EPS);
             }
         }
     }

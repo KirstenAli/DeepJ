@@ -32,7 +32,7 @@ public final class CrossEntropyLoss implements LossFunction {
             float scale = scalar.item();
             return scale == 1.0f ? gradient : gradient.multiplyScalar(scale);
         }
-        Tensor weights = Tensor.ones(gradient.rows, 1).multiplyBroadcastRows(scalar);
+        Tensor weights = Tensor.ones(gradient.matrixRows(), 1).multiplyBroadcastRows(scalar);
         return gradient.multiplyBroadcastCols(weights);
     }
 
@@ -76,15 +76,16 @@ public final class CrossEntropyLoss implements LossFunction {
     }
 
     public static int[] toIntTargets(Tensor actual) {
-        if (actual.cols != 1) {
+        if (actual.matrixCols() != 1) {
             throw new IllegalArgumentException(
-                    "CrossEntropyLoss expects targets shape [n x 1], got [" + actual.rows + " x " + actual.cols + "]"
+                    "CrossEntropyLoss expects targets shape [n x 1], got ["
+                            + actual.matrixRows() + " x " + actual.matrixCols() + "]"
             );
         }
 
         actual.materialize();
-        int[] y = new int[actual.rows];
-        for (int i = 0; i < actual.rows; i++) {
+        int[] y = new int[actual.matrixRows()];
+        for (int i = 0; i < actual.matrixRows(); i++) {
             y[i] = requireIntegerTarget(actual.rawData()[i], i);
         }
         return y;
@@ -115,16 +116,16 @@ public final class CrossEntropyLoss implements LossFunction {
         }
         Tensor.requireTargetsMatchRows(logits, targets);
         for (int t : targets) {
-            if (t < 0 || t >= logits.cols) {
+            if (t < 0 || t >= logits.matrixCols()) {
                 throw new IllegalArgumentException(
-                        "target id out of range: " + t + " (vocab=" + logits.cols + ")"
+                        "target id out of range: " + t + " (vocab=" + logits.matrixCols() + ")"
                 );
             }
         }
     }
 
     private static void checkMask(Tensor logits, boolean[] mask) {
-        if (mask == null || mask.length != logits.rows) {
+        if (mask == null || mask.length != logits.matrixRows()) {
             throw new IllegalArgumentException("loss mask must match logits rows");
         }
         for (boolean included : mask) {

@@ -30,7 +30,9 @@ public final class SupervisedTraining {
         if (lossFn == null) throw new IllegalArgumentException("lossFn must not be null");
         if (opt == null) throw new IllegalArgumentException("opt must not be null");
         if (xAll == null || yAll == null) throw new IllegalArgumentException("xAll/yAll must not be null");
-        if (xAll.rows != yAll.rows) throw new IllegalArgumentException("xAll.rows must equal yAll.rows");
+        if (xAll.matrixRows() != yAll.matrixRows()) {
+            throw new IllegalArgumentException("Input and target sample counts must match");
+        }
     }
 
     private static float trainBatch(Layer model, LossFunction lossFn, ParameterOptimizer opt,
@@ -45,10 +47,10 @@ public final class SupervisedTraining {
     }
 
     private static TensorBatch selectBatch(Tensor xAll, Tensor yAll, Random rnd, int batchSize) {
-        if (batchSize >= xAll.rows) return new TensorBatch(xAll, yAll);
-        int[] rows = sampleIndices(xAll.rows, batchSize, rnd);
-        Tensor x = Tensor.sliceRows(xAll, rows, xAll.cols);
-        Tensor y = Tensor.sliceRows(yAll, rows, yAll.cols);
+        if (batchSize >= xAll.matrixRows()) return new TensorBatch(xAll, yAll);
+        int[] rows = sampleIndices(xAll.matrixRows(), batchSize, rnd);
+        Tensor x = Tensor.sliceRows(xAll, rows, xAll.matrixCols());
+        Tensor y = Tensor.sliceRows(yAll, rows, yAll.matrixCols());
         return new TensorBatch(x, y);
     }
 

@@ -35,7 +35,7 @@ public final class GroupedQueryAttention implements Layer {
 
     @Override
     public Tensor forward(Tensor input) {
-        int length = input.rows;
+        int length = input.matrixRows();
         Tensor queries = transform(queryNorm, query.forward(input), length, config.nHeads());
         Tensor keys = transform(keyNorm, key.forward(input), length, config.kvHeads());
         Tensor values = HeadOps.splitHeads(value.forward(input), config.kvHeads());
@@ -70,7 +70,7 @@ public final class GroupedQueryAttention implements Layer {
 
     private Tensor cachedTransform(HeadNormalization norm, Tensor projection, int heads, InferenceContext context) {
         Tensor split = norm.forward(HeadOps.splitHeads(projection, heads));
-        return context.rotate(rotary, split, projection.rows, heads);
+        return context.rotate(rotary, split, projection.matrixRows(), heads);
     }
 
     @Override

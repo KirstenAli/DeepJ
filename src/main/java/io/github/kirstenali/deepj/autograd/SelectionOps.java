@@ -12,7 +12,7 @@ public final class SelectionOps {
     }
 
     private static Tensor maximumGradient(Tensor input, Tensor maximum, Tensor gradient) {
-        Tensor ones = Tensor.ones(input.rows, input.cols);
+        Tensor ones = Tensor.ones(input.matrixRows(), input.matrixCols());
         Tensor distance = input.subtractBroadcastCols(maximum).neg();
         Tensor selected = ones.subtract(Tensor.backend().reluBackward(distance, ones));
         Tensor shared = gradient.divide(selected.sumAlongRows());

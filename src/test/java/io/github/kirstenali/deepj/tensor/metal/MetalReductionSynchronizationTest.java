@@ -99,7 +99,7 @@ class MetalReductionSynchronizationTest extends MetalDifferentialTestSupport {
     private static void assertUniformCausalRows(Tensor probabilities) {
         probabilities.materialize();
         for (int index = 0; index < probabilities.rawData().length; index++) {
-            int row = index / probabilities.cols, column = index % probabilities.cols;
+            int row = index / probabilities.matrixCols(), column = index % probabilities.matrixCols();
             float expected = column <= row ? 1.0f / (row + 1) : 0;
             assertEquals(expected, probabilities.rawData()[index], 2e-7f);
         }

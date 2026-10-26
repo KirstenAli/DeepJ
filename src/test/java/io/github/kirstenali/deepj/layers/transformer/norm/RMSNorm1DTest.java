@@ -33,9 +33,9 @@ class RMSNorm1DTest {
     void forward_no_nan_or_inf() {
         Tensor x = Tensor.from2D(new float[][]{{0.1f, -0.3f, 0.5f, -0.2f}, {3.0f, 1.0f, 2.0f, 4.0f}});
         Tensor y = norm.forward(x);
-        for (int r = 0; r < y.rows; r++) {
-            for (int c = 0; c < y.cols; c++) {
-                assertTrue(Double.isFinite(y.rawData()[r * y.cols + c]),
+        for (int r = 0; r < y.matrixRows(); r++) {
+            for (int c = 0; c < y.matrixCols(); c++) {
+                assertTrue(Double.isFinite(y.rawData()[r * y.matrixCols() + c]),
                         "output must be finite at [" + r + "," + c + "]");
             }
         }
@@ -48,10 +48,10 @@ class RMSNorm1DTest {
         Tensor y = norm.forward(x);
 
         double sumSq = 0;
-        for (int c = 0; c < y.cols; c++) {
+        for (int c = 0; c < y.matrixCols(); c++) {
             sumSq += y.rawData()[c] * y.rawData()[c];
         }
-        double rms = Math.sqrt(sumSq / y.cols);
+        double rms = Math.sqrt(sumSq / y.matrixCols());
         assertEquals(1.0f, rms, 1e-5f);
     }
 
@@ -69,7 +69,7 @@ class RMSNorm1DTest {
         }
         Tensor y2 = norm.forward(x);
 
-        for (int c = 0; c < y1.cols; c++) {
+        for (int c = 0; c < y1.matrixCols(); c++) {
             assertEquals(y1.rawData()[c] * 2.0f, y2.rawData()[c], 1e-9f);
         }
     }
@@ -78,7 +78,7 @@ class RMSNorm1DTest {
     void forward_constant_input_normalises_to_plus_or_minus_one() {
         Tensor x = Tensor.from2D(new float[][]{{5.0f, 5.0f, 5.0f, 5.0f}});
         Tensor y = norm.forward(x);
-        for (int c = 0; c < y.cols; c++) {
+        for (int c = 0; c < y.matrixCols(); c++) {
             assertEquals(1.0f, y.rawData()[c], 1e-5f);
         }
     }
@@ -182,9 +182,9 @@ class RMSNorm1DTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.rawData()[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;

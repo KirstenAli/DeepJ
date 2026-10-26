@@ -19,7 +19,9 @@ public final class RMSNorm1D implements NormLayer {
 
     @Override
     public Tensor forward(Tensor input) {
-        if (input.cols != dim) throw new IllegalArgumentException("Expected cols=" + dim + " got " + input.cols);
+        if (input.matrixCols() != dim) {
+            throw new IllegalArgumentException("Expected cols=" + dim + " got " + input.matrixCols());
+        }
         return NormalizationOps.rmsNorm(input, gamma.value, EPS);
     }
 

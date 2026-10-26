@@ -89,6 +89,6 @@ class CachedGenerationTest {
     }
 
     private static void assertLastLogits(Tensor expected, Tensor actual) {
-        assertArrayEquals(expected.rowData(expected.rows - 1), actual.rowData(actual.rows - 1), 2e-5f);
+        assertArrayEquals(expected.rowData(expected.matrixRows() - 1), actual.rowData(actual.matrixRows() - 1), 2e-5f);
     }
 }

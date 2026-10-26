@@ -80,7 +80,7 @@ public final class AdamW implements ParameterOptimizer {
     }
 
     private static Tensor newMoment(Tensor value) {
-        return Tensor.backend().zeros(value.rows, value.cols).retainDeviceBuffer();
+        return Tensor.backend().zeros(value.matrixRows(), value.matrixCols()).retainDeviceBuffer();
     }
 
     private static Tensor retained(Tensor tensor) {
@@ -112,7 +112,7 @@ public final class AdamW implements ParameterOptimizer {
         for (int index = 0; index < params.size(); index++) {
             Tensor value = params.get(index).value;
             Tensor moment = Objects.requireNonNull(moments.get(index), "moment");
-            if (value.rows != moment.rows || value.cols != moment.cols) {
+            if (value.matrixRows() != moment.matrixRows() || value.matrixCols() != moment.matrixCols()) {
                 throw new IllegalArgumentException("AdamW moment shape does not match parameter");
             }
         }
@@ -174,7 +174,7 @@ public final class AdamW implements ParameterOptimizer {
     }
 
     private void validateParamShapes(Tensor w, Tensor g) {
-        if (w.rows != g.rows || w.cols != g.cols) {
+        if (w.matrixRows() != g.matrixRows() || w.matrixCols() != g.matrixCols()) {
             throw new IllegalArgumentException("grad shape must match param shape");
         }
     }

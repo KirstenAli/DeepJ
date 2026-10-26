@@ -45,8 +45,8 @@ class DecoderOnlyModelTest {
         Tensor logits = model.forward(ids);
 
         assertNotNull(logits);
-        assertEquals(ids.length, logits.rows, "logits rows must equal seqLen");
-        assertEquals(ByteTokenizer.VOCAB_SIZE, logits.cols, "logits cols must equal vocabSize");
+        assertEquals(ids.length, logits.matrixRows(), "logits rows must equal seqLen");
+        assertEquals(ByteTokenizer.VOCAB_SIZE, logits.matrixCols(), "logits cols must equal vocabSize");
     }
 
     @ParameterizedTest
@@ -59,9 +59,9 @@ class DecoderOnlyModelTest {
     @MethodSource("allModels")
     void forward_allFiniteValues(DecoderOnlyModel model) {
         Tensor logits = model.forward(new int[]{1, 2, 3});
-        for (int r = 0; r < logits.rows; r++) {
-            for (int c = 0; c < logits.cols; c++) {
-                assertTrue(Double.isFinite(logits.rawData()[r * logits.cols + c]),
+        for (int r = 0; r < logits.matrixRows(); r++) {
+            for (int c = 0; c < logits.matrixCols(); c++) {
+                assertTrue(Double.isFinite(logits.rawData()[r * logits.matrixCols() + c]),
                         "logit[" + r + "][" + c + "] must be finite");
             }
         }
@@ -73,7 +73,7 @@ class DecoderOnlyModelTest {
         int[] ids = {1, 2, 3};
         Tensor logits = model.forward(ids);
         model.zeroGrad();
-        model.forward(ids).backward(Tensor.ones(logits.rows, logits.cols));
+        model.forward(ids).backward(Tensor.ones(logits.matrixRows(), logits.matrixCols()));
 
         boolean anyNonZero = model.parameters().stream()
                 .anyMatch(p -> p.grad() != null && p.grad().sumAbs() > 0.0f);
@@ -91,7 +91,7 @@ class DecoderOnlyModelTest {
     void zeroGrad_clearsAllGradients(DecoderOnlyModel model) {
         int[] ids = {1, 2};
         Tensor logits = model.forward(ids);
-        model.forward(ids).backward(Tensor.ones(logits.rows, logits.cols));
+        model.forward(ids).backward(Tensor.ones(logits.matrixRows(), logits.matrixCols()));
 
         model.zeroGrad();
 

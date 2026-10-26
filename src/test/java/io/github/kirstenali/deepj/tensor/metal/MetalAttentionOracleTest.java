@@ -18,8 +18,8 @@ class MetalAttentionOracleTest extends MetalDifferentialTestSupport {
             int length, int heads, float scale, float amplitude) {
         assumeTrue(MetalNative.TILED_ATTENTION_AVAILABLE);
         Tensor query = cpu.multiplyScalar(random(length * heads, 64, 307), amplitude);
-        Tensor key = cpu.multiplyScalar(random(query.rows, 64, 311), amplitude);
-        Tensor value = random(query.rows, 64, 313), upstream = random(query.rows, 64, 317);
+        Tensor key = cpu.multiplyScalar(random(query.matrixRows(), 64, 311), amplitude);
+        Tensor value = random(query.matrixRows(), 64, 313), upstream = random(query.matrixRows(), 64, 317);
         var inputs = new AttentionDoubleReference.Inputs(query, key, value, upstream, heads, scale);
         var expected = AttentionDoubleReference.calculate(inputs);
         var saved = metal.causalAttention(query, key, value, heads, scale);

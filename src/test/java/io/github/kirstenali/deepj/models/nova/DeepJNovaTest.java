@@ -33,7 +33,7 @@ class DeepJNovaTest {
         long actual = model.parameters().stream().mapToLong(p -> p.value.rawData().length).sum();
         assertEquals(DeepJNovaParameterCount.count(config), actual);
         assertEquals(model.parameters().size(), model.parameters().stream().distinct().count());
-        assertEquals(1, model.parameters().stream().filter(p -> p.value.rows == 11).count());
+        assertEquals(1, model.parameters().stream().filter(p -> p.value.matrixRows() == 11).count());
     }
 
     @Test

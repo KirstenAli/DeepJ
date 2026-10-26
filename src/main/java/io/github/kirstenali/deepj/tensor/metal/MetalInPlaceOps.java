@@ -17,13 +17,13 @@ abstract class MetalInPlaceOps extends MetalMathOps {
             return;
         }
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordBinary(ComputeGraph.OP_ADD, ga, gb, gOut);
         bindInPlaceResult(a, gOut);
     }
 
     private void addToHostZero(Tensor target, Tensor source) {
-        GpuBuffer output = graph.newOutputBuffer(target.rows, target.cols);
+        GpuBuffer output = graph.newOutputBuffer(target.matrixRows(), target.matrixCols());
         graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, gpuIn(source), output, 0.0f);
         bindInPlaceResult(target, output);
     }
@@ -32,7 +32,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     public void subtractInPlace(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "subtractInPlace");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordBinary(ComputeGraph.OP_SUBTRACT, ga, gb, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -41,7 +41,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     public void multiplyInPlace(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "multiplyInPlace");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordBinary(ComputeGraph.OP_MULTIPLY, ga, gb, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -50,7 +50,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     public void divideInPlace(Tensor a, Tensor b) {
         Tensor.requireSameShape(a, b, "divideInPlace");
         GpuBuffer ga = gpuIn(a), gb = gpuIn(b);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordBinary(ComputeGraph.OP_DIVIDE, ga, gb, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -58,7 +58,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void multiplyScalarInPlace(Tensor a, float s) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordMultiplyScalar(ga, gOut, s);
         bindInPlaceResult(a, gOut);
     }
@@ -66,7 +66,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void addScalarInPlace(Tensor a, float s) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, s);
         bindInPlaceResult(a, gOut);
     }
@@ -74,7 +74,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void divideScalarInPlace(Tensor a, float s) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, s);
         bindInPlaceResult(a, gOut);
     }
@@ -82,7 +82,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void sqrtInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_SQRT, ga, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -90,7 +90,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void negInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_NEG, ga, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -98,7 +98,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void expInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_EXP, ga, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -106,7 +106,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void logInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_LOG, ga, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -114,7 +114,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void reluInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_RELU, ga, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -122,7 +122,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void geluInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_GELU, ga, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -130,7 +130,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void tanhInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_TANH, ga, gOut);
         bindInPlaceResult(a, gOut);
     }
@@ -138,7 +138,7 @@ abstract class MetalInPlaceOps extends MetalMathOps {
     @Override
     public void sigmoidInPlace(Tensor a) {
         GpuBuffer ga = gpuIn(a);
-        GpuBuffer gOut = graph.newOutputBuffer(a.rows, a.cols);
+        GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_SIGMOID, ga, gOut);
         bindInPlaceResult(a, gOut);
     }

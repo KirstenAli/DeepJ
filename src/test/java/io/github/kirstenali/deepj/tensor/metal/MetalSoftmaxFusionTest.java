@@ -25,7 +25,7 @@ class MetalSoftmaxFusionTest extends MetalDifferentialTestSupport {
     @CsvSource({"1,1", "3,5", "4,65", "2,1024"})
     void causalGradientsMatchCpuWithoutChangingInputs(int heads, int length) {
         Tensor scores = random(heads * length, length, 31);
-        Tensor gradient = random(scores.rows, scores.cols, 41);
+        Tensor gradient = random(scores.matrixRows(), scores.matrixCols(), 41);
         Tensor original = new Tensor(gradient);
         float scale = 0.125f;
         Tensor expected = cpu.softmaxBackward(gradient, cpu.causalSoftmax(scores, length, scale), scale);

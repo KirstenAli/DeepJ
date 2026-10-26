@@ -27,8 +27,8 @@ class LazyTensorStorageTest extends ComputeGraphTestSupport {
         Tensor output = graph.createOutputTensor(graph.newOutputBuffer(1024, 16384));
         assertNull(output.rawData());
         assertTrue(runtime.downloads.isEmpty());
-        assertEquals(1024, output.rows);
-        assertEquals(16384, output.cols);
+        assertEquals(1024, output.matrixRows());
+        assertEquals(16384, output.matrixCols());
     }
 
     @Test

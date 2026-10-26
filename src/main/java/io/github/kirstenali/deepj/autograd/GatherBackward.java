@@ -10,8 +10,8 @@ final class GatherBackward implements LeafGradientRule {
 
     GatherBackward(Tensor input, int[] indices) {
         this.input = input.gradientState();
-        rows = input.rows;
-        columns = input.cols;
+        rows = input.matrixRows();
+        columns = input.matrixCols();
         this.indices = indices;
     }
 

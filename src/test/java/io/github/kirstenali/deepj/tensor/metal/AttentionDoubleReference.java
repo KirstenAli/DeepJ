@@ -20,7 +20,7 @@ final class AttentionDoubleReference {
         int count = inputs.query().rawData().length;
         Result result = new Result(new double[count], new double[count],
                 new double[inputs.key().rawData().length], new double[inputs.value().rawData().length]);
-        int length = inputs.query().rows / inputs.heads();
+        int length = inputs.query().matrixRows() / inputs.heads();
         for (int head = 0; head < inputs.heads(); head++) {
             int keyBase = head / (inputs.heads() / inputs.keyValueHeads()) * length;
             accumulateHead(inputs, result, head * length, keyBase, length);

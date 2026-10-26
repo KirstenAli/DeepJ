@@ -21,7 +21,9 @@ public final class Linear implements Projection {
 
     @Override
     public Tensor forward(Tensor x) {
-        if (x.cols != dIn) throw new IllegalArgumentException("Expected input cols=" + dIn + " got " + x.cols);
+        if (x.matrixCols() != dIn) {
+            throw new IllegalArgumentException("Expected input cols=" + dIn + " got " + x.matrixCols());
+        }
         Tensor y = x.matmul(W.value).addRowVector(b.value);
         return y;
     }

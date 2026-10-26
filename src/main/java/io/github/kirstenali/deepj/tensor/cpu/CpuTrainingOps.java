@@ -16,16 +16,16 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         Tensor.requireTargetsMatchRows(logits, targets);
 
         float lossSum = 0.0f;
-        for (int i = 0; i < logits.rows; i++) {
-            int base = i * logits.cols;
+        for (int i = 0; i < logits.matrixRows(); i++) {
+            int base = i * logits.matrixCols();
             int target = targets[i];
 
-            float max = rowMax(logits.rawData(), base, logits.cols);
-            float sumExp = rowSumExpShifted(logits.rawData(), base, logits.cols, max);
+            float max = rowMax(logits.rawData(), base, logits.matrixCols());
+            float sumExp = rowSumExpShifted(logits.rawData(), base, logits.matrixCols(), max);
 
             lossSum += fLog(sumExp) + max - logits.rawData()[base + target];
         }
-        return lossSum / logits.rows;
+        return lossSum / logits.matrixRows();
     }
 
     @Override
@@ -33,16 +33,16 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
 
-        Tensor grad = new Tensor(logits.rows, logits.cols);
+        Tensor grad = new Tensor(logits.matrixRows(), logits.matrixCols());
 
-        for (int i = 0; i < logits.rows; i++) {
-            int base = i * logits.cols;
+        for (int i = 0; i < logits.matrixRows(); i++) {
+            int base = i * logits.matrixCols();
 
-            rowWriteSoftmax(logits.rawData(), grad.rawData(), base, logits.cols);
+            rowWriteSoftmax(logits.rawData(), grad.rawData(), base, logits.matrixCols());
             grad.rawData()[base + targets[i]] -= 1.0f;
         }
 
-        divideScalarInPlace(grad, logits.rows);
+        divideScalarInPlace(grad, logits.matrixRows());
         return grad;
     }
 
@@ -51,7 +51,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
         float sum = 0.0f;
-        for (int row = 0; row < logits.rows; row++) {
+        for (int row = 0; row < logits.matrixRows(); row++) {
             if (mask[row]) sum += crossEntropyRowLoss(logits, targets[row], row);
         }
         return sum / includedRows(mask);
@@ -61,27 +61,27 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     public Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask) {
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
-        Tensor gradient = new Tensor(logits.rows, logits.cols);
+        Tensor gradient = new Tensor(logits.matrixRows(), logits.matrixCols());
         int included = includedRows(mask);
-        for (int row = 0; row < logits.rows; row++) {
+        for (int row = 0; row < logits.matrixRows(); row++) {
             if (mask[row]) writeCrossEntropyRow(gradient, logits, targets[row], row, included);
         }
         return gradient;
     }
 
     static float crossEntropyRowLoss(Tensor logits, int target, int row) {
-        int base = row * logits.cols;
-        float max = rowMax(logits.rawData(), base, logits.cols);
-        return fLog(rowSumExpShifted(logits.rawData(), base, logits.cols, max))
+        int base = row * logits.matrixCols();
+        float max = rowMax(logits.rawData(), base, logits.matrixCols());
+        return fLog(rowSumExpShifted(logits.rawData(), base, logits.matrixCols(), max))
                 + max - logits.rawData()[base + target];
     }
 
     static void writeCrossEntropyRow(Tensor gradient, Tensor logits, int target,
                                              int row, int included) {
-        int base = row * logits.cols;
-        rowWriteSoftmax(logits.rawData(), gradient.rawData(), base, logits.cols);
+        int base = row * logits.matrixCols();
+        rowWriteSoftmax(logits.rawData(), gradient.rawData(), base, logits.matrixCols());
         gradient.rawData()[base + target] -= 1.0f;
-        for (int col = 0; col < logits.cols; col++) {
+        for (int col = 0; col < logits.matrixCols(); col++) {
             gradient.rawData()[base + col] /= included;
         }
     }
@@ -123,8 +123,8 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     @Override
     public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
         prepare(dXHat, xHat, std);
-        Tensor dX = new Tensor(dXHat.rows, dXHat.cols);
-        DeepJExecutor.forRange(0, dXHat.rows, row -> layerNormGradientRow(dX, dXHat, xHat, std, row, dim));
+        Tensor dX = new Tensor(dXHat.matrixRows(), dXHat.matrixCols());
+        DeepJExecutor.forRange(0, dXHat.matrixRows(), row -> layerNormGradientRow(dX, dXHat, xHat, std, row, dim));
         return dX;
     }
 
@@ -143,23 +143,23 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         }
     }
 
-    public float get(Tensor t, int r, int c)           { return t.data()[r * t.cols + c]; }
-    public void   set(Tensor t, int r, int c, float v) { t.data()[r * t.cols + c] = v; }
+    public float get(Tensor t, int r, int c)           { return t.data()[r * t.matrixCols() + c]; }
+    public void   set(Tensor t, int r, int c, float v) { t.data()[r * t.matrixCols() + c] = v; }
 
     public Tensor getRow(Tensor t, int row) {
-        Tensor result = new Tensor(1, t.cols);
-        System.arraycopy(t.data(), row * t.cols, result.data(), 0, t.cols);
+        Tensor result = new Tensor(1, t.matrixCols());
+        System.arraycopy(t.data(), row * t.matrixCols(), result.data(), 0, t.matrixCols());
         return result;
     }
 
     public void setRow(Tensor t, int row, Tensor source, int srcRow) {
-        System.arraycopy(source.data(), srcRow * source.cols, t.data(), row * t.cols, t.cols);
+        System.arraycopy(source.data(), srcRow * source.matrixCols(), t.data(), row * t.matrixCols(), t.matrixCols());
     }
 
     public Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
         Tensor out = new Tensor(rowIndices.length, cols);
         for (int i = 0; i < rowIndices.length; i++) {
-            System.arraycopy(t.data(), rowIndices[i] * t.cols, out.data(), i * cols, cols);
+            System.arraycopy(t.data(), rowIndices[i] * t.matrixCols(), out.data(), i * cols, cols);
         }
         return out;
     }
@@ -168,19 +168,19 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
         prepare(target, grad);
         for (int i = 0; i < indices.length; i++) {
-            int tBase = indices[i] * target.cols;
-            int gBase = i * target.cols;
-            for (int c = 0; c < target.cols; c++) {
+            int tBase = indices[i] * target.matrixCols();
+            int gBase = i * target.matrixCols();
+            for (int c = 0; c < target.matrixCols(); c++) {
                 target.rawData()[tBase + c] += grad.rawData()[gBase + c];
             }
         }
     }
 
     public Tensor sampleRows(Tensor t, int n, Random rnd) {
-        Tensor out = new Tensor(n, t.cols);
+        Tensor out = new Tensor(n, t.matrixCols());
         for (int i = 0; i < n; i++) {
-            int r = rnd.nextInt(t.rows);
-            System.arraycopy(t.data(), r * t.cols, out.data(), i * t.cols, t.cols);
+            int r = rnd.nextInt(t.matrixRows());
+            System.arraycopy(t.data(), r * t.matrixCols(), out.data(), i * t.matrixCols(), t.matrixCols());
         }
         return out;
     }
@@ -205,9 +205,9 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     public void print(Tensor t, String label) {
         System.out.println(label);
-        for (int r = 0; r < t.rows; r++) {
-            int base = r * t.cols;
-            for (int c = 0; c < t.cols; c++) {
+        for (int r = 0; r < t.matrixRows(); r++) {
+            int base = r * t.matrixCols();
+            for (int c = 0; c < t.matrixCols(); c++) {
                 System.out.printf("%.4f ", t.data()[base + c]);
             }
             System.out.println();

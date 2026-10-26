@@ -29,7 +29,7 @@ class MetalAutogradTest extends MetalDifferentialTestSupport {
         Tensor.setBackend(backend);
         Tensor input = new Tensor(point).requiresGrad(true);
         Tensor output = operation.apply(input);
-        output.backward(Tensor.ones(output.rows, output.cols));
+        output.backward(Tensor.ones(output.matrixRows(), output.matrixCols()));
         return new Result(new Tensor(output), new Tensor(input.grad()));
     }
 
@@ -52,7 +52,7 @@ class MetalAutogradTest extends MetalDifferentialTestSupport {
         metal.releaseTemporaryResources();
         assertNotNull(input.getGpuTag());
         output.sumTensor().backward();
-        Tensor expected = Tensor.zeros(input.rows, input.cols);
+        Tensor expected = Tensor.zeros(input.matrixRows(), input.matrixCols());
         input.grad().materialize();
         for (int index = 0; index < input.rawData().length; index++) {
             float value = input.rawData()[index];

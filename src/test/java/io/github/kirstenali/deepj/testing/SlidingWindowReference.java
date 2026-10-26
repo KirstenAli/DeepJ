@@ -27,11 +27,12 @@ public final class SlidingWindowReference {
         Tensor queries = (Tensor) args[0], keys = (Tensor) args[1], values = (Tensor) args[2];
         int heads = (int) args[3], keyHeads = args.length == 6 ? (int) args[4] : heads;
         float scale = (float) args[args.length - 1];
-        Tensor output = Tensor.zeros(queries.rows, values.cols);
-        for (int row = 0; row < queries.rows; row++) {
-            attendRow(queries, keys, values, output, row, heads / keyHeads, queries.rows / heads, window, scale);
+        Tensor output = Tensor.zeros(queries.matrixRows(), values.matrixCols());
+        for (int row = 0; row < queries.matrixRows(); row++) {
+            attendRow(queries, keys, values, output, row, heads / keyHeads,
+                    queries.matrixRows() / heads, window, scale);
         }
-        return new CausalAttentionResult(output, Tensor.zeros(queries.rows, 2));
+        return new CausalAttentionResult(output, Tensor.zeros(queries.matrixRows(), 2));
     }
 
     private static void attendRow(Tensor query, Tensor key, Tensor value, Tensor output,
@@ -43,15 +44,17 @@ public final class SlidingWindowReference {
             scores[index] = dot(query, row, key, keyStart + first + index) * scale;
         }
         double total = normalize(scores);
-        for (int column = 0; column < output.cols; column++) {
-            output.rawData()[row * output.cols + column] = weighted(value, keyStart + first, column, scores, total);
+        for (int column = 0; column < output.matrixCols(); column++) {
+            output.rawData()[row * output.matrixCols() + column] =
+                    weighted(value, keyStart + first, column, scores, total);
         }
     }
 
     private static double dot(Tensor left, int row, Tensor right, int otherRow) {
         double sum = 0;
-        for (int column = 0; column < left.cols; column++) {
-            sum += (double) left.rawData()[row * left.cols + column] * right.rawData()[otherRow * right.cols + column];
+        for (int column = 0; column < left.matrixCols(); column++) {
+            sum += (double) left.rawData()[row * left.matrixCols() + column]
+                    * right.rawData()[otherRow * right.matrixCols() + column];
         }
         return sum;
     }
@@ -68,7 +71,7 @@ public final class SlidingWindowReference {
     private static float weighted(Tensor values, int first, int column, double[] scores, double total) {
         double sum = 0;
         for (int index = 0; index < scores.length; index++) {
-            sum += scores[index] * values.rawData()[(first + index) * values.cols + column];
+            sum += scores[index] * values.rawData()[(first + index) * values.matrixCols() + column];
         }
         return (float) (sum / total);
     }
