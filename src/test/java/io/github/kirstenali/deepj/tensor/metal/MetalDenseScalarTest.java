@@ -25,6 +25,7 @@ class MetalDenseScalarTest extends MetalDifferentialTestSupport {
     void offsetScalarInputsAreCopiedOnGpuAndEmptyAxesNeedNoAllocation() {
         Tensor source = Tensor.from(new float[]{0, 1, 2, 3, 4, 5});
         assertScalars(source.slice(0, 1, 5, 1));
+        assertScalars(Tensor.from(new float[]{0, 1, 2, 3, 4, 5}, 2, 3).slice(1, 0, 3, 2));
         Tensor empty = new Tensor(2, 0, 3);
         assertScalars(empty);
         assertScalars(new Tensor(0, 3));

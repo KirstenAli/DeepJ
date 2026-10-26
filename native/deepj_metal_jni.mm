@@ -18,6 +18,7 @@ struct MetalContext {
 
     id<MTLComputePipelineState> addPSO;
     id<MTLComputePipelineState> storageCopyPSO;
+    id<MTLComputePipelineState> layoutTransferPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -394,6 +395,82 @@ static std::mutex gContextMutex;
 static NSString* metalShaderSource = @R"(
 #include <metal_stdlib>
 using namespace metal;
+
+inline uint storage_round_shift(uint value, uint shift) {
+    uint quotient = value >> shift;
+    uint halfway = 1u << (shift - 1);
+    uint remainder = value & ((1u << shift) - 1);
+    return quotient + uint(remainder > halfway || (remainder == halfway && (quotient & 1u) != 0));
+}
+
+inline uint storage_decode_half(ushort bits) {
+    uint sign = (uint(bits) & 0x8000u) << 16;
+    uint exponent = (uint(bits) >> 10) & 31u;
+    uint fraction = uint(bits) & 1023u;
+    if (exponent == 31) return sign | 0x7f800000u | (fraction << 13);
+    if (exponent != 0) return sign | ((exponent + 112u) << 23) | (fraction << 13);
+    if (fraction == 0) return sign;
+    uint shift = clz(fraction) - 21u;
+    return sign | ((113u - shift) << 23) | (((fraction << shift) & 1023u) << 13);
+}
+
+inline ushort storage_encode_half(uint bits) {
+    uint sign = (bits >> 16) & 0x8000u;
+    uint fraction = bits & 0x007fffffu;
+    int exponent = int((bits >> 23) & 255u) - 127;
+    if (exponent == 128) return ushort(sign | 0x7c00u | (fraction == 0 ? 0u : 0x0200u | (fraction >> 13)));
+    if (exponent > 15) return ushort(sign | 0x7c00u);
+    if (exponent >= -14) {
+        return ushort(sign | ((uint(exponent + 15) << 10) + storage_round_shift(fraction, 13)));
+    }
+    if (exponent < -25) return ushort(sign);
+    return ushort(sign | storage_round_shift(fraction | 0x00800000u, uint(-exponent - 1)));
+}
+
+inline ushort storage_encode_bfloat(uint bits) {
+    if ((bits & 0x7fffffffu) > 0x7f800000u) return ushort((bits >> 16) | 0x0040u);
+    return ushort((bits + 0x7fffu + ((bits >> 16) & 1u)) >> 16);
+}
+
+inline uint storage_float_bits(device const unsigned char* input, uint index, uint dtype) {
+    if (dtype == 1) return ((device const uint*)input)[index];
+    ushort bits = ((device const ushort*)input)[index];
+    return dtype == 2 ? storage_decode_half(bits) : uint(bits) << 16;
+}
+
+inline void storage_write_bits(device unsigned char* output, uint index, uint dtype, uint bits) {
+    if (dtype == 1) ((device uint*)output)[index] = bits;
+    else ((device ushort*)output)[index] = dtype == 2 ? storage_encode_half(bits) : storage_encode_bfloat(bits);
+}
+
+inline uint layout_address(device const ulong* words, uint start, uint logical) {
+    uint rank = uint(words[start]);
+    ulong address = words[start + 3];
+    for (int axis = int(rank) - 1; axis >= 0; axis--) {
+        uint dimension = uint(words[start + 4 + axis]);
+        address += words[start + 4 + rank + axis] * (logical % dimension);
+        logical /= dimension;
+    }
+    return uint(address);
+}
+
+inline void layout_raw_copy(device const unsigned char* input, device unsigned char* output,
+                            uint source, uint target, uint dtype) {
+    uint width = dtype == 1 ? 4u : 2u;
+    for (uint byte = 0; byte < width; byte++) {
+        output[ulong(target) * width + byte] = input[ulong(source) * width + byte];
+    }
+}
+
+kernel void kernel_layout_transfer(device const unsigned char* input [[buffer(0)]],
+                                   device unsigned char* output [[buffer(1)]],
+                                   device const ulong* layouts [[buffer(2)]],
+                                   constant uint4& params [[buffer(3)]],
+                                   uint id [[thread_position_in_grid]]) {
+    uint address = layout_address(layouts, params.x, id);
+    if (params.y == params.z) layout_raw_copy(input, output, address, id, params.y);
+    else storage_write_bits(output, id, params.z, storage_float_bits(input, address, params.y));
+}
 
 kernel void kernel_storage_copy(device const unsigned char* input [[buffer(0)]],
                                 device unsigned char* output [[buffer(1)]],
@@ -1498,6 +1575,7 @@ static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
 
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
+    ctx->layoutTransferPSO = makePSO(library, @"kernel_layout_transfer");
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
     ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
@@ -1716,6 +1794,7 @@ static constexpr int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
 static constexpr int OP_HEAD_CACHE_WRITE = 60;
 static constexpr int OP_HEAD_PREFIX_MATMUL = 61;
 static constexpr int OP_STORAGE_COPY = 62;
+static constexpr int OP_LAYOUT_TRANSFER = 63;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -2077,10 +2156,17 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
     @autoreleasepool { releaseBuffers(env, idsArr, count); }
 }
 
+struct GraphLayoutWords {
+    const jlong* words;
+    int count;
+    id<MTLBuffer> buffer;
+};
+
 struct GraphState {
     MetalContext* ctx;
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
+    GraphLayoutWords layouts;
 
     ~GraphState() {
         if (encoder != nil) [encoder endEncoding];
@@ -2159,6 +2245,97 @@ static void encodeStorageCopy(GraphState& state, const jint* cmd, int pos) {
     [encoder setBuffer:output offset:0 atIndex:1];
     bindValue(encoder, range, 2);
     dispatch1D(encoder, state.ctx->storageCopyPSO, range[0]);
+}
+
+struct LogicalLayout {
+    const jlong* axes;
+    uint32_t rank, count, storage, offset;
+};
+
+static uint32_t layoutWord(jlong value) {
+    if (value < 0 || value > INT32_MAX) throw std::runtime_error("Invalid GPU layout word");
+    return (uint32_t)value;
+}
+
+static LogicalLayout layoutHeader(const GraphLayoutWords& stream, int start) {
+    if (stream.words == nullptr || start < 0 || start > stream.count - 4) {
+        throw std::runtime_error("Missing or truncated GPU layout descriptor");
+    }
+    const jlong* head = stream.words + start;
+    uint32_t rank = layoutWord(head[0]);
+    if (rank > (uint32_t)(stream.count - start - 4) / 2) {
+        throw std::runtime_error("Truncated GPU layout axes");
+    }
+    LogicalLayout result{head + 4, rank, layoutWord(head[1]), layoutWord(head[2]), layoutWord(head[3])};
+    if (result.count == 0 || result.offset >= result.storage) throw std::runtime_error("Empty GPU layout dispatch");
+    return result;
+}
+
+static uint64_t layoutAxisExtent(const LogicalLayout& layout, uint32_t axis, uint64_t last) {
+    uint32_t dimension = layoutWord(layout.axes[axis]);
+    jlong stride = layout.axes[layout.rank + axis];
+    if (dimension == 0 || stride < 0) throw std::runtime_error("Invalid GPU layout dimension or stride");
+    uint64_t steps = dimension - 1;
+    if (steps != 0 && (uint64_t)stride > (layout.storage - 1 - last) / steps) {
+        throw std::runtime_error("GPU layout exceeds its physical storage");
+    }
+    return last + steps * (uint64_t)stride;
+}
+
+static void validateLayoutAxes(const LogicalLayout& layout) {
+    uint64_t product = 1, last = layout.offset;
+    for (uint32_t axis = 0; axis < layout.rank; axis++) {
+        uint32_t dimension = layoutWord(layout.axes[axis]);
+        if (dimension == 0 || product > layout.count / dimension) {
+            throw std::runtime_error("GPU layout element count does not match dimensions");
+        }
+        product *= dimension;
+        last = layoutAxisExtent(layout, axis, last);
+    }
+    if (product != layout.count) throw std::runtime_error("GPU layout count does not match its shape");
+}
+
+static LogicalLayout requireLogicalLayout(const GraphLayoutWords& stream, int start,
+                                          id<MTLBuffer> buffer, int dtype) {
+    LogicalLayout result = layoutHeader(stream, start);
+    if (storageBytes((int)result.storage, dtype) != [buffer length]) {
+        throw std::runtime_error("GPU layout storage does not match its buffer");
+    }
+    validateLayoutAxes(result);
+    return result;
+}
+
+static id<MTLBuffer> layoutGpuBuffer(GraphState& state) {
+    if (state.layouts.buffer != nil) return state.layouts.buffer;
+    state.layouts.buffer = [state.ctx->device newBufferWithBytes:state.layouts.words
+            length:(NSUInteger)state.layouts.count * sizeof(jlong) options:MTLResourceStorageModeShared];
+    if (state.layouts.buffer == nil) throw std::runtime_error("Failed to allocate GPU layout metadata");
+    return state.layouts.buffer;
+}
+
+static std::array<uint32_t, 4> layoutTransferParams(GraphState& state, const jint* cmd, int pos,
+                                                   id<MTLBuffer> input, id<MTLBuffer> output) {
+    if (cmd[pos + 1] == cmd[pos + 2]) throw std::runtime_error("Layout transfer requires distinct allocations");
+    int sourceType = gBufferDTypes.at(cmd[pos + 1]), targetType = gBufferDTypes.at(cmd[pos + 2]);
+    auto layout = requireLogicalLayout(state.layouts, cmd[pos + 3], input, sourceType);
+    if (storageBytes((int)layout.count, targetType) != [output length]) {
+        throw std::runtime_error("Layout transfer output must match logical element count");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)sourceType, (uint32_t)targetType, layout.count};
+}
+
+static void encodeLayoutTransfer(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout transfer");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout transfer");
+    auto params = layoutTransferParams(state, cmd, pos, input, output);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->layoutTransferPSO];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:output offset:0 atIndex:1];
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:2];
+    bindValue(encoder, params, 3);
+    dispatch1D(encoder, state.ctx->layoutTransferPSO, params[3]);
 }
 
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
@@ -2981,6 +3158,7 @@ static int attentionCommandWidth(int op) {
 
 static int commandWidth(int op) {
     if (op == OP_STORAGE_COPY) return 6;
+    if (op == OP_LAYOUT_TRANSFER) return 4;
     if (op >= OP_TILED_CAUSAL_ATTENTION) return attentionCommandWidth(op);
     if (isUnaryOp(op) || op == OP_SUM_SQUARES_SCALAR) return 4;
     if (isFiveWidthOp(op)) return 5;
@@ -3051,6 +3229,10 @@ static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
 }
 
 static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
+    if (cmd[pos] == OP_LAYOUT_TRANSFER) {
+        encodeLayoutTransfer(state, cmd, pos);
+        return;
+    }
     if (cmd[pos] == OP_STORAGE_COPY) {
         encodeStorageCopy(state, cmd, pos);
         return;
@@ -3083,10 +3265,10 @@ static void finishCommandBuffer(GraphState& state) {
     checkCommandBuffer(state.commandBuffer);
 }
 
-static void executeGraph(const jint* commandStream, int length) {
+static void executeGraph(const jint* commandStream, int length, const jlong* layouts = nullptr, int layoutCount = 0) {
     @autoreleasepool {
         MetalContext* ctx = getContext();
-        GraphState state{ctx, graphCommands(ctx->queue), nil};
+        GraphState state{ctx, graphCommands(ctx->queue), nil, {layouts, layoutCount, nil}};
         encodeCommandStream(state, commandStream, length);
         finishCommandBuffer(state);
     }
@@ -3118,4 +3300,40 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
         return;
     }
     env->ReleaseIntArrayElements(cmdStreamArr, cmd, JNI_ABORT);
+}
+
+struct LongArrayView {
+    JNIEnv* env;
+    jlongArray source;
+    jlong* values;
+
+    LongArrayView(JNIEnv* environment, jlongArray array) : env(environment), source(array),
+            values(env->GetLongArrayElements(source, nullptr)) {}
+    ~LongArrayView() {
+        if (values != nullptr) env->ReleaseLongArrayElements(source, values, JNI_ABORT);
+    }
+};
+
+static void flushLayoutCommands(JNIEnv* env, jintArray commands, jint length, jlongArray layouts) {
+    if (!validateCommandArray(env, commands, length)) return;
+    if (layouts == nullptr) {
+        throwJavaRuntimeException(env, "GPU layout words cannot be null");
+        return;
+    }
+    IntArrayView commandWords(env, commands);
+    LongArrayView layoutWords(env, layouts);
+    if (env->ExceptionCheck()) return;
+    int layoutCount = env->GetArrayLength(layouts);
+    if (commandWords.values == nullptr || (layoutCount != 0 && layoutWords.values == nullptr)) return;
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    executeGraph(commandWords.values, length, layoutWords.values, layoutCount);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushLayoutOps(
+        JNIEnv* env, jclass, jintArray commands, jint length, jlongArray layouts) {
+    @autoreleasepool {
+        try { flushLayoutCommands(env, commands, length, layouts); }
+        catch (const std::exception& error) { throwJavaRuntimeException(env, error.what()); }
+    }
 }

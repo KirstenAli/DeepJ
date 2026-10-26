@@ -9,6 +9,9 @@ final class GpuStorageRuntime implements GpuRuntime {
     final Map<Integer, Object> values = new HashMap<>();
     final Map<Integer, DType> types = new HashMap<>();
     int downloads;
+    long[] lastLayouts;
+
+    @Override public boolean supportsLayouts() { return true; }
 
     @Override public void allocBuffers(int[] ids, int[] sizes, int count) {
         DType[] dtypes = new DType[count];
@@ -61,6 +64,47 @@ final class GpuStorageRuntime implements GpuRuntime {
                 position += 4;
             }
         }
+    }
+
+    @Override public void flushOps(int[] commands, int length, long[] layouts) {
+        lastLayouts = layouts.clone();
+        int position = 0;
+        while (position < length) {
+            int stride = GraphExecution.getOpStride(commands[position]);
+            if (commands[position] == ComputeGraph.OP_LAYOUT_TRANSFER) transfer(commands, position, layouts);
+            else flushOps(Arrays.copyOfRange(commands, position, position + stride), stride);
+            position += stride;
+        }
+    }
+
+    private void transfer(int[] commands, int position, long[] layouts) {
+        int input = commands[position + 1], output = commands[position + 2], start = commands[position + 3];
+        int count = Math.toIntExact(layouts[start + 1]);
+        for (int index = 0; index < count; index++) {
+            int address = logicalAddress(layouts, start, index);
+            if (types.get(input) == types.get(output)) {
+                System.arraycopy(values.get(input), address, values.get(output), index, 1);
+            } else assignCast(input, output, address, index);
+        }
+    }
+
+    private void assignCast(int input, int output, int address, int index) {
+        Object source = values.get(input), target = values.get(output);
+        float value = source instanceof float[] floats ? floats[address]
+                : types.get(input).decode16(((short[]) source)[address]);
+        if (target instanceof float[] floats) floats[index] = value;
+        else ((short[]) target)[index] = types.get(output).encode16(value);
+    }
+
+    private static int logicalAddress(long[] words, int start, int index) {
+        int rank = Math.toIntExact(words[start]);
+        long address = words[start + 3];
+        for (int axis = rank - 1; axis >= 0; axis--) {
+            int dimension = Math.toIntExact(words[start + 4 + axis]);
+            address += index % dimension * words[start + 4 + rank + axis];
+            index /= dimension;
+        }
+        return Math.toIntExact(address);
     }
 
     private void negate(int[] commands, int position) {

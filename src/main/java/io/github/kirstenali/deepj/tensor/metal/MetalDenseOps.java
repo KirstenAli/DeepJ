@@ -25,7 +25,8 @@ final class MetalDenseOps {
         if (input.numel() == 0) return graph.copyToDevice(input);
         Tensor dense = full(input) ? input : graph.copyToDevice(input);
         GpuBuffer source = graph.ensureStorageBuffer(dense);
-        GpuBuffer output = graph.newOutputBuffer(1, input.numel());
+        int rows = input.rank() == 2 ? input.matrixRows() : 1;
+        GpuBuffer output = graph.newOutputBuffer(rows, input.numel() / rows);
         graph.recordScalarUnary(opcode, source, output, scalar);
         return graph.createOutputTensor(output, input.shape());
     }

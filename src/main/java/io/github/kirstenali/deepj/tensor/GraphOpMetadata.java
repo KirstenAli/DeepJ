@@ -69,13 +69,14 @@ abstract class GraphOpMetadata {
     public static final int OP_HEAD_CACHE_WRITE = 60;
     public static final int OP_HEAD_PREFIX_MATMUL = 61;
     public static final int OP_STORAGE_COPY = 62;
+    public static final int OP_LAYOUT_TRANSFER = 63;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_STORAGE_COPY + 1];
+        OpMeta[] meta = new OpMeta[OP_LAYOUT_TRANSFER + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -84,6 +85,7 @@ abstract class GraphOpMetadata {
         registerBroadcastMeta(meta);
         registerComplexMeta(meta);
         registerMeta(meta, OP_STORAGE_COPY, 6, 1, 2);
+        registerMeta(meta, OP_LAYOUT_TRANSFER, 4, 1, 2);
         return meta;
     }
 

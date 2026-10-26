@@ -134,10 +134,12 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
 
     private void executePendingOps(int[] commands) {
         if (opCount > 0) {
-            runtime.flushOps(commands, cmdPos);
+            if (layouts.isEmpty()) runtime.flushOps(commands, cmdPos);
+            else runtime.flushOps(commands, cmdPos, layouts.snapshot());
         }
         cmdPos  = 0;
         opCount = 0;
+        layouts.clear();
     }
 
     public void materialize(Tensor t) {
@@ -225,6 +227,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     }
 
     void resetGraphState() {
+        layouts.clear();
         bufIdToMemory.clear();
         pendingAllocs.clear();
         pendingUploadIds.clear();

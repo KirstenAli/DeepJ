@@ -8,6 +8,8 @@ import java.util.Objects;
 
 final class MetalGpuRuntime implements GpuRuntime {
 
+    @Override public boolean supportsLayouts() { return true; }
+
     @Override
     public void allocBuffers(int[] ids, int[] sizes, int count) {
         requireCount(count, Objects.requireNonNull(ids), Objects.requireNonNull(sizes));
@@ -69,11 +71,21 @@ final class MetalGpuRuntime implements GpuRuntime {
 
     @Override
     public void flushOps(int[] cmdStream, int cmdStreamLength) {
+        requireCommandLength(cmdStream, cmdStreamLength);
+        MetalNative.nativeFlushOps(cmdStream, cmdStreamLength);
+    }
+
+    @Override
+    public void flushOps(int[] commands, int length, long[] layouts) {
+        requireCommandLength(commands, length);
+        MetalNative.nativeFlushLayoutOps(commands, length, Objects.requireNonNull(layouts));
+    }
+
+    private static void requireCommandLength(int[] cmdStream, int cmdStreamLength) {
         Objects.requireNonNull(cmdStream);
         if (cmdStreamLength < 0 || cmdStreamLength > cmdStream.length) {
             throw new IllegalArgumentException("Invalid command stream length");
         }
-        MetalNative.nativeFlushOps(cmdStream, cmdStreamLength);
     }
 
     private static void requireCount(int count, int[] ids, int[] sizes) {

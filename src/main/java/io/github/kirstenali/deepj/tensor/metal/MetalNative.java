@@ -57,5 +57,6 @@ final class MetalNative {
     static native void nativeReleaseBuffers(int[] ids, int count);
 
     static native void nativeFlushOps(int[] cmdStream, int cmdStreamLength);
+    static native void nativeFlushLayoutOps(int[] commands, int length, long[] layouts);
 
 }

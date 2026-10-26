@@ -59,5 +59,9 @@ class MetalRuntimeValidationTest {
         assertThrows(NullPointerException.class, () -> runtime.flushOps(null, 0));
         assertThrows(IllegalArgumentException.class, () -> runtime.flushOps(new int[0], -1));
         assertThrows(IllegalArgumentException.class, () -> runtime.flushOps(new int[0], 1));
+        assertThrows(NullPointerException.class, () -> runtime.flushOps(null, 0, new long[0]));
+        assertThrows(IllegalArgumentException.class, () -> runtime.flushOps(new int[0], -1, new long[0]));
+        assertThrows(IllegalArgumentException.class, () -> runtime.flushOps(new int[0], 1, new long[0]));
+        assertThrows(NullPointerException.class, () -> runtime.flushOps(new int[0], 0, null));
     }
 }

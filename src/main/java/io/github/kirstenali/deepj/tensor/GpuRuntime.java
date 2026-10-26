@@ -2,6 +2,8 @@ package io.github.kirstenali.deepj.tensor;
 
 public interface GpuRuntime {
 
+    default boolean supportsLayouts() { return false; }
+
     void allocBuffers(int[] ids, int[] sizes, int count);
 
     /** Physical element counts and dtypes, independent of logical Tensor shape. */
@@ -41,4 +43,11 @@ public interface GpuRuntime {
     void releaseBuffers(int[] ids, int count);
 
     void flushOps(int[] cmdStream, int cmdStreamLength);
+
+    default void flushOps(int[] commands, int length, long[] layouts) {
+        if (java.util.Objects.requireNonNull(layouts).length != 0) {
+            throw new UnsupportedOperationException("Runtime does not support GPU layout descriptors");
+        }
+        flushOps(commands, length);
+    }
 }

@@ -33,6 +33,7 @@ class NativeOwnershipTest {
         assertAutoreleasePool(source, "nativeDownloadBuffer16");
         assertAutoreleasePool(source, "nativeZeroTypedBuffer");
         assertAutoreleasePool(source, "nativeBufferByteLength");
+        assertAutoreleasePool(source, "nativeFlushLayoutOps");
     }
 
     private static void assertAutoreleasePool(String source, String function) {

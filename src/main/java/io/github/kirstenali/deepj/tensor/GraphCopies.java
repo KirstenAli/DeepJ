@@ -7,7 +7,7 @@ final class GraphCopies {
     static Tensor copy(GraphExecution graph, Tensor source) {
         TensorStorage.requireSource(source);
         if (source.numel() == 0) return Tensor.deviceOnly(source.dtype(), source.shape());
-        if (!source.isContiguous()) throw new UnsupportedOperationException("Strided GPU copies need layout dispatch");
+        if (!source.isContiguous()) return graph.transferLayout(source, source.dtype());
         GpuBuffer input = graph.ensureStorageBuffer(source);
         int rows = source.rank() == 2 ? source.matrixRows() : 1;
         GpuBuffer output = graph.newOutputBuffer(rows, source.numel() / rows, source.dtype());

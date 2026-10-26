@@ -48,6 +48,11 @@ abstract class MetalCoreOps implements TensorBackend {
         return graph.copyToDevice(source);
     }
 
+    @Override
+    public Tensor cast(Tensor input, DType dtype) {
+        return graph.castToDevice(input, dtype);
+    }
+
     static void markNeedsUpload(Tensor t) {
         if (t.getGpuTag() instanceof GpuBuffer gb) {
             gb.needsUpload = true;

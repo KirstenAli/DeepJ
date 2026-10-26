@@ -6,6 +6,7 @@ import java.util.*;
 abstract class GraphCore extends GraphOpMetadata {
 
     final GpuRuntime runtime;
+    final GraphLayouts layouts = new GraphLayouts();
 
     int[] cmdStream = new int[4096];
     int cmdPos = 0;
