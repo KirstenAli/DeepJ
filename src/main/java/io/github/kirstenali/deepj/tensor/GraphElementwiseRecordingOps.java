@@ -4,6 +4,16 @@ package io.github.kirstenali.deepj.tensor;
 abstract class GraphElementwiseRecordingOps extends GraphLayoutRecordingOps {
     GraphElementwiseRecordingOps(GpuRuntime runtime) { super(runtime); }
 
+    public void recordMultiplyScalar(GpuBuffer in, GpuBuffer out, float scalar) {
+        beginOp(5);
+        emitInt(OP_MULTIPLY_SCALAR);
+        emitBuffer(in);
+        emitBuffer(out);
+        emitFloatBits(scalar);
+        emitInt(out.floatCount());
+        endOp();
+    }
+
     public Tensor layoutBinary(Tensor left, Tensor right, int operation) {
         requireBinary(operation);
         TensorStorage.requireSource(left);

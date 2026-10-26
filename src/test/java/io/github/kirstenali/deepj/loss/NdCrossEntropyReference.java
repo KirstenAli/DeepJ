@@ -3,10 +3,10 @@ package io.github.kirstenali.deepj.loss;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 /** Independent double-precision, per-position reference; no Tensor reduction/softmax operators. */
-final class NdCrossEntropyReference {
+public final class NdCrossEntropyReference {
     private NdCrossEntropyReference() {}
 
-    static double loss(Tensor logits, int[] targets, boolean[] mask) {
+    public static double loss(Tensor logits, int[] targets, boolean[] mask) {
         float[] values = logits.toFloatArray();
         int width = logits.size(-1), count = count(mask);
         double result = 0;
@@ -16,7 +16,7 @@ final class NdCrossEntropyReference {
         return result / count;
     }
 
-    static float[] gradient(Tensor logits, int[] targets, boolean[] mask) {
+    public static float[] gradient(Tensor logits, int[] targets, boolean[] mask) {
         float[] values = logits.toFloatArray(), result = new float[values.length];
         int width = logits.size(-1), count = count(mask);
         for (int row = 0; row < targets.length; row++) {

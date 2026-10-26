@@ -33,6 +33,7 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutNormalizationBackwardPSO;
     id<MTLComputePipelineState> layoutSwiGluBackwardPSO;
     id<MTLComputePipelineState> layoutAdamWPSO;
+    id<MTLComputePipelineState> layoutCrossEntropyPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -1411,6 +1412,99 @@ kernel void kernel_cross_entropy_fused(device const float* logits [[buffer(0)]],
                                  target, maximum, sumExp, 1.0f / (float)rows);
 }
 
+struct LayoutCrossEntropyParams {
+    uint layout, plan, rows, cols, dtype, included, mode;
+};
+
+inline float layout_ce_value(device const unsigned char* input, device const ulong* words,
+                              constant LayoutCrossEntropyParams& params, uint index) {
+    return as_type<float>(storage_float_bits(input, layout_address(words, params.layout, index), params.dtype));
+}
+
+// Keep very long per-lane sums stable without changing ordinary vocabulary reduction order.
+inline float layout_ce_large_sum(device const unsigned char* input, device const ulong* words,
+                                  constant LayoutCrossEntropyParams& params, uint base, uint tid,
+                                  uint width, float maximum) {
+#pragma clang fp reassociate(off) contract(off)
+    float total = 0.0f, correction = 0.0f;
+    for (uint column = tid; column < params.cols; column += width) {
+        float adjusted = exp(layout_ce_value(input, words, params, base + column) - maximum) - correction;
+        float next = total + adjusted;
+        correction = (next - total) - adjusted;
+        total = next;
+    }
+    return total;
+}
+
+inline float layout_ce_partial(device const unsigned char* input, device const ulong* words,
+                                constant LayoutCrossEntropyParams& params, uint base, uint tid,
+                                uint width, float maximum, bool exponentials) {
+    if (exponentials && params.cols > 65536) {
+        return layout_ce_large_sum(input, words, params, base, tid, width, maximum);
+    }
+    float result = exponentials ? 0.0f : -INFINITY;
+    for (uint column = tid; column < params.cols; column += width) {
+        float value = layout_ce_value(input, words, params, base + column);
+        result = exponentials ? result + exp(value - maximum) : max(result, value);
+    }
+    return result;
+}
+
+inline void layout_ce_gradient(device const unsigned char* input, device float* gradient,
+                                device const ulong* words, constant LayoutCrossEntropyParams& params,
+                                uint row, uint tid, uint width, float maximum, float total) {
+    uint base = row * params.cols, target = uint(words[params.plan + 3 + row]);
+    bool included = words[params.plan + 3 + params.rows + row] != 0;
+    for (uint column = tid; column < params.cols; column += width) {
+        float value = 0.0f;
+        if (included) {
+            value = exp(layout_ce_value(input, words, params, base + column) - maximum) / total;
+            value = (value - (column == target ? 1.0f : 0.0f)) * (1.0f / float(params.rows));
+        }
+        uint bits = included ? as_type<uint>(value) : (column == target ? 0x80000000u : 0u);
+        ((device uint*)gradient)[base + column] = bits;
+    }
+}
+
+inline float2 layout_ce_statistics(device const unsigned char* input, device const ulong* words,
+                                    constant LayoutCrossEntropyParams& params, uint row, uint tid,
+                                    uint width, threadgroup float* scratch) {
+    if (words[params.plan + 3 + params.rows + row] == 0) return float2(0.0f, 1.0f);
+    float maximum = reduce_max(scratch,
+            layout_ce_partial(input, words, params, row * params.cols, tid, width, 0.0f, false), tid, width);
+    float total = reduce_sum(scratch,
+            layout_ce_partial(input, words, params, row * params.cols, tid, width, maximum, true), tid, width);
+    return float2(maximum, total);
+}
+
+inline void layout_ce_loss(device const unsigned char* input, device float* losses,
+                            device const ulong* words, constant LayoutCrossEntropyParams& params,
+                            uint row, float2 statistics) {
+    if (words[params.plan + 3 + params.rows + row] == 0) {
+        losses[row] = 0.0f;
+        return;
+    }
+    uint target = uint(words[params.plan + 3 + row]);
+    losses[row] = log(statistics.y) + statistics.x
+            - layout_ce_value(input, words, params, row * params.cols + target);
+}
+
+kernel void kernel_layout_cross_entropy(device const unsigned char* input [[buffer(0)]],
+                                        device float* losses [[buffer(1)]], device float* gradient [[buffer(2)]],
+                                        device const ulong* words [[buffer(3)]],
+                                        constant LayoutCrossEntropyParams& params [[buffer(4)]],
+                                        uint3 group [[threadgroup_position_in_grid]],
+                                        uint tid [[thread_index_in_threadgroup]],
+                                        uint3 width [[threads_per_threadgroup]]) {
+    uint row = group.y;
+    threadgroup float scratch[1024];
+    float2 statistics = layout_ce_statistics(input, words, params, row, tid, width.x, scratch);
+    if ((params.mode & 1u) != 0 && tid == 0) layout_ce_loss(input, losses, words, params, row, statistics);
+    if ((params.mode & 2u) != 0) {
+        layout_ce_gradient(input, gradient, words, params, row, tid, width.x, statistics.x, statistics.y);
+    }
+}
+
 struct RmsNormParams {
     uint rows;
     uint cols;
@@ -2022,6 +2116,7 @@ static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutNormalizationBackwardPSO = makePSO(library, @"kernel_layout_normalization_backward");
     ctx->layoutSwiGluBackwardPSO = makePSO(library, @"kernel_layout_swiglu_backward");
     ctx->layoutAdamWPSO = makePSO(library, @"kernel_layout_adamw");
+    ctx->layoutCrossEntropyPSO = makePSO(library, @"kernel_layout_cross_entropy");
 }
 
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -2258,6 +2353,7 @@ static constexpr int OP_LAYOUT_NORMALIZE = 73;
 static constexpr int OP_LAYOUT_NORMALIZATION_BACKWARD = 74;
 static constexpr int OP_LAYOUT_SWIGLU_BACKWARD = 75;
 static constexpr int OP_LAYOUT_ADAMW = 76;
+static constexpr int OP_LAYOUT_CROSS_ENTROPY = 77;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -3268,6 +3364,70 @@ static void encodeLayoutAdamW(GraphState& state, const jint* cmd, int pos) {
     encodeLayoutMany(state, state.ctx->layoutAdamWPSO, cmd, pos, 4, params, weight.count);
 }
 
+static const jlong* crossEntropyPlan(const GraphLayoutWords& stream, int start, uint32_t rows) {
+    if (stream.words == nullptr || start < 0 || start > stream.count - 3 ||
+        rows > (uint32_t)(stream.count - start - 3) / 2) {
+        throw std::runtime_error("Missing or truncated GPU cross entropy targets");
+    }
+    const jlong* plan = stream.words + start;
+    if (plan[0] != rows || plan[1] <= 0 || plan[1] > rows || (plan[2] != 0 && plan[2] != 1)) {
+        throw std::runtime_error("Invalid GPU cross entropy target count or mask header");
+    }
+    return plan;
+}
+
+static uint32_t validateCrossEntropyPlan(const GraphLayoutWords& stream, int start,
+                                         uint32_t rows, uint32_t classes) {
+    const jlong* plan = crossEntropyPlan(stream, start, rows);
+    uint32_t included = 0;
+    for (uint32_t row = 0; row < rows; row++) {
+        jlong target = plan[3 + row], mask = plan[3 + rows + row];
+        if (target < 0 || target >= classes || (mask != 0 && mask != 1) || (plan[2] == 0 && mask != 1)) {
+            throw std::runtime_error("Invalid GPU cross entropy target or mask bit");
+        }
+        included += (uint32_t)mask;
+    }
+    if (included != plan[1]) throw std::runtime_error("GPU cross entropy included count mismatch");
+    return included;
+}
+
+static void requireCrossEntropyOutputs(const jint* cmd, int pos, uint32_t rows, uint32_t count) {
+    int mode = cmd[pos + 6];
+    if (mode < 1 || mode > 3) throw std::runtime_error("Invalid GPU cross entropy output mode");
+    if (cmd[pos + 1] == cmd[pos + 2] || cmd[pos + 1] == cmd[pos + 3]) {
+        throw std::runtime_error("GPU cross entropy output aliases logits");
+    }
+    if (mode == 3) requireOutputSeparation(cmd, pos, 1, 3);
+    else if (cmd[pos + 2] != cmd[pos + 3]) throw std::runtime_error("Unexpected unused cross entropy output");
+    if ((mode & 1) != 0) requireTypedCount(cmd[pos + 2], 1, rows);
+    if ((mode & 2) != 0) requireTypedCount(cmd[pos + 3], 1, count);
+}
+
+static std::array<uint32_t, 7> layoutCrossEntropyParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 4);
+    if (input.rank == 0) throw std::runtime_error("Cross entropy requires a final class axis");
+    uint32_t width = (uint32_t)input.axes[input.rank - 1], rows = input.count / width;
+    uint32_t included = validateCrossEntropyPlan(state.layouts, cmd[pos + 5], rows, width);
+    requireCrossEntropyOutputs(cmd, pos, rows, input.count);
+    return {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], rows, width,
+            (uint32_t)gBufferDTypes.at(cmd[pos + 1]), included, (uint32_t)cmd[pos + 6]};
+}
+
+static void encodeLayoutCrossEntropy(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutCrossEntropyParams(state, cmd, pos);
+    auto pipeline = state.ctx->layoutCrossEntropyPSO;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 3; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + index + 1], "cross entropy") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    bindValue(encoder, params, 4);
+    [encoder dispatchThreadgroups:MTLSizeMake(1, params[2], 1)
+           threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(pipeline), 1, 1)];
+}
+
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
     switch (op) {
         case OP_ADD: return ctx->addPSO;
@@ -4234,6 +4394,7 @@ static int layoutCommandWidth(int op) {
     if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) return 11;
     if (op == OP_LAYOUT_SWIGLU_BACKWARD) return 9;
     if (op == OP_LAYOUT_ADAMW) return 16;
+    if (op == OP_LAYOUT_CROSS_ENTROPY) return 7;
     if (op == OP_LAYOUT_MAXIMUM_BACKWARD) return 10;
     throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
 }
@@ -4315,6 +4476,7 @@ static bool encodeLayoutTrainingCommand(GraphState& state, const jint* cmd, int 
     else if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) encodeLayoutNormalizationBackward(state, cmd, pos);
     else if (op == OP_LAYOUT_SWIGLU_BACKWARD) encodeLayoutSwiGluBackward(state, cmd, pos);
     else if (op == OP_LAYOUT_ADAMW) encodeLayoutAdamW(state, cmd, pos);
+    else if (op == OP_LAYOUT_CROSS_ENTROPY) encodeLayoutCrossEntropy(state, cmd, pos);
     else return false;
     return true;
 }

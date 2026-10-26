@@ -15,7 +15,10 @@ final class GraphLayouts {
     }
 
     int addIndices(int[] indices) {
-        long[] description = IndexGroups.describe(indices);
+        return addWords(IndexGroups.describe(indices));
+    }
+
+    int addWords(long[] description) {
         int start = size, needed = Math.addExact(size, description.length);
         if (needed > words.length) words = Arrays.copyOf(words, Math.max(needed, words.length * 2));
         System.arraycopy(description, 0, words, size, description.length);

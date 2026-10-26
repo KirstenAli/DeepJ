@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.tensor;
 
-abstract class GraphRecordingOps extends GraphAdamWRecordingOps {
+abstract class GraphRecordingOps extends GraphCrossEntropyRecordingOps {
     GraphRecordingOps(GpuRuntime runtime) {
         super(runtime);
     }
@@ -129,16 +129,6 @@ abstract class GraphRecordingOps extends GraphAdamWRecordingOps {
         emitInt(opCode);
         emitBuffer(in);
         emitBuffer(out);
-        emitInt(out.floatCount());
-        endOp();
-    }
-
-    public void recordMultiplyScalar(GpuBuffer in, GpuBuffer out, float scalar) {
-        beginOp(5);
-        emitInt(OP_MULTIPLY_SCALAR);
-        emitBuffer(in);
-        emitBuffer(out);
-        emitFloatBits(scalar);
         emitInt(out.floatCount());
         endOp();
     }

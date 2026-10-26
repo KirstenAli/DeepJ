@@ -83,13 +83,14 @@ abstract class GraphOpMetadata {
     public static final int OP_LAYOUT_NORMALIZATION_BACKWARD = 74;
     public static final int OP_LAYOUT_SWIGLU_BACKWARD = 75;
     public static final int OP_LAYOUT_ADAMW = 76;
+    public static final int OP_LAYOUT_CROSS_ENTROPY = 77;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_LAYOUT_ADAMW + 1];
+        OpMeta[] meta = new OpMeta[OP_LAYOUT_CROSS_ENTROPY + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -113,10 +114,15 @@ abstract class GraphOpMetadata {
         registerMeta(meta, OP_LAYOUT_MATMUL, 6, 1, 2, 3);
         registerMeta(meta, OP_LAYOUT_INDEX_SELECT, 6, 1, 2);
         registerMeta(meta, OP_LAYOUT_INDEX_ADD, 7, 1, 2);
+        registerLayoutTrainingMeta(meta);
+    }
+
+    private static void registerLayoutTrainingMeta(OpMeta[] meta) {
         registerMeta(meta, OP_LAYOUT_NORMALIZE, 12, 1, 2, 3, 4, 5, 6);
         registerMeta(meta, OP_LAYOUT_NORMALIZATION_BACKWARD, 11, 1, 2, 3, 4, 5);
         registerMeta(meta, OP_LAYOUT_SWIGLU_BACKWARD, 9, 1, 2, 3, 4, 5);
         registerMeta(meta, OP_LAYOUT_ADAMW, 16, 1, 2, 3, 4);
+        registerMeta(meta, OP_LAYOUT_CROSS_ENTROPY, 7, 1, 2, 3);
     }
 
     static void registerUnaryMeta(OpMeta[] meta) {
