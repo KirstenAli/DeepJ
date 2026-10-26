@@ -24,6 +24,11 @@ public final class NormalizationChecks {
         return shape;
     }
 
+    public static DType outputType(Tensor input, Tensor gamma, Tensor beta, boolean centered) {
+        DType type = DType.promote(input.dtype(), gamma.dtype());
+        return centered ? DType.promote(type, beta.dtype()) : type;
+    }
+
     public static void forward(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
         int width = width(input);
         parameter(gamma, width);
@@ -37,7 +42,12 @@ public final class NormalizationChecks {
     public static void backward(Tensor gradient, Tensor normalized, Tensor denominator, Tensor gamma) {
         parameter(gamma, width(normalized));
         Tensor.requireSameShape(gradient, normalized, "Normalization gradient");
-        if (!denominator.layout().shape().equals(new TensorShape(statisticsShape(normalized)))) {
+        statistics(normalized, denominator);
+    }
+
+    public static void statistics(Tensor input, Tensor denominator) {
+        width(input);
+        if (!denominator.layout().shape().equals(new TensorShape(statisticsShape(input)))) {
             throw new IllegalArgumentException("Normalization denominator shape mismatch");
         }
     }

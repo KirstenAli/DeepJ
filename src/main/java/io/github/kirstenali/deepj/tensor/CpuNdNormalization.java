@@ -7,8 +7,7 @@ public final class CpuNdNormalization {
     public static NormalizationResult apply(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
         NormalizationChecks.forward(input, gamma, beta, epsilon, centered);
         materialize(input, gamma, beta);
-        DType type = centered ? DType.promote(DType.promote(input.dtype(), gamma.dtype()), beta.dtype())
-                : DType.promote(input.dtype(), gamma.dtype());
+        DType type = NormalizationChecks.outputType(input, gamma, beta, centered);
         Tensor output = new Tensor(type, input.shape()), normalized = new Tensor(DType.FLOAT32, input.shape());
         Tensor denominator = new Tensor(DType.FLOAT32, NormalizationChecks.statisticsShape(input));
         var result = new NormalizationResult(output, normalized, denominator);

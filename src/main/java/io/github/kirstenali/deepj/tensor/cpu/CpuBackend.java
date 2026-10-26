@@ -69,6 +69,7 @@ public final class CpuBackend extends CpuTrainingOps {
     }
 
     @Override public RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
+        NormalizationChecks.forward(input, gamma, null, epsilon, false);
         if (CpuNdElementwise.matrix(input) && CpuNdElementwise.matrix(gamma)) {
             return super.rmsNorm(input, gamma, epsilon);
         }

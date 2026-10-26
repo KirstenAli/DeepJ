@@ -10,7 +10,11 @@ final class MetalDenseOps {
     private MetalDenseOps() {}
 
     static boolean matrix(Tensor input) {
-        return input.rank() == 2 && input.numel() > 0 && input.dtype() == DType.FLOAT32 && full(input);
+        return input.rank() == 2 && dense(input);
+    }
+
+    static boolean dense(Tensor input) {
+        return input.numel() > 0 && input.dtype() == DType.FLOAT32 && full(input);
     }
 
     static boolean sameMatrices(Tensor left, Tensor right) {

@@ -3,7 +3,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 import io.github.kirstenali.deepj.tensor.*;
 
 
-abstract class MetalTrainingOps extends MetalInPlaceOps {
+abstract class MetalTrainingOps extends MetalNormalizationOps {
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
         Tensor.requireTargetsMatchRows(logits, targets);
@@ -95,9 +95,11 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             float lr, float beta1, float beta2, float eps,
                             float weightDecay, float bc1, float bc2) {
-        Tensor.requireSameShape(w, g, "adamWUpdate");
-        Tensor.requireSameShape(w, mt, "adamWUpdate");
-        Tensor.requireSameShape(w, vt, "adamWUpdate");
+        OptimizerChecks.requireState(w, g, mt, vt);
+        if (!MetalDenseOps.sameMatrices(w, g) || !MetalDenseOps.sameMatrices(mt, vt)) {
+            MetalAdamWDispatch.update(graph, w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            return;
+        }
 
         GpuBuffer gw = gpuIn(w);
         GpuBuffer gg = gpuIn(g);
@@ -116,57 +118,9 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     }
 
     @Override
-    public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
-        Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
-        if (dim != dXHat.matrixCols()) throw new IllegalArgumentException(
-                "layerNormBackward: dim=" + dim + " must equal tensor cols=" + dXHat.matrixCols());
-        if (std.matrixRows() != dXHat.matrixRows() || std.matrixCols() != 1) throw new IllegalArgumentException(
-                "layerNormBackward: std must be " + dXHat.matrixRows() + "x1 but got "
-                        + std.matrixRows() + "x" + std.matrixCols());
-
-        GpuBuffer gDXHat = gpuIn(dXHat);
-        GpuBuffer gXHat  = gpuIn(xHat);
-        GpuBuffer gStd   = gpuIn(std);
-        GpuBuffer gOut   = graph.newOutputBuffer(dXHat.matrixRows(), dXHat.matrixCols());
-        graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.matrixRows(), dXHat.matrixCols());
-        return gpuOut(gOut);
-    }
-
-    @Override
-    public RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
-        requireRmsNormShapes(input, gamma, input.matrixRows(), 1);
-        GpuBuffer output = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
-        GpuBuffer normalized = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
-        GpuBuffer rms = graph.newOutputBuffer(input.matrixRows(), 1);
-        graph.recordRmsNorm(gpuIn(input), gpuIn(gamma), output, normalized,
-                rms, input.matrixRows(), input.matrixCols(), epsilon);
-        return new RmsNormResult(gpuOut(output), gpuOut(normalized), gpuOut(rms));
-    }
-
-    @Override
-    public Tensor rmsNormBackward(Tensor gradient, Tensor normalized,
-                                  Tensor rms, Tensor gamma) {
-        Tensor.requireSameShape(gradient, normalized, "rmsNormBackward");
-        requireRmsNormShapes(gradient, gamma, rms.matrixRows(), rms.matrixCols());
-        GpuBuffer output = graph.newOutputBuffer(gradient.matrixRows(), gradient.matrixCols());
-        graph.recordRmsNormBackward(gpuIn(gradient), gpuIn(normalized), gpuIn(rms),
-                gpuIn(gamma), output, gradient.matrixRows(), gradient.matrixCols());
-        return gpuOut(output);
-    }
-
-    static void requireRmsNormShapes(Tensor input, Tensor gamma,
-                                             int rmsRows, int rmsCols) {
-        if (gamma.matrixRows() != 1 || gamma.matrixCols() != input.matrixCols()) {
-            throw new IllegalArgumentException("RMSNorm gamma must match input columns");
-        }
-        if (rmsRows != input.matrixRows() || rmsCols != 1) {
-            throw new IllegalArgumentException("RMSNorm scale must match input rows");
-        }
-    }
-
-    @Override
     public Tensor swiGlu(Tensor gate, Tensor up) {
         Tensor.requireSameShape(gate, up, "swiGlu");
+        if (!MetalDenseOps.sameMatrices(gate, up)) return MetalSwiGluDispatch.forward(graph, gate, up);
         GpuBuffer fused = graph.newOutputBuffer(gate.matrixRows(), gate.matrixCols());
         graph.recordSwiGlu(gpuIn(gate), gpuIn(up), fused);
         return gpuOut(fused);
@@ -176,6 +130,9 @@ abstract class MetalTrainingOps extends MetalInPlaceOps {
     public SwiGluBackwardResult swiGluBackward(Tensor gradient, Tensor gate, Tensor up) {
         Tensor.requireSameShape(gradient, gate, "swiGluBackward");
         Tensor.requireSameShape(gate, up, "swiGluBackward");
+        if (!MetalDenseOps.sameMatrices(gate, up) || !MetalDenseOps.sameMatrices(gate, gradient)) {
+            return MetalSwiGluDispatch.backward(graph, gradient, gate, up);
+        }
         GpuBuffer gateGradient = graph.newOutputBuffer(gate.matrixRows(), gate.matrixCols());
         GpuBuffer upGradient = graph.newOutputBuffer(up.matrixRows(), up.matrixCols());
         graph.recordSwiGluBackward(gpuIn(gradient), gpuIn(gate), gpuIn(up),

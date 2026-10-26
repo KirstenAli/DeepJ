@@ -98,7 +98,7 @@ abstract class GraphElementwiseRecordingOps extends GraphLayoutRecordingOps {
 
     private static void requireBinary(int operation) {
         switch (operation) {
-            case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_RELU_BACKWARD, OP_GELU_BACKWARD -> { }
+            case OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_RELU_BACKWARD, OP_GELU_BACKWARD, OP_SWIGLU -> { }
             default -> throw new IllegalArgumentException("Unsupported GPU binary operation: " + operation);
         }
     }

@@ -29,6 +29,10 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutMatmulPSO;
     id<MTLComputePipelineState> layoutIndexSelectPSO;
     id<MTLComputePipelineState> layoutIndexAddPSO;
+    id<MTLComputePipelineState> layoutNormalizePSO;
+    id<MTLComputePipelineState> layoutNormalizationBackwardPSO;
+    id<MTLComputePipelineState> layoutSwiGluBackwardPSO;
+    id<MTLComputePipelineState> layoutAdamWPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -563,6 +567,7 @@ inline float layout_binary_value(float a, float b, uint operation) {
         case 3: return a * b;
         case 4: return a / b;
         case 14: return a > 0.0f ? b : 0.0f;
+        case 55: return (a * (1.0f / (1.0f + exp(-a)))) * b;
         default: return layout_gelu_gradient(a, b);
     }
 }
@@ -628,6 +633,120 @@ kernel void kernel_layout_assign(device const unsigned char* input [[buffer(0)]]
 inline float layout_value(device const unsigned char* input, device const ulong* layouts,
                           uint start, uint dtype, uint logical) {
     return as_type<float>(storage_float_bits(input, layout_address(layouts, start, logical), dtype));
+}
+
+struct LayoutNormInputs {
+    device const unsigned char* input;
+    device const unsigned char* gamma;
+    device const unsigned char* beta;
+};
+
+inline float2 layout_normalization_statistics(device const unsigned char* input, device const ulong* layouts,
+                                              constant uint* params, uint row) {
+    uint width = params[3], base = row * width;
+    float inverse = 1.0f / float(width), mean = 0.0f, squares = 0.0f;
+    if (params[9] != 0) {
+        for (uint column = 0; column < width; column++) {
+            mean += layout_value(input, layouts, params[0], params[5], base + column);
+        }
+        mean *= inverse;
+    }
+    for (uint column = 0; column < width; column++) {
+        float difference = layout_value(input, layouts, params[0], params[5], base + column) - mean;
+        squares += difference * difference;
+    }
+    return float2(mean, sqrt(squares * inverse + as_type<float>(params[10])));
+}
+
+inline void write_layout_normalization(LayoutNormInputs inputs, device unsigned char* output,
+                                       device float* normalized, device const ulong* layouts,
+                                       constant uint* params, uint row, float2 statistics) {
+    uint width = params[3], base = row * width;
+    for (uint column = 0; column < width; column++) {
+        float value = (layout_value(inputs.input, layouts, params[0], params[5], base + column)
+                        - statistics.x) / statistics.y;
+        normalized[base + column] = value;
+        float scaled = value * layout_value(inputs.gamma, layouts, params[1], params[6], column);
+        if (params[9] != 0) scaled += layout_value(inputs.beta, layouts, params[2], params[7], column);
+        storage_write_bits(output, base + column, params[8], as_type<uint>(scaled));
+    }
+}
+
+kernel void kernel_layout_normalize(device const unsigned char* input [[buffer(0)]],
+                                    device const unsigned char* gamma [[buffer(1)]],
+                                    device const unsigned char* beta [[buffer(2)]],
+                                    device unsigned char* output [[buffer(3)]],
+                                    device float* normalized [[buffer(4)]], device float* denominator [[buffer(5)]],
+                                    device const ulong* layouts [[buffer(6)]], constant uint* params [[buffer(7)]],
+                                    uint row [[thread_position_in_grid]]) {
+    float2 statistics = layout_normalization_statistics(input, layouts, params, row);
+    denominator[row] = statistics.y;
+    write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, row, statistics);
+}
+
+struct LayoutNormBackwardInputs {
+    device const unsigned char* gradient;
+    device const unsigned char* normalized;
+    device const unsigned char* denominator;
+    device const unsigned char* gamma;
+};
+
+inline float layout_normalization_scaled(LayoutNormBackwardInputs inputs, device const ulong* layouts,
+                                          constant uint* params, uint logical, uint column) {
+    return layout_value(inputs.gradient, layouts, params[0], params[6], logical)
+            * layout_value(inputs.gamma, layouts, params[3], params[9], column);
+}
+
+inline float2 layout_normalization_sums(LayoutNormBackwardInputs inputs, device const ulong* layouts,
+                                        constant uint* params, uint base) {
+    float sum = 0.0f, dot = 0.0f;
+    for (uint column = 0; column < params[4]; column++) {
+        float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
+        sum += scaled;
+        dot += scaled * layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
+    }
+    return float2(sum, dot);
+}
+
+inline void write_layout_normalization_gradient(LayoutNormBackwardInputs inputs, device float* output,
+                                                device const ulong* layouts, constant uint* params, uint row) {
+    uint width = params[4], base = row * width;
+    float2 sums = layout_normalization_sums(inputs, layouts, params, base);
+    float denominator = layout_value(inputs.denominator, layouts, params[2], params[8], row);
+    float inverse = 1.0f / denominator;
+    for (uint column = 0; column < width; column++) {
+        float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
+        float norm = layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
+        output[base + column] = params[10] != 0
+                ? inverse * (scaled - sums.x / width - norm * (sums.y / width))
+                : (scaled - norm * (sums.y * (1.0f / width))) / denominator;
+    }
+}
+
+kernel void kernel_layout_normalization_backward(device const unsigned char* gradient [[buffer(0)]],
+                                                  device const unsigned char* normalized [[buffer(1)]],
+                                                  device const unsigned char* denominator [[buffer(2)]],
+                                                  device const unsigned char* gamma [[buffer(3)]],
+                                                  device float* output [[buffer(4)]],
+                                                  device const ulong* layouts [[buffer(5)]],
+                                                  constant uint* params [[buffer(6)]],
+                                                  uint row [[thread_position_in_grid]]) {
+    write_layout_normalization_gradient({gradient, normalized, denominator, gamma}, output, layouts, params, row);
+}
+
+kernel void kernel_layout_swiglu_backward(device const unsigned char* gradient [[buffer(0)]],
+                                          device const unsigned char* gate [[buffer(1)]],
+                                          device const unsigned char* up [[buffer(2)]],
+                                          device float* gateGradient [[buffer(3)]],
+                                          device float* upGradient [[buffer(4)]],
+                                          device const ulong* layouts [[buffer(5)]],
+                                          constant uint* params [[buffer(6)]], uint index [[thread_position_in_grid]]) {
+    float value = layout_value(gate, layouts, params[1], params[4], index);
+    float upstream = layout_value(gradient, layouts, params[0], params[3], index);
+    float sigmoid = 1.0f / (1.0f + exp(-value)), activated = value * sigmoid;
+    float derivative = sigmoid + activated * (1.0f - sigmoid);
+    gateGradient[index] = (upstream * layout_value(up, layouts, params[2], params[5], index)) * derivative;
+    upGradient[index] = upstream * activated;
 }
 
 inline bool layout_nan(float value) {
@@ -1801,6 +1920,30 @@ kernel void kernel_adamw_update(device float* w            [[buffer(0)]],
     w[id] -= update;
 }
 
+inline float layout_adamw_step(float original, float gradient, thread float& first, thread float& second,
+                               constant uint* params) {
+    float lr = as_type<float>(params[4]), beta1 = as_type<float>(params[5]), beta2 = as_type<float>(params[6]);
+    first = beta1 * first + (1.0f - beta1) * gradient;
+    second = beta2 * second + (1.0f - beta2) * (gradient * gradient);
+    float update = (lr * (first / as_type<float>(params[9])))
+            / (sqrt(second / as_type<float>(params[10])) + as_type<float>(params[7]));
+    float decay = as_type<float>(params[8]);
+    if (decay != 0.0f) update += lr * decay * original;
+    return original - update;
+}
+
+kernel void kernel_layout_adamw(device float* weight [[buffer(0)]], device const float* gradient [[buffer(1)]],
+                                device float* first [[buffer(2)]], device float* second [[buffer(3)]],
+                                device const ulong* layouts [[buffer(4)]], constant uint* params [[buffer(5)]],
+                                uint index [[thread_position_in_grid]]) {
+    uint w = layout_address(layouts, params[0], index), g = layout_address(layouts, params[1], index);
+    uint m = layout_address(layouts, params[2], index), v = layout_address(layouts, params[3], index);
+    float firstValue = first[m], secondValue = second[v];
+    weight[w] = layout_adamw_step(weight[w], gradient[g], firstValue, secondValue, params);
+    first[m] = firstValue;
+    second[v] = secondValue;
+}
+
 )";
 
 
@@ -1875,6 +2018,10 @@ static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutMatmulPSO = makePSO(library, @"kernel_layout_matmul");
     ctx->layoutIndexSelectPSO = makePSO(library, @"kernel_layout_index_select");
     ctx->layoutIndexAddPSO = makePSO(library, @"kernel_layout_index_add");
+    ctx->layoutNormalizePSO = makePSO(library, @"kernel_layout_normalize");
+    ctx->layoutNormalizationBackwardPSO = makePSO(library, @"kernel_layout_normalization_backward");
+    ctx->layoutSwiGluBackwardPSO = makePSO(library, @"kernel_layout_swiglu_backward");
+    ctx->layoutAdamWPSO = makePSO(library, @"kernel_layout_adamw");
 }
 
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -2107,6 +2254,10 @@ static constexpr int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
 static constexpr int OP_LAYOUT_MATMUL = 70;
 static constexpr int OP_LAYOUT_INDEX_SELECT = 71;
 static constexpr int OP_LAYOUT_INDEX_ADD = 72;
+static constexpr int OP_LAYOUT_NORMALIZE = 73;
+static constexpr int OP_LAYOUT_NORMALIZATION_BACKWARD = 74;
+static constexpr int OP_LAYOUT_SWIGLU_BACKWARD = 75;
+static constexpr int OP_LAYOUT_ADAMW = 76;
 
 static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
     auto it = gBufferPool.find(id);
@@ -2697,7 +2848,7 @@ static void encodeLayoutAssign(GraphState& state, const jint* cmd, int pos) {
 
 static void requireLayoutBinaryOperation(int operation) {
     if (operation >= OP_ADD && operation <= OP_DIVIDE) return;
-    if (operation == OP_RELU_BACKWARD || operation == OP_GELU_BACKWARD) return;
+    if (operation == OP_RELU_BACKWARD || operation == OP_GELU_BACKWARD || operation == OP_SWIGLU) return;
     throw std::runtime_error("Invalid GPU layout binary operation");
 }
 
@@ -2974,6 +3125,147 @@ static void encodeLayoutIndexAdd(GraphState& state, const jint* cmd, int pos) {
     auto params = layoutIndexAddParams(state, cmd, pos);
     encodeLayoutPair(state, state.ctx->layoutIndexAddPSO, requireStorageBuffer(cmd[pos + 1], "scatter"),
                      requireStorageBuffer(cmd[pos + 2], "scatter"), params, params[8]);
+}
+
+static LogicalLayout commandLayout(GraphState& state, const jint* cmd, int pos, int buffer, int layout) {
+    int id = cmd[pos + buffer];
+    return requireLogicalLayout(state.layouts, cmd[pos + layout], requireStorageBuffer(id, "layout input"),
+                                 gBufferDTypes.at(id));
+}
+
+static void requireTypedCount(int id, uint32_t dtype, uint32_t count) {
+    if (gBufferDTypes.at(id) != (int)dtype ||
+        [requireStorageBuffer(id, "typed output") length] != storageBytes((int)count, dtype)) {
+        throw std::runtime_error("Invalid GPU output storage type or element count");
+    }
+}
+
+static void requireOutputSeparation(const jint* cmd, int pos, int inputs, int buffers) {
+    for (int output = inputs + 1; output <= buffers; output++) {
+        for (int previous = 1; previous < output; previous++) {
+            if (cmd[pos + output] == cmd[pos + previous]) {
+                throw std::runtime_error("GPU outputs must not alias inputs or other outputs");
+            }
+        }
+    }
+}
+
+static uint32_t normalizationWidth(const LogicalLayout& input) {
+    if (input.rank == 0) throw std::runtime_error("Normalization requires a final axis");
+    return (uint32_t)input.axes[input.rank - 1];
+}
+
+static void requireNormalizationParameter(const LogicalLayout& parameter, uint32_t width) {
+    if ((parameter.rank != 1 && !(parameter.rank == 2 && parameter.axes[0] == 1)) ||
+        parameter.count != width) throw std::runtime_error("Invalid normalization parameter shape");
+}
+
+static void requireNormalizationDenominator(const LogicalLayout& input, const LogicalLayout& denominator) {
+    if (input.rank != denominator.rank || denominator.axes[denominator.rank - 1] != 1 ||
+        !std::equal(input.axes, input.axes + input.rank - 1, denominator.axes)) {
+        throw std::runtime_error("Invalid saved normalization statistics shape");
+    }
+}
+
+static uint32_t normalizationMode(int mode) {
+    if (mode != 0 && mode != 1) throw std::runtime_error("Invalid normalization mode");
+    return (uint32_t)mode;
+}
+
+static std::array<uint32_t, 11> layoutNormalizationParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 7);
+    uint32_t width = normalizationWidth(input), rows = input.count / width;
+    requireNormalizationParameter(commandLayout(state, cmd, pos, 2, 8), width);
+    requireNormalizationParameter(commandLayout(state, cmd, pos, 3, 9), width);
+    uint32_t mode = normalizationMode(cmd[pos + 11]);
+    float epsilon = floatFromBits(cmd[pos + 10]);
+    if (!std::isfinite(epsilon) || epsilon <= 0) throw std::runtime_error("Invalid normalization epsilon");
+    uint32_t a = gBufferDTypes.at(cmd[pos + 1]), b = gBufferDTypes.at(cmd[pos + 2]);
+    uint32_t c = gBufferDTypes.at(cmd[pos + 3]), output = a == b && (mode == 0 || a == c) ? a : 1;
+    requireOutputSeparation(cmd, pos, 3, 6);
+    requireTypedCount(cmd[pos + 4], output, input.count);
+    requireTypedCount(cmd[pos + 5], 1, input.count);
+    requireTypedCount(cmd[pos + 6], 1, rows);
+    return {(uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8], (uint32_t)cmd[pos + 9], width,
+            rows, a, b, c, output, mode, (uint32_t)cmd[pos + 10]};
+}
+
+static std::array<uint32_t, 11> layoutNormalizationBackwardParams(GraphState& state, const jint* cmd, int pos) {
+    auto gradient = commandLayout(state, cmd, pos, 1, 6), normalized = commandLayout(state, cmd, pos, 2, 7);
+    uint32_t width = normalizationWidth(normalized);
+    requireSameLayoutShape(gradient, normalized);
+    requireNormalizationDenominator(normalized, commandLayout(state, cmd, pos, 3, 8));
+    requireNormalizationParameter(commandLayout(state, cmd, pos, 4, 9), width);
+    requireOutputSeparation(cmd, pos, 4, 5);
+    requireTypedCount(cmd[pos + 5], 1, gradient.count);
+    return {(uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8],
+            (uint32_t)cmd[pos + 9], width, gradient.count / width, (uint32_t)gBufferDTypes.at(cmd[pos + 1]),
+            (uint32_t)gBufferDTypes.at(cmd[pos + 2]), (uint32_t)gBufferDTypes.at(cmd[pos + 3]),
+            (uint32_t)gBufferDTypes.at(cmd[pos + 4]), normalizationMode(cmd[pos + 10])};
+}
+
+template <typename T>
+static void encodeLayoutMany(GraphState& state, id<MTLComputePipelineState> pipeline, const jint* cmd,
+                              int pos, int buffers, const T& params, uint32_t count) {
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < buffers; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + index + 1], "layout operation") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:buffers];
+    bindValue(encoder, params, buffers + 1);
+    dispatch1D(encoder, pipeline, count);
+}
+
+static void encodeLayoutNormalization(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutNormalizationParams(state, cmd, pos);
+    encodeLayoutMany(state, state.ctx->layoutNormalizePSO, cmd, pos, 6, params, params[4]);
+}
+
+static void encodeLayoutNormalizationBackward(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutNormalizationBackwardParams(state, cmd, pos);
+    encodeLayoutMany(state, state.ctx->layoutNormalizationBackwardPSO, cmd, pos, 5, params, params[5]);
+}
+
+static std::array<uint32_t, 7> layoutSwiGluBackwardParams(GraphState& state, const jint* cmd, int pos) {
+    auto gradient = commandLayout(state, cmd, pos, 1, 6), gate = commandLayout(state, cmd, pos, 2, 7);
+    auto up = commandLayout(state, cmd, pos, 3, 8);
+    requireSameLayoutShape(gradient, gate);
+    requireSameLayoutShape(gate, up);
+    requireOutputSeparation(cmd, pos, 3, 5);
+    requireTypedCount(cmd[pos + 4], 1, gradient.count);
+    requireTypedCount(cmd[pos + 5], 1, gradient.count);
+    return {(uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8],
+            (uint32_t)gBufferDTypes.at(cmd[pos + 1]), (uint32_t)gBufferDTypes.at(cmd[pos + 2]),
+            (uint32_t)gBufferDTypes.at(cmd[pos + 3]), gradient.count};
+}
+
+static void encodeLayoutSwiGluBackward(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutSwiGluBackwardParams(state, cmd, pos);
+    encodeLayoutMany(state, state.ctx->layoutSwiGluBackwardPSO, cmd, pos, 5, params, params[6]);
+}
+
+static std::array<uint32_t, 11> layoutAdamWParams(GraphState& state, const jint* cmd, int pos) {
+    auto weight = commandLayout(state, cmd, pos, 1, 5);
+    requireOutputSeparation(cmd, pos, 0, 4);
+    for (int index = 1; index <= 4; index++) {
+        auto layout = commandLayout(state, cmd, pos, index, index + 4);
+        requireSameLayoutShape(weight, layout);
+        if (gBufferDTypes.at(cmd[pos + index]) != 1) throw std::runtime_error("AdamW requires FLOAT32 state");
+        if (index != 2) requireWritableLayout(layout);
+    }
+    std::array<uint32_t, 11> params;
+    for (int index = 0; index < 11; index++) {
+        params[index] = (uint32_t)cmd[pos + index + 5];
+    }
+    return params;
+}
+
+static void encodeLayoutAdamW(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutAdamWParams(state, cmd, pos);
+    auto weight = commandLayout(state, cmd, pos, 1, 5);
+    encodeLayoutMany(state, state.ctx->layoutAdamWPSO, cmd, pos, 4, params, weight.count);
 }
 
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
@@ -3938,6 +4230,10 @@ static int layoutCommandWidth(int op) {
     if (op == OP_LAYOUT_MATMUL) return 6;
     if (op == OP_LAYOUT_INDEX_SELECT) return 6;
     if (op == OP_LAYOUT_INDEX_ADD) return 7;
+    if (op == OP_LAYOUT_NORMALIZE) return 12;
+    if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) return 11;
+    if (op == OP_LAYOUT_SWIGLU_BACKWARD) return 9;
+    if (op == OP_LAYOUT_ADAMW) return 16;
     if (op == OP_LAYOUT_MAXIMUM_BACKWARD) return 10;
     throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
 }
@@ -4013,6 +4309,16 @@ static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
     return true;
 }
 
+static bool encodeLayoutTrainingCommand(GraphState& state, const jint* cmd, int pos) {
+    int op = cmd[pos];
+    if (op == OP_LAYOUT_NORMALIZE) encodeLayoutNormalization(state, cmd, pos);
+    else if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) encodeLayoutNormalizationBackward(state, cmd, pos);
+    else if (op == OP_LAYOUT_SWIGLU_BACKWARD) encodeLayoutSwiGluBackward(state, cmd, pos);
+    else if (op == OP_LAYOUT_ADAMW) encodeLayoutAdamW(state, cmd, pos);
+    else return false;
+    return true;
+}
+
 static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
     int op = cmd[pos];
     if (op == OP_STORAGE_COPY) encodeStorageCopy(state, cmd, pos);
@@ -4026,7 +4332,7 @@ static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_LAYOUT_MATMUL) encodeLayoutMatmul(state, cmd, pos);
     else if (op == OP_LAYOUT_INDEX_SELECT) encodeLayoutIndexSelect(state, cmd, pos);
     else if (op == OP_LAYOUT_INDEX_ADD) encodeLayoutIndexAdd(state, cmd, pos);
-    else return false;
+    else return encodeLayoutTrainingCommand(state, cmd, pos);
     return true;
 }
 

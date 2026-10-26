@@ -107,4 +107,14 @@ class NdNormalizationTest {
         assertThrows(IllegalArgumentException.class, () -> Tensor.backend().normalize(
                 input, gamma, beta, EPSILON, false));
     }
+
+    @Test
+    void matrixAndGeneralEntryPointsShareTheSameEpsilonAndAffinePreflight() {
+        Tensor input = new Tensor(2, 3), gamma = new Tensor(1, 3), beta = new Tensor(1, 3);
+        assertThrows(IllegalArgumentException.class, () -> Tensor.backend().rmsNorm(input, gamma, 0));
+        assertThrows(IllegalArgumentException.class, () -> NormalizationOps.rmsNorm(input, gamma, Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> NormalizationOps.layerNorm(input, gamma, beta, -1));
+        assertThrows(IllegalArgumentException.class,
+                () -> NormalizationOps.layerNorm(input, gamma, new Tensor(2, 3), EPSILON));
+    }
 }
