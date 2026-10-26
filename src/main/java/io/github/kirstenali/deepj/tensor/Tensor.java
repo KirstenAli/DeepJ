@@ -5,7 +5,9 @@ import io.github.kirstenali.deepj.autograd.*;
 
 import java.util.Random;
 
-public class Tensor extends TensorStorageAccess {
+public class Tensor extends TensorManipulations {
+
+    @Override protected Tensor tensor() { return this; }
 
     public boolean requiresGrad() { return gradientState().required(); }
     public Tensor requiresGrad(boolean required) {
@@ -103,19 +105,19 @@ public class Tensor extends TensorStorageAccess {
     public Tensor geluActivation() { return ActivationOps.gelu(this); }
 
     public Tensor addInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().addInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().addInPlace(this, other));
     }
 
     public Tensor subtractInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().subtractInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().subtractInPlace(this, other));
     }
 
     public Tensor multiplyInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().multiplyInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().multiplyInPlace(this, other));
     }
 
     public Tensor divideInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().divideInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().divideInPlace(this, other));
     }
 
     public Tensor multiplyScalarInPlace(float scalar) {

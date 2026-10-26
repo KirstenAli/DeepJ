@@ -11,6 +11,17 @@ final class AliasVersionTest {
     @BeforeEach void useCpu() { Tensor.setBackend(new CpuBackend()); }
 
     @Test
+    void readOnlyAliasCreationDoesNotAccumulateDeadWeakRegistrations() {
+        var version = new MutationVersion(0);
+        for (int index = 0; index < 10000; index++) {
+            version.track(new GradientState()).clear();
+            assertEquals(1, version.trackedStates());
+        }
+        assertFalse(version.any(GradientState::required));
+        assertEquals(0, version.trackedStates());
+    }
+
+    @Test
     void aliasesShareVersionsButNotGradientBuffersOrTrackingFlags() {
         var original = new GradientState();
         original.beforeMutation();

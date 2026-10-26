@@ -5,6 +5,19 @@ import java.util.Arrays;
 final class LayoutTransforms {
     private LayoutTransforms() {}
 
+    static TensorLayout unsqueeze(TensorLayout input, int axis) {
+        int rank = input.shape().rank();
+        axis = axis < 0 ? axis + rank + 1 : axis;
+        if (axis < 0 || axis > rank) throw new IndexOutOfBoundsException("Insertion axis: " + axis);
+        int[] dimensions = Arrays.copyOf(input.shape().dimensions(), rank + 1);
+        long[] strides = Arrays.copyOf(input.strides(), rank + 1);
+        System.arraycopy(dimensions, axis, dimensions, axis + 1, rank - axis);
+        System.arraycopy(strides, axis, strides, axis + 1, rank - axis);
+        dimensions[axis] = 1;
+        strides[axis] = 0;
+        return input.with(new TensorShape(dimensions), strides, input.offset());
+    }
+
     static TensorLayout permute(TensorLayout input, int... axes) {
         if (axes.length != input.shape().rank()) throw new IllegalArgumentException("Permutation rank must match");
         int[] dimensions = new int[axes.length];

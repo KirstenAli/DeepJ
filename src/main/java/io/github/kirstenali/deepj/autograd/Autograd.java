@@ -37,17 +37,17 @@ public final class Autograd {
     }
 
     public static void backward(Tensor output) {
-        if (output.matrixRows() != 1 || output.matrixCols() != 1) {
+        if (output.numel() != 1) {
             throw new IllegalArgumentException("Non-scalar backward requires an explicit upstream gradient");
         }
-        backward(output, Tensor.ones(1, 1));
+        backward(output, Tensor.from(new float[]{1.0f}, output.shape()));
     }
 
     public static void backward(Tensor output, Tensor gradient) {
         if (!output.requiresGrad()) throw new IllegalStateException("Tensor does not require gradients");
         Tensor.requireSameShape(output, gradient, "backward");
         try (var ignored = GradMode.noGrad()) {
-            new BackwardPass(output, gradient).run();
+            new BackwardPass(output, Tensor.backend().cast(gradient, gradient.dtype().gradientType())).run();
         }
     }
 }

@@ -46,6 +46,7 @@ public abstract class TensorStorageAccess {
     public final int[] shape() { return layout.shape().dimensions(); }
     public final int size(int axis) { return layout.shape().size(axis); }
     public final int numel() { return layout.shape().elements(); }
+    public final boolean hasSameShape(TensorStorageAccess other) { return layout.shape().equals(other.layout.shape()); }
     public final long[] strides() { return layout.strides(); }
     public final int storageOffset() { return layout.offset(); }
     public final boolean isContiguous() { return layout.contiguous(); }

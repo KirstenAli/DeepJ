@@ -7,6 +7,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StorageAliasesTest {
     @Test
+    void readOnlyViewCreationPrunesDeadRegistrationsWithoutDeviceCleanup() {
+        var aliases = new StorageAliases(new GradientState());
+        for (int index = 0; index < 10000; index++) {
+            aliases.add(new GradientState()).clear();
+            assertEquals(1, aliases.trackedViews());
+        }
+        assertFalse(aliases.liveViews());
+        assertEquals(0, aliases.trackedViews());
+    }
+
+    @Test
     void weakAliasRegistrationsArePrunedWithoutRequiringGarbageCollection() {
         var aliases = new StorageAliases(new GradientState());
         var state = new GradientState();

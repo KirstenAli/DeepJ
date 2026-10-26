@@ -7,8 +7,50 @@ public interface TensorBackend {
     /** Backend-owned positive-zero storage; ordinary Tensor constructors stay CPU-backed. */
     default Tensor zeros(int rows, int columns) { return new Tensor(rows, columns); }
 
+    default Tensor zeros(DType dtype, int... shape) {
+        if (dtype == DType.FLOAT32 && shape.length == 2) return zeros(shape[0], shape[1]);
+        throw new UnsupportedOperationException("This backend does not support the requested zero tensor");
+    }
+
     /** Independent storage with the same float bits, without recording an autograd operation. */
     default Tensor copy(Tensor source) { return new Tensor(source); }
+
+    default Tensor view(Tensor input, int... shape) { return TensorViews.view(input, shape); }
+    default Tensor unsqueeze(Tensor input, int axis) { return TensorViews.unsqueeze(input, axis); }
+    default Tensor permute(Tensor input, int... axes) { return TensorViews.permute(input, axes); }
+    default Tensor select(Tensor input, int axis, int index) { return TensorViews.select(input, axis, index); }
+    default Tensor slice(Tensor input, int axis, int start, int stop, int step) {
+        return TensorViews.slice(input, axis, start, stop, step);
+    }
+    default Tensor expand(Tensor input, int... shape) { return TensorViews.expand(input, shape); }
+
+    default Tensor reshape(Tensor input, int... shape) {
+        return view(input.isContiguous() ? input : copy(input), shape);
+    }
+
+    default Tensor cast(Tensor input, DType dtype) {
+        if (input.dtype() == dtype) return input;
+        throw new UnsupportedOperationException("This backend does not support the requested dtype conversion");
+    }
+
+    default Tensor sumAxes(Tensor input, int[] axes, boolean keepDimensions) {
+        throw new UnsupportedOperationException("This backend does not support axis reductions");
+    }
+
+    default Tensor sumToShape(Tensor input, int... shape) { return GradientShapes.sumTo(this, input, shape); }
+
+    default Tensor sliceGradient(Tensor gradient, int[] shape, int axis, int start, int step) {
+        throw new UnsupportedOperationException("This backend does not support slice gradients");
+    }
+
+    default Tensor softmaxAxis(Tensor input, int axis) {
+        throw new UnsupportedOperationException("This backend does not support axis softmax");
+    }
+
+    default Tensor softmaxAxisBackward(Tensor gradient, Tensor output, int axis) {
+        Tensor product = multiply(gradient, output);
+        return multiply(output, subtract(gradient, sumAxes(product, new int[]{axis}, true)));
+    }
 
     Tensor matmul(Tensor a, Tensor b);
 

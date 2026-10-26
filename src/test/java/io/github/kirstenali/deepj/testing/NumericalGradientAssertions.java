@@ -8,6 +8,8 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.function.Function;
+import io.github.kirstenali.deepj.autograd.GradMode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,6 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public final class NumericalGradientAssertions {
 
     private NumericalGradientAssertions() {}
+
+    public static void assertTensorGradients(Tensor input, Function<Tensor, Tensor> operation, Tensor upstream,
+                                            float epsilon, float absoluteTolerance, float relativeTolerance) {
+        Tensor variable = new Tensor(input).requiresGrad(true);
+        operation.apply(variable).backward(upstream);
+        Tensor analytic = new Tensor(variable.grad());
+        try (var ignored = GradMode.noGrad()) {
+            assertNumericalGradient(variable, analytic, () -> operation.apply(variable), upstream,
+                    epsilon, absoluteTolerance, relativeTolerance, "ND input");
+        }
+    }
 
     public static void assertLayerGradients(Layer layer, Tensor input, Tensor upstream,
                                             float epsilon, float absoluteTolerance,
@@ -70,11 +83,10 @@ public final class NumericalGradientAssertions {
 
     private static float objective(Tensor output, Tensor upstream) {
         requireSameShape(output, upstream);
-        output.materialize();
-        upstream.materialize();
+        float[] actual = output.toFloatArray(), weights = upstream.toFloatArray();
         float result = 0.0f;
-        for (int i = 0; i < output.rawData().length; i++) {
-            result += output.rawData()[i] * upstream.rawData()[i];
+        for (int i = 0; i < actual.length; i++) {
+            result += actual[i] * weights[i];
         }
         return result;
     }
@@ -88,8 +100,7 @@ public final class NumericalGradientAssertions {
     }
 
     private static void requireSameShape(Tensor expected, Tensor actual) {
-        assertEquals(expected.matrixRows(), actual.matrixRows(), "row count");
-        assertEquals(expected.matrixCols(), actual.matrixCols(), "column count");
+        assertTrue(expected.hasSameShape(actual), "Tensor shapes must match");
     }
 
     private static void assertClose(float analytic, float numerical, float absoluteTolerance,

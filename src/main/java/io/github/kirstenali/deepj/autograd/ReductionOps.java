@@ -30,6 +30,9 @@ public final class ReductionOps {
     }
 
     public static Tensor sum(Tensor input) {
+        if (input.rank() != 2 || input.dtype() != io.github.kirstenali.deepj.tensor.DType.FLOAT32) {
+            return AxisReductionOps.sum(input, new int[0], false);
+        }
         return columns(input).sumRows();
     }
 }

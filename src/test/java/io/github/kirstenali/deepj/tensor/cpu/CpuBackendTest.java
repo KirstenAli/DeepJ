@@ -169,55 +169,39 @@ class CpuBackendTest extends CpuBackendTestSupport {
     }
 
     @Test
-    void add_shouldThrowOnShapeMismatch() {
-        Tensor a = Tensor.from2D(new float[][]{
-                {1, 2}
-        });
-        Tensor b = Tensor.from2D(new float[][]{
-                {1},
-                {2}
-        });
-
-        assertThrows(IllegalArgumentException.class, () -> backend.add(a, b));
+    void add_shouldRejectIncompatibleBroadcastShapes() {
+        assertIncompatibleBroadcast(backend::add);
     }
 
     @Test
-    void subtract_shouldThrowOnShapeMismatch() {
-        Tensor a = Tensor.from2D(new float[][]{
-                {1, 2}
-        });
-        Tensor b = Tensor.from2D(new float[][]{
-                {1},
-                {2}
-        });
-
-        assertThrows(IllegalArgumentException.class, () -> backend.subtract(a, b));
+    void subtract_shouldRejectIncompatibleBroadcastShapes() {
+        assertIncompatibleBroadcast(backend::subtract);
     }
 
     @Test
-    void multiply_shouldThrowOnShapeMismatch() {
-        Tensor a = Tensor.from2D(new float[][]{
-                {1, 2}
-        });
-        Tensor b = Tensor.from2D(new float[][]{
-                {1},
-                {2}
-        });
-
-        assertThrows(IllegalArgumentException.class, () -> backend.multiply(a, b));
+    void multiply_shouldRejectIncompatibleBroadcastShapes() {
+        assertIncompatibleBroadcast(backend::multiply);
     }
 
     @Test
-    void divide_shouldThrowOnShapeMismatch() {
-        Tensor a = Tensor.from2D(new float[][]{
-                {1, 2}
-        });
-        Tensor b = Tensor.from2D(new float[][]{
-                {1},
-                {2}
-        });
+    void divide_shouldRejectIncompatibleBroadcastShapes() {
+        assertIncompatibleBroadcast(backend::divide);
+    }
 
-        assertThrows(IllegalArgumentException.class, () -> backend.divide(a, b));
+    private static void assertIncompatibleBroadcast(java.util.function.BiFunction<Tensor, Tensor, Tensor> operation) {
+        Tensor left = Tensor.from2D(new float[][]{{1, 2}});
+        Tensor right = Tensor.from2D(new float[][]{{1, 2, 3}, {4, 5, 6}});
+        assertThrows(IllegalArgumentException.class, () -> operation.apply(left, right));
+    }
+
+    @Test
+    void rowAndColumnVectorsUseTrailingBroadcasts() {
+        Tensor left = Tensor.from2D(new float[][]{{1, 2}});
+        Tensor right = Tensor.from2D(new float[][]{{1}, {2}});
+        assertTensorEquals(new double[][]{{2, 3}, {3, 4}}, backend.add(left, right));
+        assertTensorEquals(new double[][]{{0, 1}, {-1, 0}}, backend.subtract(left, right));
+        assertTensorEquals(new double[][]{{1, 2}, {2, 4}}, backend.multiply(left, right));
+        assertTensorEquals(new double[][]{{1, 2}, {0.5, 1}}, backend.divide(left, right));
     }
 
     @Test

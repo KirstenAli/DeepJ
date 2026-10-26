@@ -16,15 +16,20 @@ final class MutationVersion {
     long value() { return version; }
 
     WeakReference<GradientState> track(GradientState state) {
+        prune();
         var reference = new WeakReference<>(state);
         states.add(reference);
         return reference;
     }
 
     boolean any(Predicate<GradientState> predicate) {
-        states.removeIf(reference -> reference.get() == null);
+        prune();
         return states.stream().map(WeakReference::get).filter(Objects::nonNull).anyMatch(predicate);
     }
+
+    int trackedStates() { return states.size(); }
+
+    private void prune() { states.removeIf(reference -> reference.get() == null); }
 
     void beforeMutation() {
         if (GradMode.isEnabled() && any(GradientState::required)) {

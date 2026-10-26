@@ -3,6 +3,9 @@ package io.github.kirstenali.deepj.tensor.cpu;
 import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
+import io.github.kirstenali.deepj.tensor.CpuNdElementwise;
+import io.github.kirstenali.deepj.tensor.CpuNdReduction;
+import io.github.kirstenali.deepj.tensor.CpuNdSoftmax;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -12,6 +15,7 @@ import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 abstract class CpuReductionOps extends CpuElementwiseOps {
     @Override
     public Tensor sumRows(Tensor a) {
+        if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.sum(a, new int[]{0}, true);
         prepare(a);
         Tensor result = new Tensor(1, a.matrixCols());
         for (int r = 0; r < a.matrixRows(); r++) {
@@ -25,6 +29,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor sumAlongRows(Tensor a) {
+        if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.sum(a, new int[]{1}, true);
         prepare(a);
         Tensor result = new Tensor(a.matrixRows(), 1);
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
@@ -38,6 +43,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor meanAlongRows(Tensor a) {
+        if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.mean(a, new int[]{1}, true);
         prepare(a);
         Tensor result = new Tensor(a.matrixRows(), 1);
         float invCols = 1.0f / a.matrixCols();
@@ -83,6 +89,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public float sum(Tensor a) {
+        if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.total(a, false);
         prepare(a);
         float s = 0.0f;
         for (float v : a.rawData()) {
@@ -93,6 +100,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public float sumAbs(Tensor a) {
+        if (!CpuNdElementwise.matrix(a)) return CpuNdReduction.total(a, true);
         prepare(a);
         float s = 0.0f;
         for (float v : a.rawData()) {
@@ -103,6 +111,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor transpose(Tensor a) {
+        if (!CpuNdElementwise.matrix(a)) return new Tensor(permute(a, 1, 0));
         prepare(a);
         Tensor result = new Tensor(a.matrixCols(), a.matrixRows());
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
@@ -215,6 +224,7 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor softmaxRows(Tensor logits) {
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdSoftmax.apply(logits, 1);
         prepare(logits);
         Tensor result = new Tensor(logits.matrixRows(), logits.matrixCols());
 
@@ -228,6 +238,9 @@ abstract class CpuReductionOps extends CpuElementwiseOps {
 
     @Override
     public Tensor softmaxBackward(Tensor gradOutput, Tensor softmaxOut) {
+        if (!CpuNdElementwise.sameMatrices(gradOutput, softmaxOut)) {
+            return softmaxAxisBackward(gradOutput, softmaxOut, 1);
+        }
         prepare(gradOutput, softmaxOut);
         requireSameShape(gradOutput, softmaxOut, "softmaxBackward");
         Tensor result = new Tensor(gradOutput.matrixRows(), gradOutput.matrixCols());
