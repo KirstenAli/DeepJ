@@ -21,6 +21,8 @@ public abstract class TensorManipulations extends TensorStorageAccess {
     public final Tensor expand(int... shape) { return ViewOps.expand(tensor(), shape); }
     public final Tensor contiguous() { return ViewOps.contiguous(tensor()); }
     public final Tensor to(DType dtype) { return ViewOps.cast(tensor(), dtype); }
+    /** Independent value assignment with an explicit cast to this tensor's dtype; shapes must match. */
+    public final Tensor copyFrom(Tensor source) { return TensorMutation.assign(tensor(), source); }
 
     public final Tensor slice(int axis, int start, int stop, int step) {
         return ViewOps.slice(tensor(), axis, start, stop, step);

@@ -15,6 +15,11 @@ public interface TensorBackend {
     /** Independent storage with the same float bits, without recording an autograd operation. */
     default Tensor copy(Tensor source) { return new Tensor(source); }
 
+    /** Explicitly assigns logical values, casting to the destination's storage dtype. */
+    default void copyInto(Tensor target, Tensor source) {
+        throw new UnsupportedOperationException("This backend does not support typed assignment");
+    }
+
     default Tensor view(Tensor input, int... shape) { return TensorViews.view(input, shape); }
     default Tensor unsqueeze(Tensor input, int axis) { return TensorViews.unsqueeze(input, axis); }
     default Tensor permute(Tensor input, int... axes) { return TensorViews.permute(input, axes); }

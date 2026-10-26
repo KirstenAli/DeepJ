@@ -12,6 +12,7 @@ final class TensorMutation {
 
     static void adamW(Tensor w, Tensor g, Tensor mt, Tensor vt, float lr, float beta1,
                        float beta2, float eps, float weightDecay, float bc1, float bc2) {
+        OptimizerChecks.requireState(w, g, mt, vt);
         w.gradientState().beforeMutation();
         mt.gradientState().beforeMutation();
         vt.gradientState().beforeMutation();
@@ -53,5 +54,10 @@ final class TensorMutation {
         int[] saved = indices.clone();
         IndexSelection.requireUpdates(target, updates, axis, saved);
         return apply(target, () -> Tensor.backend().indexAdd(target, axis, saved, updates), updates);
+    }
+
+    static Tensor assign(Tensor target, Tensor source) {
+        Tensor.requireSameShape(target, source, "Assignment");
+        return apply(target, () -> Tensor.backend().copyInto(target, source), source);
     }
 }

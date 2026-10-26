@@ -70,6 +70,10 @@ public final class ViewOps {
 
     public static Tensor contiguous(Tensor input) {
         if (input.isContiguous()) return input;
+        return copy(input);
+    }
+
+    public static Tensor copy(Tensor input) {
         return UnaryOps.record(input, Tensor.backend().copy(input), gradient -> gradient);
     }
 

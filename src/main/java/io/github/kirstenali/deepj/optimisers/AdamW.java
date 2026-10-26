@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.optimisers;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.autograd.GradMode;
 
 import java.util.IdentityHashMap;
@@ -20,6 +21,7 @@ public final class AdamW implements ParameterOptimizer {
 
     private final Map<Parameter, Tensor> m = new IdentityHashMap<>();
     private final Map<Parameter, Tensor> v = new IdentityHashMap<>();
+    private final MasterWeights masters = new MasterWeights();
 
     public AdamW(float lr, float beta1, float beta2, float eps, float weightDecay) {
         validateHyperparameters(lr, beta1, beta2, eps);
@@ -53,13 +55,14 @@ public final class AdamW implements ParameterOptimizer {
     public State state(List<Parameter> params) {
         Objects.requireNonNull(params, "params");
         return new State(step, lr, beta1, beta2, eps, weightDecay,
-                moments(params, m), moments(params, v));
+                moments(params, m), moments(params, v), masters.state(params));
     }
 
     public void restoreState(List<Parameter> params, State state) {
         Objects.requireNonNull(params, "params");
         Objects.requireNonNull(state, "state");
         validateState(params, state);
+        masters.restore(params, state.masterWeights());
         m.clear();
         v.clear();
         for (int index = 0; index < params.size(); index++) {
@@ -80,7 +83,7 @@ public final class AdamW implements ParameterOptimizer {
     }
 
     private static Tensor newMoment(Tensor value) {
-        return Tensor.backend().zeros(value.matrixRows(), value.matrixCols()).retainDeviceBuffer();
+        return Tensor.backend().zeros(DType.FLOAT32, value.shape()).retainDeviceBuffer();
     }
 
     private static Tensor retained(Tensor tensor) {
@@ -94,6 +97,7 @@ public final class AdamW implements ParameterOptimizer {
         validateStateHyperparameters(state);
         validateMomentList(params, state.firstMoments());
         validateMomentList(params, state.secondMoments());
+        MasterWeights.validate(params, state.masterWeights());
     }
 
     private void validateStateHyperparameters(State state) {
@@ -112,7 +116,7 @@ public final class AdamW implements ParameterOptimizer {
         for (int index = 0; index < params.size(); index++) {
             Tensor value = params.get(index).value;
             Tensor moment = Objects.requireNonNull(moments.get(index), "moment");
-            if (value.matrixRows() != moment.matrixRows() || value.matrixCols() != moment.matrixCols()) {
+            if (!value.hasSameShape(moment) || moment.dtype() != DType.FLOAT32) {
                 throw new IllegalArgumentException("AdamW moment shape does not match parameter");
             }
         }
@@ -170,22 +174,30 @@ public final class AdamW implements ParameterOptimizer {
         Tensor mt = m.computeIfAbsent(p, __ -> newMoment(w));
         Tensor vt = v.computeIfAbsent(p, __ -> newMoment(w));
 
-        Tensor.adamWUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+        Tensor master = masters.weights(p);
+        Tensor.adamWUpdate(master, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+        masters.assign(p, master);
     }
 
     private void validateParamShapes(Tensor w, Tensor g) {
-        if (w.matrixRows() != g.matrixRows() || w.matrixCols() != g.matrixCols()) {
+        if (!w.hasSameShape(g) || g.dtype() != DType.FLOAT32) {
             throw new IllegalArgumentException("grad shape must match param shape");
         }
     }
 
     public record State(long step, float learningRate, float beta1, float beta2,
                         float epsilon, float weightDecay, List<Tensor> firstMoments,
-                        List<Tensor> secondMoments) {
+                        List<Tensor> secondMoments, Map<Integer, Tensor> masterWeights) {
+
+        public State(long step, float learningRate, float beta1, float beta2, float epsilon,
+                        float weightDecay, List<Tensor> firstMoments, List<Tensor> secondMoments) {
+            this(step, learningRate, beta1, beta2, epsilon, weightDecay, firstMoments, secondMoments, Map.of());
+        }
 
         public State {
             firstMoments = List.copyOf(firstMoments);
             secondMoments = List.copyOf(secondMoments);
+            masterWeights = Map.copyOf(masterWeights);
         }
     }
 }

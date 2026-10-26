@@ -17,8 +17,10 @@ public class Tensor extends TensorManipulations {
     public void zeroGrad() { gradientState().bindGradient(null); }
     public void backward() { Autograd.backward(this); }
     public void backward(Tensor gradient) { Autograd.backward(this, gradient); }
-    public Tensor detach() { return new Tensor(this); }
-    public Tensor copy() { return UnaryOps.shift(this, 0.0f); }
+    /** Independent detached storage, preserving DeepJ's existing copy-based detach behavior. */
+    public Tensor detach() { return backend().copy(this); }
+    /** Bit-preserving independent storage with an identity autograd edge. */
+    public Tensor copy() { return ViewOps.copy(this); }
     public Tensor sumTensor() { return ReductionOps.sum(this); }
     public float item() { return TensorStorage.item(this); }
 

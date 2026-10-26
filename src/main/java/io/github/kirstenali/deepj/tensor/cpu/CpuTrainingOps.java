@@ -7,6 +7,8 @@ import io.github.kirstenali.deepj.tensor.CpuNdIndexing;
 import io.github.kirstenali.deepj.tensor.CpuNdCrossEntropy;
 import io.github.kirstenali.deepj.tensor.CpuNdElementwise;
 import io.github.kirstenali.deepj.tensor.CrossEntropyChecks;
+import io.github.kirstenali.deepj.tensor.CpuNdAdamW;
+import io.github.kirstenali.deepj.tensor.OptimizerChecks;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -108,6 +110,17 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             float lr, float beta1, float beta2, float eps,
                             float weightDecay, float bc1, float bc2) {
+        OptimizerChecks.requireState(w, g, mt, vt);
+        if (!CpuNdElementwise.sameMatrices(w, g) || !CpuNdElementwise.sameMatrices(mt, vt)) {
+            CpuNdAdamW.update(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            return;
+        }
+        adamMatrixUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+    }
+
+    private static void adamMatrixUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
+                                        float lr, float beta1, float beta2, float eps,
+                                        float weightDecay, float bc1, float bc2) {
         prepare(w, g, mt, vt);
         int n = w.rawData().length;
         for (int i = 0; i < n; i++) {

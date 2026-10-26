@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.tensor.cpu;
 import io.github.kirstenali.deepj.tensor.*;
 
 public final class CpuBackend extends CpuTrainingOps {
+    @Override public void copyInto(Tensor target, Tensor source) { CpuNdAssignment.apply(target, source); }
     @Override public Tensor zeros(DType dtype, int... shape) { return new Tensor(dtype, shape); }
 
     @Override public Tensor cast(Tensor input, DType dtype) { return CpuNdElementwise.cast(input, dtype); }

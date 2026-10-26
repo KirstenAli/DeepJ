@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.optimisers;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 
 import java.util.Arrays;
 
@@ -18,6 +19,9 @@ public final class Parameter {
         if (gradient != null && gradient.requiresGrad()) {
             throw new IllegalArgumentException("Parameter gradients must be detached");
         }
+        if (gradient != null && gradient.dtype() != DType.FLOAT32) {
+            throw new IllegalArgumentException("Parameter gradients must accumulate in FLOAT32");
+        }
         if (gradient != null) Tensor.requireSameShape(value, gradient, "parameter gradient");
         value.gradientState().bindGradient(gradient);
     }
@@ -31,11 +35,12 @@ public final class Parameter {
             clearGradData();
             return;
         }
-        setGradient(Tensor.zeros(value.matrixRows(), value.matrixCols()));
+        setGradient(new Tensor(DType.FLOAT32, value.shape()));
     }
 
     private boolean canReuseCpuGradBuffer() {
-        return grad() != null && grad().getGpuTag() == null;
+        return grad() != null && grad().getGpuTag() == null && grad().isContiguous()
+                && grad().storageOffset() == 0 && grad().storageBytes() == (long) grad().numel() * Float.BYTES;
     }
 
     private void clearGradData() {
