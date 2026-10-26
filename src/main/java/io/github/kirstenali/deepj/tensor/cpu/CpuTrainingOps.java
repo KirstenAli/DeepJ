@@ -11,6 +11,7 @@ import io.github.kirstenali.deepj.tensor.CpuNdAdamW;
 import io.github.kirstenali.deepj.tensor.OptimizerChecks;
 import io.github.kirstenali.deepj.tensor.NormalizationChecks;
 import io.github.kirstenali.deepj.tensor.CpuNdNormalization;
+import io.github.kirstenali.deepj.tensor.CpuRowAccess;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -174,25 +175,19 @@ abstract class CpuTrainingOps extends CpuReductionOps {
         }
     }
 
-    public float get(Tensor t, int r, int c)           { return t.data()[r * t.matrixCols() + c]; }
-    public void   set(Tensor t, int r, int c, float v) { t.data()[r * t.matrixCols() + c] = v; }
+    public float get(Tensor t, int r, int c)           { return t.get(r, c); }
+    public void   set(Tensor t, int r, int c, float v) { t.set(r, c, v); }
 
     public Tensor getRow(Tensor t, int row) {
-        Tensor result = new Tensor(1, t.matrixCols());
-        System.arraycopy(t.data(), row * t.matrixCols(), result.data(), 0, t.matrixCols());
-        return result;
+        return CpuRowAccess.select(t, new int[]{row}, t.matrixCols());
     }
 
     public void setRow(Tensor t, int row, Tensor source, int srcRow) {
-        System.arraycopy(source.data(), srcRow * source.matrixCols(), t.data(), row * t.matrixCols(), t.matrixCols());
+        CpuRowAccess.assign(t, row, source, srcRow);
     }
 
     public Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
-        Tensor out = new Tensor(rowIndices.length, cols);
-        for (int i = 0; i < rowIndices.length; i++) {
-            System.arraycopy(t.data(), rowIndices[i] * t.matrixCols(), out.data(), i * cols, cols);
-        }
-        return out;
+        return CpuRowAccess.select(t, rowIndices, cols);
     }
 
     @Override
@@ -202,12 +197,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     }
 
     public Tensor sampleRows(Tensor t, int n, Random rnd) {
-        Tensor out = new Tensor(n, t.matrixCols());
-        for (int i = 0; i < n; i++) {
-            int r = rnd.nextInt(t.matrixRows());
-            System.arraycopy(t.data(), r * t.matrixCols(), out.data(), i * t.matrixCols(), t.matrixCols());
-        }
-        return out;
+        return CpuRowAccess.sample(t, n, rnd);
     }
 
     @Override public void addInPlace(Tensor a, Tensor b)           { applyBinary(a, b, a, Float::sum); }
