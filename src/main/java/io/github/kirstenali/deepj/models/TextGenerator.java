@@ -162,10 +162,7 @@ public final class TextGenerator {
                                  float temperature, int topK, float repetitionPenalty, Random rnd) {
         int[] context = context(ids, length, maxSeqLen);
         Tensor logits = inference(forwarder, context);
-        logits.materialize();
-
-        float[] lastLogits = Arrays.copyOfRange(logits.rawData(),
-                (logits.matrixRows() - 1) * logits.matrixCols(), logits.matrixRows() * logits.matrixCols());
+        float[] lastLogits = logits.rowData(logits.matrixRows() - 1);
         Tensor.backend().releaseTemporaryResources();
         penalizeRecentTokens(lastLogits, ids, generatedStart, length, repetitionPenalty);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);

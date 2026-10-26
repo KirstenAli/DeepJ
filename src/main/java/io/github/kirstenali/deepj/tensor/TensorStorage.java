@@ -54,7 +54,15 @@ final class TensorStorage {
     static float[] rowData(Tensor tensor, int row) {
         requireRow(tensor, row);
         tensor.materialize();
-        return Arrays.copyOfRange(tensor.rawData(), row * tensor.matrixCols(), (row + 1) * tensor.matrixCols());
+        int width = tensor.matrixCols();
+        if (tensor.dtype() == DType.FLOAT32 && tensor.coversStorage()) {
+            return Arrays.copyOfRange(tensor.rawData(), row * width, (row + 1) * width);
+        }
+        float[] result = new float[width];
+        for (int column = 0; column < width; column++) {
+            result[column] = tensor.memory().get(tensor.layout().address(row, column));
+        }
+        return result;
     }
 
     static void materialize(Tensor tensor) {

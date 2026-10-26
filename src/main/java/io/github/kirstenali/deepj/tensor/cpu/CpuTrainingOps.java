@@ -220,10 +220,14 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     public void print(Tensor t, String label) {
         System.out.println(label);
+        if (t.rank() != 2) {
+            System.out.println(t.dtype() + " shape=" + java.util.Arrays.toString(t.shape())
+                    + " values=" + java.util.Arrays.toString(t.toFloatArray()));
+            return;
+        }
         for (int r = 0; r < t.matrixRows(); r++) {
-            int base = r * t.matrixCols();
-            for (int c = 0; c < t.matrixCols(); c++) {
-                System.out.printf("%.4f ", t.data()[base + c]);
+            for (float value : t.rowData(r)) {
+                System.out.printf("%.4f ", value);
             }
             System.out.println();
         }

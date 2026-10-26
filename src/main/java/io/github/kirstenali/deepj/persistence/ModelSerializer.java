@@ -64,12 +64,7 @@ public final class ModelSerializer {
             ModelFormat format = validateFile(file, params, expected);
             prepareForLoad();
             file.rewind();
-            DataInputStream input = file.data();
-            ModelFormat.read(input);
-            for (Parameter parameter : params) {
-                CheckpointTensorIO.readInto(input, parameter.value, format.typed());
-            }
-            if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
+            readValues(file.data(), params, format);
             return format.settings();
         }
     }
@@ -80,18 +75,27 @@ public final class ModelSerializer {
         }
     }
 
+    public static int formatVersion(Path path) throws IOException {
+        try (DataInputStream input = openInput(path)) { return ModelFormat.read(input).version(); }
+    }
+
     public static ModelInspection inspect(Path path) throws IOException {
-        try (var file = new CheckpointInput(path)) {
-            ModelFormat format = ModelFormat.read(file.data());
-            if (format.settings() == null) throw new IOException("Model has no embedded settings: " + path);
-            if (format.count() < 1) throw new IOException("Model has no tensors");
-            long parameters = 0;
-            for (int index = 0; index < format.count(); index++) {
-                parameters += CheckpointTensorIO.inspect(file, format.typed()).elements();
-            }
-            if (file.position() != file.size()) throw new IOException("Unexpected trailing checkpoint data");
-            return new ModelInspection(format.settings(), parameters, format.count(), file.size());
+        return ModelFileReader.read(path).inspection();
+    }
+
+    public static ModelLayout layout(Path path) throws IOException {
+        return ModelFileReader.read(path).layout();
+    }
+
+    private static void readValues(DataInputStream input, List<Parameter> params, ModelFormat format)
+            throws IOException {
+        ModelFormat.read(input);
+        var lookup = new ModelParameterIndex(params, format);
+        for (int position = 0; position < params.size(); position++) {
+            Parameter parameter = lookup.match(position, ModelTensorIO.descriptor(input, format));
+            io.github.kirstenali.deepj.tensor.TensorEncoding.readValues(input, parameter.value);
         }
+        if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
     }
 
     private static ModelFormat validateFile(CheckpointInput file, List<Parameter> params,
@@ -99,10 +103,13 @@ public final class ModelSerializer {
         ModelFormat format = ModelFormat.read(file.data());
         validateSettings(format.settings(), expected);
         if (format.count() != params.size()) throw new IOException("Parameter count mismatch");
-        for (Parameter parameter : params) {
-            var descriptor = CheckpointTensorIO.descriptor(file.data(), format.typed());
-            descriptor.requireMatches(parameter.value);
-            file.skip(descriptor.bytes());
+        var names = new java.util.HashSet<String>();
+        var lookup = new ModelParameterIndex(params, format);
+        for (int position = 0; position < params.size(); position++) {
+            var entry = ModelTensorIO.descriptor(file.data(), format);
+            lookup.match(position, entry);
+            if (format.named() && !names.add(entry.name())) throw new IOException("Duplicate parameter name");
+            file.skip(entry.tensor().bytes());
         }
         if (file.position() != file.size()) throw new IOException("Unexpected trailing checkpoint data");
         return format;
@@ -123,9 +130,10 @@ public final class ModelSerializer {
             throws IOException {
         try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path)))) {
             boolean typed = params.stream().anyMatch(parameter -> CheckpointTensorIO.requiresTyped(parameter.value));
-            ModelFormat.write(out, params.size(), settings, typed);
+            boolean named = ModelTensorIO.named(params, typed);
+            ModelFormat.write(out, params.size(), settings, typed, named);
             for (Parameter parameter : params) {
-                CheckpointTensorIO.write(out, parameter.value, typed);
+                ModelTensorIO.write(out, parameter, typed, named);
             }
         }
     }
