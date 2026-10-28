@@ -240,6 +240,28 @@ loadScripts(document, 'script');</script>
 <li>
 <section class="detail" id="io.github.kirstenali.deepj.optimisers">
 <h2>Uses of <a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a> in <a href="../package-summary.html">io.github.kirstenali.deepj.optimisers</a></h2>
+<div class="caption"><span>Methods in <a href="../package-summary.html">io.github.kirstenali.deepj.optimisers</a> that return <a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a></span></div>
+<div class="summary-table three-column-summary">
+<div class="table-header col-first">Modifier and Type</div>
+<div class="table-header col-second">Method</div>
+<div class="table-header col-last">Description</div>
+<div class="col-first even-row-color"><code><a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">ParameterFactory.</span><code><a href="../ParameterFactory.html#ones(java.lang.String,int,int)" class="member-name-link">ones</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name,
+ int&nbsp;rows,
+ int&nbsp;columns)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code><a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">ParameterFactory.</span><code><a href="../ParameterFactory.html#random(java.lang.String,int,int,java.util.Random)" class="member-name-link">random</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name,
+ int&nbsp;rows,
+ int&nbsp;columns,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;random)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code><a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">ParameterFactory.</span><code><a href="../ParameterFactory.html#zeros(java.lang.String,int,int)" class="member-name-link">zeros</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name,
+ int&nbsp;rows,
+ int&nbsp;columns)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+</div>
 <div class="caption"><span>Method parameters in <a href="../package-summary.html">io.github.kirstenali.deepj.optimisers</a> with type arguments of type <a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a></span></div>
 <div class="summary-table three-column-summary">
 <div class="table-header col-first">Modifier and Type</div>
@@ -258,6 +280,12 @@ loadScripts(document, 'script');</script>
 <div class="col-first odd-row-color"><code>void</code></div>
 <div class="col-second odd-row-color"><span class="type-name-label">ParameterOptimizer.</span><code><a href="../ParameterOptimizer.html#step(java.util.List)" class="member-name-link">step</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>void</code></div>
+<div class="col-second even-row-color"><span class="type-name-label">AdamW.</span><code><a href="../AdamW.html#validateState(java.util.List,io.github.kirstenali.deepj.optimisers.AdamW.State)" class="member-name-link">validateState</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
+ <a href="../AdamW.State.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW.State</a>&nbsp;state)</code></div>
+<div class="col-last even-row-color">
+<div class="block">Checks a prospective checkpoint without changing parameters, counters or optimizer buffers.</div>
+</div>
 </div>
 </section>
 </li>
@@ -294,23 +322,26 @@ loadScripts(document, 'script');</script>
  <a href="../../training/CosineLearningRateSchedule.html" title="class in io.github.kirstenali.deepj.training">CosineLearningRateSchedule</a>&nbsp;schedule,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;path)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
-<div class="col-first odd-row-color"><code>static void</code></div>
-<div class="col-second odd-row-color"><span class="type-name-label">ModelSerializer.</span><code><a href="../../persistence/ModelSerializer.html#save(java.util.List,java.nio.file.Path)" class="member-name-link">save</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
- <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;path)</code></div>
+<div class="col-first odd-row-color"><code>void</code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">ModelLayout.</span><code><a href="../../persistence/ModelLayout.html#requireMatches(java.util.List)" class="member-name-link">requireMatches</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;actual)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
 <div class="col-first even-row-color"><code>static void</code></div>
-<div class="col-second even-row-color"><span class="type-name-label">ModelSerializer.</span><code><a href="../../persistence/ModelSerializer.html#save(java.util.List,java.nio.file.Path,io.github.kirstenali.deepj.persistence.ModelSettings)" class="member-name-link">save</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
- <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;path,
- <a href="../../persistence/ModelSettings.html" title="class in io.github.kirstenali.deepj.persistence">ModelSettings</a>&nbsp;settings)</code></div>
+<div class="col-second even-row-color"><span class="type-name-label">ModelSerializer.</span><code><a href="../../persistence/ModelSerializer.html#save(java.util.List,java.nio.file.Path)" class="member-name-link">save</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;path)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-first odd-row-color"><code>static void</code></div>
-<div class="col-second odd-row-color"><span class="type-name-label">TrainingCheckpoint.</span><code><a href="../../persistence/TrainingCheckpoint.html#save(java.util.List,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.TrainingProgress,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)" class="member-name-link">save</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
+<div class="col-second odd-row-color"><span class="type-name-label">ModelSerializer.</span><code><a href="../../persistence/ModelSerializer.html#save(java.util.List,java.nio.file.Path,io.github.kirstenali.deepj.persistence.ModelSettings)" class="member-name-link">save</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;path,
+ <a href="../../persistence/ModelSettings.html" title="class in io.github.kirstenali.deepj.persistence">ModelSettings</a>&nbsp;settings)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>static void</code></div>
+<div class="col-second even-row-color"><span class="type-name-label">TrainingCheckpoint.</span><code><a href="../../persistence/TrainingCheckpoint.html#save(java.util.List,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.TrainingProgress,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)" class="member-name-link">save</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
  <a href="../AdamW.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW</a>&nbsp;optimizer,
  <a href="../../data/StatefulBatchSource.html" title="interface in io.github.kirstenali.deepj.data">StatefulBatchSource</a>&nbsp;dataset,
  <a href="../../training/TrainingProgress.html" title="class in io.github.kirstenali.deepj.training">TrainingProgress</a>&nbsp;progress,
  <a href="../../training/CosineLearningRateSchedule.html" title="class in io.github.kirstenali.deepj.training">CosineLearningRateSchedule</a>&nbsp;schedule,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;path)</code></div>
-<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-last even-row-color">&nbsp;</div>
 </div>
 </section>
 </li>

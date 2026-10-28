@@ -7,15 +7,16 @@ import io.github.kirstenali.deepj.models.TransformerConfig;
 import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
-import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 import io.github.kirstenali.deepj.training.TrainingProgress;
+import io.github.kirstenali.deepj.tensor.BackwardBuffers;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,9 +81,29 @@ public final class TrainingCheckpoint {
                                          StatefulBatchSource dataset, CosineLearningRateSchedule schedule,
                                          Path path, TransformerConfig expected) throws IOException {
         ModelSerializer.prepareForLoad();
-        CheckpointData checkpoint = read(params, schedule, path, expected);
+        try (var file = new CheckpointInput(path); var buffers = BackwardBuffers.begin()) {
+            try {
+                return buffers.capture(() -> readAndRestore(params, optimizer, dataset, schedule, file, expected));
+            } catch (UncheckedIOException failure) {
+                throw failure.getCause();
+            } finally {
+                buffers.releaseTemporaryResources();
+            }
+        }
+    }
+
+    private static TrainingProgress readAndRestore(List<Parameter> params, AdamW optimizer,
+                                                    StatefulBatchSource dataset, CosineLearningRateSchedule schedule,
+                                                    CheckpointInput file, TransformerConfig expected) {
+        try { return restore(params, optimizer, dataset, file, read(params, schedule, file, expected)); }
+        catch (IOException failure) { throw new UncheckedIOException(failure); }
+    }
+
+    private static TrainingProgress restore(List<Parameter> params, AdamW optimizer,
+                                             StatefulBatchSource dataset, CheckpointInput file,
+                                             CheckpointData checkpoint) throws IOException {
         optimizer.validateState(params, checkpoint.optimizer());
-        TrainingTensorIO.apply(params, checkpoint.modelValues());
+        TrainingTensorIO.apply(params, file, checkpoint.modelPositions(), checkpoint.typed());
         optimizer.restoreState(params, checkpoint.optimizer());
         dataset.restoreRandomState(checkpoint.datasetState());
         return checkpoint.progress();
@@ -132,17 +153,14 @@ public final class TrainingCheckpoint {
 
     private static CheckpointData read(List<Parameter> params,
                                        CosineLearningRateSchedule schedule,
-                                       Path path, TransformerConfig expected) throws IOException {
-        try (var file = new CheckpointInput(path)) {
-            DataInputStream input = file.data();
-            Metadata metadata = readMetadata(input, schedule, expected);
-            validateCount(input.readInt(), params.size());
-            TrainingTensorIO.State tensors = TrainingTensorIO.read(file, params, metadata.typed());
-            if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
-            AdamW.State optimizer = metadata.optimizer(tensors);
-            return new CheckpointData(metadata.progress(), metadata.datasetState(),
-                    optimizer, tensors.model());
-        }
+                                       CheckpointInput file, TransformerConfig expected) throws IOException {
+        DataInputStream input = file.data();
+        Metadata metadata = readMetadata(input, schedule, expected);
+        validateCount(input.readInt(), params.size());
+        TrainingTensorIO.State tensors = TrainingTensorIO.read(file, params, metadata.typed());
+        if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
+        return new CheckpointData(metadata.progress(), metadata.datasetState(),
+                metadata.optimizer(tensors), tensors.modelPositions(), metadata.typed());
     }
 
     private static Metadata readMetadata(DataInputStream input,
@@ -240,5 +258,5 @@ public final class TrainingCheckpoint {
     }
 
     private record CheckpointData(TrainingProgress progress, long datasetState,
-                                  AdamW.State optimizer, List<Tensor> modelValues) {}
+                                  AdamW.State optimizer, List<Long> modelPositions, boolean typed) {}
 }

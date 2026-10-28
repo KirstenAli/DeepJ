@@ -19,7 +19,8 @@ public final class CrossEntropyChecks {
     public static void requireTargets(Tensor logits, int[] targets) {
         int classes = classes(logits), positions = positions(logits);
         if (targets == null || positions == 0 || targets.length != positions) {
-            throw new IllegalArgumentException("Targets must match the nonempty leading logits positions");
+            throw new IllegalArgumentException(
+                    "CrossEntropy targets length must match nonempty leading logits positions");
         }
         for (int target : targets) {
             if (target < 0 || target >= classes) throw new IllegalArgumentException("Target class id is out of range");

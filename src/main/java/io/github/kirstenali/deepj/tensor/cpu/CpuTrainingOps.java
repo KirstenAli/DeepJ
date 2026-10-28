@@ -150,7 +150,7 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
         Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
         if (dim != NormalizationChecks.width(xHat)) throw new IllegalArgumentException("LayerNorm width mismatch");
-        NormalizationChecks.statistics(xHat, std);
+        NormalizationChecks.layerStatistics(xHat, std);
         if (!CpuNdElementwise.sameMatrices(dXHat, xHat) || !CpuNdElementwise.matrix(std)) {
             return CpuNdNormalization.backward(dXHat, xHat, std, Tensor.ones(1, dim), true);
         }
@@ -205,7 +205,10 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     @Override public void multiplyInPlace(Tensor a, Tensor b)      { applyBinary(a, b, a, (x, y) -> x * y); }
     @Override public void divideInPlace(Tensor a, Tensor b)        { applyBinary(a, b, a, (x, y) -> x / y); }
 
-    @Override public void multiplyScalarInPlace(Tensor a, float s) { applyScalar(a, s, a, (x, v) -> x * v); }
+    @Override public void multiplyScalarInPlace(Tensor a, float s) {
+        if (CpuNdElementwise.matrix(a)) CpuMatrixScalar.multiply(a, s);
+        else applyScalar(a, s, a, (x, v) -> x * v);
+    }
     @Override public void addScalarInPlace(Tensor a, float s)      { applyScalar(a, s, a, Float::sum); }
     @Override public void divideScalarInPlace(Tensor a, float s)   { applyScalar(a, s, a, (x, v) -> x / v); }
 

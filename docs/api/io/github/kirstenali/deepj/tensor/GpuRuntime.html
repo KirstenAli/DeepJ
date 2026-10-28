@@ -107,28 +107,57 @@ loadScripts(document, 'script');</script>
  int[]&nbsp;sizes,
  int&nbsp;count)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#downloadBuffer(int,float%5B%5D)" class="member-name-link">downloadBuffer</a><wbr>(int&nbsp;bufId,
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#allocTypedBuffers(int%5B%5D,int%5B%5D,io.github.kirstenali.deepj.tensor.DType%5B%5D,int)" class="member-name-link">allocTypedBuffers</a><wbr>(int[]&nbsp;ids,
+ int[]&nbsp;sizes,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>[]&nbsp;dtypes,
+ int&nbsp;count)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">
+<div class="block">Physical element counts and dtypes, independent of logical Tensor shape.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#downloadBuffer(int,float%5B%5D)" class="member-name-link">downloadBuffer</a><wbr>(int&nbsp;bufId,
  float[]&nbsp;out)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#downloadBuffer16(int,short%5B%5D)" class="member-name-link">downloadBuffer16</a><wbr>(int&nbsp;bufId,
+ short[]&nbsp;out)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#flushOps(int%5B%5D,int)" class="member-name-link">flushOps</a><wbr>(int[]&nbsp;cmdStream,
  int&nbsp;cmdStreamLength)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#releaseBuffers(int%5B%5D,int)" class="member-name-link">releaseBuffers</a><wbr>(int[]&nbsp;ids,
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#flushOps(int%5B%5D,int,long%5B%5D)" class="member-name-link">flushOps</a><wbr>(int[]&nbsp;commands,
+ int&nbsp;length,
+ long[]&nbsp;layouts)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#releaseBuffers(int%5B%5D,int)" class="member-name-link">releaseBuffers</a><wbr>(int[]&nbsp;ids,
  int&nbsp;count)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default boolean</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#supportsLayouts()" class="member-name-link">supportsLayouts</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#uploadBuffer(int,float%5B%5D)" class="member-name-link">uploadBuffer</a><wbr>(int&nbsp;bufId,
  float[]&nbsp;data)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#zeroBuffer(int,int)" class="member-name-link">zeroBuffer</a><wbr>(int&nbsp;bufId,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#uploadBuffer16(int,short%5B%5D)" class="member-name-link">uploadBuffer16</a><wbr>(int&nbsp;bufId,
+ short[]&nbsp;data)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#zeroBuffer(int,int)" class="member-name-link">zeroBuffer</a><wbr>(int&nbsp;bufId,
  int&nbsp;floatCount)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">
 <div class="block">Initializes the whole buffer with positive zero; custom runtimes retain a portable fallback.</div>
 </div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#zeroBuffer(int,int,io.github.kirstenali.deepj.tensor.DType)" class="member-name-link">zeroBuffer</a><wbr>(int&nbsp;bufId,
+ int&nbsp;elements,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -144,6 +173,12 @@ loadScripts(document, 'script');</script>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
+<section class="detail" id="supportsLayouts()">
+<h3>supportsLayouts</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">supportsLayouts</span>()</div>
+</section>
+</li>
+<li>
 <section class="detail" id="allocBuffers(int[],int[],int)">
 <h3>allocBuffers</h3>
 <div class="member-signature"><span class="return-type">void</span>&nbsp;<span class="element-name">allocBuffers</span><wbr><span class="parameters">(int[]&nbsp;ids,
@@ -152,10 +187,27 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
+<section class="detail" id="allocTypedBuffers(int[],int[],io.github.kirstenali.deepj.tensor.DType[],int)">
+<h3>allocTypedBuffers</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">allocTypedBuffers</span><wbr><span class="parameters">(int[]&nbsp;ids,
+ int[]&nbsp;sizes,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>[]&nbsp;dtypes,
+ int&nbsp;count)</span></div>
+<div class="block">Physical element counts and dtypes, independent of logical Tensor shape.</div>
+</section>
+</li>
+<li>
 <section class="detail" id="uploadBuffer(int,float[])">
 <h3>uploadBuffer</h3>
 <div class="member-signature"><span class="return-type">void</span>&nbsp;<span class="element-name">uploadBuffer</span><wbr><span class="parameters">(int&nbsp;bufId,
  float[]&nbsp;data)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="uploadBuffer16(int,short[])">
+<h3>uploadBuffer16</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">uploadBuffer16</span><wbr><span class="parameters">(int&nbsp;bufId,
+ short[]&nbsp;data)</span></div>
 </section>
 </li>
 <li>
@@ -174,6 +226,21 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
+<section class="detail" id="downloadBuffer16(int,short[])">
+<h3>downloadBuffer16</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">downloadBuffer16</span><wbr><span class="parameters">(int&nbsp;bufId,
+ short[]&nbsp;out)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="zeroBuffer(int,int,io.github.kirstenali.deepj.tensor.DType)">
+<h3>zeroBuffer</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">zeroBuffer</span><wbr><span class="parameters">(int&nbsp;bufId,
+ int&nbsp;elements,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype)</span></div>
+</section>
+</li>
+<li>
 <section class="detail" id="releaseBuffers(int[],int)">
 <h3>releaseBuffers</h3>
 <div class="member-signature"><span class="return-type">void</span>&nbsp;<span class="element-name">releaseBuffers</span><wbr><span class="parameters">(int[]&nbsp;ids,
@@ -185,6 +252,14 @@ loadScripts(document, 'script');</script>
 <h3>flushOps</h3>
 <div class="member-signature"><span class="return-type">void</span>&nbsp;<span class="element-name">flushOps</span><wbr><span class="parameters">(int[]&nbsp;cmdStream,
  int&nbsp;cmdStreamLength)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="flushOps(int[],int,long[])">
+<h3>flushOps</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">flushOps</span><wbr><span class="parameters">(int[]&nbsp;commands,
+ int&nbsp;length,
+ long[]&nbsp;layouts)</span></div>
 </section>
 </li>
 </ul>

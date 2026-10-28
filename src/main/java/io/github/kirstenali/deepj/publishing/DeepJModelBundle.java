@@ -84,8 +84,9 @@ public final class DeepJModelBundle {
             The `model.dj` checkpoint and `tokenizer.bpe` files use DeepJ's versioned binary formats.
             They are not directly loadable by the Python Transformers library.
 
-            Generation uses DeepJ's key/value cache. When the context window shifts,
-            DeepJ rebuilds the cache for that window.
+            Generation uses DeepJ's key/value cache. See
+            [generation options](https://github.com/KirstenAli/DeepJ/blob/master/docs/inference.md)
+            for cache modes and context-window behaviour.
 
             ## Usage
 

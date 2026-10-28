@@ -33,7 +33,12 @@ final class CheckpointInput implements AutoCloseable {
     }
 
     void rewind() throws IOException {
-        channel.position(0);
+        seek(0);
+    }
+
+    void seek(long position) throws IOException {
+        if (position < 0 || position > size()) throw new IOException("Invalid checkpoint position");
+        channel.position(position);
         // The discarded wrapper owns no separate file descriptor; this reader owns the shared channel.
         bindStream();
     }

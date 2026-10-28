@@ -21,6 +21,17 @@ final class MetalDenseOps {
         return matrix(left) && matrix(right) && left.hasSameShape(right);
     }
 
+    static Tensor binary(ComputeGraph graph, Tensor left, Tensor right, int operation) {
+        if (!dense(left) || !dense(right) || !left.hasSameShape(right)) {
+            return graph.layoutBinary(left, right, operation);
+        }
+        GpuBuffer first = graph.ensureStorageBuffer(left), second = graph.ensureStorageBuffer(right);
+        int rows = left.rank() == 2 ? left.matrixRows() : 1;
+        GpuBuffer output = graph.newOutputBuffer(rows, left.numel() / rows);
+        graph.recordBinary(operation, first, second, output);
+        return graph.createOutputLike(output, left);
+    }
+
     private static boolean full(Tensor input) {
         return input.isContiguous() && input.storageOffset() == 0
                 && input.storageBytes() == input.dtype().storageBytes(input.numel());
@@ -33,6 +44,6 @@ final class MetalDenseOps {
         int rows = input.rank() == 2 ? input.matrixRows() : 1;
         GpuBuffer output = graph.newOutputBuffer(rows, input.numel() / rows);
         graph.recordScalarUnary(opcode, source, output, scalar);
-        return graph.createOutputTensor(output, input.shape());
+        return graph.createOutputLike(output, input);
     }
 }

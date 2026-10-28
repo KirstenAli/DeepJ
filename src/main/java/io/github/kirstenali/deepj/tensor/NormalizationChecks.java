@@ -51,4 +51,12 @@ public final class NormalizationChecks {
             throw new IllegalArgumentException("Normalization denominator shape mismatch");
         }
     }
+
+    public static void layerStatistics(Tensor input, Tensor std) {
+        try {
+            statistics(input, std);
+        } catch (IllegalArgumentException error) {
+            throw new IllegalArgumentException("layerNormBackward: std " + error.getMessage(), error);
+        }
+    }
 }

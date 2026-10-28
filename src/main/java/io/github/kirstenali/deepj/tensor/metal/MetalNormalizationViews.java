@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 import io.github.kirstenali.deepj.tensor.NormalizationChecks;
 import io.github.kirstenali.deepj.tensor.NormalizationResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorScope;
 
 /** Contiguous FLOAT32 batches reuse the exact established matrix kernels; reshapes only change metadata. */
 final class MetalNormalizationViews {
@@ -20,6 +21,15 @@ final class MetalNormalizationViews {
 
     static NormalizationResult normalize(MetalCoreOps backend, Tensor input, Tensor gamma, Tensor beta,
                                           float epsilon, boolean centered) {
+        try (var scope = TensorScope.open()) {
+            var result = normalizeMatrix(backend, input, gamma, beta, epsilon, centered);
+            return new NormalizationResult(scope.escape(result.output()), scope.escape(result.normalized()),
+                    scope.escape(result.denominator()));
+        }
+    }
+
+    private static NormalizationResult normalizeMatrix(MetalCoreOps backend, Tensor input, Tensor gamma, Tensor beta,
+                                                        float epsilon, boolean centered) {
         int width = input.size(-1), rows = input.numel() / width;
         Tensor matrix = backend.reshape(input, rows, width), gain = backend.reshape(gamma, 1, width);
         if (centered) {
@@ -46,6 +56,13 @@ final class MetalNormalizationViews {
 
     static Tensor gradient(MetalCoreOps backend, Tensor gradient, Tensor normalized, Tensor denominator,
                              Tensor gamma, boolean centered) {
+        try (var scope = TensorScope.open()) {
+            return scope.escape(gradientMatrix(backend, gradient, normalized, denominator, gamma, centered));
+        }
+    }
+
+    private static Tensor gradientMatrix(MetalCoreOps backend, Tensor gradient, Tensor normalized, Tensor denominator,
+                                          Tensor gamma, boolean centered) {
         int width = normalized.size(-1), rows = normalized.numel() / width;
         Tensor g = backend.reshape(gradient, rows, width), norm = backend.reshape(normalized, rows, width);
         Tensor std = backend.reshape(denominator, rows, 1), gain = backend.reshape(gamma, 1, width);

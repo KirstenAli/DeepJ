@@ -20,9 +20,11 @@ try (GenerationSession session = model.openGeneration()) {
 
 Cached sessions return one logit row. Closing the session releases its cache retention, including after cancellation or failure. Separate sessions never reuse each other's cache. Loop has a distinct cache for every logical attention visit, including repeated visits to the same shared core layer.
 
-If the supplied context is not the previous context plus one token, the session rebuilds the cache. Once a sliding window is full, each new token drops the oldest token and shifts the window. DeepJ rebuilds the cache after each such shift to preserve its existing generation behaviour: positions restart at zero, and the remaining tokens are recalculated without the dropped token. Their old cached states were computed with that token present, so simply discarding its cache entry would not reproduce a fresh pass over the shifted window, even for models using RoPE.
+## Default generation
 
-Caching accelerates incremental generation while the context grows within its configured limit, but not once the window shifts on every step. For example, a 40-token prompt followed by 80 generated tokens stays within a 1,024-token window and can reuse the cache. This limitation concerns generation, not training.
+The default `REBUILD` mode reuses the cache when the supplied context is the previous context plus one token. Other contexts rebuild the cache. Once the window is full, each new token drops the oldest token and shifts the window. Rebuilding preserves cropped-context generation: positions restart at zero, and the remaining tokens are recalculated without the dropped token. Their previous cached states were computed with that token present, even for models using RoPE.
+
+This mode accelerates generation while the context grows, but loses incremental decoding once the window shifts on every step. Optional [rolling generation](#rolling-generation) avoids those repeated rebuilds for RoPE models, with different behaviour after eviction. Neither mode changes training.
 
 ## Rolling generation
 

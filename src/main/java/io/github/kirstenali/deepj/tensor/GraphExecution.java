@@ -10,7 +10,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
     public boolean isEmpty() { return opCount == 0; }
 
     public void flush() {
-        if (opCount == 0 && pendingAllocs.isEmpty()) {
+        if (opCount == 0 && pendingAllocs.isEmpty() && pendingUploadIds.isEmpty()) {
             releaseOrphanedBuffers();
             return;
         }

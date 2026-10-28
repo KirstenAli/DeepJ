@@ -78,6 +78,10 @@ final class TensorMemory {
         return rootState == null || !rootState.savedForBackward();
     }
 
+    void escapeAlias(GradientState state, TensorScope source, TensorScope destination) {
+        if (aliases != null) aliases.escape(state, source, destination);
+    }
+
     void discardStaleHost() {
         if (lazyHost) values = null;
     }

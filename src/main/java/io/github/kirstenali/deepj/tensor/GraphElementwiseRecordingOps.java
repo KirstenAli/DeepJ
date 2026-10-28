@@ -71,7 +71,7 @@ abstract class GraphElementwiseRecordingOps extends GraphLayoutRecordingOps {
         target.layout().requireWritable();
         if (target.numel() == 0) return;
         requireLayoutSupport();
-        Tensor snapshot = target.memory() == source.memory() ? copyToDevice(source) : source;
+        Tensor snapshot = GraphCopies.snapshotForWrite((GraphExecution) this, target, source);
         assignCommand(target, snapshot);
     }
 

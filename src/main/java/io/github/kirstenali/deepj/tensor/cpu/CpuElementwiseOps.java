@@ -56,9 +56,10 @@ abstract class CpuElementwiseOps implements TensorBackend {
         }
         prepare(a, out);
         float[] input = a.rawData(), output = out.rawData();
+        int columns = a.matrixCols();
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
-            int base = r * a.matrixCols();
-            for (int c = 0; c < a.matrixCols(); c++) {
+            int base = r * columns;
+            for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(input[base + c]);
             }
         });
@@ -78,9 +79,10 @@ abstract class CpuElementwiseOps implements TensorBackend {
         }
         prepare(a, b, out);
         float[] left = a.rawData(), right = b.rawData(), output = out.rawData();
+        int columns = a.matrixCols();
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
-            int base = r * a.matrixCols();
-            for (int c = 0; c < a.matrixCols(); c++) {
+            int base = r * columns;
+            for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(left[base + c], right[base + c]);
             }
         });
@@ -100,9 +102,10 @@ abstract class CpuElementwiseOps implements TensorBackend {
         }
         prepare(a, out);
         float[] input = a.rawData(), output = out.rawData();
+        int columns = a.matrixCols();
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
-            int base = r * a.matrixCols();
-            for (int c = 0; c < a.matrixCols(); c++) {
+            int base = r * columns;
+            for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(input[base + c], s);
             }
         });
@@ -118,10 +121,11 @@ abstract class CpuElementwiseOps implements TensorBackend {
     static void applyColBroadcast(Tensor a, Tensor col, Tensor out, FloatBinaryOp fn) {
         prepare(a, col, out);
         float[] input = a.rawData(), column = col.rawData(), output = out.rawData();
+        int columns = a.matrixCols();
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
             float v = column[r];
-            int base = r * a.matrixCols();
-            for (int c = 0; c < a.matrixCols(); c++) {
+            int base = r * columns;
+            for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(input[base + c], v);
             }
         });
@@ -139,9 +143,10 @@ abstract class CpuElementwiseOps implements TensorBackend {
     static void applyRowBroadcast(Tensor a, Tensor row, Tensor out, FloatBinaryOp fn) {
         prepare(a, row, out);
         float[] input = a.rawData(), vector = row.rawData(), output = out.rawData();
+        int columns = a.matrixCols();
         DeepJExecutor.forRange(0, a.matrixRows(), r -> {
-            int base = r * a.matrixCols();
-            for (int c = 0; c < a.matrixCols(); c++) {
+            int base = r * columns;
+            for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(input[base + c], vector[c]);
             }
         });

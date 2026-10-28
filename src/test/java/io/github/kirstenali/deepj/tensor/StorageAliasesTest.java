@@ -7,6 +7,33 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StorageAliasesTest {
     @Test
+    void liveViewsScanPastClosedScopesAndPreserveExternalRegistrations() {
+        var aliases = new StorageAliases(new GradientState());
+        var scoped = new GradientState();
+        try (var ignored = TensorScope.open()) { aliases.add(scoped); }
+        assertFalse(aliases.liveViews());
+        var external = new GradientState();
+        var reference = aliases.add(external);
+        assertTrue(aliases.liveViews());
+        reference.clear();
+        assertFalse(aliases.liveViews());
+        assertEquals(1, aliases.trackedViews());
+    }
+
+    @Test
+    void savedViewsScanPastUnusedStatesUntilTheirBackwardGraphIsReleased() {
+        var aliases = new StorageAliases(new GradientState());
+        var unused = new GradientState();
+        aliases.add(unused);
+        Tensor view = Tensor.ones(1, 2).requiresGrad(true);
+        aliases.add(view.gradientState());
+        Tensor result = view.sumTensor();
+        assertTrue(aliases.savedForBackward());
+        result.backward();
+        assertFalse(aliases.savedForBackward());
+    }
+
+    @Test
     void readOnlyViewCreationPrunesDeadRegistrationsWithoutDeviceCleanup() {
         var aliases = new StorageAliases(new GradientState());
         for (int index = 0; index < 10000; index++) {

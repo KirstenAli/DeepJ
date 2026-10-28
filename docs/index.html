@@ -82,11 +82,13 @@
             <p class="section-label">Core library</p>
             <h2>Small enough to understand. Complete enough to train.</h2>
             <p class="section-intro">DeepJ keeps the path from tensor math to text generation visible, with focused APIs and no hidden Python runtime.</p>
+            <p>The N-dimensional and optional compact-dtype APIs currently require a source build.
+                See <a href="https://github.com/KirstenAli/DeepJ/blob/master/docs/tensors.md">tensors and precision</a>.</p>
             <div class="feature-grid">
                 <article class="feature-card">
                     <span class="feature-number">01</span>
                     <h3>Tensors + gradients</h3>
-                    <p>Two-dimensional float32 tensors, automatic differentiation on CPU and Metal, and tests that check gradient accuracy.</p>
+                    <p>N-dimensional tensors with FLOAT32 defaults, optional FLOAT16/BFLOAT16 storage, and automatic differentiation on CPU and Metal.</p>
                 </article>
                 <article class="feature-card">
                     <span class="feature-number">02</span>
@@ -194,7 +196,6 @@ String answer = chat.generate(
             </div>
             <ul>
                 <li>The public API and checkpoint format may change before a stable release.</li>
-                <li>Tensors are currently two-dimensional and use float32 values.</li>
                 <li>Default generation rebuilds the cache after each window shift. Optional rolling generation for RoPE models avoids this but changes behaviour after eviction.</li>
                 <li>Metal is Apple Silicon-only, and Hugging Face bundles use DeepJ—not PyTorch—formats.</li>
                 <li>DeepJ is not validated for safety-critical or production inference workloads.</li>

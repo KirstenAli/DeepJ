@@ -128,10 +128,19 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     public Tensor createOutputTensor(GpuBuffer buf, int... shape) {
-        if (new TensorShape(shape).elements() != buf.elementCount()) {
+        return outputTensor(buf, TensorLayout.dense(new TensorShape(shape)));
+    }
+
+    /** Shares only immutable canonical geometry, never storage, gradients or caller-owned arrays. */
+    public Tensor createOutputLike(GpuBuffer buf, Tensor source) {
+        return outputTensor(buf, source.layout().denseOutput());
+    }
+
+    private Tensor outputTensor(GpuBuffer buf, TensorLayout geometry) {
+        if (geometry.shape().elements() != buf.elementCount()) {
             throw new IllegalArgumentException("Output shape must cover the GPU allocation");
         }
-        Tensor t = Tensor.deviceOnly(buf.dtype, shape);
+        Tensor t = Tensor.deviceOnly(buf.dtype, geometry);
         bindTensorToBuffer(t, buf);
         return t;
     }

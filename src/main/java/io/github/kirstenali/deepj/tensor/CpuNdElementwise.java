@@ -30,6 +30,10 @@ public final class CpuNdElementwise {
         input = readable(input, output);
         input.materialize();
         output.materialize();
+        if (CpuDenseElementwise.supports(input, output)) {
+            CpuDenseElementwise.unary(input, output, operation);
+            return;
+        }
         for (int index = 0; index < output.numel(); index++) {
             float value = input.memory().get(input.layout().addressAt(index));
             output.memory().set(output.layout().addressAt(index), operation.apply(value));
@@ -59,6 +63,10 @@ public final class CpuNdElementwise {
         left.materialize();
         right.materialize();
         output.materialize();
+        if (CpuDenseElementwise.supports(left, right, output)) {
+            CpuDenseElementwise.binary(left, right, output, operation);
+            return;
+        }
         TensorLayout a = LayoutTransforms.expand(left.layout(), output.shape());
         TensorLayout b = LayoutTransforms.expand(right.layout(), output.shape());
         for (int index = 0; index < output.numel(); index++) {

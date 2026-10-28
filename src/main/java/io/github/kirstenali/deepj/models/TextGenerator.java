@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.models.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorScope;
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
@@ -161,11 +162,24 @@ public final class TextGenerator {
                                  int[] ids, int generatedStart, int length,
                                  float temperature, int topK, float repetitionPenalty, Random rnd) {
         int[] context = context(ids, length, maxSeqLen);
-        Tensor logits = inference(forwarder, context);
-        float[] lastLogits = logits.rowData(logits.matrixRows() - 1);
+        float[] lastLogits = inferenceRow(forwarder, context);
         Tensor.backend().releaseTemporaryResources();
         penalizeRecentTokens(lastLogits, ids, generatedStart, length, repetitionPenalty);
         return sampleFromLogits(lastLogits, temperature, topK, rnd);
+    }
+
+    private static float[] inferenceRow(Function<int[], Tensor> forwarder, int[] context) {
+        if (!(forwarder instanceof CachedGenerationSession || forwarder instanceof UncachedGenerationSession)) {
+            return TensorScope.external(() -> lastRow(forwarder, context));
+        }
+        try (var ignored = TensorScope.open()) {
+            return lastRow(forwarder, context);
+        }
+    }
+
+    private static float[] lastRow(Function<int[], Tensor> forwarder, int[] context) {
+        Tensor logits = inference(forwarder, context);
+        return logits.rowData(logits.matrixRows() - 1);
     }
 
     private static Tensor inference(Function<int[], Tensor> forwarder, int[] context) {

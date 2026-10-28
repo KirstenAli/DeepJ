@@ -1,9 +1,11 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorScope;
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.CausalLM;
+import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -40,6 +42,15 @@ public final class CausalLMTraining {
     }
 
     private static float accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
+        if (!(model instanceof DecoderOnlyModel)) {
+            return TensorScope.external(() -> batchLossAndBackward(model, batch, batchSize));
+        }
+        try (var ignored = TensorScope.open()) {
+            return batchLossAndBackward(model, batch, batchSize);
+        }
+    }
+
+    private static float batchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
         if (batchSize > 1 && model.supportsBatchedForward()) {
             BatchedCausalLoss.requireBatch(batch, batchSize);
             return backwardAndLoss(BatchedCausalLoss.sum(model.forwardBatch(batch.x()), batch, batchSize));

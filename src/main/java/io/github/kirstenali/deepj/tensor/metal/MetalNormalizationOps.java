@@ -8,7 +8,7 @@ abstract class MetalNormalizationOps extends MetalGeneralNormalizationOps {
     public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
         Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
         if (dim != NormalizationChecks.width(xHat)) throw new IllegalArgumentException("LayerNorm width mismatch");
-        NormalizationChecks.statistics(xHat, std);
+        NormalizationChecks.layerStatistics(xHat, std);
         if (!MetalDenseOps.sameMatrices(dXHat, xHat) || !MetalDenseOps.matrix(std)) {
             Tensor ones = addScalar(zeros(DType.FLOAT32, dim), 1);
             return normalizationBackward(dXHat, xHat, std, ones, true);
@@ -16,7 +16,7 @@ abstract class MetalNormalizationOps extends MetalGeneralNormalizationOps {
         GpuBuffer gDXHat = gpuIn(dXHat), gXHat = gpuIn(xHat), gStd = gpuIn(std);
         GpuBuffer gOut = graph.newOutputBuffer(dXHat.matrixRows(), dXHat.matrixCols());
         graph.recordLayerNormBackward(gDXHat, gXHat, gStd, gOut, dXHat.matrixRows(), dXHat.matrixCols());
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, dXHat);
     }
 
     @Override
@@ -32,7 +32,8 @@ abstract class MetalNormalizationOps extends MetalGeneralNormalizationOps {
         GpuBuffer normalized = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         GpuBuffer rms = graph.newOutputBuffer(input.matrixRows(), 1);
         graph.recordRmsNorm(in, gain, output, normalized, rms, input.matrixRows(), input.matrixCols(), epsilon);
-        return new RmsNormResult(gpuOut(output), gpuOut(normalized), gpuOut(rms));
+        return new RmsNormResult(graph.createOutputLike(output, input), graph.createOutputLike(normalized, input),
+                gpuOut(rms));
     }
 
     @Override
@@ -46,7 +47,7 @@ abstract class MetalNormalizationOps extends MetalGeneralNormalizationOps {
         GpuBuffer g = gpuIn(gradient), norm = gpuIn(normalized), denominator = gpuIn(rms), gain = gpuIn(gamma);
         GpuBuffer output = graph.newOutputBuffer(gradient.matrixRows(), gradient.matrixCols());
         graph.recordRmsNormBackward(g, norm, denominator, gain, output, gradient.matrixRows(), gradient.matrixCols());
-        return gpuOut(output);
+        return graph.createOutputLike(output, gradient);
     }
 
     static void requireRmsNormShapes(Tensor input, Tensor gamma, int rmsRows, int rmsCols) {

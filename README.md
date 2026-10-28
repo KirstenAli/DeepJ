@@ -28,9 +28,13 @@ DeepJ requires JDK 20 or newer.
 
 API documentation is available in the [Javadoc](https://kirstenali.github.io/DeepJ/api/).
 
+The N-dimensional tensor and optional FLOAT16/BFLOAT16 APIs described below currently
+require a source build; they are not included in the published `0.11.0-alpha` artifact.
+
 ## What is included
 
-- A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
+- An [N-dimensional `Tensor` API](docs/tensors.md) with first-order [autograd](docs/autograd.md) on CPU and Metal.
+- FLOAT32 by default, with optional FLOAT16 and BFLOAT16 storage.
 - CPU execution and an optional Metal backend with fused training operations and a custom FP32 implementation of FlashAttention for supported devices and shapes.
 - Trainable decoder-only Transformer architectures, described in [Model architectures](#model-architectures).
 - Byte and BPE tokenizers, including BPE training and persistence.
@@ -67,6 +71,18 @@ JAVA_HOME=$(/usr/libexec/java_home -v 20) \
 
 Choose a `.dj` model file in the app. The screenshot shows the initial screen before a model is loaded.
 
+## Command line
+
+Build the optional terminal app with JDK 20 or newer:
+
+```bash
+mvn package -Pcli
+java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
+```
+
+Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
+or check backend availability. See the [CLI guide](docs/cli.md) for commands and controls.
+
 ## Quick start
 
 Download a DeepJ model bundle containing `model.dj` and `tokenizer.bpe`, then load it from one directory:
@@ -84,18 +100,6 @@ The loader reads the tokenizer and checkpoint settings, applies the saved prompt
 and returns only the generated answer. `chat.stream(prompt, listener)` delivers partial
 answers as they are generated. Each call is independent; conversation history is not
 retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced use.
-
-## Command line
-
-Build the optional terminal app with JDK 20 or newer:
-
-```bash
-mvn package -Pcli
-java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
-```
-
-Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
-or check backend availability. See the [CLI guide](docs/cli.md) for commands and controls.
 
 ## Model architectures
 
@@ -118,7 +122,6 @@ Download its `model.dj` and `tokenizer.bpe` files to try the quick start above o
 ## Current limitations
 
 - The public API and checkpoint format may change before a stable release.
-- Tensors are currently two-dimensional and use `float32` values.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
 - Default generation rebuilds the KV cache after each context-window shift. Optional [rolling generation](docs/inference.md#rolling-generation) avoids this for RoPE models, with different behaviour after eviction.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
@@ -131,6 +134,8 @@ Build the library locally:
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean verify
 ```
+
+See [coding standards and regression testing](docs/quality-and-regression.md) for the enforced checks and validation requirements.
 
 Maintainers can create signed source, Javadoc, and binary artifacts and publish them through the Central Portal with:
 

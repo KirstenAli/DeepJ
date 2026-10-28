@@ -58,37 +58,7 @@ final class TensorBackendDefaults {
     static Tensor batchedMatmul(Tensor left, Tensor right, int batches,
                                 boolean transposeLeft, boolean transposeRight) {
         PackedMatmulShape shape = PackedMatmulShape.of(left, right, batches, transposeLeft, transposeRight);
-        left.materialize();
-        right.materialize();
-        Tensor output = new Tensor(batches * shape.rows(), shape.cols());
-        DeepJExecutor.forRange(0, batches * shape.rows(), index ->
-                multiplyRow(left, right, output, shape, index));
-        return output;
-    }
-
-    private static void multiplyRow(Tensor left, Tensor right, Tensor output,
-                                    PackedMatmulShape shape, int index) {
-        int batch = index / shape.rows();
-        int row = index % shape.rows();
-        int outputBase = index * shape.cols();
-        for (int inner = 0; inner < shape.inner(); inner++) {
-            float value = leftValue(left, shape, batch, row, inner);
-            for (int col = 0; col < shape.cols(); col++) {
-                output.rawData()[outputBase + col] += value * rightValue(right, shape, batch, inner, col);
-            }
-        }
-    }
-
-    private static float leftValue(Tensor tensor, PackedMatmulShape shape, int batch, int row, int inner) {
-        int batchBase = batch * shape.leftRows() * tensor.matrixCols();
-        int offset = shape.transposeLeft() ? inner * tensor.matrixCols() + row : row * tensor.matrixCols() + inner;
-        return tensor.rawData()[batchBase + offset];
-    }
-
-    private static float rightValue(Tensor tensor, PackedMatmulShape shape, int batch, int inner, int col) {
-        int batchBase = batch * shape.rightRows() * tensor.matrixCols();
-        int offset = shape.transposeRight() ? col * tensor.matrixCols() + inner : inner * tensor.matrixCols() + col;
-        return tensor.rawData()[batchBase + offset];
+        return CpuPackedMatmul.apply(left, right, batches, shape);
     }
 
     static Tensor causalMask(Tensor input, int sequenceLength) {

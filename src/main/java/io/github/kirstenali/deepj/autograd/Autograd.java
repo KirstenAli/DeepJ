@@ -8,7 +8,11 @@ public final class Autograd {
     private Autograd() {}
 
     public static boolean tracks(Tensor... inputs) {
-        return GradMode.isEnabled() && Arrays.stream(inputs).anyMatch(Tensor::requiresGrad);
+        if (!GradMode.isEnabled()) return false;
+        for (Tensor input : inputs) {
+            if (input.requiresGrad()) return true;
+        }
+        return false;
     }
 
     public static Tensor record(Tensor output, BackwardRule rule, Tensor... inputs) {

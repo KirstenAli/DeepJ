@@ -13,7 +13,7 @@ final class MetalSwiGluDispatch {
         GpuBuffer first = graph.ensureStorageBuffer(gate), second = graph.ensureStorageBuffer(up);
         GpuBuffer output = graph.newOutputBuffer(1, gate.numel());
         graph.recordSwiGlu(first, second, output);
-        return graph.createOutputTensor(output, gate.shape());
+        return graph.createOutputLike(output, gate);
     }
 
     static SwiGluBackwardResult backward(ComputeGraph graph, Tensor gradient, Tensor gate, Tensor up) {
@@ -24,7 +24,7 @@ final class MetalSwiGluDispatch {
         GpuBuffer b = graph.ensureStorageBuffer(up);
         GpuBuffer first = graph.newOutputBuffer(1, gate.numel()), second = graph.newOutputBuffer(1, up.numel());
         graph.recordSwiGluBackward(g, a, b, first, second);
-        return new SwiGluBackwardResult(graph.createOutputTensor(first, gate.shape()),
-                graph.createOutputTensor(second, up.shape()));
+        return new SwiGluBackwardResult(graph.createOutputLike(first, gate),
+                graph.createOutputLike(second, up));
     }
 }

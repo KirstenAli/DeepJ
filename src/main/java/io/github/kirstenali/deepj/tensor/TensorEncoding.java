@@ -47,6 +47,17 @@ public final class TensorEncoding {
         readValues(input, tensor);
     }
 
+    /** Explicit checkpoint transfer; private host staging is released after an independent backend copy. */
+    public static Tensor readValuesToBackend(DataInput input, DType dtype, int... shape) throws IOException {
+        Tensor staging = Tensor.deviceOnly(dtype, shape);
+        try {
+            readValues(input, staging);
+            return HostStaging.copy(staging);
+        } finally {
+            staging.memory().discardStaleHost();
+        }
+    }
+
     public static void readValues(DataInput input, Tensor tensor) throws IOException {
         tensor.layout().requireWritable();
         tensor.materialize();

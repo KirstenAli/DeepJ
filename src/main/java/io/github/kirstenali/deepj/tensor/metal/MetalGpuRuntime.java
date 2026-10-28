@@ -7,6 +7,8 @@ import io.github.kirstenali.deepj.tensor.DType;
 import java.util.Objects;
 
 final class MetalGpuRuntime implements GpuRuntime {
+    private static final MetalAllocationBudget BUDGET = MetalAllocationBudget.configured();
+    private static final boolean BUDGET_ENABLED = BUDGET.enabled();
 
     @Override public boolean supportsLayouts() { return true; }
 
@@ -16,7 +18,12 @@ final class MetalGpuRuntime implements GpuRuntime {
         for (int i = 0; i < count; i++) {
             if (ids[i] < 0 || sizes[i] <= 0) throw new IllegalArgumentException("Invalid GPU buffer allocation");
         }
-        MetalNative.nativeAllocBuffers(ids, sizes, count);
+        if (!BUDGET_ENABLED) {
+            MetalNative.nativeAllocBuffers(ids, sizes, count);
+            return;
+        }
+        BUDGET.allocate(ids, sizes, null, count, () -> MetalNative.nativeAllocBuffers(ids, sizes, count),
+                () -> MetalNative.nativeReleaseBuffers(ids, count));
     }
 
     @Override
@@ -26,7 +33,13 @@ final class MetalGpuRuntime implements GpuRuntime {
         for (int index = 0; index < count; index++) {
             codes[index] = dtypes[index].storageCode();
         }
-        MetalNative.nativeAllocTypedBuffers(ids, elements, codes, count);
+        if (!BUDGET_ENABLED) {
+            MetalNative.nativeAllocTypedBuffers(ids, elements, codes, count);
+            return;
+        }
+        BUDGET.allocate(ids, elements, dtypes, count,
+                () -> MetalNative.nativeAllocTypedBuffers(ids, elements, codes, count),
+                () -> MetalNative.nativeReleaseBuffers(ids, count));
     }
 
     @Override
@@ -66,7 +79,11 @@ final class MetalGpuRuntime implements GpuRuntime {
     public void releaseBuffers(int[] ids, int count) {
         Objects.requireNonNull(ids);
         if (count < 0 || count > ids.length) throw new IllegalArgumentException("Invalid release count");
-        MetalNative.nativeReleaseBuffers(ids, count);
+        if (!BUDGET_ENABLED) {
+            MetalNative.nativeReleaseBuffers(ids, count);
+            return;
+        }
+        BUDGET.release(ids, count, () -> MetalNative.nativeReleaseBuffers(ids, count));
     }
 
     @Override

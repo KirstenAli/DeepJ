@@ -13,6 +13,8 @@ namespace metal {
 using uint = unsigned int;
 using ulong = unsigned long;
 using ushort = unsigned short;
+using half = _Float16;
+using bfloat = __bf16;
 using uint2 = uint __attribute__((ext_vector_type(2)));
 using uint3 = uint __attribute__((ext_vector_type(3)));
 using uint4 = uint __attribute__((ext_vector_type(4)));
@@ -21,6 +23,7 @@ struct simdgroup_float8x8 {
     simdgroup_float8x8();
     explicit simdgroup_float8x8(float);
 };
+template<class T, int Columns, int Rows> using simdgroup_matrix = simdgroup_float8x8;
 template<class T> void simdgroup_load(simdgroup_float8x8&, const T*, uint, ulong2 = ulong2(0), bool = false);
 void simdgroup_store(const simdgroup_float8x8&, float*, uint);
 void simdgroup_multiply_accumulate(simdgroup_float8x8&, const simdgroup_float8x8&,

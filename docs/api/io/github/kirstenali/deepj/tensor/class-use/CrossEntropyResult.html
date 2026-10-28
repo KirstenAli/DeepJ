@@ -58,6 +58,8 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-first odd-row-color"><a href="#io.github.kirstenali.deepj.tensor">io.github.kirstenali.deepj.tensor</a></div>
 <div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><a href="#io.github.kirstenali.deepj.tensor.cpu">io.github.kirstenali.deepj.tensor.cpu</a></div>
+<div class="col-last even-row-color">&nbsp;</div>
 </div>
 <section class="class-uses">
 <ul class="block-list">
@@ -84,12 +86,43 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
+<div class="col-first even-row-color"><code>static <a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">CpuNdCrossEntropy.</span><code><a href="../CpuNdCrossEntropy.html#apply(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D,boolean%5B%5D)" class="member-name-link">apply</a><wbr>(<a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
+ int[]&nbsp;targets,
+ boolean[]&nbsp;mask)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>static <a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">CrossEntropyDefaults.</span><code><a href="../CrossEntropyDefaults.html#apply(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D,boolean%5B%5D)" class="member-name-link">apply</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
+ int[]&nbsp;targets,
+ boolean[]&nbsp;mask)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 <div class="col-first even-row-color"><code>default <a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></code></div>
 <div class="col-second even-row-color"><span class="type-name-label">TensorBackend.</span><code><a href="../TensorBackend.html#crossEntropy(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D)" class="member-name-link">crossEntropy</a><wbr>(<a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
  int[]&nbsp;targets)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-first odd-row-color"><code>default <a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></code></div>
 <div class="col-second odd-row-color"><span class="type-name-label">TensorBackend.</span><code><a href="../TensorBackend.html#crossEntropy(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D,boolean%5B%5D)" class="member-name-link">crossEntropy</a><wbr>(<a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
+ int[]&nbsp;targets,
+ boolean[]&nbsp;mask)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+</div>
+</section>
+</li>
+<li>
+<section class="detail" id="io.github.kirstenali.deepj.tensor.cpu">
+<h2>Uses of <a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a> in <a href="../cpu/package-summary.html">io.github.kirstenali.deepj.tensor.cpu</a></h2>
+<div class="caption"><span>Methods in <a href="../cpu/package-summary.html">io.github.kirstenali.deepj.tensor.cpu</a> that return <a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></span></div>
+<div class="summary-table three-column-summary">
+<div class="table-header col-first">Modifier and Type</div>
+<div class="table-header col-second">Method</div>
+<div class="table-header col-last">Description</div>
+<div class="col-first even-row-color"><code><a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">CpuBackend.</span><code><a href="../cpu/CpuBackend.html#crossEntropy(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D)" class="member-name-link">crossEntropy</a><wbr>(<a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
+ int[]&nbsp;targets)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code><a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">CpuBackend.</span><code><a href="../cpu/CpuBackend.html#crossEntropy(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D,boolean%5B%5D)" class="member-name-link">crossEntropy</a><wbr>(<a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
  int[]&nbsp;targets,
  boolean[]&nbsp;mask)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>

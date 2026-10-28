@@ -46,4 +46,32 @@ final class TensorShapeTest {
         assertThrows(ArithmeticException.class,
                 () -> new TensorShape(0, Integer.MAX_VALUE, Integer.MAX_VALUE, 3).denseStrides());
     }
+
+    @Test
+    void equalBroadcastShapesReuseOnlyImmutableMetadata() {
+        int[] dimensions = {2, 3, 4};
+        var left = new TensorShape(dimensions);
+        var right = new TensorShape(2, 3, 4);
+        var result = ShapeTransforms.broadcast(left, right);
+        assertSame(left, result);
+        dimensions[0] = 99;
+        result.dimensions()[1] = 99;
+        assertArrayEquals(new int[]{2, 3, 4}, right.dimensions());
+        assertArrayEquals(new int[]{2, 3, 4}, result.dimensions());
+        assertSame(left, ShapeTransforms.broadcast(left, left));
+        assertSame(result, ShapeTransforms.broadcast(result, new TensorShape(2, 3, 4)));
+    }
+
+    @Test
+    void scalarAndEmptyBroadcastFastPathsPreserveValidationAndRank() {
+        var scalar = new TensorShape();
+        var empty = new TensorShape(2, 0, 3);
+        assertSame(scalar, ShapeTransforms.broadcast(scalar, new TensorShape()));
+        assertSame(empty, ShapeTransforms.broadcast(empty, new TensorShape(2, 0, 3)));
+        assertEquals(empty, ShapeTransforms.broadcast(empty, new TensorShape(1, 1, 3)));
+        assertEquals(new TensorShape(2, 3, 4), ShapeTransforms.broadcast(scalar, new TensorShape(2, 3, 4)));
+        assertThrows(IllegalArgumentException.class,
+                () -> ShapeTransforms.broadcast(empty, new TensorShape(2, 5, 3)));
+        assertThrows(IllegalArgumentException.class, () -> new TensorShape(Integer.MAX_VALUE, 0, -1));
+    }
 }

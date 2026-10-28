@@ -57,4 +57,30 @@ class ParameterFactoryTest {
         assertThrows(IllegalArgumentException.class, () -> factory.ones("gamma", 1, 0));
         assertThrows(NullPointerException.class, () -> new Parameter(null, new Tensor(1)));
     }
+
+    @ParameterizedTest
+    @EnumSource(DType.class)
+    void loadingPolicyKeepsTypedNamedStorageWithoutChangingTheDefaultFactory(DType dtype) {
+        var original = new ParameterFactory(dtype);
+        var random = new Random(12);
+        var loading = original.forLoading().scope("stack");
+        var weight = loading.random("weight", 2, 3, random);
+        assertEquals("stack.weight", weight.name());
+        assertEquals(dtype, weight.value.dtype());
+        assertNull(weight.value.getGpuTag());
+        assertArrayEquals(new float[6], weight.value.toFloatArray());
+        assertEquals(new Random(12).nextLong(), random.nextLong());
+        assertArrayEquals(new float[]{1, 1}, loading.ones("gamma", 1, 2).value.toFloatArray());
+        assertArrayEquals(new float[]{0, 0}, loading.zeros("bias", 1, 2).value.toFloatArray());
+        assertTrue(original.random("weight", 2, 3, new Random(12)).value.sumAbs() > 0);
+    }
+
+    @Test
+    void loadingPolicyPreservesStrictMixedDescriptorValidation() {
+        var factory = new ParameterFactory(Map.of("tokens.weight", new TensorDescriptor(DType.BFLOAT16,
+                new int[]{2, 3}))).scope("tokens").forLoading();
+        assertEquals(DType.BFLOAT16, factory.random("weight", 2, 3, new Random(12)).value.dtype());
+        assertThrows(IllegalArgumentException.class, () -> factory.random("other", 2, 3, new Random(12)));
+        assertThrows(IllegalArgumentException.class, () -> factory.random("weight", 3, 2, new Random(12)));
+    }
 }

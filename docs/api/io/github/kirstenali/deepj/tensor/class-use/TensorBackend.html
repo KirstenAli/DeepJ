@@ -91,8 +91,45 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
+<div class="col-first even-row-color"><code>static <a href="../CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">CrossEntropyDefaults.</span><code><a href="../CrossEntropyDefaults.html#apply(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D,boolean%5B%5D)" class="member-name-link">apply</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
+ int[]&nbsp;targets,
+ boolean[]&nbsp;mask)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>static <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">PackedLayouts.</span><code><a href="../PackedLayouts.html#matmul(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,boolean,boolean)" class="member-name-link">matmul</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;left,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;right,
+ int&nbsp;batches,
+ boolean&nbsp;transposeLeft,
+ boolean&nbsp;transposeRight)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>static <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">PackedLayouts.</span><code><a href="../PackedLayouts.html#merge(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,int)" class="member-name-link">merge</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;heads)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>static <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">HeadCacheOps.</span><code><a href="../HeadCacheOps.html#prefix(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">prefix</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+ int&nbsp;heads,
+ int&nbsp;length)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 <div class="col-first even-row-color"><code>static void</code></div>
 <div class="col-second even-row-color"><span class="type-name-label">Tensor.</span><code><a href="../Tensor.html#setBackend(io.github.kirstenali.deepj.tensor.TensorBackend)" class="member-name-link">setBackend</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>static <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color"><span class="type-name-label">PackedLayouts.</span><code><a href="../PackedLayouts.html#split(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,int)" class="member-name-link">split</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;heads)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>static void</code></div>
+<div class="col-second even-row-color"><span class="type-name-label">HeadCacheOps.</span><code><a href="../HeadCacheOps.html#writeLayouts(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">writeLayouts</a><wbr>(<a href="../TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+ <a href="../Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;update,
+ int&nbsp;heads,
+ int&nbsp;offset)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 </div>
 </section>

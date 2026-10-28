@@ -1,5 +1,7 @@
 # Tests and coverage
 
+See [coding standards and regression testing](quality-and-regression.md) for the approval requirements beyond this build, including matched CPU/Metal performance, memory and checkpoint comparisons.
+
 Run the portable build with JDK 20:
 
 ```sh

@@ -9,7 +9,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordMultiplyScalar(ga, gOut, scalar);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -18,7 +18,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordScalarUnary(ComputeGraph.OP_ADD_SCALAR, ga, gOut, scalar);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -27,7 +27,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordScalarUnary(ComputeGraph.OP_DIVIDE_SCALAR, ga, gOut, scalar);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
 
@@ -37,7 +37,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordClamp(ga, gOut, min, max);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -46,7 +46,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordPow(ga, gOut, exponent);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -55,7 +55,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_SQRT, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -64,7 +64,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_NEG, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -73,7 +73,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_EXP, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -82,7 +82,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_LOG, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -91,7 +91,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_TANH, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -100,7 +100,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_SIGMOID, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -109,7 +109,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_RELU, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -121,7 +121,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer gi = gpuIn(input), gg = gpuIn(gradOutput);
         GpuBuffer gOut = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordBinary(ComputeGraph.OP_RELU_BACKWARD, gi, gg, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, input);
     }
 
     @Override
@@ -130,7 +130,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(a);
         GpuBuffer gOut = graph.newOutputBuffer(a.matrixRows(), a.matrixCols());
         graph.recordUnary(ComputeGraph.OP_GELU, ga, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, a);
     }
 
     @Override
@@ -142,7 +142,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer gi = gpuIn(input), gg = gpuIn(gradOutput);
         GpuBuffer gOut = graph.newOutputBuffer(input.matrixRows(), input.matrixCols());
         graph.recordBinary(ComputeGraph.OP_GELU_BACKWARD, gi, gg, gOut);
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, input);
     }
 
     @Override
@@ -152,7 +152,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer ga = gpuIn(logits);
         GpuBuffer gOut = graph.newOutputBuffer(logits.matrixRows(), logits.matrixCols());
         graph.recordSoftmaxRows(ga, gOut, logits.matrixRows(), logits.matrixCols());
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, logits);
     }
 
     @Override
@@ -166,7 +166,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         GpuBuffer gSoftmax = gpuIn(softmaxOut);
         GpuBuffer gOut = graph.newOutputBuffer(gradOutput.matrixRows(), gradOutput.matrixCols());
         graph.recordSoftmaxBackward(gGrad, gSoftmax, gOut, gradOutput.matrixRows(), gradOutput.matrixCols());
-        return gpuOut(gOut);
+        return graph.createOutputLike(gOut, gradOutput);
     }
 
     @Override
@@ -178,7 +178,7 @@ abstract class MetalMathOps extends MetalRowReductionOps {
         }
         GpuBuffer output = graph.newOutputBuffer(gradient.matrixRows(), gradient.matrixCols());
         graph.recordScaledSoftmaxBackward(gpuIn(gradient), gpuIn(probabilities), output, scale);
-        return gpuOut(output);
+        return graph.createOutputLike(output, gradient);
     }
 
 

@@ -57,6 +57,13 @@ final class CheckpointTensorIO {
         TensorEncoding.readValues(input, tensor);
     }
 
+    static Tensor readToBackend(CheckpointInput input, DType dtype, int[] shape, boolean typed) throws IOException {
+        TensorDescriptor descriptor = descriptor(input.data(), typed);
+        descriptor.requireMatches(dtype, shape);
+        input.requireRemaining(descriptor.bytes());
+        return TensorEncoding.readValuesToBackend(input.data(), dtype, shape);
+    }
+
     static boolean readFlag(DataInputStream input) throws IOException {
         int value = input.readUnsignedByte();
         if (value > 1) throw new IOException("Invalid checkpoint boolean flag");

@@ -27,6 +27,10 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutSoftmaxPSO;
     id<MTLComputePipelineState> layoutMaximumBackwardPSO;
     id<MTLComputePipelineState> layoutMatmulPSO;
+    std::once_flag compactMatmulOnce;
+    id<MTLComputePipelineState> halfMatmulPSO;
+    id<MTLComputePipelineState> bfloatMatmulPSO;
+    id<MTLComputePipelineState> mixedMatmulPSO;
     id<MTLComputePipelineState> layoutIndexSelectPSO;
     id<MTLComputePipelineState> layoutIndexAddPSO;
     id<MTLComputePipelineState> layoutNormalizePSO;
@@ -407,6 +411,137 @@ kernel void kernel_attention_key_value_backward(device const float* query [[buff
     attention_write_gradient(dv, values, block, params.length, tid);
 }
 )";
+static NSString* compactMatmulShaderSource = @R"(
+#include <metal_stdlib>
+#include <metal_simdgroup_matrix>
+using namespace metal;
+
+#if COMPACT_KIND == 2
+using CompactValue = half;
+#elif COMPACT_KIND == 3
+using CompactValue = bfloat;
+#else
+using CompactValue = float;
+#endif
+using CompactMatrix = simdgroup_matrix<CompactValue, 8, 8>;
+
+struct CompactInputs {
+    device const unsigned char* left;
+    device const unsigned char* right;
+    device unsigned char* output;
+    device const ulong* layouts;
+    constant uint* params;
+};
+
+struct CompactLayout {
+    ulong offset, row, column;
+};
+struct CompactSums {
+    simdgroup_float8x8 a, b, c, d;
+};
+
+inline CompactLayout compact_layout(device const ulong* words, uint start, uint batch) {
+    uint rank = uint(words[start]);
+    ulong offset = words[start + 3];
+    for (int axis = int(rank) - 3; axis >= 0; axis--) {
+        offset += words[start + 4 + rank + axis] * (batch % uint(words[start + 4 + axis]));
+        batch /= uint(words[start + 4 + axis]);
+    }
+    return {offset, words[start + 2 + 2 * rank], words[start + 3 + 2 * rank]};
+}
+
+inline CompactValue compact_read(device const unsigned char* source, ulong address, uint dtype) {
+#if COMPACT_KIND == 1
+    if (dtype == 1) return ((device const float*)source)[address];
+    ushort bits = ((device const ushort*)source)[address];
+    return dtype == 2 ? float(as_type<half>(bits)) : as_type<float>(uint(bits) << 16);
+#else
+    return ((device const CompactValue*)source)[address];
+#endif
+}
+
+inline CompactValue compact_load(device const unsigned char* source, CompactLayout layout,
+                                 uint row, uint column, uint rows, uint columns, uint dtype) {
+    if (row >= rows || column >= columns) return CompactValue(0);
+    return compact_read(source, layout.offset + row * layout.row + column * layout.column, dtype);
+}
+
+inline void compact_tiles(CompactInputs input, threadgroup CompactValue* left,
+                           threadgroup CompactValue* right, uint3 tile, uint inner, uint lane) {
+    auto a = compact_layout(input.layouts, input.params[0], tile.z);
+    auto b = compact_layout(input.layouts, input.params[1], tile.z);
+    for (uint index = lane; index < 512; index += 128) {
+        left[index] = compact_load(input.left, a, tile.y * 32 + index / 16, inner + index % 16,
+                                    input.params[5], input.params[7], input.params[2]);
+        right[index] = compact_load(input.right, b, inner + index / 32, tile.x * 32 + index % 32,
+                                     input.params[7], input.params[6], input.params[3]);
+    }
+}
+
+inline void compact_accumulate(thread CompactSums& sums, threadgroup CompactValue* left,
+                                threadgroup CompactValue* right, uint group) {
+    for (uint inner = 0; inner < 16; inner += 8) {
+        CompactMatrix a, b, c, d;
+        simdgroup_load(a, left + (group / 2 * 16) * 16 + inner, 16);
+        simdgroup_load(b, left + (group / 2 * 16 + 8) * 16 + inner, 16);
+        simdgroup_load(c, right + inner * 32 + group % 2 * 16, 32);
+        simdgroup_load(d, right + inner * 32 + group % 2 * 16 + 8, 32);
+        simdgroup_multiply_accumulate(sums.a, a, c, sums.a);
+        simdgroup_multiply_accumulate(sums.b, a, d, sums.b);
+        simdgroup_multiply_accumulate(sums.c, b, c, sums.c);
+        simdgroup_multiply_accumulate(sums.d, b, d, sums.d);
+    }
+}
+
+inline void compact_store(CompactInputs input, threadgroup float* values, uint3 tile, uint lane) {
+    uint rows = input.params[5], columns = input.params[6];
+    for (uint index = lane; index < 1024; index += 128) {
+        uint row = tile.y * 32 + index / 32, column = tile.x * 32 + index % 32;
+        if (row < rows && column < columns) {
+            ulong address = (ulong(tile.z) * rows + row) * columns + column;
+            ((device CompactValue*)input.output)[address] = CompactValue(values[index]);
+        }
+    }
+}
+
+inline void compact_results(CompactInputs input, thread CompactSums& sums, threadgroup float* values,
+                             uint3 tile, uint lane, uint group) {
+    uint offset = group / 2 * 16 * 32 + group % 2 * 16;
+    simdgroup_store(sums.a, values + offset, 32);
+    simdgroup_store(sums.b, values + offset + 8, 32);
+    simdgroup_store(sums.c, values + offset + 8 * 32, 32);
+    simdgroup_store(sums.d, values + offset + 8 * 32 + 8, 32);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    compact_store(input, values, tile, lane);
+}
+
+inline void compact_product(CompactInputs input, threadgroup CompactValue* left,
+                             threadgroup CompactValue* right, threadgroup float* values,
+                             uint3 tile, uint lane, uint group) {
+    CompactSums sums{simdgroup_float8x8(0.0f), simdgroup_float8x8(0.0f),
+                     simdgroup_float8x8(0.0f), simdgroup_float8x8(0.0f)};
+    for (uint inner = 0; inner < input.params[7]; inner += 16) {
+        compact_tiles(input, left, right, tile, inner, lane);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        compact_accumulate(sums, left, right, group);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    compact_results(input, sums, values, tile, lane, group);
+}
+
+kernel void kernel_compact_matmul(device const unsigned char* left [[buffer(0)]],
+                                  device const unsigned char* right [[buffer(1)]],
+                                  device unsigned char* output [[buffer(2)]],
+                                  device const ulong* layouts [[buffer(3)]], constant uint* params [[buffer(4)]],
+                                  uint3 tile [[threadgroup_position_in_grid]],
+                                  uint lane [[thread_index_in_threadgroup]],
+                                  uint group [[simdgroup_index_in_threadgroup]]) {
+    threadgroup CompactValue first[512], second[512];
+    threadgroup float values[1024];
+    compact_product({left, right, output, layouts, params}, first, second, values, tile, lane, group);
+}
+)";
+
 static MetalContext* gCtx = nullptr;
 static std::mutex gContextMutex;
 
@@ -2185,6 +2320,47 @@ static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
     return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions() error:nil];
 }
 
+static MTLCompileOptions* compactCompileOptions(int dtype) {
+    MTLCompileOptions* options = [[MTLCompileOptions alloc] init];
+    if (@available(macOS 15.0, *)) options.mathMode = MTLMathModeSafe;
+    else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        options.fastMathEnabled = NO;
+#pragma clang diagnostic pop
+    }
+    if (@available(macOS 14.0, *)) options.languageVersion = MTLLanguageVersion3_1;
+    else options.languageVersion = MTLLanguageVersion2_3;
+    options.preprocessorMacros = @{@"COMPACT_KIND": @(dtype)};
+    return options;
+}
+
+static id<MTLComputePipelineState> compileCompactMatmul(MetalContext* ctx, int dtype) {
+    if (![ctx->device supportsFamily:MTLGPUFamilyApple7]) return nil;
+    if (dtype == 3) {
+        if (@available(macOS 14.0, *)) {} else return nil;
+    }
+    NSError* error = nil;
+    auto library = [ctx->device newLibraryWithSource:compactMatmulShaderSource
+        options:compactCompileOptions(dtype) error:&error];
+    if (library == nil) throw std::runtime_error(std::string("Compact matmul shader compilation failed: ")
+        + [(error.localizedDescription ?: @"Unknown error") UTF8String]);
+    auto pipeline = makePSO(library, @"kernel_compact_matmul");
+    if (pipeline.threadExecutionWidth != 32 || pipeline.maxTotalThreadsPerThreadgroup < 128) return nil;
+    return pipeline;
+}
+
+static void ensureCompactMatmul(MetalContext* ctx) {
+    std::call_once(ctx->compactMatmulOnce, [ctx] {
+        auto half = compileCompactMatmul(ctx, 2);
+        auto bfloat = compileCompactMatmul(ctx, 3);
+        auto mixed = compileCompactMatmul(ctx, 1);
+        ctx->halfMatmulPSO = half;
+        ctx->bfloatMatmulPSO = bfloat;
+        ctx->mixedMatmulPSO = mixed;
+    });
+}
+
 static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutCausalMaskPSO = makePSO(library, @"kernel_layout_causal_mask");
     ctx->layoutCausalSoftmaxPSO = makePSO(library, @"kernel_layout_causal_softmax");
@@ -2335,6 +2511,20 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAtte
         JNIEnv* env, jclass) {
     try {
         return getContext()->attentionPSO != nil ? JNI_TRUE : JNI_FALSE;
+    } catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsCompactMatmul(
+        JNIEnv* env, jclass, jint dtype) {
+    try {
+        if (dtype != 2 && dtype != 3) return JNI_FALSE;
+        auto ctx = getContext();
+        ensureCompactMatmul(ctx);
+        return (dtype == 2 ? ctx->halfMatmulPSO : ctx->bfloatMatmulPSO) != nil;
     } catch (const std::exception& error) {
         throwJavaRuntimeException(env, error.what());
         return JNI_FALSE;
@@ -4204,9 +4394,35 @@ static bool encodeLayoutMpsMatmul(GraphState& state, const jint* cmd, int pos, c
     return true;
 }
 
+static id<MTLComputePipelineState> compactMatmulPipeline(MetalContext* ctx, const LayoutMatmulSpec& spec) {
+    if (spec.leftType == 1 && spec.rightType == 1) return nil;
+    ensureCompactMatmul(ctx);
+    if (spec.leftType != spec.rightType) return ctx->mixedMatmulPSO;
+    return spec.leftType == 2 ? ctx->halfMatmulPSO : ctx->bfloatMatmulPSO;
+}
+
+static bool encodeCompactMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
+    auto pipeline = compactMatmulPipeline(state.ctx, spec);
+    if (pipeline == nil) return false;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 3; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + 1 + index], "compact matmul") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    std::array<uint32_t, 8> params{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], spec.leftType,
+        spec.rightType, spec.outputType, spec.rows, spec.columns, spec.inner};
+    bindValue(encoder, params, 4);
+    [encoder dispatchThreadgroups:MTLSizeMake((spec.columns + 31) / 32, (spec.rows + 31) / 32, spec.batches)
+        threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
+    return true;
+}
+
 static void encodeLayoutMatmul(GraphState& state, const jint* cmd, int pos) {
     auto spec = layoutMatmulSpec(state, cmd, pos);
     if (encodeLayoutMpsMatmul(state, cmd, pos, spec)) return;
+    if (encodeCompactMatmul(state, cmd, pos, spec)) return;
     auto encoder = graphEncoder(state);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
     [encoder setComputePipelineState:state.ctx->layoutMatmulPSO];

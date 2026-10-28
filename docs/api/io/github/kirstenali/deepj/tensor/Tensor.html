@@ -39,7 +39,7 @@ loadScripts(document, 'script');</script>
 <p>Summary:</p>
 <ul>
 <li>Nested</li>
-<li><a href="#field-summary">Field</a></li>
+<li>Field</li>
 <li><a href="#constructor-summary">Constr</a></li>
 <li><a href="#method-summary">Method</a></li>
 </ul>
@@ -47,7 +47,7 @@ loadScripts(document, 'script');</script>
 <li>
 <p>Detail:</p>
 <ul>
-<li><a href="#field-detail">Field</a></li>
+<li>Field</li>
 <li><a href="#constructor-detail">Constr</a></li>
 <li><a href="#method-detail">Method</a></li>
 </ul>
@@ -59,13 +59,13 @@ loadScripts(document, 'script');</script>
 <ul class="sub-nav-list">
 <li>Summary:&nbsp;</li>
 <li>Nested&nbsp;|&nbsp;</li>
-<li><a href="#field-summary">Field</a>&nbsp;|&nbsp;</li>
+<li>Field&nbsp;|&nbsp;</li>
 <li><a href="#constructor-summary">Constr</a>&nbsp;|&nbsp;</li>
 <li><a href="#method-summary">Method</a></li>
 </ul>
 <ul class="sub-nav-list">
 <li>Detail:&nbsp;</li>
-<li><a href="#field-detail">Field</a>&nbsp;|&nbsp;</li>
+<li>Field&nbsp;|&nbsp;</li>
 <li><a href="#constructor-detail">Constr</a>&nbsp;|&nbsp;</li>
 <li><a href="#method-detail">Method</a></li>
 </ul>
@@ -86,38 +86,19 @@ loadScripts(document, 'script');</script>
 <h1 title="Class Tensor" class="title">Class Tensor</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree"><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">java.lang.Object</a>
+<div class="inheritance"><a href="TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">io.github.kirstenali.deepj.tensor.TensorStorageAccess</a>
+<div class="inheritance"><a href="TensorManipulations.html" title="class in io.github.kirstenali.deepj.tensor">io.github.kirstenali.deepj.tensor.TensorManipulations</a>
 <div class="inheritance">io.github.kirstenali.deepj.tensor.Tensor</div>
+</div>
+</div>
 </div>
 <section class="class-description" id="class-description">
 <hr>
 <div class="type-signature"><span class="modifiers">public class </span><span class="element-name type-name-label">Tensor</span>
-<span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></span></div>
+<span class="extends-implements">extends <a href="TensorManipulations.html" title="class in io.github.kirstenali.deepj.tensor">TensorManipulations</a></span></div>
 </section>
 <section class="summary">
 <ul class="summary-list">
-<!-- =========== FIELD SUMMARY =========== -->
-<li>
-<section class="field-summary" id="field-summary">
-<h2>Field Summary</h2>
-<div class="caption"><span>Fields</span></div>
-<div class="summary-table three-column-summary">
-<div class="table-header col-first">Modifier and Type</div>
-<div class="table-header col-second">Field</div>
-<div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><code>final int</code></div>
-<div class="col-second even-row-color"><code><a href="#cols" class="member-name-link">cols</a></code></div>
-<div class="col-last even-row-color">&nbsp;</div>
-<div class="col-first odd-row-color"><code>float[]</code></div>
-<div class="col-second odd-row-color"><code><a href="#data" class="member-name-link">data</a></code></div>
-<div class="col-last odd-row-color">
-<div class="block">Raw CPU storage; call materialize() before access.</div>
-</div>
-<div class="col-first even-row-color"><code>final int</code></div>
-<div class="col-second even-row-color"><code><a href="#rows" class="member-name-link">rows</a></code></div>
-<div class="col-last even-row-color">&nbsp;</div>
-</div>
-</section>
-</li>
 <!-- ======== CONSTRUCTOR SUMMARY ======== -->
 <li>
 <section class="constructor-summary" id="constructor-summary">
@@ -126,8 +107,13 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(int,int)" class="member-name-link">Tensor</a><wbr>(int&nbsp;rows,
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(int...)" class="member-name-link">Tensor</a><wbr>(int...&nbsp;shape)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(int,int)" class="member-name-link">Tensor</a><wbr>(int&nbsp;rows,
  int&nbsp;cols)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.github.kirstenali.deepj.tensor.DType,int...)" class="member-name-link">Tensor</a><wbr>(<a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype,
+ int...&nbsp;shape)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">Tensor</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;source)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
@@ -197,18 +183,22 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#copy()" class="member-name-link">copy</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Bit-preserving independent storage with an identity autograd edge.</div>
+</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>float</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#crossEntropyLoss(int%5B%5D)" class="member-name-link">crossEntropyLoss</a><wbr>(int[]&nbsp;targets)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>float[]</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#data()" class="member-name-link">data</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Returns current CPU values, downloading GPU results only when needed.</div>
+<div class="block">Materializes and returns the backing FLOAT32 array of a full contiguous tensor.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#detach()" class="member-name-link">detach</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Independent detached storage, preserving DeepJ's existing copy-based detach behavior.</div>
+</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#divide(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">divide</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;other)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
@@ -231,6 +221,22 @@ loadScripts(document, 'script');</script>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#expInPlace()" class="member-name-link">expInPlace</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#from(float%5B%5D)" class="member-name-link">from</a><wbr>(float[]&nbsp;values)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#from(float%5B%5D,int...)" class="member-name-link">from</a><wbr>(float[]&nbsp;values,
+ int...&nbsp;shape)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#from(float%5B%5D,io.github.kirstenali.deepj.tensor.DType)" class="member-name-link">from</a><wbr>(float[]&nbsp;values,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#from(float%5B%5D,io.github.kirstenali.deepj.tensor.DType,int...)" class="member-name-link">from</a><wbr>(float[]&nbsp;values,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype,
+ int...&nbsp;shape)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#from2D(float%5B%5D%5B%5D)" class="member-name-link">from2D</a><wbr>(float[][]&nbsp;data)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
@@ -239,85 +245,72 @@ loadScripts(document, 'script');</script>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#geluInPlace()" class="member-name-link">geluInPlace</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>float</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#get(int,int)" class="member-name-link">get</a><wbr>(int&nbsp;r,
- int&nbsp;c)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getGpuTag()" class="member-name-link">getGpuTag</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getRow(int)" class="member-name-link">getRow</a><wbr>(int&nbsp;row)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#grad()" class="member-name-link">grad</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../autograd/GradientState.html" title="class in io.github.kirstenali.deepj.autograd">GradientState</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#gradientState()" class="member-name-link">gradientState</a>()</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>float</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#item()" class="member-name-link">item</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>float</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#item()" class="member-name-link">item</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#log()" class="member-name-link">log</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#log()" class="member-name-link">log</a>()</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#logInPlace()" class="member-name-link">logInPlace</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#logInPlace()" class="member-name-link">logInPlace</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#materialize()" class="member-name-link">materialize</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#matmul(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">matmul</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;other)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#materialize()" class="member-name-link">materialize</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#maxAlongRows()" class="member-name-link">maxAlongRows</a>()</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#matmul(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">matmul</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;other)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#meanAlongRows()" class="member-name-link">meanAlongRows</a>()</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#maxAlongRows()" class="member-name-link">maxAlongRows</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiply(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiply</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;other)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#meanAlongRows()" class="member-name-link">meanAlongRows</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyBroadcastCols(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiplyBroadcastCols</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;colVector)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiply(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiply</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;other)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyBroadcastRows(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiplyBroadcastRows</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;rowVector)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyBroadcastCols(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiplyBroadcastCols</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;colVector)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyInPlace(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiplyInPlace</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;other)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyBroadcastRows(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiplyBroadcastRows</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;rowVector)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyScalar(float)" class="member-name-link">multiplyScalar</a><wbr>(float&nbsp;s)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyInPlace(io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">multiplyInPlace</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;other)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyScalarInPlace(float)" class="member-name-link">multiplyScalarInPlace</a><wbr>(float&nbsp;scalar)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyScalar(float)" class="member-name-link">multiplyScalar</a><wbr>(float&nbsp;s)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#neg()" class="member-name-link">neg</a>()</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#multiplyScalarInPlace(float)" class="member-name-link">multiplyScalarInPlace</a><wbr>(float&nbsp;scalar)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#negInPlace()" class="member-name-link">negInPlace</a>()</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#neg()" class="member-name-link">neg</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#ones(int,int)" class="member-name-link">ones</a><wbr>(int&nbsp;rows,
- int&nbsp;cols)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#pow(float)" class="member-name-link">pow</a><wbr>(float&nbsp;exponent)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#print(java.lang.String)" class="member-name-link">print</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;label)</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#negInPlace()" class="member-name-link">negInPlace</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#random(int,int,java.util.Random)" class="member-name-link">random</a><wbr>(int&nbsp;rows,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#ones(int,int)" class="member-name-link">ones</a><wbr>(int&nbsp;rows,
+ int&nbsp;cols)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#pow(float)" class="member-name-link">pow</a><wbr>(float&nbsp;exponent)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#print(java.lang.String)" class="member-name-link">print</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;label)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#random(int,int,java.util.Random)" class="member-name-link">random</a><wbr>(int&nbsp;rows,
  int&nbsp;cols,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rand)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#releaseDeviceBufferRetention()" class="member-name-link">releaseDeviceBufferRetention</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#reluActivation()" class="member-name-link">reluActivation</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
@@ -329,21 +322,15 @@ loadScripts(document, 'script');</script>
  <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;b,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;op)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#requiresGrad()" class="member-name-link">requiresGrad</a>()</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#requiresGrad(boolean)" class="member-name-link">requiresGrad</a><wbr>(boolean&nbsp;required)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#requiresGrad(boolean)" class="member-name-link">requiresGrad</a><wbr>(boolean&nbsp;required)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#requireTargetsMatchRows(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D)" class="member-name-link">requireTargetsMatchRows</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#requireTargetsMatchRows(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D)" class="member-name-link">requireTargetsMatchRows</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;logits,
  int[]&nbsp;targets)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#retainDeviceBuffer()" class="member-name-link">retainDeviceBuffer</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#retainsDeviceBuffer()" class="member-name-link">retainsDeviceBuffer</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#retainDeviceBuffer()" class="member-name-link">retainDeviceBuffer</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>float[]</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#rowData(int)" class="member-name-link">rowData</a><wbr>(int&nbsp;r)</code></div>
@@ -358,17 +345,9 @@ loadScripts(document, 'script');</script>
  int[]&nbsp;indices,
  <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;grad)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#set(int,int,float)" class="member-name-link">set</a><wbr>(int&nbsp;r,
- int&nbsp;c,
- float&nbsp;value)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#setBackend(io.github.kirstenali.deepj.tensor.TensorBackend)" class="member-name-link">setBackend</a><wbr>(<a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setGpuTag(java.lang.Object)" class="member-name-link">setGpuTag</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;tag)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#setBackend(io.github.kirstenali.deepj.tensor.TensorBackend)" class="member-name-link">setBackend</a><wbr>(<a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setRow(int,io.github.kirstenali.deepj.tensor.Tensor,int)" class="member-name-link">setRow</a><wbr>(int&nbsp;row,
  <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;source,
@@ -427,22 +406,31 @@ loadScripts(document, 'script');</script>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#tanhInPlace()" class="member-name-link">tanhInPlace</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#transpose()" class="member-name-link">transpose</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>protected <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#tensor()" class="member-name-link">tensor</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#varianceAlongRows()" class="member-name-link">varianceAlongRows</a>()</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#transpose()" class="member-name-link">transpose</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#zeroGrad()" class="member-name-link">zeroGrad</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#varianceAlongRows()" class="member-name-link">varianceAlongRows</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#zeros(int,int)" class="member-name-link">zeros</a><wbr>(int&nbsp;rows,
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#zeroGrad()" class="member-name-link">zeroGrad</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#zeros(int,int)" class="member-name-link">zeros</a><wbr>(int&nbsp;rows,
  int&nbsp;cols)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
 </div>
+<div class="inherited-list">
+<h3 id="methods-inherited-from-class-io.github.kirstenali.deepj.tensor.TensorManipulations">Methods inherited from class&nbsp;io.github.kirstenali.deepj.tensor.<a href="TensorManipulations.html" title="class in io.github.kirstenali.deepj.tensor">TensorManipulations</a></h3>
+<code><a href="TensorManipulations.html#contiguous()">contiguous</a>, <a href="TensorManipulations.html#copyFrom(io.github.kirstenali.deepj.tensor.Tensor)">copyFrom</a>, <a href="TensorManipulations.html#expand(int...)">expand</a>, <a href="TensorManipulations.html#indexAddInPlace(int,int%5B%5D,io.github.kirstenali.deepj.tensor.Tensor)">indexAddInPlace</a>, <a href="TensorManipulations.html#indexSelect(int,int...)">indexSelect</a>, <a href="TensorManipulations.html#maxAxes(int...)">maxAxes</a>, <a href="TensorManipulations.html#maximum(int,boolean)">maximum</a>, <a href="TensorManipulations.html#mean(int,boolean)">mean</a>, <a href="TensorManipulations.html#meanAxes(int...)">meanAxes</a>, <a href="TensorManipulations.html#ones(io.github.kirstenali.deepj.tensor.DType,int...)">ones</a>, <a href="TensorManipulations.html#permute(int...)">permute</a>, <a href="TensorManipulations.html#random(io.github.kirstenali.deepj.tensor.DType,java.util.Random,int...)">random</a>, <a href="TensorManipulations.html#requiresGrad()">requiresGrad</a>, <a href="TensorManipulations.html#reshape(int...)">reshape</a>, <a href="TensorManipulations.html#select(int,int)">select</a>, <a href="TensorManipulations.html#slice(int,int,int)">slice</a>, <a href="TensorManipulations.html#slice(int,int,int,int)">slice</a>, <a href="TensorManipulations.html#softmax(int)">softmax</a>, <a href="TensorManipulations.html#sum(int,boolean)">sum</a>, <a href="TensorManipulations.html#sumAxes(int...)">sumAxes</a>, <a href="TensorManipulations.html#to(io.github.kirstenali.deepj.tensor.DType)">to</a>, <a href="TensorManipulations.html#transpose(int,int)">transpose</a>, <a href="TensorManipulations.html#unsqueeze(int)">unsqueeze</a>, <a href="TensorManipulations.html#variance(int,boolean)">variance</a>, <a href="TensorManipulations.html#variance(int,boolean,int)">variance</a>, <a href="TensorManipulations.html#varianceAxes(int%5B%5D,boolean,int)">varianceAxes</a>, <a href="TensorManipulations.html#view(int...)">view</a>, <a href="TensorManipulations.html#zeros(io.github.kirstenali.deepj.tensor.DType,int...)">zeros</a></code></div>
+<div class="inherited-list">
+<h3 id="methods-inherited-from-class-io.github.kirstenali.deepj.tensor.TensorStorageAccess">Methods inherited from class&nbsp;io.github.kirstenali.deepj.tensor.<a href="TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">TensorStorageAccess</a></h3>
+<code><a href="TensorStorageAccess.html#dtype()">dtype</a>, <a href="TensorStorageAccess.html#get(int...)">get</a>, <a href="TensorStorageAccess.html#get(int,int)">get</a>, <a href="TensorStorageAccess.html#getGpuTag()">getGpuTag</a>, <a href="TensorStorageAccess.html#gradientState()">gradientState</a>, <a href="TensorStorageAccess.html#hasSameShape(io.github.kirstenali.deepj.tensor.TensorStorageAccess)">hasSameShape</a>, <a href="TensorStorageAccess.html#hasShape(int...)">hasShape</a>, <a href="TensorStorageAccess.html#isContiguous()">isContiguous</a>, <a href="TensorStorageAccess.html#matrixCols()">matrixCols</a>, <a href="TensorStorageAccess.html#matrixRows()">matrixRows</a>, <a href="TensorStorageAccess.html#numel()">numel</a>, <a href="TensorStorageAccess.html#rank()">rank</a>, <a href="TensorStorageAccess.html#rawData()">rawData</a>, <a href="TensorStorageAccess.html#releaseDeviceBufferRetention()">releaseDeviceBufferRetention</a>, <a href="TensorStorageAccess.html#retainsDeviceBuffer()">retainsDeviceBuffer</a>, <a href="TensorStorageAccess.html#set(int,int,float)">set</a>, <a href="TensorStorageAccess.html#setAt(float,int...)">setAt</a>, <a href="TensorStorageAccess.html#setGpuTag(java.lang.Object)">setGpuTag</a>, <a href="TensorStorageAccess.html#shape()">shape</a>, <a href="TensorStorageAccess.html#size(int)">size</a>, <a href="TensorStorageAccess.html#storageBytes()">storageBytes</a>, <a href="TensorStorageAccess.html#storageOffset()">storageOffset</a>, <a href="TensorStorageAccess.html#strides()">strides</a>, <a href="TensorStorageAccess.html#toFloatArray()">toFloatArray</a></code></div>
 <div class="inherited-list">
 <h3 id="methods-inherited-from-class-java.lang.Object">Methods inherited from class&nbsp;java.lang.<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></h3>
 <code><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#clone()" title="class or interface in java.lang" class="external-link">clone</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#equals(java.lang.Object)" title="class or interface in java.lang" class="external-link">equals</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#finalize()" title="class or interface in java.lang" class="external-link">finalize</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#getClass()" title="class or interface in java.lang" class="external-link">getClass</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#hashCode()" title="class or interface in java.lang" class="external-link">hashCode</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#notify()" title="class or interface in java.lang" class="external-link">notify</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#notifyAll()" title="class or interface in java.lang" class="external-link">notifyAll</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#toString()" title="class or interface in java.lang" class="external-link">toString</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#wait()" title="class or interface in java.lang" class="external-link">wait</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#wait(long)" title="class or interface in java.lang" class="external-link">wait</a>, <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html#wait(long,int)" title="class or interface in java.lang" class="external-link">wait</a></code></div>
@@ -452,43 +440,29 @@ loadScripts(document, 'script');</script>
 </section>
 <section class="details">
 <ul class="details-list">
-<!-- ============ FIELD DETAIL =========== -->
-<li>
-<section class="field-details" id="field-detail">
-<h2>Field Details</h2>
-<ul class="member-list">
-<li>
-<section class="detail" id="data">
-<h3>data</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">float[]</span>&nbsp;<span class="element-name">data</span></div>
-<div class="block">Raw CPU storage; call materialize() before access. GPU results allocate it lazily.</div>
-</section>
-</li>
-<li>
-<section class="detail" id="rows">
-<h3>rows</h3>
-<div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">rows</span></div>
-</section>
-</li>
-<li>
-<section class="detail" id="cols">
-<h3>cols</h3>
-<div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">cols</span></div>
-</section>
-</li>
-</ul>
-</section>
-</li>
 <!-- ========= CONSTRUCTOR DETAIL ======== -->
 <li>
 <section class="constructor-details" id="constructor-detail">
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
+<section class="detail" id="&lt;init&gt;(int...)">
+<h3>Tensor</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">Tensor</span><wbr><span class="parameters">(int...&nbsp;shape)</span></div>
+</section>
+</li>
+<li>
 <section class="detail" id="&lt;init&gt;(int,int)">
 <h3>Tensor</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">Tensor</span><wbr><span class="parameters">(int&nbsp;rows,
  int&nbsp;cols)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="&lt;init&gt;(io.github.kirstenali.deepj.tensor.DType,int...)">
+<h3>Tensor</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">Tensor</span><wbr><span class="parameters">(<a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype,
+ int...&nbsp;shape)</span></div>
 </section>
 </li>
 <li>
@@ -506,15 +480,13 @@ loadScripts(document, 'script');</script>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="gradientState()">
-<h3>gradientState</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../autograd/GradientState.html" title="class in io.github.kirstenali.deepj.autograd">GradientState</a></span>&nbsp;<span class="element-name">gradientState</span>()</div>
-</section>
-</li>
-<li>
-<section class="detail" id="requiresGrad()">
-<h3>requiresGrad</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">requiresGrad</span>()</div>
+<section class="detail" id="tensor()">
+<h3>tensor</h3>
+<div class="member-signature"><span class="modifiers">protected</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">tensor</span>()</div>
+<dl class="notes">
+<dt>Specified by:</dt>
+<dd><code><a href="TensorManipulations.html#tensor()">tensor</a></code>&nbsp;in class&nbsp;<code><a href="TensorManipulations.html" title="class in io.github.kirstenali.deepj.tensor">TensorManipulations</a></code></dd>
+</dl>
 </section>
 </li>
 <li>
@@ -551,12 +523,14 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="detach()">
 <h3>detach</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">detach</span>()</div>
+<div class="block">Independent detached storage, preserving DeepJ's existing copy-based detach behavior.</div>
 </section>
 </li>
 <li>
 <section class="detail" id="copy()">
 <h3>copy</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">copy</span>()</div>
+<div class="block">Bit-preserving independent storage with an identity autograd edge.</div>
 </section>
 </li>
 <li>
@@ -572,33 +546,9 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="getGpuTag()">
-<h3>getGpuTag</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></span>&nbsp;<span class="element-name">getGpuTag</span>()</div>
-</section>
-</li>
-<li>
-<section class="detail" id="setGpuTag(java.lang.Object)">
-<h3>setGpuTag</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">setGpuTag</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;tag)</span></div>
-</section>
-</li>
-<li>
 <section class="detail" id="retainDeviceBuffer()">
 <h3>retainDeviceBuffer</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">retainDeviceBuffer</span>()</div>
-</section>
-</li>
-<li>
-<section class="detail" id="retainsDeviceBuffer()">
-<h3>retainsDeviceBuffer</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">retainsDeviceBuffer</span>()</div>
-</section>
-</li>
-<li>
-<section class="detail" id="releaseDeviceBufferRetention()">
-<h3>releaseDeviceBufferRetention</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">releaseDeviceBufferRetention</span>()</div>
 </section>
 </li>
 <li>
@@ -617,7 +567,7 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="data()">
 <h3>data</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">float[]</span>&nbsp;<span class="element-name">data</span>()</div>
-<div class="block">Returns current CPU values, downloading GPU results only when needed.</div>
+<div class="block">Materializes and returns the backing FLOAT32 array of a full contiguous tensor.</div>
 </section>
 </li>
 <li>
@@ -630,6 +580,10 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="materialize()">
 <h3>materialize</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">materialize</span>()</div>
+<dl class="notes">
+<dt>Specified by:</dt>
+<dd><code><a href="TensorStorageAccess.html#materialize()">materialize</a></code>&nbsp;in class&nbsp;<code><a href="TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">TensorStorageAccess</a></code></dd>
+</dl>
 </section>
 </li>
 <li>
@@ -952,6 +906,34 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
+<section class="detail" id="from(float[],int...)">
+<h3>from</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">from</span><wbr><span class="parameters">(float[]&nbsp;values,
+ int...&nbsp;shape)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="from(float[])">
+<h3>from</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">from</span><wbr><span class="parameters">(float[]&nbsp;values)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="from(float[],io.github.kirstenali.deepj.tensor.DType)">
+<h3>from</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">from</span><wbr><span class="parameters">(float[]&nbsp;values,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="from(float[],io.github.kirstenali.deepj.tensor.DType,int...)">
+<h3>from</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">from</span><wbr><span class="parameters">(float[]&nbsp;values,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype,
+ int...&nbsp;shape)</span></div>
+</section>
+</li>
+<li>
 <section class="detail" id="sum()">
 <h3>sum</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">float</span>&nbsp;<span class="element-name">sum</span>()</div>
@@ -967,21 +949,6 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="crossEntropyLoss(int[])">
 <h3>crossEntropyLoss</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">float</span>&nbsp;<span class="element-name">crossEntropyLoss</span><wbr><span class="parameters">(int[]&nbsp;targets)</span></div>
-</section>
-</li>
-<li>
-<section class="detail" id="get(int,int)">
-<h3>get</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">float</span>&nbsp;<span class="element-name">get</span><wbr><span class="parameters">(int&nbsp;r,
- int&nbsp;c)</span></div>
-</section>
-</li>
-<li>
-<section class="detail" id="set(int,int,float)">
-<h3>set</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">set</span><wbr><span class="parameters">(int&nbsp;r,
- int&nbsp;c,
- float&nbsp;value)</span></div>
 </section>
 </li>
 <li>

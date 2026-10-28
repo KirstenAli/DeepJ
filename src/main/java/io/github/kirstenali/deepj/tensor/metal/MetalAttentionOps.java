@@ -49,7 +49,7 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
         GpuBuffer normalization = graph.newOutputBuffer(query.matrixRows(), 2);
         graph.recordCausalAttention(gpuIn(query), gpuIn(key), gpuIn(value), output, normalization,
                 queryHeads, keyValueHeads, scale);
-        return new CausalAttentionResult(gpuOut(output), gpuOut(normalization));
+        return new CausalAttentionResult(graph.createOutputLike(output, query), gpuOut(normalization));
     }
 
     @Override
@@ -74,7 +74,8 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
         graph.recordCausalAttentionBackward(gpuIn(query), gpuIn(key), gpuIn(value), gpuIn(saved.output()),
                 gpuIn(gradient), gpuIn(saved.normalization()), delta, dq, dk, dv,
                 queryHeads, keyValueHeads, scale);
-        return new AttentionGradients(gpuOut(dq), gpuOut(dk), gpuOut(dv));
+        return new AttentionGradients(graph.createOutputLike(dq, query), graph.createOutputLike(dk, key),
+                graph.createOutputLike(dv, value));
     }
 
     private static void requireNormalization(Tensor normalization, int rows) {

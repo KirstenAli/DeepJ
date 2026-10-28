@@ -13,10 +13,13 @@ public abstract class TensorManipulations extends TensorStorageAccess {
     }
 
     TensorManipulations(DType dtype, boolean host, int... shape) { super(dtype, host, shape); }
+    TensorManipulations(DType dtype, boolean host, TensorLayout geometry) { super(dtype, host, geometry); }
     TensorManipulations(TensorMemory memory, TensorLayout layout) { super(memory, layout); }
     TensorManipulations(TensorStorageAccess source, TensorLayout layout) { super(source, layout); }
 
     protected abstract Tensor tensor();
+
+    public boolean requiresGrad() { return gradientState().required(); }
 
     public final Tensor view(int... shape) { return ViewOps.view(tensor(), shape); }
     public final Tensor unsqueeze(int axis) { return ViewOps.unsqueeze(tensor(), axis); }

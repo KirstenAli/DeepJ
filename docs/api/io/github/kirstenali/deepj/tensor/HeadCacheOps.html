@@ -107,13 +107,26 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#requirePrefix(io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">requirePrefix</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#prefix(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">prefix</a><wbr>(<a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
  int&nbsp;heads,
  int&nbsp;length)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#requireWrite(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">requireWrite</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#requirePrefix(io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">requirePrefix</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+ int&nbsp;heads,
+ int&nbsp;length)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#requireWrite(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">requireWrite</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;update,
+ int&nbsp;heads,
+ int&nbsp;offset)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#writeLayouts(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">writeLayouts</a><wbr>(<a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
  <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;update,
  int&nbsp;heads,
  int&nbsp;offset)</code></div>
@@ -148,6 +161,25 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="requirePrefix(io.github.kirstenali.deepj.tensor.Tensor,int,int)">
 <h3>requirePrefix</h3>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">requirePrefix</span><wbr><span class="parameters">(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+ int&nbsp;heads,
+ int&nbsp;length)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="writeLayouts(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,int)">
+<h3>writeLayouts</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">writeLayouts</span><wbr><span class="parameters">(<a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;update,
+ int&nbsp;heads,
+ int&nbsp;offset)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="prefix(io.github.kirstenali.deepj.tensor.TensorBackend,io.github.kirstenali.deepj.tensor.Tensor,int,int)">
+<h3>prefix</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">prefix</span><wbr><span class="parameters">(<a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a>&nbsp;backend,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cache,
  int&nbsp;heads,
  int&nbsp;length)</span></div>
 </section>

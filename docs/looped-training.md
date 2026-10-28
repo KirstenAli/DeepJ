@@ -107,8 +107,10 @@ default.
 
 ## Resume and evaluation
 
-Exported models continue to use model format 3. The architecture-aware
-training-checkpoint version is a separate format, not the retired model format 2.
+The examples keep FLOAT32 as the default and retain compatibility with existing model
+and training files. Explicit compact-dtype models use dtype-aware formats; their training
+checkpoints also preserve FLOAT32 master weights and optimizer moments. Model exports
+and resumable training checkpoints are separate files; see [tensors and precision](tensors.md).
 
 Rolling training checkpoints include weights, Adam state, data position,
 schedule, architecture, pass count and residual scale. A mismatched configuration

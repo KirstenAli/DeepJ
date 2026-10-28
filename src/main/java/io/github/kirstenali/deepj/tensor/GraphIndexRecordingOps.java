@@ -35,7 +35,7 @@ abstract class GraphIndexRecordingOps extends GraphSliceRecordingOps {
         var selection = IndexSelection.requireUpdates(target, updates, axis, indices);
         if (updates.numel() == 0) return;
         requireLayoutSupport();
-        Tensor source = target.memory() == updates.memory() ? copyToDevice(updates) : updates;
+        Tensor source = GraphCopies.snapshotForWrite((GraphExecution) this, target, updates);
         indexAddCommand(target, source, selection.axis(), indices);
     }
 

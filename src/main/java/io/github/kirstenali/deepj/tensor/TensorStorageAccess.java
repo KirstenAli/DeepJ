@@ -15,6 +15,10 @@ public abstract class TensorStorageAccess {
         this(TensorLayout.dense(new TensorShape(dimensions)), dtype, host);
     }
 
+    TensorStorageAccess(DType dtype, boolean host, TensorLayout geometry) {
+        this(geometry, dtype, host);
+    }
+
     private TensorStorageAccess(TensorLayout layout, DType dtype, boolean host) {
         this(new TensorMemory(dtype, layout.shape().elements(), host), layout);
     }
@@ -44,6 +48,8 @@ public abstract class TensorStorageAccess {
 
     public final int rank() { return layout.shape().rank(); }
     public final int[] shape() { return layout.shape().dimensions(); }
+    /** Tests exact logical dimensions without copying shape metadata or reading tensor values. */
+    public final boolean hasShape(int... dimensions) { return layout.shape().matches(dimensions); }
     public final int size(int axis) { return layout.shape().size(axis); }
     public final int numel() { return layout.shape().elements(); }
     public final boolean hasSameShape(TensorStorageAccess other) { return layout.shape().equals(other.layout.shape()); }

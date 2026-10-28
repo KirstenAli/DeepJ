@@ -55,6 +55,23 @@ class CheckpointInputTest {
         assertThrows(IOException.class, () -> input.data().readInt());
     }
 
+    @Test
+    void seekingDiscardsReadAheadWithoutReopeningTheFile() throws IOException {
+        byte[] bytes = bytes();
+        Path path = Files.write(directory.resolve("seek.bin"), bytes);
+        try (var input = new CheckpointInput(path)) {
+            input.skip(90000);
+            input.seek(123);
+            assertEquals(123, input.position());
+            assertEquals(bytes[123] & 0xff, input.data().readUnsignedByte());
+            input.seek(130000);
+            assertEquals(bytes[130000] & 0xff, input.data().readUnsignedByte());
+            assertThrows(IOException.class, () -> input.seek(-1));
+            assertThrows(IOException.class, () -> input.seek(bytes.length + 1));
+            assertEquals(130001, input.position());
+        }
+    }
+
     private static byte[] bytes() {
         byte[] result = new byte[3 * 65536 + 123];
         for (int index = 0; index < result.length; index++) {

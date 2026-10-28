@@ -6,6 +6,7 @@ final class ShapeTransforms {
     private ShapeTransforms() {}
 
     static TensorShape broadcast(TensorShape left, TensorShape right) {
+        if (left.equals(right)) return left;
         int[] output = new int[Math.max(left.rank(), right.rank())];
         for (int axis = output.length - 1; axis >= 0; axis--) {
             output[axis] = dimension(trailing(left, axis, output.length), trailing(right, axis, output.length));

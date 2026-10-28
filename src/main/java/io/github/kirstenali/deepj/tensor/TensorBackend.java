@@ -4,6 +4,9 @@ import java.util.List;
 
 public interface TensorBackend {
 
+    /** Whether backend copies reside on a device rather than in ordinary host storage. */
+    default boolean usesDeviceStorage() { return false; }
+
     /** Backend-owned positive-zero storage; ordinary Tensor constructors stay CPU-backed. */
     default Tensor zeros(int rows, int columns) { return new Tensor(rows, columns); }
 

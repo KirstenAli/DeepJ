@@ -41,6 +41,8 @@ final class MetalNative {
 
     private static native boolean nativeSupportsTiledAttention();
 
+    static native boolean nativeSupportsCompactMatmul(int dtype);
+
     static native void nativeAllocBuffers(int[] ids, int[] sizes, int count);
     static native void nativeAllocTypedBuffers(int[] ids, int[] elements, int[] dtypes, int count);
 

@@ -112,6 +112,11 @@ implements <a href="../../training/Trainable.html" title="interface in io.github
  int&nbsp;dModel,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(int,int,java.util.Random,io.github.kirstenali.deepj.optimisers.ParameterFactory)" class="member-name-link">Embedding</a><wbr>(int&nbsp;vocabSize,
+ int&nbsp;dModel,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd,
+ <a href="../../optimisers/ParameterFactory.html" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a>&nbsp;parameters)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 </div>
 </section>
 </li>
@@ -129,12 +134,15 @@ implements <a href="../../training/Trainable.html" title="interface in io.github
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#forward(int%5B%5D)" class="member-name-link">forward</a><wbr>(int[]&nbsp;ids)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../../optimisers/Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#parameters()" class="member-name-link">parameters</a>()</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#forwardBatch(int%5B%5D%5B%5D)" class="member-name-link">forwardBatch</a><wbr>(int[][]&nbsp;sequences)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../../optimisers/Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#weight()" class="member-name-link">weight</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../../optimisers/Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#parameters()" class="member-name-link">parameters</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../../optimisers/Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#weight()" class="member-name-link">weight</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -163,6 +171,15 @@ implements <a href="../../training/Trainable.html" title="interface in io.github
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd)</span></div>
 </section>
 </li>
+<li>
+<section class="detail" id="&lt;init&gt;(int,int,java.util.Random,io.github.kirstenali.deepj.optimisers.ParameterFactory)">
+<h3>Embedding</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">Embedding</span><wbr><span class="parameters">(int&nbsp;vocabSize,
+ int&nbsp;dModel,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd,
+ <a href="../../optimisers/ParameterFactory.html" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a>&nbsp;parameters)</span></div>
+</section>
+</li>
 </ul>
 </section>
 </li>
@@ -175,6 +192,12 @@ implements <a href="../../training/Trainable.html" title="interface in io.github
 <section class="detail" id="forward(int[])">
 <h3>forward</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">forward</span><wbr><span class="parameters">(int[]&nbsp;ids)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="forwardBatch(int[][])">
+<h3>forwardBatch</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">forwardBatch</span><wbr><span class="parameters">(int[][]&nbsp;sequences)</span></div>
 </section>
 </li>
 <li>

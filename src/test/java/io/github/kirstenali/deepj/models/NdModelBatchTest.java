@@ -13,6 +13,13 @@ import static io.github.kirstenali.deepj.testing.NdModelFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NdModelBatchTest {
+    static Stream<org.junit.jupiter.params.provider.Arguments> typed() { return typedCases(); }
+
+    @ParameterizedTest @MethodSource("typed")
+    void singleSequenceSpecializationRetainsExactNdSingletonResults(String family, DType dtype) {
+        io.github.kirstenali.deepj.testing.NdSingleSequenceChecks.exactSingletonBatch(family, dtype);
+    }
+
     @BeforeEach void cpu() { Tensor.setBackend(new CpuBackend()); }
     static Stream<String> names() { return families(); }
 

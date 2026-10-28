@@ -16,8 +16,27 @@ final class TensorLayout {
         LayoutValidation.requireBounds(shape, this.strides, offset, storageElements);
     }
 
+    private TensorLayout(TensorShape shape) {
+        this.shape = Objects.requireNonNull(shape, "shape");
+        this.strides = shape.denseStrides();
+        this.offset = 0;
+        this.storageElements = shape.elements();
+        LayoutValidation.requireBounds(shape, strides, offset, storageElements);
+    }
+
     static TensorLayout dense(TensorShape shape) {
-        return new TensorLayout(shape, shape.denseStrides(), 0, shape.elements());
+        return new TensorLayout(shape);
+    }
+
+    /** Independent outputs may reuse immutable geometry, but never an offset or noncanonical stride. */
+    TensorLayout denseOutput() {
+        if (offset != 0 || storageElements != shape.elements()) return dense(shape);
+        long expected = 1;
+        for (int axis = shape.rank() - 1; axis >= 0; axis--) {
+            if (strides[axis] != expected) return dense(shape);
+            expected = Math.multiplyExact(expected, Math.max(1, shape.size(axis)));
+        }
+        return this;
     }
 
     TensorShape shape() { return shape; }

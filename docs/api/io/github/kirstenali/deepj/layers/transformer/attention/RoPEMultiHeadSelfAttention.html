@@ -124,6 +124,13 @@ loadScripts(document, 'script');</script>
  <a href="../../../transformer/embeddings/RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rope,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(int,int,boolean,io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,java.util.Random,io.github.kirstenali.deepj.optimisers.ParameterFactory)" class="member-name-link">RoPEMultiHeadSelfAttention</a><wbr>(int&nbsp;dModel,
+ int&nbsp;nHeads,
+ boolean&nbsp;causalMask,
+ <a href="../../../transformer/embeddings/RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rope,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd,
+ <a href="../../../optimisers/ParameterFactory.html" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a>&nbsp;parameters)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 </div>
 </section>
 </li>
@@ -147,6 +154,11 @@ loadScripts(document, 'script');</script>
  int&nbsp;length,
  int&nbsp;offset)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>protected <a href="../../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#transformQueryKey(io.github.kirstenali.deepj.tensor.Tensor,int,io.github.kirstenali.deepj.inference.InferenceContext)" class="member-name-link">transformQueryKey</a><wbr>(<a href="../../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;heads,
+ int&nbsp;length,
+ <a href="../../../inference/InferenceContext.html" title="class in io.github.kirstenali.deepj.inference">InferenceContext</a>&nbsp;context)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -180,6 +192,17 @@ loadScripts(document, 'script');</script>
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd)</span></div>
 </section>
 </li>
+<li>
+<section class="detail" id="&lt;init&gt;(int,int,boolean,io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,java.util.Random,io.github.kirstenali.deepj.optimisers.ParameterFactory)">
+<h3>RoPEMultiHeadSelfAttention</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">RoPEMultiHeadSelfAttention</span><wbr><span class="parameters">(int&nbsp;dModel,
+ int&nbsp;nHeads,
+ boolean&nbsp;causalMask,
+ <a href="../../../transformer/embeddings/RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rope,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd,
+ <a href="../../../optimisers/ParameterFactory.html" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a>&nbsp;parameters)</span></div>
+</section>
+</li>
 </ul>
 </section>
 </li>
@@ -208,6 +231,18 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Overrides:</dt>
 <dd><code><a href="MultiHeadSelfAttention.html#transformQueryKey(io.github.kirstenali.deepj.tensor.Tensor,int,int)">transformQueryKey</a></code>&nbsp;in class&nbsp;<code><a href="MultiHeadSelfAttention.html" title="class in io.github.kirstenali.deepj.layers.transformer.attention">MultiHeadSelfAttention</a></code></dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="transformQueryKey(io.github.kirstenali.deepj.tensor.Tensor,int,io.github.kirstenali.deepj.inference.InferenceContext)">
+<h3>transformQueryKey</h3>
+<div class="member-signature"><span class="modifiers">protected</span>&nbsp;<span class="return-type"><a href="../../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">transformQueryKey</span><wbr><span class="parameters">(<a href="../../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;heads,
+ int&nbsp;length,
+ <a href="../../../inference/InferenceContext.html" title="class in io.github.kirstenali.deepj.inference">InferenceContext</a>&nbsp;context)</span></div>
+<dl class="notes">
+<dt>Overrides:</dt>
+<dd><code><a href="MultiHeadSelfAttention.html#transformQueryKey(io.github.kirstenali.deepj.tensor.Tensor,int,io.github.kirstenali.deepj.inference.InferenceContext)">transformQueryKey</a></code>&nbsp;in class&nbsp;<code><a href="MultiHeadSelfAttention.html" title="class in io.github.kirstenali.deepj.layers.transformer.attention">MultiHeadSelfAttention</a></code></dd>
 </dl>
 </section>
 </li>

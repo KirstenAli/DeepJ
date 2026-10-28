@@ -127,6 +127,9 @@ class DeepJModelBundleTest {
     private static void assertInferenceDocumentation(String modelCard) {
         assertFalse(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("Generation uses DeepJ's key/value cache"));
+        assertTrue(modelCard.contains("[generation options](https://github.com/KirstenAli/DeepJ/"
+                + "blob/master/docs/inference.md)"));
+        assertFalse(modelCard.contains("DeepJ rebuilds the cache for that window."));
         assertTrue(modelCard.contains("command-line interface"));
     }
 

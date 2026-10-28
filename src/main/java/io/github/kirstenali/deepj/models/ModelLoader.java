@@ -23,7 +23,7 @@ public final class ModelLoader {
     public static DecoderOnlyModel load(Path path) throws IOException {
         var layout = ModelSerializer.layout(path);
         try {
-            DecoderOnlyModel model = create(layout.settings().config(), layout.parameterFactory());
+            DecoderOnlyModel model = create(layout.settings().config(), layout.parameterFactory().forLoading());
             layout.requireMatches(model.parameters());
             model.load(path);
             return model;

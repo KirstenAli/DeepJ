@@ -37,7 +37,7 @@ abstract class MetalTrainingOps extends MetalLossOps {
         if (!MetalDenseOps.sameMatrices(gate, up)) return MetalSwiGluDispatch.forward(graph, gate, up);
         GpuBuffer fused = graph.newOutputBuffer(gate.matrixRows(), gate.matrixCols());
         graph.recordSwiGlu(gpuIn(gate), gpuIn(up), fused);
-        return gpuOut(fused);
+        return graph.createOutputLike(fused, gate);
     }
 
     @Override
@@ -51,7 +51,8 @@ abstract class MetalTrainingOps extends MetalLossOps {
         GpuBuffer upGradient = graph.newOutputBuffer(up.matrixRows(), up.matrixCols());
         graph.recordSwiGluBackward(gpuIn(gradient), gpuIn(gate), gpuIn(up),
                 gateGradient, upGradient);
-        return new SwiGluBackwardResult(gpuOut(gateGradient), gpuOut(upGradient));
+        return new SwiGluBackwardResult(graph.createOutputLike(gateGradient, gate),
+                graph.createOutputLike(upGradient, up));
     }
 
     static void validateScatterAddRowsInputs(Tensor target, int[] indices, Tensor grad) {

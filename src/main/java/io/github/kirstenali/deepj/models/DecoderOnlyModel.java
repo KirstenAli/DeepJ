@@ -8,6 +8,7 @@ import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.persistence.ModelSettings;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.DType;
+import io.github.kirstenali.deepj.tensor.TensorScope;
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.transformer.TransformerStack;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
@@ -99,15 +100,21 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
         if (mode == ContextWindowMode.ROLLING) {
             throw new UnsupportedOperationException("The decoder stack does not support rolling cached generation");
         }
-        return this::forward;
+        return new UncachedGenerationSession(this);
     }
 
     final Tensor forwardCached(int[] inputIds, InferenceContext context) {
+        try (var scope = TensorScope.open()) {
+            return scope.escape(cachedLogits(inputIds, context));
+        }
+    }
+
+    private Tensor cachedLogits(int[] inputIds, InferenceContext context) {
         int width = config().dModel();
         Tensor input = embed(inputIds, context.position()).reshape(1, inputIds.length, width);
         Tensor hidden = stack.forward(input, context).reshape(inputIds.length, width);
         Tensor last = Tensor.sliceRows(hidden, new int[]{inputIds.length - 1}, width).reshape(1, 1, width);
-        return lmHead.forward(normF.forward(last)).reshape(1, config().vocabSize());
+        return lmHead.forward(normF.forward(last).reshape(1, width));
     }
 
     protected List<Parameter> embeddingParameters() {
@@ -117,9 +124,9 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     @Override
     public Tensor forward(int[] inputIds) {
         requireLength(inputIds.length);
-        Tensor matrix = embed(inputIds);
-        Tensor logits = forwardEmbedded(matrix.reshape(1, inputIds.length, config().dModel()));
-        return logits.reshape(inputIds.length, config().vocabSize());
+        try (var scope = TensorScope.open()) {
+            return scope.escape(forwardEmbedded(embed(inputIds)));
+        }
     }
 
     @Override public final boolean supportsBatchedForward() { return true; }
@@ -130,7 +137,9 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
             throw new IllegalArgumentException("A model batch must contain nonempty token sequences");
         }
         requireLength(inputIds[0].length);
-        return forwardEmbedded(embedBatch(inputIds));
+        try (var scope = TensorScope.open()) {
+            return scope.escape(forwardEmbedded(embedBatch(inputIds)));
+        }
     }
 
     private Tensor forwardEmbedded(Tensor input) {

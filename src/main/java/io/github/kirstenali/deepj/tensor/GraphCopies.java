@@ -8,11 +8,19 @@ final class GraphCopies {
         TensorStorage.requireSource(source);
         if (source.numel() == 0) return Tensor.deviceOnly(source.dtype(), source.shape());
         if (!source.isContiguous()) return graph.transferLayout(source, source.dtype());
+        if (source.getGpuTag() == null) return GraphHostCopies.copy(graph, source);
         GpuBuffer input = graph.ensureStorageBuffer(source);
         int rows = source.rank() == 2 ? source.matrixRows() : 1;
         GpuBuffer output = graph.newOutputBuffer(rows, source.numel() / rows, source.dtype());
         graph.recordStorageCopy(input, output, source.storageOffset(), 0, source.numel());
-        return graph.createOutputTensor(output, source.shape());
+        return graph.createOutputLike(output, source);
+    }
+
+    static Tensor snapshotForWrite(GraphExecution graph, Tensor target, Tensor source) {
+        if (target.memory() != source.memory()) return source;
+        // The target is needed on device anyway; upload once, then snapshot it on the GPU.
+        graph.ensureStorageBuffer(target);
+        return copy(graph, source);
     }
 
     static void requireRange(GraphCore graph, GpuBuffer input, GpuBuffer output, int source, int target, int count) {

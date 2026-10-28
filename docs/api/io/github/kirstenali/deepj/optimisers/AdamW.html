@@ -165,6 +165,12 @@ implements <a href="ParameterOptimizer.html" title="interface in io.github.kirst
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>long</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#stepCount()" class="member-name-link">stepCount</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateState(java.util.List,io.github.kirstenali.deepj.optimisers.AdamW.State)" class="member-name-link">validateState</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
+ <a href="AdamW.State.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW.State</a>&nbsp;state)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Checks a prospective checkpoint without changing parameters, counters or optimizer buffers.</div>
+</div>
 </div>
 </div>
 </div>
@@ -235,6 +241,14 @@ implements <a href="ParameterOptimizer.html" title="interface in io.github.kirst
 <h3>restoreState</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">restoreState</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
  <a href="AdamW.State.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW.State</a>&nbsp;state)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="validateState(java.util.List,io.github.kirstenali.deepj.optimisers.AdamW.State)">
+<h3>validateState</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">validateState</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="Parameter.html" title="class in io.github.kirstenali.deepj.optimisers">Parameter</a>&gt;&nbsp;params,
+ <a href="AdamW.State.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW.State</a>&nbsp;state)</span></div>
+<div class="block">Checks a prospective checkpoint without changing parameters, counters or optimizer buffers.</div>
 </section>
 </li>
 <li>

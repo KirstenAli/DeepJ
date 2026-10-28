@@ -16,6 +16,7 @@ final class TensorShape {
 
     int rank() { return dimensions.length; }
     int elements() { return elements; }
+    boolean matches(int[] expected) { return Arrays.equals(dimensions, expected); }
     int[] dimensions() { return dimensions.clone(); }
     int size(int axis) { return dimensions[axis(axis)]; }
 
@@ -42,7 +43,7 @@ final class TensorShape {
     }
 
     private static int count(int[] dimensions) {
-        if (Arrays.stream(dimensions).anyMatch(dimension -> dimension == 0)) return 0;
+        if (containsZero(dimensions)) return 0;
         int total = 1;
         try {
             for (int dimension : dimensions) {
@@ -52,6 +53,13 @@ final class TensorShape {
             throw new IllegalArgumentException("Tensor element count exceeds the dense-storage limit", error);
         }
         return total;
+    }
+
+    private static boolean containsZero(int[] dimensions) {
+        for (int dimension : dimensions) {
+            if (dimension == 0) return true;
+        }
+        return false;
     }
 
     @Override public boolean equals(Object other) {

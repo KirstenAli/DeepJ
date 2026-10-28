@@ -14,6 +14,13 @@ import static io.github.kirstenali.deepj.testing.NdModelFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MetalNdModelBatchTest extends MetalDifferentialTestSupport {
+    static Stream<org.junit.jupiter.params.provider.Arguments> typed() { return typedCases(); }
+
+    @ParameterizedTest @MethodSource("typed")
+    void actualGpuSingleSequenceMatchesEverySingletonBatchValueAndGradient(String family, DType dtype) {
+        io.github.kirstenali.deepj.testing.NdSingleSequenceChecks.exactSingletonBatch(family, dtype);
+    }
+
     static Stream<String> names() { return families(); }
 
     @ParameterizedTest

@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.tensor;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /** Internal lifetime tracking for non-escaping buffers produced by library backward rules. */
@@ -21,7 +22,7 @@ public final class BackwardBuffers implements AutoCloseable {
 
     public <T> T capture(Supplier<T> operation) {
         depth++;
-        try {
+        try (var ignored = TensorScope.open()) {
             return operation.get();
         } finally {
             depth--;
@@ -35,6 +36,13 @@ public final class BackwardBuffers implements AutoCloseable {
     static void track(GpuBuffer buffer) {
         BackwardBuffers current = CURRENT.get();
         if (current != null && current.depth > 0) current.buffers.add(buffer);
+    }
+
+    /** Releases this private computation's scratch without invalidating unrelated caller tensors. */
+    public void releaseTemporaryResources() {
+        close();
+        buffers.stream().map(buffer -> buffer.owner).filter(Objects::nonNull)
+                .distinct().forEach(GraphExecution::flush);
     }
 
     @Override

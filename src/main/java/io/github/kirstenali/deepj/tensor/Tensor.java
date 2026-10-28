@@ -9,7 +9,6 @@ public class Tensor extends TensorManipulations {
 
     @Override protected Tensor tensor() { return this; }
 
-    public boolean requiresGrad() { return gradientState().required(); }
     public Tensor requiresGrad(boolean required) {
         return TensorMutation.requireGrad(this, required);
     }
@@ -45,9 +44,11 @@ public class Tensor extends TensorManipulations {
     public Tensor(DType dtype, int... shape) { this(dtype, true, shape); }
 
     private Tensor(DType dtype, boolean host, int... shape) { super(dtype, host, shape); }
+    private Tensor(DType dtype, boolean host, TensorLayout geometry) { super(dtype, host, geometry); }
 
     static Tensor deviceOnly(int rows, int cols) { return new Tensor(DType.FLOAT32, false, rows, cols); }
     static Tensor deviceOnly(DType dtype, int... shape) { return new Tensor(dtype, false, shape); }
+    static Tensor deviceOnly(DType dtype, TensorLayout geometry) { return new Tensor(dtype, false, geometry); }
 
     private Tensor(TensorStorageAccess source, TensorLayout layout) { super(source, layout); }
 

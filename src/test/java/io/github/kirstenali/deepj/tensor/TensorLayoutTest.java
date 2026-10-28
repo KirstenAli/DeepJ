@@ -6,6 +6,30 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class TensorLayoutTest {
     @Test
+    void denseLayoutsDoNotExposeOrShareTheirFreshStrideArrays() {
+        var shape = new TensorShape(2, 3, 4);
+        var first = TensorLayout.dense(shape);
+        var second = TensorLayout.dense(shape);
+        first.strides()[1] = 999;
+        shape.denseStrides()[0] = 999;
+        assertArrayEquals(new long[]{12, 4, 1}, first.strides());
+        assertArrayEquals(first.strides(), second.strides());
+        assertEquals(23, first.addressAt(23));
+        assertThrows(NullPointerException.class, () -> TensorLayout.dense(null));
+    }
+
+    @Test
+    void viewConstructionStillDefensivelyCopiesSuppliedStrides() {
+        var dense = TensorLayout.dense(new TensorShape(2, 3));
+        long[] strides = {1, 3};
+        var view = dense.with(new TensorShape(3, 2), strides, 0);
+        strides[0] = 999;
+        assertArrayEquals(new long[]{1, 3}, view.strides());
+        assertEquals(5, view.address(2, 1));
+        assertFalse(view.contiguous());
+    }
+
+    @Test
     void scalarAndEmptyLayoutsHaveExplicitAddressingRules() {
         var scalar = TensorLayout.dense(new TensorShape());
         assertEquals(0, scalar.address());
