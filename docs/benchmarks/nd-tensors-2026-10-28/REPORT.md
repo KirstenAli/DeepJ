@@ -19,7 +19,8 @@ Final qualified runtime JAR SHA256:
 Frozen source archive SHA256:
 `06895eb7b1da83525e79f424b58dd62f3b3073c54195fb3499b923064e1b986e`.
 The final source audit compared all 781 source/test/native/script/configuration
-files with that archive; all bytes matched. Only documentation changed afterward.
+files with that archive; all bytes matched. Afterward, documentation was updated
+and one trailing blank line was removed from a test file; production bytes did not change.
 
 Raw inputs, frozen binaries, failed attempts, complete logs and telemetry are kept
 with the local qualification evidence. This public summary contains no training
