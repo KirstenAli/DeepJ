@@ -2336,13 +2336,14 @@ static MTLCompileOptions* compactCompileOptions(int dtype) {
 }
 
 static id<MTLComputePipelineState> compileCompactMatmul(MetalContext* ctx, int dtype) {
-    if (![ctx->device supportsFamily:MTLGPUFamilyApple7]) return nil;
     if (dtype == 3) {
         if (@available(macOS 14.0, *)) {} else return nil;
     }
     NSError* error = nil;
     auto library = [ctx->device newLibraryWithSource:compactMatmulShaderSource
         options:compactCompileOptions(dtype) error:&error];
+    // Virtual devices can support SIMD-group matrices without advertising an Apple family.
+    if (library == nil && ![ctx->device supportsFamily:MTLGPUFamilyApple7]) return nil;
     if (library == nil) throw std::runtime_error(std::string("Compact matmul shader compilation failed: ")
         + [(error.localizedDescription ?: @"Unknown error") UTF8String]);
     auto pipeline = makePSO(library, @"kernel_compact_matmul");
