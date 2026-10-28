@@ -10,6 +10,10 @@
 #define threadgroup
 
 namespace metal {
+namespace precise {
+float exp(float);
+float divide(float, float);
+}
 using uint = unsigned int;
 using ulong = unsigned long;
 using ushort = unsigned short;

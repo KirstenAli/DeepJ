@@ -18,4 +18,13 @@ test('all three compact matrix shader variants undergo native code-quality analy
     assert.ok(metrics.some(({ name }) => name === 'compact_accumulate'));
     assert.ok(metrics.some(({ name }) => name === 'compact_read'));
   }
+  assertPreciseNormalization(scopes);
 });
+
+function assertPreciseNormalization(scopes) {
+  const probability = scopes
+    .flatMap(({ metrics }) => metrics)
+    .find(({ name }) => name === 'layout_probability');
+  assert.ok(probability, 'Precise compact normalization remains subject to native analysis');
+  assert.equal(probability.cognitive, 1);
+}

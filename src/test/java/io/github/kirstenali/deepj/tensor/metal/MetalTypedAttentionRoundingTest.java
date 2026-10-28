@@ -9,6 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class MetalTypedAttentionRoundingTest extends MetalDifferentialTestSupport {
     @Test
+    void axisSoftmaxRoundsTheSameHalfMidpoint() {
+        Tensor scores = Tensor.from(new float[]{-0.0087890625f, 0}, DType.FLOAT16, 2);
+        assertArrayEquals(new float[]{0.497802734375f, 0.501953125f}, scores.softmax(0).toFloatArray());
+    }
+
+    @Test
     void halfProbabilitiesRoundFromFloat32AtMidpoint() {
         Tensor scores = Tensor.from(new float[]{0, 0, -0.0478515625f, -0.0302734375f}, DType.FLOAT16, 2, 2);
         float second = (float) (1.0 / (1.0 + Math.exp(-0.0087890625)));

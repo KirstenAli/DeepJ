@@ -949,11 +949,21 @@ kernel void kernel_layout_reduce(device const unsigned char* input [[buffer(0)]]
     storage_write_bits(output, group, params[2], as_type<uint>(value));
 }
 
+inline float layout_exponential(float value, uint dtype) {
+    return dtype == 1 ? exp(value) : precise::exp(value);
+}
+
+inline float layout_probability(float value, float total, uint dtype) {
+    // Fast reciprocal error can cross a compact rounding midpoint by a whole stored ULP.
+    return dtype == 1 ? exp(value) / total : precise::divide(precise::exp(value), total);
+}
+
 inline float layout_softmax_sum(device const unsigned char* input, device const ulong* layouts,
                                 constant uint* params, uint base, float maximum) {
     float sum = 0.0f;
     for (uint index = 0; index < params[3]; index++) {
-        sum += exp(layout_value(input, layouts, params[0], params[2], base + index) - maximum);
+        sum += layout_exponential(layout_value(input, layouts, params[0], params[2], base + index) - maximum,
+                                  params[2]);
     }
     return sum;
 }
@@ -964,7 +974,8 @@ inline void layout_softmax_write(device const unsigned char* input, device unsig
     bool invalid = (as_type<uint>(maximum) & 0x7fffffffu) >= 0x7f800000u;
     for (uint index = 0; index < params[3]; index++) {
         float value = invalid ? as_type<float>(0x7fc00000u)
-                : exp(layout_value(input, layouts, params[0], params[2], base + index) - maximum) / sum;
+                : layout_probability(layout_value(input, layouts, params[0], params[2], base + index) - maximum,
+                                     sum, params[2]);
         uint address = layout_address(layouts, params[1], base + index);
         storage_write_bits(output, address, params[2], as_type<uint>(value));
     }
@@ -1592,7 +1603,7 @@ inline float layout_ce_partial(device const unsigned char* input, device const u
     float result = exponentials ? 0.0f : -INFINITY;
     for (uint column = tid; column < params.cols; column += width) {
         float value = layout_ce_value(input, words, params, base + column);
-        result = exponentials ? result + exp(value - maximum) : max(result, value);
+        result = exponentials ? result + layout_exponential(value - maximum, params.dtype) : max(result, value);
     }
     return result;
 }
@@ -1688,7 +1699,7 @@ inline void layout_causal_write(device const unsigned char* input, device unsign
         float probability = 0.0f;
         if (column <= row % params.length) {
             float value = layout_value(input, words, params.layout, params.dtype, row * params.length + column);
-            probability = exp(value * params.scale - maximum) / total;
+            probability = layout_probability(value * params.scale - maximum, total, params.dtype);
         }
         storage_write_bits(output, row * params.length + column, params.dtype, as_type<uint>(probability));
     }
