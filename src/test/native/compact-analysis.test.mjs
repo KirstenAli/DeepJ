@@ -26,5 +26,5 @@ function assertPreciseNormalization(scopes) {
     .flatMap(({ metrics }) => metrics)
     .find(({ name }) => name === 'layout_probability');
   assert.ok(probability, 'Precise compact normalization remains subject to native analysis');
-  assert.equal(probability.cognitive, 1);
+  assert.equal(probability.cognitive, 2);
 }

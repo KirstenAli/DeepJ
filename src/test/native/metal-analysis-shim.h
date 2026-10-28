@@ -8,6 +8,7 @@
 #define constant
 #define thread
 #define threadgroup
+#define COMPACT_PRECISE_NORMALIZATION 1
 
 namespace metal {
 namespace precise {

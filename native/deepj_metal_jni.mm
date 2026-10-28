@@ -950,12 +950,13 @@ kernel void kernel_layout_reduce(device const unsigned char* input [[buffer(0)]]
 }
 
 inline float layout_exponential(float value, uint dtype) {
-    return dtype == 1 ? exp(value) : precise::exp(value);
+    return dtype == 1 || !COMPACT_PRECISE_NORMALIZATION ? exp(value) : precise::exp(value);
 }
 
 inline float layout_probability(float value, float total, uint dtype) {
-    // Fast reciprocal error can cross a compact rounding midpoint by a whole stored ULP.
-    return dtype == 1 ? exp(value) / total : precise::divide(precise::exp(value), total);
+    // Compatibility devices can cross compact rounding midpoints with fast reciprocal math.
+    return dtype == 1 || !COMPACT_PRECISE_NORMALIZATION ? exp(value) / total
+            : precise::divide(precise::exp(value), total);
 }
 
 inline float layout_softmax_sum(device const unsigned char* input, device const ulong* layouts,
@@ -2302,8 +2303,10 @@ static id<MTLComputePipelineState> makePSO(id<MTLLibrary> lib, NSString* name) {
     return pso;
 }
 
-static MTLCompileOptions* makeCompileOptions() {
+static MTLCompileOptions* makeCompileOptions(id<MTLDevice> device) {
     MTLCompileOptions* options = [[MTLCompileOptions alloc] init];
+    // Preserve qualified Apple arithmetic; other devices need precise compact normalization.
+    options.preprocessorMacros = @{@"COMPACT_PRECISE_NORMALIZATION": @(![device supportsFamily:MTLGPUFamilyApple7])};
     if (@available(macOS 15.0, *)) {
         options.mathMode = MTLMathModeFast;
     } else {
@@ -2318,7 +2321,7 @@ static MTLCompileOptions* makeCompileOptions() {
 static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = metalShaderSource) {
     NSError* error = nil;
     id<MTLLibrary> library = [device newLibraryWithSource:source
-                                                  options:makeCompileOptions()
+                                                  options:makeCompileOptions(device)
                                                     error:&error];
     if (library != nil) return library;
     NSString* desc = error.localizedDescription ?: @"Unknown error";
@@ -2328,7 +2331,7 @@ static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = me
 static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
     if ([device supportsFamily:MTLGPUFamilyApple7]) return compileLibrary(device, tiledAttentionShaderSource);
     // Virtual devices may expose the instructions without advertising an Apple GPU family.
-    return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions() error:nil];
+    return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions(device) error:nil];
 }
 
 static MTLCompileOptions* compactCompileOptions(int dtype) {
