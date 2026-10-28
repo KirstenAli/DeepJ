@@ -14,13 +14,16 @@ Seed, data, optimizer, precision and cleanup policy were matched between version
 
 Original pre-ND JAR SHA256:
 `bfbadaf4c1fc3d3241fef5b81fdf611767d5f61926204b4e1021ea97c5a3d591`.
-Final qualified runtime JAR SHA256:
+Main migration/performance qualification JAR SHA256 (V29):
 `810da7396c277cc6be09c3aa84a5b60162f62fa3a5291c316429facfd9362ef8`.
-Frozen source archive SHA256:
+Corresponding frozen source archive SHA256:
 `06895eb7b1da83525e79f424b58dd62f3b3073c54195fb3499b923064e1b986e`.
 The final source audit compared all 781 source/test/native/script/configuration
 files with that archive; all bytes matched. Afterward, documentation was updated
-and one trailing blank line was removed from a test file; production bytes did not change.
+and one trailing blank line was removed from a test file. The subsequent hosted-device
+fix below changed only the native library: all 459 other runtime entries, including
+every Java class, remain byte-identical. Final V33 JAR SHA256:
+`83f6779f9ac6cebbd649ce570155326390f0e2bee8b9a1251155a24fb1dae958`.
 
 Raw inputs, frozen binaries, failed attempts, complete logs and telemetry are kept
 with the local qualification evidence. This public summary contains no training
@@ -44,10 +47,39 @@ corpus, user checkpoint, generated private text or machine-specific filesystem p
   full-logit digests, then complete resaved model/training bytes. They match exactly.
   Actual weights occupy two bytes per element; masters, moments and gradients are FP32.
 
-The final local full-coverage build ran 2,260 tests: 2,248 passed, zero failures or
+The final local full-coverage build ran 2,262 tests: 2,250 passed, zero failures or
 errors, and 12 explicit skips. Eleven are disabled manual timing tests; one is an
 optional local-checkpoint smoke test requiring `deepj.modelPath`. Actual Metal,
 native instrumentation, desktop/frontend, quality and coverage gates passed.
+
+## Hosted-device closeout
+
+Hosted CI exposed two additional issues: compact matrix support was rejected before
+probing compilation on virtual Metal devices, and fast compact normalization could
+cross a FLOAT16 rounding midpoint. Capability probing and exact midpoint regression
+tests now cover these cases. Precise compact normalization is selected for compatibility
+devices; qualified Apple-family arithmetic is preserved. FLOAT32 expressions and
+default optimized kernels are unchanged. This is a device-capability selection, not
+CI detection or a tolerance adjustment.
+
+An initial broader precision change passed unit tests but changed M4 training values.
+The unchanged full-model comparison rejected it. That attempt remains a failed
+qualification; it was narrowed and retested, not accepted with looser comparisons.
+
+The final V33 runtime repeats all six full-size compact 100-update runs: every one of
+the 600 recorded losses, 30 held-out results and 24 gradient checks matches the original
+reference exactly. Native retention is stable, storage remains two bytes per weight,
+and there is no sampled global swap increase or safety-guard event. Six additional
+full-size fresh-state controls match all weight/gradient/moment/master digests and
+all 16,777,216 logits per case against the earlier verified FILE receipts. These are
+fresh-state comparisons, not claims that the earlier 18 actual FILE runs were repeated.
+Persistence classes are byte-identical, and current local/hosted tests also exercise
+typed save/restore. See the [machine-readable closeout](v33-closeout.json).
+
+[Exact-runtime-head CI](https://github.com/KirstenAli/DeepJ/actions/runs/40747428712)
+passes CPU, fallback, actual Metal, desktop/frontend, native instrumentation and
+all quality/coverage gates, including 100% Metal kernel selections. Earlier failed
+CI, disk-guard stops and rejected numerical attempts are preserved in local evidence.
 
 ## Defects found and corrected
 
