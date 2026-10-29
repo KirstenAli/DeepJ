@@ -96,7 +96,10 @@ abstract class GraphCore extends GraphOpMetadata {
     }
 
     void trackTensorBinding(int id, Tensor t) {
-        bufIdToMemory.put(id, new WeakReference<>(t.memory()));
+        var reference = bufIdToMemory.get(id);
+        if (reference == null || reference.get() != t.memory()) {
+            bufIdToMemory.put(id, new WeakReference<>(t.memory()));
+        }
     }
 
     public GpuBuffer newOutputBuffer(int rows, int cols) {

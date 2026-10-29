@@ -4,6 +4,104 @@ This report covers the source-branch ND migration, optional FLOAT16/BFLOAT16 sto
 native compact matrix paths and associated lifetime/performance fixes. It is not a
 claim about the published `0.11.0-alpha` artifact or a universal speedup.
 
+## Latest local status — 29 October
+
+Local qualification is accepted for the tested training workflows under the criterion
+agreed on 29 October: correctness, safe memory and no demonstrated training-speed
+regression, with additional Java compilation CPU disclosed separately. This does not
+claim identical compilation cost, energy use, startup latency or every-step timing.
+PR #177 remains draft until the final exact-head CI check passes.
+The frozen V38 candidate passed the complete local build: 2,297 tests, zero failures
+or errors, and 12 intentional skips. Actual Metal, native instrumentation,
+desktop/frontend, quality and coverage checks are included.
+
+Final-source qualification now also includes:
+
+- Original 200-update FLOAT32 workloads: 600 training losses, 15 held-out results
+  and 12 positive gradient norms match the original baseline exactly.
+- All 18 full-size FLOAT32 state/file cases: every weight, gradient, optimizer
+  moment and full logit value, plus complete saved/resaved bytes, matches exactly.
+- Six FLOAT16/BFLOAT16 100-update workloads: all 600 losses, 30 held-out results
+  and 24 gradient norms match the original typed references exactly.
+- All 18 final FLOAT16/BFLOAT16 write/self/actual-file-restore cases: complete
+  state and logit digests and saved/resaved files match the original typed references.
+
+These cases recorded no sampled global swap increase. Typed weights remain two
+bytes per value and gradients, master weights and moments remain FLOAT32. Verified
+disposable test files were retired only after byte/SHA and restore checks; receipts,
+inputs, logs and failures are retained. Real training checkpoints were not changed.
+
+The disclosed performance trade-off is **extra CPU work during GPU training**, not
+a measured 4.9% training-time slowdown. In the latest original-baseline Nova1024
+normal-JVM pairs, elapsed training time changed by -1.191%/-0.009%, while total CPU
+time changed by -0.029%/+4.887%. Compiler CPU was higher in both pairs. The positive
+CPU result is not averaged away, described as coincidental or claimed to be eliminated.
+Its acceptance as a disclosed resource trade-off is distinct from the training-speed
+checks; checkpoint and numerical passes alone would not establish performance.
+
+The latest Nova comparison retains both orders and every phase:
+
+| New relative to original pre-ND | Old-first pair | New-first pair |
+|---|---:|---:|
+| First 10 training updates | -3.654% | +0.163% |
+| Next 30 training updates | -1.191% | -0.009% |
+| All 40 training updates | -1.842% | +0.035% |
+| Complete process, including diagnostics | -2.662% | +0.165% |
+
+These short-window observations do not prove universal equality or a general speedup.
+The positive observations remain visible alongside original uninstrumented timings,
+same-code controls and causal CPU/GPU work investigations below. No numerical bound,
+original workload or production compiler policy was changed for acceptance.
+Two further private allocation optimizations were rejected after real-model CPU cost
+increased; neither is included in the qualified source.
+
+The [final qualification receipt](v38-closeout.json) records runtime hashes, complete
+state/file gates and both timing pairs without local machine paths or private data.
+
+## Reopened review
+
+PR #177 is draft. The V33 results below remain historical evidence, not sign-off
+for the latest local edits. Further investigation found and fixed padded batch
+addressing: on the tested Metal backend, a batched matrix call could read the next
+sliced matrix at `rows * rowStride` instead of the larger batch stride. Padded
+batches now use explicit per-matrix offsets; ordinary packed batches retain their
+batched path. Nine additional dtype/layout/gradient cases cover this defect.
+
+A separate dense-layout address shortcut preserves all recorded compact training
+and state comparisons. Two ordered warmed Nova1024 pairs per compact dtype show
+14.1–14.3% less step time than the preceding ND implementation, not than pre-ND
+FLOAT32. The private Java/compiler experiments from that stage were not adopted.
+The V35 FP16 route passed a local 2,291-test build; the current V38 build above
+also includes the two large-matrix precision regressions and subsequent optimizer
+and buffer-binding tests. Exact-head CI remains required for the latest edits.
+
+The local candidate now selects MPS for eligible larger FLOAT16 and mixed
+FLOAT32-by-FLOAT16 products, without narrowing inputs or allocating conversion
+shadows. Small-shape precision probes rejected an initial unrestricted route:
+shape-dependent summation changed some output bits. Independent double references
+isolated rounding rather than addressing errors. The selected route retains the
+original small-product path; permanent tests reproduce two failures without this
+restriction and pass with it. Mixed products additionally retain the original path
+below the measured size threshold because MPS host setup can dominate small work.
+
+The final restricted route repeats all three affected full-model runs: all 300
+losses, 15 validations, 12 gradient norms and storage checks match the original
+references exactly. Nine actual write/self/restore cases also match every state
+digest, all 16,777,216 logits per case and complete saved/resaved file bytes.
+Native retention remains stable, with no sampled global swap increase or guard event.
+
+Two warmed Nova FLOAT16 pairs measure **25.5–25.8% less training-step time** than
+the preceding ND compact path: 52.222 versus 38.762 seconds, then reverse-order
+52.053 versus 38.772 seconds, for thirty measured updates after ten warm-up updates.
+Every loss bit, data cursor and live-buffer count matches. This supersedes the
+unrestricted prototype's approximately 32% result; it is not a published-release,
+pre-ND or FLOAT32 speed comparison. Old-old total variation was -0.324%; candidate
+self-variation was +0.027%. Neither pair is averaged against the other to hide a
+slowdown. Complete per-step and memory observations are retained.
+The FLOAT32 wall-time control was mixed; native instrumentation confirms its
+11,297 commands never enter the changed matrix path, with identical counts and
+loss bits. This does not establish universal wall-time equality.
+
 ## Reproducibility and scope
 
 Tests ran on an Apple M4 MacBook Air with 16 GB unified memory and Temurin 20.0.2.
@@ -18,12 +116,25 @@ Main migration/performance qualification JAR SHA256 (V29):
 `810da7396c277cc6be09c3aa84a5b60162f62fa3a5291c316429facfd9362ef8`.
 Corresponding frozen source archive SHA256:
 `06895eb7b1da83525e79f424b58dd62f3b3073c54195fb3499b923064e1b986e`.
-The final source audit compared all 781 source/test/native/script/configuration
+The historical V31 source audit compared all 781 source/test/native/script/configuration
 files with that archive; all bytes matched. Afterward, documentation was updated
 and one trailing blank line was removed from a test file. The subsequent hosted-device
 fix below changed only the native library: all 459 other runtime entries, including
-every Java class, remain byte-identical. Final V33 JAR SHA256:
+every Java class, remain byte-identical. Historical V33 JAR SHA256:
 `83f6779f9ac6cebbd649ce570155326390f0e2bee8b9a1251155a24fb1dae958`.
+
+Historical V35 JAR SHA256:
+`ae24add81e44377c39408867b98c98e2768b6ffd43b86e2b707dfc0e9d22d472`.
+All 456 other runtime entries, including every production Java class, match V34;
+only the native library changed. The final warmed comparison's V34 baseline is
+`5b706e54588c9c539454873a57436d1154f0796e1f488f9d0a707c6f321a2f73`.
+
+Current frozen V38 JAR SHA256:
+`a80914e4cf97ccd53501e96874e1acf609081f0757f5860bc906471f013b5093`.
+V37 changed optimizer moment lookup/cold creation without changing arithmetic;
+V38 reuses an existing weak buffer binding only when it refers to the same live
+physical storage. All 456 other runtime entries match V37. The native library is
+unchanged from the qualified restricted V35 route.
 
 Raw inputs, frozen binaries, failed attempts, complete logs and telemetry are kept
 with the local qualification evidence. This public summary contains no training
@@ -47,7 +158,7 @@ corpus, user checkpoint, generated private text or machine-specific filesystem p
   full-logit digests, then complete resaved model/training bytes. They match exactly.
   Actual weights occupy two bytes per element; masters, moments and gradients are FP32.
 
-The final local full-coverage build ran 2,262 tests: 2,250 passed, zero failures or
+The historical V33 local full-coverage build ran 2,262 tests: 2,250 passed, zero failures or
 errors, and 12 explicit skips. Eleven are disabled manual timing tests; one is an
 optional local-checkpoint smoke test requiring `deepj.modelPath`. Actual Metal,
 native instrumentation, desktop/frontend, quality and coverage gates passed.
@@ -76,7 +187,7 @@ fresh-state comparisons, not claims that the earlier 18 actual FILE runs were re
 Persistence classes are byte-identical, and current local/hosted tests also exercise
 typed save/restore. See the [machine-readable closeout](v33-closeout.json).
 
-[Exact-runtime-head CI](https://github.com/KirstenAli/DeepJ/actions/runs/40747428712)
+[Historical V33 exact-runtime-head CI](https://github.com/KirstenAli/DeepJ/actions/runs/40747428712)
 passes CPU, fallback, actual Metal, desktop/frontend, native instrumentation and
 all quality/coverage gates, including 100% Metal kernel selections. Earlier failed
 CI, disk-guard stops and rejected numerical attempts are preserved in local evidence.
@@ -92,10 +203,13 @@ invariant checks were hoisted, and avoidable shape/broadcast metadata was remove
 No numerical tolerance, production forced-GC policy or JVM compiler workaround was
 added to make a result pass.
 
-Early native peak differences were traced separately. Logical buffer requests and
-retained memory matched; weak-reference-dependent scratch eligibility already
-existed in the old runtime. A private control of that eligibility reproduced equal
-physical allocation/retirement totals. Historical swap/peak guard failures remain
+Early native peak differences were traced separately. Final V38 logical buffer
+requests and retained memory matched, but two early cumulative peaks differed.
+Twelve short old/new controls isolated both GC-dependent weak scratch reuse and
+orphan retirement. Controlling both produced identical allocation plans, release
+ledgers and peaks; the original code reached the flagged peak envelope too. This
+closes that targeted memory finding without changing production GC or retirement
+policy. Original failed peak comparisons and historical swap failures remain
 recorded failures. System-wide swap observations are not attributed to one process
 without process-specific evidence.
 
@@ -105,8 +219,9 @@ Original uninstrumented old/new timings and reversed/self controls are preserved
 Small positive timings were not waived using an arbitrary percentage margin.
 Supplemental diagnostics isolated operation costs, allocation, native commands,
 actual GPU time, main/process CPU work, compilation and process-order variation.
-The diagnostics below explain the remaining gaps; they do not replace those
-original workloads or justify a universal speed guarantee.
+The historical diagnostics below investigate specific gaps; they do not replace
+the original workloads, eliminate the disclosed compilation cost above, or justify a
+universal speed guarantee.
 
 Two independent full-parameter Loop CPU64 pairs alternated updates seconds apart,
 with only one JVM training at a time. The peer's measured activity was about 0.005%
@@ -123,6 +238,26 @@ and no sampled swap or guard event occurred. Four individually slower updates re
 recorded; correlated steps are not treated as independent experiments. These results
 support removal of the sustained CPU regression on this workload, not a general
 library speedup or a promise that every update is faster.
+
+A subsequent matched-time control removes the compiler intervention entirely.
+Two independent pairs use normal JVM compilation, the same full-size Loop model,
+ten warm-up/thirty measured updates and original pre-ND baseline; initialization
+order is reversed in the second pair. Only one trainer runs at a time, and CPU
+activity in both JVMs, including background compilation while parked, is counted.
+Measured wall time changes by -0.412%/-0.209%, active CPU by -0.973%/-0.391%,
+instructions by -1.656%/-1.623%, and whole-window CPU by -0.926%/-0.306%.
+All forty loss bits and data cursors per process match the original references.
+These are affirmative normal-runtime observations, not proof of universal equality.
+Positive shorter order blocks and main-thread/compiler costs remain visible;
+more compiler CPU was not eliminated or renamed measurement noise. Six private
+Java changes were rejected because lower compiler cost did not consistently lower
+overall cost. That native-only stage did not alter those Java runtime bytes.
+
+The later V37 normal-compilation Loop CPU64 control retains two independent pairs:
+elapsed time -1.461%/-2.170%, active CPU -0.876%/-2.281%, and whole-window CPU
+-0.650%/-2.096%. All forty loss bits and cursors per process match. Extra compiler
+CPU and individually slower updates remain recorded. V38 changes only the GPU
+buffer-binding class; these CPU results are explicitly V37 observations.
 
 Nova Metal controls retained exact command signatures and native-memory boundaries.
 Normal-runtime OS-thread accounting found extra background Java compilation in the

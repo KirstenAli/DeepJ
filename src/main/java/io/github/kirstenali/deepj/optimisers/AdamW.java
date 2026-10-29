@@ -172,12 +172,20 @@ public final class AdamW implements ParameterOptimizer {
 
         validateParamShapes(w, g);
 
-        Tensor mt = m.computeIfAbsent(p, __ -> newMoment(w));
-        Tensor vt = v.computeIfAbsent(p, __ -> newMoment(w));
+        Tensor mt = momentForUpdate(p, w, m);
+        Tensor vt = momentForUpdate(p, w, v);
 
         Tensor master = masters.weights(p);
         Tensor.adamWUpdate(master, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
         masters.assign(p, master);
+    }
+
+    private static Tensor momentForUpdate(Parameter parameter, Tensor value, Map<Parameter, Tensor> moments) {
+        Tensor saved = moments.get(parameter);
+        if (saved != null) return saved;
+        Tensor created = newMoment(value);
+        moments.put(parameter, created);
+        return created;
     }
 
     private void validateParamShapes(Tensor w, Tensor g) {

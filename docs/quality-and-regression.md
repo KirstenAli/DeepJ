@@ -108,6 +108,10 @@ explicitly; do not advertise it as a full-context result.
   needs investigation. Do not treat correlated steps as independent experimental repeats.
 - Keep startup, validation, measured steps and instrumented diagnostics separate. Profiles
   help locate a cost; they are not substitutes for uninstrumented throughput measurements.
+- Separate elapsed training time from background Java compilation CPU. Assess warm-up and
+  sustained training speed; disclose extra compilation work rather than calling it zero cost
+  or automatically treating it as a training slowdown. Any repeatable latency, memory or
+  resource-use problem still needs investigation and an explicit acceptance decision.
 - Investigate consistent slowdowns at operation and allocation level, fix their causes and
   rerun the matched checks. "Nearly the same speed", an inconclusive statistical result or
   faster rounds elsewhere does not excuse an unexplained regression.

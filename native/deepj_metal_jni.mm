@@ -599,6 +599,10 @@ inline void storage_write_bits(device unsigned char* output, uint index, uint dt
 inline uint layout_address(device const ulong* words, uint start, uint logical) {
     uint rank = uint(words[start]);
     ulong address = words[start + 3];
+    // Dense matrices, including offset views, need no per-element coordinate division.
+    if (rank == 2 && words[start + 7] == 1 && words[start + 6] == words[start + 5]) {
+        return uint(address + logical);
+    }
     for (int axis = int(rank) - 1; axis >= 0; axis--) {
         uint dimension = uint(words[start + 4 + axis]);
         address += words[start + 4 + rank + axis] * (logical % dimension);
@@ -4366,35 +4370,49 @@ static uint64_t matmulBatchStride(const LogicalLayout& layout) {
 }
 
 static MPSMatrix* layoutMpsMatrix(id<MTLBuffer> buffer, const MpsLayoutMatrix& matrix,
-                                  NSUInteger offset, uint32_t batches, uint64_t batchStride) {
+                                  NSUInteger offset, uint32_t batches, uint64_t batchStride, uint32_t dtype) {
+    NSUInteger bytes = dtype == 2 ? sizeof(uint16_t) : sizeof(float);
+    MPSDataType type = dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeFloat32;
     auto descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:matrix.rows columns:matrix.columns
-        matrices:batches rowBytes:matrix.rowStride * sizeof(float)
-        matrixBytes:batchStride * sizeof(float) dataType:MPSDataTypeFloat32];
-    return [[MPSMatrix alloc] initWithBuffer:buffer offset:offset * sizeof(float) descriptor:descriptor];
+        matrices:batches rowBytes:matrix.rowStride * bytes
+        matrixBytes:batchStride * bytes dataType:type];
+    return [[MPSMatrix alloc] initWithBuffer:buffer offset:offset * bytes descriptor:descriptor];
 }
 
 static bool mpsBatchCompatible(const MpsLayoutMatrix& matrix, uint64_t stride) {
-    return stride >= matrix.rows * matrix.rowStride && stride % matrix.rowStride == 0;
+    // MPS may advance by rows * rowStride despite a larger descriptor matrixBytes.
+    // Padded batches must use separate dispatches with explicit storage offsets.
+    return stride == matrix.rows * matrix.rowStride;
 }
 
 static void encodeLayoutMpsBatch(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec,
                                  const MpsLayoutMatrix& a, const MpsLayoutMatrix& b,
                                  uint32_t batch, uint32_t count, uint64_t firstStride, uint64_t secondStride) {
-    auto left = layoutMpsMatrix(requireBuffer(cmd[pos + 1], "layout matmul"), a,
-                                matmulBatchAddress(spec.left, batch), count, firstStride);
-    auto right = layoutMpsMatrix(requireBuffer(cmd[pos + 2], "layout matmul"), b,
-                                 matmulBatchAddress(spec.right, batch), count, secondStride);
+    auto left = layoutMpsMatrix(requireStorageBuffer(cmd[pos + 1], "layout matmul"), a,
+                                matmulBatchAddress(spec.left, batch), count, firstStride, spec.leftType);
+    auto right = layoutMpsMatrix(requireStorageBuffer(cmd[pos + 2], "layout matmul"), b,
+                                 matmulBatchAddress(spec.right, batch), count, secondStride, spec.rightType);
     MpsLayoutMatrix result{spec.rows, spec.columns, spec.columns, false};
-    auto output = layoutMpsMatrix(requireBuffer(cmd[pos + 3], "layout matmul"), result,
+    auto output = layoutMpsMatrix(requireStorageBuffer(cmd[pos + 3], "layout matmul"), result,
                                   (NSUInteger)batch * spec.rows * spec.columns, count,
-                                  (uint64_t)spec.rows * spec.columns);
+                                  (uint64_t)spec.rows * spec.columns, spec.outputType);
     [configuredMatmulKernel(state.ctx, spec.rows, spec.columns, spec.inner, a.transposed, b.transposed, count)
         encodeToCommandBuffer:state.commandBuffer leftMatrix:left rightMatrix:right resultMatrix:output];
 }
 
+static bool supportsLayoutMpsMatmul(MetalContext* ctx, const LayoutMatmulSpec& spec) {
+    // Preserve small-matrix accumulation order and avoid MPS setup on tiny products.
+    // Other devices keep the existing compact/generic GPU capability dispatch.
+    return (spec.leftType == 1 && spec.rightType == 1)
+        || ((spec.leftType == 1 || spec.leftType == 2) && spec.rightType == 2
+            && spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64
+            && (spec.leftType == 2 || (spec.columns >= 256 && spec.inner >= 256))
+            && [ctx->device supportsFamily:MTLGPUFamilyApple7]);
+}
+
 static bool encodeLayoutMpsMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
     MpsLayoutMatrix a, b;
-    if (spec.leftType != 1 || spec.rightType != 1 ||
+    if (!supportsLayoutMpsMatmul(state.ctx, spec) ||
         !mpsLayoutMatrix(spec.left, a) || !mpsLayoutMatrix(spec.right, b)) return false;
     endGraphEncoder(state);
     uint64_t first = matmulBatchStride(spec.left), second = matmulBatchStride(spec.right);

@@ -50,7 +50,10 @@ For binary tensor operations, identical input dtypes stay in that dtype; differi
 including FLOAT16 mixed with BFLOAT16. A FLOAT32 operand is never silently narrowed.
 
 Supported Metal compact-matrix paths use native compact operands with FLOAT32
-accumulation. Other operations and unsupported native compact-matrix paths may use
+accumulation. Eligible larger FLOAT16 products use Apple MPS on supported Apple GPUs;
+smaller, strided and other dtype/device combinations retain their appropriate GPU
+paths. Selection preserves mixed-input precision without full-matrix conversion copies.
+Other operations and unsupported native compact-matrix paths may use
 FLOAT32 arithmetic on the selected backend. This is not automatic mixed precision:
 there is no implicit autocast or loss scaling, and no hidden CPU fallback from Metal.
 Optimizer master weights, gradients and moments remain FLOAT32. Consequently, two-byte
