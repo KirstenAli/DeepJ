@@ -44,7 +44,7 @@ public final class Parameter {
             clearGradData();
             return;
         }
-        setGradient(new Tensor(DType.FLOAT32, value.shape()));
+        setGradient(Tensor.backend().zeros(DType.FLOAT32, value.shape()));
     }
 
     private boolean canReuseCpuGradBuffer() {
