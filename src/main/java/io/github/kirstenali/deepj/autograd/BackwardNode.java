@@ -44,8 +44,8 @@ final class BackwardNode {
         if (Tensor.backend() != backend) {
             throw new IllegalStateException("Backend changed between forward and backward");
         }
-        for (int index = 0; index < inputs.size(); index++) { inputs.get(index).validate(); }
-        for (int index = 0; index < saved.size(); index++) { saved.get(index).validate(); }
+        inputs.forEach(GradientEdge::validate);
+        saved.forEach(SavedTensor::validate);
     }
 
     Tensor[] apply(Tensor gradient) {

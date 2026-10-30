@@ -13,6 +13,7 @@ final class GraphTransfers {
     static void upload(GpuRuntime runtime, int[] upload, Object data) {
         if (data instanceof float[] values) runtime.uploadBuffer(upload[0], values);
         else if (data instanceof short[] values) runtime.uploadBuffer16(upload[0], values);
+        else if (upload.length == 2) runtime.zeroBuffer(upload[0], upload[1]);
         else runtime.zeroBuffer(upload[0], upload[1], GpuAllocations.type(upload));
     }
 

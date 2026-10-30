@@ -4,13 +4,59 @@ This report covers the source-branch ND migration, optional FLOAT16/BFLOAT16 sto
 native compact matrix paths and associated lifetime/performance fixes. It is not a
 claim about the published `0.11.0-alpha` artifact or a universal speedup.
 
-## Latest local status — 29 October
+## Current review status on 30 October
 
-Local qualification is accepted for the tested training workflows under the criterion
-agreed on 29 October: correctness, safe memory and no demonstrated training-speed
+PR #177 remains **draft and unmerged**. The additional host CPU requirement was
+reopened; the earlier acceptance below is historical and does not approve the
+latest changes. The tested fixes are being made available for review, not release.
+
+The latest candidate removes repeated immutable shape/layout work, preserves the
+original FLOAT32 zero-upload entry point, avoids repeated random-fill accessors,
+and replaces separate native buffer/dtype maps with one coherent buffer record.
+Permanent tests retain validation order, overflow/zero behavior, alias mutation
+checks, dense-layout bounds, all storage dtypes and native buffer-ID reuse.
+
+The 30 October clean integrated build passed **2,320 of 2,332 tests**, with zero
+failures/errors. The 12 explicit skips are 11 disabled manual timing tests and one
+optional user-checkpoint smoke test; actual Metal, instrumented native, desktop,
+frontend, CLI, quality and all coverage gates passed. All 82 Metal kernel
+selections were covered. The production JAR's extracted entries match the frozen
+candidate exactly; these report/receipt updates were made afterward.
+
+Matched original-pre-ND versus current Nova FLOAT32 synthetic 200-update runs
+retain exact bits for every loss and identical tracked native live/peak/counts.
+Under the normal JVM policy, ordered host CPU changes are **+0.471%/+0.733%**;
+the thirty measured updates after ten warm-up updates have elapsed changes
+**+0.059%/+0.208%**. These are different metrics. Neither a small percentage nor a
+correctness pass closes the resource/performance requirement.
+
+A complete fixed-compiler-worker diagnostic found positive late noncompiler CPU
+in both orders. A later clean-background repeat separated stored main-thread
+user/kernel counters but did not establish one causal explanation: whole-run
+noncompiler CPU changed -66.299 ms/+100.894 ms; late noncompiler +85.747 ms/-35.455
+ms; late main user +15.886 ms/-9.308 ms and kernel +17.645 ms/+5.041 ms. All 800
+losses, worker identities and native totals matched, with no sampled swap
+increase or swapout. This diagnostic does not replace normal-policy acceptance.
+
+One preceding attempt failed the unchanged global-swap guard after background
+conditions changed. It remains failed; system-wide swap telemetry does not prove
+which process swapped. No tolerance, safety guard or production compiler policy
+was relaxed to obtain a pass.
+
+Outstanding: causally resolve the host CPU finding, establish the full final
+all-model/state/file/dtype/real-data/endurance/memory/performance matrix for the
+final integrated candidate, and verify exact-head CI. Older candidate results
+remain useful evidence but are not silently transferred to changed code. See the
+[current review receipt](v104-review.json). No merge or release is approved.
+
+## Historical local status on 29 October
+
+At the V38 stage, local qualification was accepted for the tested training workflows
+under the then-agreed criterion: correctness, safe memory and no demonstrated training-speed
 regression, with additional Java compilation CPU disclosed separately. This does not
 claim identical compilation cost, energy use, startup latency or every-step timing.
-PR #177 remains draft until the final exact-head CI check passes.
+That acceptance was subsequently reopened as stated above. The following results
+describe that older frozen candidate, not final approval of the latest fixes.
 The frozen V38 candidate passed the complete local build: 2,297 tests, zero failures
 or errors, and 12 intentional skips. Actual Metal, native instrumentation,
 desktop/frontend, quality and coverage checks are included.

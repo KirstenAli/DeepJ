@@ -10,7 +10,6 @@ final class TensorShape {
 
     TensorShape(int... dimensions) {
         this.dimensions = Objects.requireNonNull(dimensions, "dimensions").clone();
-        validate(this.dimensions);
         elements = count(this.dimensions);
     }
 
@@ -36,30 +35,17 @@ final class TensorShape {
         return strides;
     }
 
-    private static void validate(int[] dimensions) {
+    private static int count(int[] dimensions) {
+        long total = 1; // Above intMax is an overflow witness; a later zero must still reset it.
         for (int dimension : dimensions) {
             if (dimension < 0) throw new IllegalArgumentException("Tensor dimensions cannot be negative");
+            if (dimension == 0) total = 0;
+            else if (total <= Integer.MAX_VALUE) total *= dimension; // At most intMax squared, below longMax.
         }
-    }
-
-    private static int count(int[] dimensions) {
-        if (containsZero(dimensions)) return 0;
-        int total = 1;
-        try {
-            for (int dimension : dimensions) {
-                total = Math.multiplyExact(total, dimension);
-            }
-        } catch (ArithmeticException error) {
+        try { return Math.toIntExact(total); }
+        catch (ArithmeticException error) {
             throw new IllegalArgumentException("Tensor element count exceeds the dense-storage limit", error);
         }
-        return total;
-    }
-
-    private static boolean containsZero(int[] dimensions) {
-        for (int dimension : dimensions) {
-            if (dimension == 0) return true;
-        }
-        return false;
     }
 
     @Override public boolean equals(Object other) {

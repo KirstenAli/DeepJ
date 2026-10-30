@@ -173,10 +173,14 @@ abstract class CpuElementwiseOps implements TensorBackend {
 
     public Tensor random(int rows, int cols, Random rand) {
         Tensor t = new Tensor(rows, cols);
-        for (int i = 0; i < t.rawData().length; i++) {
-            t.rawData()[i] = (float) (rand.nextGaussian() * 0.1);
-        }
+        fillRandom(t.rawData(), rand);
         return t;
+    }
+
+    private static void fillRandom(float[] values, Random rand) {
+        for (int i = 0; i < values.length; i++) {
+            values[i] = (float) (rand.nextGaussian() * 0.1);
+        }
     }
 
     public Tensor causalMask(int size) {

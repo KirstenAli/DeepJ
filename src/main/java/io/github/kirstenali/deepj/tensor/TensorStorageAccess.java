@@ -44,7 +44,8 @@ public abstract class TensorStorageAccess {
 
     final TensorMemory memory() { return memory; }
     final TensorLayout layout() { return layout; }
-    final boolean coversStorage() { return flatStorage; }
+    /** Whether immutable logical geometry covers the whole allocation contiguously from offset zero. */
+    public final boolean coversStorage() { return flatStorage; }
 
     public final int rank() { return layout.shape().rank(); }
     public final int[] shape() { return layout.shape().dimensions(); }

@@ -7,6 +7,7 @@ final class TensorLayout {
     private final TensorShape shape;
     private final long[] strides;
     private final int offset, storageElements;
+    private final boolean contiguous;
 
     TensorLayout(TensorShape shape, long[] strides, int offset, int storageElements) {
         this.shape = Objects.requireNonNull(shape, "shape");
@@ -14,6 +15,7 @@ final class TensorLayout {
         this.offset = offset;
         this.storageElements = storageElements;
         LayoutValidation.requireBounds(shape, this.strides, offset, storageElements);
+        contiguous = computeContiguous();
     }
 
     private TensorLayout(TensorShape shape) {
@@ -21,7 +23,8 @@ final class TensorLayout {
         this.strides = shape.denseStrides();
         this.offset = 0;
         this.storageElements = shape.elements();
-        LayoutValidation.requireBounds(shape, strides, offset, storageElements);
+        // Checked shape count and canonical strides already prove zero-offset dense bounds.
+        contiguous = true;
     }
 
     static TensorLayout dense(TensorShape shape) {
@@ -70,7 +73,9 @@ final class TensorLayout {
         return Math.toIntExact(address);
     }
 
-    boolean contiguous() {
+    boolean contiguous() { return contiguous; }
+
+    private boolean computeContiguous() {
         if (shape.elements() == 0) return true;
         long expected = 1;
         for (int axis = shape.rank() - 1; axis >= 0; axis--) {

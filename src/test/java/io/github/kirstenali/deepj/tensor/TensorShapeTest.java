@@ -6,6 +6,45 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class TensorShapeTest {
     @Test
+    void overflowWitnessPreservesCauseAndLaterZeroOrNegativePrecedence() {
+        int largest = Integer.MAX_VALUE;
+        var overflow = assertThrows(IllegalArgumentException.class, () -> new TensorShape(largest, 2, 3));
+        assertInstanceOf(ArithmeticException.class, overflow.getCause());
+        assertEquals("integer overflow", overflow.getCause().getMessage());
+        assertEquals(0, new TensorShape(largest, 2, 0).elements());
+        var invalid = assertThrows(IllegalArgumentException.class, () -> new TensorShape(largest, 2, 0, -1));
+        assertEquals("Tensor dimensions cannot be negative", invalid.getMessage());
+        assertNull(invalid.getCause());
+    }
+
+    @Test
+    void zeroNeverHidesAnInvalidDimensionAtAnyOtherPosition() {
+        for (int negative = 0; negative < 6; negative++) {
+            for (int zero = 0; zero < 6; zero++) {
+                if (negative == zero) continue;
+                int[] dimensions = {3, 3, 3, 3, 3, 3};
+                dimensions[negative] = -1;
+                dimensions[zero] = 0;
+                var error = assertThrows(IllegalArgumentException.class, () -> new TensorShape(dimensions));
+                assertEquals("Tensor dimensions cannot be negative", error.getMessage());
+            }
+        }
+    }
+
+    @Test
+    void emptyCountRetainsFullValidationAndIndependentStrideOverflow() {
+        int largest = Integer.MAX_VALUE;
+        assertEquals(0, new TensorShape(largest, largest, 0).elements());
+        assertArrayEquals(new long[]{(long) largest * largest, largest, 1},
+                new TensorShape(0, largest, largest).denseStrides());
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> new TensorShape(largest, largest, 0, -1));
+        assertEquals("Tensor dimensions cannot be negative", error.getMessage());
+        assertThrows(ArithmeticException.class,
+                () -> new TensorShape(0, largest, largest, largest).denseStrides());
+    }
+
+    @Test
     void scalarEmptyAndDenseShapesHaveCheckedElementCounts() {
         assertEquals(1, new TensorShape().elements());
         assertEquals(0, new TensorShape(2, 0, 3).elements());

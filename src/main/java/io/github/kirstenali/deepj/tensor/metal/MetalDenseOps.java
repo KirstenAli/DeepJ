@@ -33,8 +33,7 @@ final class MetalDenseOps {
     }
 
     private static boolean full(Tensor input) {
-        return input.isContiguous() && input.storageOffset() == 0
-                && input.storageBytes() == input.dtype().storageBytes(input.numel());
+        return input.coversStorage();
     }
 
     static Tensor scalar(ComputeGraph graph, Tensor input, int opcode, float scalar) {

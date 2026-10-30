@@ -2552,11 +2552,17 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsCompactMa
 
 #include <unordered_map>
 
-using BufferPool = std::unordered_map<int, id<MTLBuffer>>;
+struct BufferRecord {
+    id<MTLBuffer> buffer;
+    int dtype;
+
+    BufferRecord(id<MTLBuffer> value, int storageType) : buffer(value), dtype(storageType) {}
+};
+
+using BufferPool = std::unordered_map<int, BufferRecord>;
 using BufferEntry = BufferPool::iterator;
 
 static BufferPool gBufferPool;
-static std::unordered_map<int, int> gBufferDTypes;
 static std::mutex gBufferMutex;
 
 static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCaches[4];
@@ -2658,20 +2664,28 @@ static constexpr int OP_LAYOUT_CROSS_ENTROPY = 77;
 static constexpr int OP_LAYOUT_CAUSAL = 78;
 static constexpr int OP_LAYOUT_ROTARY = 79;
 
-static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
-    auto it = gBufferPool.find(id);
-    if (it == gBufferPool.end() || it->second == nil) {
+static BufferEntry requireStorageEntry(int id, const char* opName) {
+    auto entry = gBufferPool.find(id);
+    if (entry == gBufferPool.end() || entry->second.buffer == nil) {
         throw std::runtime_error(std::string(opName) + ": missing GPU buffer id=" + std::to_string(id));
     }
-    return it->second;
+    return entry;
+}
+
+static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
+    return requireStorageEntry(id, opName)->second.buffer;
+}
+
+static int bufferDType(int id) {
+    return gBufferPool.at(id).dtype;
 }
 
 static id<MTLBuffer> requireBuffer(int bufferId, const char* opName) {
-    id<MTLBuffer> buffer = requireStorageBuffer(bufferId, opName);
-    if (gBufferDTypes.at(bufferId) != 1) {
+    auto entry = requireStorageEntry(bufferId, opName);
+    if (entry->second.dtype != 1) {
         throw std::runtime_error(std::string(opName) + ": matrix opcode requires FLOAT32 storage");
     }
-    return buffer;
+    return entry->second.buffer;
 }
 
 static NSUInteger rowReductionWidth(id<MTLComputePipelineState> pso) {
@@ -2812,7 +2826,7 @@ static void allocateTypedBuffer(MetalContext* ctx, int bufferId, int elements, i
     NSUInteger bytes = storageBytes(elements, dtype);
     auto existing = gBufferPool.find(bufferId);
     if (existing != gBufferPool.end()) {
-        if ([existing->second length] != bytes || gBufferDTypes.at(bufferId) != dtype) {
+        if ([existing->second.buffer length] != bytes || existing->second.dtype != dtype) {
             throw std::runtime_error("GPU buffer id already has a different size or dtype");
         }
         return;
@@ -2820,8 +2834,7 @@ static void allocateTypedBuffer(MetalContext* ctx, int bufferId, int elements, i
     id<MTLBuffer> buffer = [ctx->device newBufferWithLength:bytes
                                                     options:MTLResourceStorageModeShared];
     if (buffer == nil) throw std::runtime_error("Failed to allocate Metal buffer");
-    gBufferPool[bufferId] = buffer;
-    gBufferDTypes[bufferId] = dtype;
+    gBufferPool.try_emplace(bufferId, buffer, dtype);
 }
 
 static void allocateBuffers(const jint* ids, const jint* sizes, int count) {
@@ -2842,9 +2855,9 @@ static BufferEntry transferEntry(JNIEnv* env, int bufferId, jarray values,
         throwJavaRuntimeException(env, (std::string(operation) + " buffer was not found").c_str());
         return entry;
     }
-    int dtype = gBufferDTypes.at(bufferId);
+    int dtype = entry->second.dtype;
     NSUInteger bytes = (NSUInteger)env->GetArrayLength(values) * valueBytes;
-    if (bytes == [entry->second length] && (dtype == 1) == (valueBytes == sizeof(float))) return entry;
+    if (bytes == [entry->second.buffer length] && (dtype == 1) == (valueBytes == sizeof(float))) return entry;
     throwJavaRuntimeException(env, (std::string(operation) + " length or dtype does not match buffer").c_str());
     return gBufferPool.end();
 }
@@ -2914,7 +2927,7 @@ static void transferBuffer16(JNIEnv* env, jint bufferId, jshortArray values, boo
     BufferEntry entry = transferEntry(env, bufferId, values, sizeof(jshort), "16-bit transfer");
     if (entry == gBufferPool.end()) return;
     jint length = env->GetArrayLength(values);
-    jshort* memory = (jshort*)[entry->second contents];
+    jshort* memory = (jshort*)[entry->second.buffer contents];
     if (upload) env->GetShortArrayRegion(values, 0, length, memory);
     else env->SetShortArrayRegion(values, 0, length, memory);
 }
@@ -2937,7 +2950,7 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeBufferByteLength(
     @autoreleasepool {
         std::lock_guard<std::mutex> lock(gBufferMutex);
         auto entry = gBufferPool.find(bufferId);
-        if (entry != gBufferPool.end()) return (jlong)[entry->second length];
+        if (entry != gBufferPool.end()) return (jlong)[entry->second.buffer length];
         throwJavaRuntimeException(env, "GPU buffer was not found");
         return 0;
     }
@@ -2948,7 +2961,7 @@ static void uploadBuffer(JNIEnv* env, jint bufId, jfloatArray dataArr) {
     BufferEntry entry = transferEntry(env, bufId, dataArr, sizeof(float), "Upload");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(dataArr);
-    env->GetFloatArrayRegion(dataArr, 0, len, (jfloat*)[entry->second contents]);
+    env->GetFloatArrayRegion(dataArr, 0, len, (jfloat*)[entry->second.buffer contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -2961,11 +2974,11 @@ static void zeroTypedBuffer(JNIEnv* env, jint bufferId, jint elements, jint dtyp
     std::lock_guard<std::mutex> lock(gBufferMutex);
     auto entry = gBufferPool.find(bufferId);
     if (entry == gBufferPool.end() || elements <= 0 || dtype < 1 || dtype > 3 ||
-        gBufferDTypes.at(bufferId) != dtype || storageBytes(elements, dtype) != [entry->second length]) {
+        entry->second.dtype != dtype || storageBytes(elements, dtype) != [entry->second.buffer length]) {
         throwJavaRuntimeException(env, "Zero buffer was not found or its size does not match");
         return;
     }
-    memset([entry->second contents], 0, [entry->second length]);
+    memset([entry->second.buffer contents], 0, [entry->second.buffer length]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -2985,7 +2998,7 @@ static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
     BufferEntry entry = transferEntry(env, bufId, outArr, sizeof(float), "Download");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(outArr);
-    env->SetFloatArrayRegion(outArr, 0, len, (const jfloat*)[entry->second contents]);
+    env->SetFloatArrayRegion(outArr, 0, len, (const jfloat*)[entry->second.buffer contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -3007,7 +3020,6 @@ static void releaseBuffers(JNIEnv* env, jintArray idsArr, jint count) {
     if (ids == nullptr) return;
     for (int i = 0; i < count; i++) {
         gBufferPool.erase(ids[i]);
-        gBufferDTypes.erase(ids[i]);
     }
     env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
 }
@@ -3082,8 +3094,8 @@ static void dispatch1D(id<MTLComputeCommandEncoder> encoder,
 
 static std::array<uint32_t, 4> storageCopyRange(const jint* cmd, int pos,
                                               id<MTLBuffer> input, id<MTLBuffer> output) {
-    int dtype = gBufferDTypes.at(cmd[pos + 1]);
-    if (cmd[pos + 1] == cmd[pos + 2] || dtype != gBufferDTypes.at(cmd[pos + 2])) {
+    int dtype = bufferDType(cmd[pos + 1]);
+    if (cmd[pos + 1] == cmd[pos + 2] || dtype != bufferDType(cmd[pos + 2])) {
         throw std::runtime_error("Raw GPU copies require matching dtypes and distinct allocations");
     }
     uint32_t count = (uint32_t)positiveCount(cmd[pos + 5], "copy elements");
@@ -3178,7 +3190,7 @@ static id<MTLBuffer> layoutGpuBuffer(GraphState& state) {
 static std::array<uint32_t, 4> layoutTransferParams(GraphState& state, const jint* cmd, int pos,
                                                    id<MTLBuffer> input, id<MTLBuffer> output) {
     if (cmd[pos + 1] == cmd[pos + 2]) throw std::runtime_error("Layout transfer requires distinct allocations");
-    int sourceType = gBufferDTypes.at(cmd[pos + 1]), targetType = gBufferDTypes.at(cmd[pos + 2]);
+    int sourceType = bufferDType(cmd[pos + 1]), targetType = bufferDType(cmd[pos + 2]);
     auto layout = requireLogicalLayout(state.layouts, cmd[pos + 3], input, sourceType);
     if (storageBytes((int)layout.count, targetType) != [output length]) {
         throw std::runtime_error("Layout transfer output must match logical element count");
@@ -3229,7 +3241,7 @@ static void requireWritableLayout(const LogicalLayout& layout) {
 static std::array<uint32_t, 5> layoutAssignParams(GraphState& state, const jint* cmd, int pos,
                                                 id<MTLBuffer> input, id<MTLBuffer> output) {
     if (cmd[pos + 1] == cmd[pos + 2]) throw std::runtime_error("GPU assignment requires an alias snapshot");
-    int sourceType = gBufferDTypes.at(cmd[pos + 1]), targetType = gBufferDTypes.at(cmd[pos + 2]);
+    int sourceType = bufferDType(cmd[pos + 1]), targetType = bufferDType(cmd[pos + 2]);
     auto source = requireLogicalLayout(state.layouts, cmd[pos + 3], input, sourceType);
     auto target = requireLogicalLayout(state.layouts, cmd[pos + 4], output, targetType);
     requireSameLayoutShape(source, target);
@@ -3278,7 +3290,7 @@ static std::array<uint32_t, 7> layoutBinaryParams(GraphState& state, const jint*
     requireLayoutBinaryOperation(cmd[pos + 6]);
     int a = cmd[pos + 1], b = cmd[pos + 2], out = cmd[pos + 3];
     if (a == out || b == out) throw std::runtime_error("GPU binary output must be independent");
-    int at = gBufferDTypes.at(a), bt = gBufferDTypes.at(b), ot = gBufferDTypes.at(out);
+    int at = bufferDType(a), bt = bufferDType(b), ot = bufferDType(out);
     auto first = requireLogicalLayout(state.layouts, cmd[pos + 4], requireStorageBuffer(a, "binary"), at);
     auto second = requireLogicalLayout(state.layouts, cmd[pos + 5], requireStorageBuffer(b, "binary"), bt);
     requireSameLayoutShape(first, second);
@@ -3308,7 +3320,7 @@ struct GroupedLayout {
 
 static GroupedLayout requireGroupedLayout(GraphState& state, int start, int retained, int buffer) {
     auto layout = requireLogicalLayout(state.layouts, start, requireStorageBuffer(buffer, "grouped layout"),
-                                       gBufferDTypes.at(buffer));
+                                       bufferDType(buffer));
     if (retained < 0 || (uint32_t)retained > layout.rank) throw std::runtime_error("Invalid retained GPU axes");
     uint32_t groups = 1;
     for (int axis = 0; axis < retained; axis++) {
@@ -3329,7 +3341,7 @@ static std::array<uint32_t, 7> layoutReduceParams(GraphState& state, const jint*
     int source = cmd[pos + 1], target = cmd[pos + 2];
     if (source == target) throw std::runtime_error("Reduction output requires independent storage");
     auto group = requireGroupedLayout(state, cmd[pos + 3], cmd[pos + 4], source);
-    int sourceType = gBufferDTypes.at(source), targetType = gBufferDTypes.at(target);
+    int sourceType = bufferDType(source), targetType = bufferDType(target);
     if ((targetType != sourceType && targetType != 1) || (cmd[pos + 5] >= 4 && targetType != 1) ||
         storageBytes((int)group.groups, targetType) != [requireStorageBuffer(target, "reduce output") length]) {
         throw std::runtime_error("Invalid grouped GPU reduction output");
@@ -3347,10 +3359,10 @@ static void encodeLayoutReduce(GraphState& state, const jint* cmd, int pos) {
 static LogicalLayout requireCompleteOutput(GraphState& state, int start, int target,
                                            const LogicalLayout& input, int dtype) {
     auto output = requireLogicalLayout(state.layouts, start, requireStorageBuffer(target, "layout output"),
-                                       gBufferDTypes.at(target));
+                                       bufferDType(target));
     requireSameLayoutShape(input, output);
     requireWritableLayout(output);
-    if (gBufferDTypes.at(target) != dtype || output.count != output.storage) {
+    if (bufferDType(target) != dtype || output.count != output.storage) {
         throw std::runtime_error("Invalid complete GPU output layout");
     }
     return output;
@@ -3361,7 +3373,7 @@ static std::array<uint32_t, 5> layoutSoftmaxParams(GraphState& state, const jint
     if (source == target) throw std::runtime_error("Softmax output requires independent storage");
     auto group = requireGroupedLayout(state, cmd[pos + 3], cmd[pos + 5], source);
     if ((uint32_t)cmd[pos + 5] + 1 != group.layout.rank) throw std::runtime_error("Softmax requires one axis");
-    int dtype = gBufferDTypes.at(source);
+    int dtype = bufferDType(source);
     requireCompleteOutput(state, cmd[pos + 4], target, group.layout, dtype);
     return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], (uint32_t)dtype, group.width, group.groups};
 }
@@ -3375,11 +3387,11 @@ static void encodeLayoutSoftmax(GraphState& state, const jint* cmd, int pos) {
 static void requireMaximumUpstream(GraphState& state, const jint* cmd, int pos, uint32_t groups, int dtype) {
     int maximum = cmd[pos + 2], gradient = cmd[pos + 3];
     auto winner = requireLogicalLayout(state.layouts, cmd[pos + 6], requireStorageBuffer(maximum, "maximum"),
-                                       gBufferDTypes.at(maximum));
+                                       bufferDType(maximum));
     auto upstream = requireLogicalLayout(state.layouts, cmd[pos + 7], requireStorageBuffer(gradient, "gradient"),
-                                         gBufferDTypes.at(gradient));
+                                         bufferDType(gradient));
     requireSameLayoutShape(winner, upstream);
-    if (winner.count != groups || gBufferDTypes.at(maximum) != dtype || gBufferDTypes.at(gradient) != 1) {
+    if (winner.count != groups || bufferDType(maximum) != dtype || bufferDType(gradient) != 1) {
         throw std::runtime_error("Invalid maximum adjoint values or dtypes");
     }
 }
@@ -3390,7 +3402,7 @@ static std::array<uint32_t, 8> layoutMaximumParams(GraphState& state, const jint
         throw std::runtime_error("Maximum adjoint output requires independent storage");
     }
     auto group = requireGroupedLayout(state, cmd[pos + 5], cmd[pos + 9], cmd[pos + 1]);
-    int dtype = gBufferDTypes.at(cmd[pos + 1]);
+    int dtype = bufferDType(cmd[pos + 1]);
     requireMaximumUpstream(state, cmd, pos, group.groups, dtype);
     requireCompleteOutput(state, cmd[pos + 8], target, group.layout, 1);
     return {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7],
@@ -3477,12 +3489,12 @@ static uint32_t indexTrailing(const LogicalLayout& layout, int axis) {
 }
 
 static std::array<uint32_t, 7> layoutIndexSelectParams(GraphState& state, const jint* cmd, int pos) {
-    int input = cmd[pos + 1], output = cmd[pos + 2], dtype = gBufferDTypes.at(input);
+    int input = cmd[pos + 1], output = cmd[pos + 2], dtype = bufferDType(input);
     auto source = requireLogicalLayout(state.layouts, cmd[pos + 3], requireStorageBuffer(input, "gather"), dtype);
     uint32_t trailing = indexTrailing(source, cmd[pos + 5]), width = source.axes[cmd[pos + 5]];
     auto plan = requireIndexPlan(state.layouts, cmd[pos + 4], width);
     uint64_t count = (uint64_t)(source.count / width) * plan.count;
-    if (input == output || gBufferDTypes.at(output) != dtype || count > INT32_MAX ||
+    if (input == output || bufferDType(output) != dtype || count > INT32_MAX ||
         [requireStorageBuffer(output, "gather output") length] != count * (dtype == 1 ? 4 : 2)) {
         throw std::runtime_error("Invalid typed GPU gather output");
     }
@@ -3507,7 +3519,7 @@ static void requireIndexUpdateShape(const LogicalLayout& target, const LogicalLa
 }
 
 static std::array<uint32_t, 9> layoutIndexAddParams(GraphState& state, const jint* cmd, int pos) {
-    int target = cmd[pos + 1], input = cmd[pos + 2], dtype = gBufferDTypes.at(target), from = gBufferDTypes.at(input);
+    int target = cmd[pos + 1], input = cmd[pos + 2], dtype = bufferDType(target), from = bufferDType(input);
     auto output = requireLogicalLayout(state.layouts, cmd[pos + 3], requireStorageBuffer(target, "scatter"), dtype);
     auto updates = requireLogicalLayout(state.layouts, cmd[pos + 4], requireStorageBuffer(input, "scatter"), from);
     uint32_t trailing = indexTrailing(output, cmd[pos + 6]), width = output.axes[cmd[pos + 6]];
@@ -3529,11 +3541,11 @@ static void encodeLayoutIndexAdd(GraphState& state, const jint* cmd, int pos) {
 static LogicalLayout commandLayout(GraphState& state, const jint* cmd, int pos, int buffer, int layout) {
     int id = cmd[pos + buffer];
     return requireLogicalLayout(state.layouts, cmd[pos + layout], requireStorageBuffer(id, "layout input"),
-                                 gBufferDTypes.at(id));
+                                 bufferDType(id));
 }
 
 static void requireTypedCount(int id, uint32_t dtype, uint32_t count) {
-    if (gBufferDTypes.at(id) != (int)dtype ||
+    if (bufferDType(id) != (int)dtype ||
         [requireStorageBuffer(id, "typed output") length] != storageBytes((int)count, dtype)) {
         throw std::runtime_error("Invalid GPU output storage type or element count");
     }
@@ -3579,8 +3591,8 @@ static std::array<uint32_t, 11> layoutNormalizationParams(GraphState& state, con
     uint32_t mode = normalizationMode(cmd[pos + 11]);
     float epsilon = floatFromBits(cmd[pos + 10]);
     if (!std::isfinite(epsilon) || epsilon <= 0) throw std::runtime_error("Invalid normalization epsilon");
-    uint32_t a = gBufferDTypes.at(cmd[pos + 1]), b = gBufferDTypes.at(cmd[pos + 2]);
-    uint32_t c = gBufferDTypes.at(cmd[pos + 3]), output = a == b && (mode == 0 || a == c) ? a : 1;
+    uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
+    uint32_t c = bufferDType(cmd[pos + 3]), output = a == b && (mode == 0 || a == c) ? a : 1;
     requireOutputSeparation(cmd, pos, 3, 6);
     requireTypedCount(cmd[pos + 4], output, input.count);
     requireTypedCount(cmd[pos + 5], 1, input.count);
@@ -3598,9 +3610,9 @@ static std::array<uint32_t, 11> layoutNormalizationBackwardParams(GraphState& st
     requireOutputSeparation(cmd, pos, 4, 5);
     requireTypedCount(cmd[pos + 5], 1, gradient.count);
     return {(uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8],
-            (uint32_t)cmd[pos + 9], width, gradient.count / width, (uint32_t)gBufferDTypes.at(cmd[pos + 1]),
-            (uint32_t)gBufferDTypes.at(cmd[pos + 2]), (uint32_t)gBufferDTypes.at(cmd[pos + 3]),
-            (uint32_t)gBufferDTypes.at(cmd[pos + 4]), normalizationMode(cmd[pos + 10])};
+            (uint32_t)cmd[pos + 9], width, gradient.count / width, (uint32_t)bufferDType(cmd[pos + 1]),
+            (uint32_t)bufferDType(cmd[pos + 2]), (uint32_t)bufferDType(cmd[pos + 3]),
+            (uint32_t)bufferDType(cmd[pos + 4]), normalizationMode(cmd[pos + 10])};
 }
 
 template <typename T>
@@ -3636,8 +3648,8 @@ static std::array<uint32_t, 7> layoutSwiGluBackwardParams(GraphState& state, con
     requireTypedCount(cmd[pos + 4], 1, gradient.count);
     requireTypedCount(cmd[pos + 5], 1, gradient.count);
     return {(uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8],
-            (uint32_t)gBufferDTypes.at(cmd[pos + 1]), (uint32_t)gBufferDTypes.at(cmd[pos + 2]),
-            (uint32_t)gBufferDTypes.at(cmd[pos + 3]), gradient.count};
+            (uint32_t)bufferDType(cmd[pos + 1]), (uint32_t)bufferDType(cmd[pos + 2]),
+            (uint32_t)bufferDType(cmd[pos + 3]), gradient.count};
 }
 
 static void encodeLayoutSwiGluBackward(GraphState& state, const jint* cmd, int pos) {
@@ -3651,7 +3663,7 @@ static std::array<uint32_t, 11> layoutAdamWParams(GraphState& state, const jint*
     for (int index = 1; index <= 4; index++) {
         auto layout = commandLayout(state, cmd, pos, index, index + 4);
         requireSameLayoutShape(weight, layout);
-        if (gBufferDTypes.at(cmd[pos + index]) != 1) throw std::runtime_error("AdamW requires FLOAT32 state");
+        if (bufferDType(cmd[pos + index]) != 1) throw std::runtime_error("AdamW requires FLOAT32 state");
         if (index != 2) requireWritableLayout(layout);
     }
     std::array<uint32_t, 11> params;
@@ -3713,7 +3725,7 @@ static std::array<uint32_t, 7> layoutCrossEntropyParams(GraphState& state, const
     uint32_t included = validateCrossEntropyPlan(state.layouts, cmd[pos + 5], rows, width);
     requireCrossEntropyOutputs(cmd, pos, rows, input.count);
     return {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], rows, width,
-            (uint32_t)gBufferDTypes.at(cmd[pos + 1]), included, (uint32_t)cmd[pos + 6]};
+            (uint32_t)bufferDType(cmd[pos + 1]), included, (uint32_t)cmd[pos + 6]};
 }
 
 static void encodeLayoutCrossEntropy(GraphState& state, const jint* cmd, int pos) {
@@ -3740,7 +3752,7 @@ static std::array<uint32_t, 6> layoutCausalParams(GraphState& state, const jint*
         throw std::runtime_error("Invalid typed causal shape,scale or mode");
     }
     requireOutputSeparation(cmd, pos, 1, 2);
-    uint32_t dtype = gBufferDTypes.at(cmd[pos + 1]);
+    uint32_t dtype = bufferDType(cmd[pos + 1]);
     requireTypedCount(cmd[pos + 2], dtype, input.count);
     return {(uint32_t)cmd[pos + 3], (uint32_t)input.axes[0], length, dtype,
             (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 5]};
@@ -3784,11 +3796,11 @@ static std::array<uint32_t, 10> layoutRotaryParams(GraphState& state, const jint
     requireRotaryLayouts(input, cosine, sine, length);
     if (cmd[pos + 9] != 0 && cmd[pos + 9] != 1) throw std::runtime_error("Invalid inverse rotary flag");
     requireOutputSeparation(cmd, pos, 3, 4);
-    uint32_t dtype = gBufferDTypes.at(cmd[pos + 1]);
+    uint32_t dtype = bufferDType(cmd[pos + 1]);
     requireTypedCount(cmd[pos + 4], dtype, input.count);
     return {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7],
             (uint32_t)input.axes[0], (uint32_t)input.axes[1], length, dtype,
-            (uint32_t)gBufferDTypes.at(cmd[pos + 2]), (uint32_t)gBufferDTypes.at(cmd[pos + 3]), (uint32_t)cmd[pos + 9]};
+            (uint32_t)bufferDType(cmd[pos + 2]), (uint32_t)bufferDType(cmd[pos + 3]), (uint32_t)cmd[pos + 9]};
 }
 
 static void encodeLayoutRotary(GraphState& state, const jint* cmd, int pos) {
@@ -4308,7 +4320,7 @@ static void requireMatmulLayouts(const LogicalLayout& left, const LogicalLayout&
 }
 
 static LayoutMatmulSpec layoutMatmulSpec(GraphState& state, const jint* cmd, int pos) {
-    uint32_t a = gBufferDTypes.at(cmd[pos + 1]), b = gBufferDTypes.at(cmd[pos + 2]);
+    uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
     auto left = requireLogicalLayout(state.layouts, cmd[pos + 4],
                                      requireStorageBuffer(cmd[pos + 1], "matmul left"), a);
     auto right = requireLogicalLayout(state.layouts, cmd[pos + 5],
@@ -4319,7 +4331,7 @@ static LayoutMatmulSpec layoutMatmulSpec(GraphState& state, const jint* cmd, int
     uint64_t count = (uint64_t)batches * m * n;
     id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 3], "matmul output");
     if (count > INT32_MAX || output.length != count * (dtype == 1 ? 4 : 2) ||
-        gBufferDTypes.at(cmd[pos + 3]) != (int)dtype || cmd[pos + 3] == cmd[pos + 1] ||
+        bufferDType(cmd[pos + 3]) != (int)dtype || cmd[pos + 3] == cmd[pos + 1] ||
         cmd[pos + 3] == cmd[pos + 2]) throw std::runtime_error("Invalid GPU matmul output storage");
     return {left, right, m, n, k, batches, (uint32_t)count, a, b, dtype};
 }
