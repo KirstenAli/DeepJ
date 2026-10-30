@@ -109,6 +109,7 @@ public final class CausalLMTraining {
     }
 
     private static void scaleGradients(List<Parameter> params, float scale) {
+        if (scale == 1.0f) return;
         for (Parameter p : params) {
             if (p.grad() != null) {
                 p.grad().multiplyScalarInPlace(scale);
