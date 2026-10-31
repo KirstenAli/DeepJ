@@ -1,8 +1,10 @@
 # Compact attention and mixed backward products
 
-Status: operator and full-size FLOAT32 numerical/checkpoint checks passed. Full-model
-performance sign-off and compact real-data/checkpoint qualification remain open.
-These results are not merge approval or a whole-training speed claim.
+Status: operator, full-size FLOAT32 numerical/checkpoint, full-context compact oracle,
+full-size compact real-data, compact typed FILE, same-binary timing control and matched
+compact whole-model timing checks are complete and recorded below. Hosted CI on the
+final documentation head is the only remaining pre-merge step. These results are not a
+whole-training speed claim for FLOAT32.
 
 ## Scope and implementation
 
@@ -173,9 +175,111 @@ a second-slot penalty of roughly +0.1% to +0.4% with no version term supports th
 a flat same-binary pair with a persisting positive new-minus-old term refutes it and would
 point back at the candidate.
 
-Still required: the same-binary position control; full-size compact real-data/stability
-and exact typed file restore; matched compact whole-model timings against old compact and
-FLOAT32; CPU controls; and final report, portable and exact-head CI checks. No release,
+### Same-binary control result
+
+Twelve processes ran on 31 October with the unchanged `QualificationTiming` helper, fresh
+thermal waiter and original guards: per family, baseline/baseline then candidate/candidate.
+Slot 2 minus slot 1 medians, identical binary each pair:
+
+| Family | Baseline/baseline | Candidate/candidate |
+|---|---:|---:|
+| Prism | +3.068% | -0.322% |
+| Nova | -1.425% | +1.518% |
+| Loop | +0.625% | +0.012% |
+
+The simple "second slot is slower" hypothesis is **not confirmed**: the sign is positive in
+only 4 of 6 pairs. What the control does establish is the same-code repeatability floor
+under these conditions: identical binaries, back to back, differ by -1.4% to +3.1%, about
+ten times the largest earlier new-minus-old observation (+0.352%). Same-slot new-versus-old
+comparisons within this control were +2.549%/-0.824% (Prism), -1.716%/+1.218% (Nova) and
++0.168%/-0.443% (Loop), again straddling zero with magnitudes above the earlier gaps.
+Combined with the source review above, the earlier positive FLOAT32 observations are
+smaller than the measured same-code variation and have no identified code cause. This is
+recorded as the attribution outcome, not as an accepted tolerance; the IDE was open during
+this control, so its absolute medians are not compared with the earlier IDE-closed runs.
+
+## Full-size compact real-data checks
+
+Six 100-update real-data processes (Prism/Nova/Loop × FLOAT16/BFLOAT16, 1,024 tokens,
+batch 1, frozen seed-100 data, unchanged `NdTypedTraining` helper byte-identical to the
+qualified classes) completed on the candidate with no guard event, no sampled swap change,
+every loss finite, two-byte GPU weights with FP32 masters/moments confirmed at steps 1 and
+100 (`storageExact=true`) and four positive FP32 gradient norms each. The V111 baseline logs
+(runtime 77e1c2f8…, same data and helper) are the numerical reference. Compact fusion
+intentionally removes intermediate 16-bit score/probability rounding, so bitwise equality
+is not expected; the review threshold is 0.01 nat on held-out and mean training loss.
+
+| Case | Mean loss Δ | Held-out Δ at 0/25/50/75/100 | Final held-out new/old |
+|---|---:|---|---:|
+| Prism FLOAT16 | +0.00008 | -0.00002 / +0.00005 / +0.00202 / +0.00024 / +0.00024 | 3.4719 / 3.4716 |
+| Prism BFLOAT16 | +0.00363 | +0.00023 / **-0.03316** / -0.00524 / -0.00389 / -0.00799 | 3.4558 / 3.4637 |
+| Nova FLOAT16 | +0.00000 | +0.00000 / +0.00005 / -0.00000 / -0.00006 / -0.00001 | 3.6611 / 3.6611 |
+| Nova BFLOAT16 | -0.00001 | +0.00020 / -0.00011 / -0.00014 / -0.00021 / -0.00013 | 3.6607 / 3.6608 |
+| Loop FLOAT16 | +0.00003 | -0.00002 / +0.00001 / -0.00002 / +0.00000 / -0.00005 | 3.6659 / 3.6660 |
+| Loop BFLOAT16 | -0.00007 | -0.00014 / -0.00004 / -0.00017 / -0.00001 / -0.00042 | 3.6678 / 3.6682 |
+
+Negative means the candidate is lower. Five cases stay within the threshold at every point.
+Prism BFLOAT16 breaches it once, at step 25, with the candidate 0.033 nat *lower*. Its
+per-step training losses agree with the baseline to within 0.002 nat through step 19 and
+then diverge chaotically from step 20 (individual steps ±0.06 to ±0.10 nat in both
+directions) while every later held-out point favours the candidate by 0.004 to 0.008 nat.
+This is trajectory divergence from the changed intermediate rounding in the most sensitive
+configuration (BF16 has 8 mantissa bits; Prism has the widest attention), not instability
+or degradation. It is recorded as an investigated finding rather than hidden or waived.
+
+## Full-size compact typed FILE checks
+
+Eighteen cases (Prism/Nova/Loop × FLOAT16/BFLOAT16 × write / fresh self / actual FILE
+resume) ran with the v38/v111 guard and helper classes byte-for-byte, the original 3 GiB
+heap, 5 GiB native, 4.5 GiB RSS, any-swapout and 15 GiB plus per-mode disk reserve. All
+18 completed with `allStateExact=true`; resume and self receipts match the write receipts
+byte-for-byte and SHA-256. Saved file sizes are identical to the V111 baseline files
+(180,265,869 / 199,437,994 / 200,767,792 model bytes and 1,261,818,635 / 1,395,987,650 /
+1,405,285,753 training bytes); their SHA-256 values differ because the five pre-save updates
+now run through compact fused attention. Peak RSS was 2.41 to 3.57 GB. Write payloads were
+retired by the resume cases after verification, with receipts kept. Disk headroom for the
+write reserve was obtained by clearing regenerable pip, Homebrew-download and application
+updater caches only; no evidence root, frozen file or checkpoint was removed.
+
+## Matched compact whole-model timing
+
+Twenty-four 100-update full-size compact processes ran back to back in one session: for each
+family and dtype, old-compact/new-compact then new-compact/old-compact, unchanged
+`NdTypedTraining` helper, fresh thermal waiter before every JVM and the original guards.
+Medians are over updates 11 to 100; native peak is the managed-buffer peak reported by the
+runtime; FLOAT32 reference medians come from the same-session position control above.
+
+| Family | dtype | Old → new ms (old-first) | Old → new ms (new-first) | Change | Native peak old → new | FLOAT32 same session |
+|---|---|---:|---:|---:|---:|---:|
+| Prism | FLOAT16 | 814.6 → 656.5 | 797.5 → 660.9 | -19.4% / -17.1% | 3.188 → 2.717 GB | ~395–407 ms |
+| Prism | BFLOAT16 | 1149.6 → 923.7 | 1115.1 → 946.0 | -19.7% / -15.2% | 3.188 → 2.717 GB | ~395–407 ms |
+| Nova | FLOAT16 | 1315.6 → 996.0 | 1281.9 → 989.1 | -24.3% / -22.9% | 4.043 → 3.196 GB | ~550–561 ms |
+| Nova | BFLOAT16 | 1901.6 → 1410.4 | 1756.4 → 1398.1 | -25.8% / -20.4% | 4.043 → 3.196 GB | ~550–561 ms |
+| Loop | FLOAT16 | 1900.7 → 1457.9 | 1920.7 → 1475.4 | -23.3% / -23.2% | 4.996 → 3.725 GB | ~785–790 ms |
+| Loop | BFLOAT16 | 3204.7 → 2569.5 | 3139.1 → 2519.1 | -19.8% / -19.7% | 4.996 → 3.725 GB | ~785–790 ms |
+
+The candidate is faster than the previous compact path in all twelve pairs in both orders,
+by 15% to 26%, with native peak 15% to 25% lower; peak RSS stayed 1.64 to 1.94 GB. These
+are same-session full-model measurements, not an operator extrapolation. Compact training
+remains substantially slower than FLOAT32 on this device (FP16 about 1.6 to 1.9×, BF16
+about 2.3 to 3.3× the FLOAT32 step), because the remaining compact matmul routes are not
+MPS-accelerated; no claim is made that compact dtypes are a speed option. Their purpose is
+the two-byte weight storage confirmed above.
+
+The IDE was open throughout; the comparison is within-session and within-pair only.
+
+## Final-head local build
+
+After all suites, `mvn verify` on this head with the Metal device present executed 2,347 of
+2,371 tests (24 explicit opt-in skips), zero failures or errors, with every Java,
+native-source and frontend quality and coverage gate passing (portable lines 95.04%,
+branches 87.47%; autograd 99.82%/96.47%). The production JAR SHA-256 is unchanged at
+`bafcde515ae9e439afdec72657ebb5a68d81dbdc9f294898615b99bcef139cd2`; only documentation and
+evidence files differ from the CI-verified commit `1018c22a`. Raw per-process logs, guards,
+manifests and analyses for every suite above are summarised in
+[compact-results.json](compact-results.json).
+
+Remaining before merge: hosted CI on the exact final documentation head. No release,
 publication or real checkpoint changes were performed.
 
 ## Frozen identities
