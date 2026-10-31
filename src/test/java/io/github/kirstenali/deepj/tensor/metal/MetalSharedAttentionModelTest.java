@@ -14,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -21,6 +23,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -59,6 +62,27 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
         }
     }
 
+    static Stream<Arguments> compactCases() {
+        return Stream.of(Kind.values()).flatMap(kind -> Stream.of(DType.FLOAT16, DType.BFLOAT16)
+                .map(dtype -> Arguments.of(kind, dtype)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("compactCases")
+    void compactFusedTrainingRepeatsEveryLossGradientAndWeightExactly(Kind kind, DType dtype) {
+        assumeTrue(MetalNative.supportsAttention(dtype));
+        List<Step> expected = train(kind, backend(true), dtype);
+        List<Step> actual = train(kind, backend(true), dtype);
+        for (int step = 0; step < expected.size(); step++) {
+            assertTrue(Float.isFinite(actual.get(step).loss()));
+            assertEquals(expected.get(step).loss(), actual.get(step).loss());
+            assertIdentical(expected.get(step).gradients(), actual.get(step).gradients());
+            assertIdentical(expected.get(step).weights(), actual.get(step).weights());
+        }
+        assertEquals(12, calls[0]);
+        assertEquals(12, calls[1]);
+    }
+
     @ParameterizedTest
     @EnumSource(value = Kind.class, names = {"NOVA", "LOOP"})
     void compactTrainingMatchesPreviousExpandedHeadsForLossGradientsAndUpdatedWeights(Kind kind) {
@@ -71,7 +95,7 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
 
     private static void assertIdentical(List<Tensor> expected, List<Tensor> actual) {
         for (int index = 0; index < expected.size(); index++) {
-            assertArrayEquals(expected.get(index).rawData(), actual.get(index).rawData());
+            assertArrayEquals(expected.get(index).toFloatArray(), actual.get(index).toFloatArray());
         }
     }
 
@@ -117,18 +141,26 @@ class MetalSharedAttentionModelTest extends MetalDifferentialTestSupport {
     }
 
     private static DecoderOnlyModel model(Kind kind) {
+        return model(kind, DType.FLOAT32);
+    }
+
+    private static DecoderOnlyModel model(Kind kind, DType dtype) {
         return switch (kind) {
-            case ORIGIN -> new DeepJOrigin(new DeepJOriginConfig(31, 1024, 128, 2, 2, 256), 197);
-            case ORBIT -> new DeepJOrbit(new DeepJOrbitConfig(31, 1024, 128, 2, 2, 256), 197);
-            case PRISM -> new DeepJPrism(new DeepJPrismConfig(31, 1024, 128, 2, 2, 256, 64, 32), 197);
-            case NOVA -> new DeepJNova(new DeepJNovaConfig(31, 1024, 128, 2, 1, 2, 256), 197);
-            case LOOP -> new DeepJLoop(new DeepJLoopConfig(31, 1024, 128, 2, 1, 0, 1, 0, 2, 256), 197);
+            case ORIGIN -> new DeepJOrigin(new DeepJOriginConfig(31, 1024, 128, 2, 2, 256), 197, dtype);
+            case ORBIT -> new DeepJOrbit(new DeepJOrbitConfig(31, 1024, 128, 2, 2, 256), 197, dtype);
+            case PRISM -> new DeepJPrism(new DeepJPrismConfig(31, 1024, 128, 2, 2, 256, 64, 32), 197, dtype);
+            case NOVA -> new DeepJNova(new DeepJNovaConfig(31, 1024, 128, 2, 1, 2, 256), 197, dtype);
+            case LOOP -> new DeepJLoop(new DeepJLoopConfig(31, 1024, 128, 2, 1, 0, 1, 0, 2, 256), 197, dtype);
         };
     }
 
     private static List<Step> train(Kind kind, TensorBackend backend) {
+        return train(kind, backend, DType.FLOAT32);
+    }
+
+    private static List<Step> train(Kind kind, TensorBackend backend, DType dtype) {
         Tensor.setBackend(backend);
-        DecoderOnlyModel model = model(kind);
+        DecoderOnlyModel model = model(kind, dtype);
         var trainer = CausalLMTraining.trainer(model, ignored -> batch(), 1e-4f);
         List<Step> result = new ArrayList<>();
         for (int step = 0; step < 3; step++) {

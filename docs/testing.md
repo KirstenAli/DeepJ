@@ -42,11 +42,22 @@ Native regression tests verify the scoring and boundary conditions against real 
 
 ## Attention numerical checks
 
-DeepJ's FP32 Metal implementation of FlashAttention is checked against an independent scalar
+DeepJ's Metal implementation of FlashAttention is checked against an independent scalar
 double-precision reference for forward results and all three input gradients.
 Finite differences check both that reference and the GPU backward implementation.
 Tests cover causal boundaries, saturated scores, zero and negative scales,
 production head counts, and unsupported-shape fallbacks.
+
+Compact-input fused tests check FLOAT16 and BFLOAT16 values against the same FP64
+reference, verify FP32 gradients and unrounded saved state, and exercise batched
+grouped heads, broadcast upstream gradients and tiny compact values. Mixed-matrix
+regressions check FLOAT32 range and mantissa preservation, narrow products,
+transposes and batches. These checks do not require different attention algorithms
+or storage dtypes to produce identical bits.
+
+The [compact-precision qualification](benchmarks/compact-attention-2026-10-31/REPORT.md)
+records full-context FP64 oracles, full-size real-data and typed file-restore checks,
+CPU controls, individual timing results and the investigated precision differences.
 
 Repeated execution of the same implementation must remain bit-identical, including
 three training updates for Origin, Orbit, Prism, Nova and Loop. Comparisons between

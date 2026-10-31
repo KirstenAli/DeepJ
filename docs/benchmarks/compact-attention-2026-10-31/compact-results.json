@@ -1,0 +1,686 @@
+{
+  "productionCommit": "1018c22ad72dbfec4f2e7be1a60f392564dcdc7f",
+  "baselineJarSha256": "77e1c2f8a02cf9277bbb98620f19b81f5a2462db49a261aaf995e4ed5b4ed9d7",
+  "candidateJarSha256": "bafcde515ae9e439afdec72657ebb5a68d81dbdc9f294898615b99bcef139cd2",
+  "realData": {
+    "prism-FLOAT16": {
+      "finite": true,
+      "storageExact": true,
+      "meanLossDelta": 8.285720000067442e-05,
+      "windowDeltas": [
+        1.1006000000257643e-05,
+        5.8048799999710354e-05,
+        0.00026424319999973633,
+        -1.8692000001152564e-06
+      ],
+      "heldoutDeltas": [
+        -2.1934509998544627e-05,
+        4.762411000047706e-05,
+        0.0020161569099999,
+        0.00024086237000009447,
+        0.00024330616000023397
+      ],
+      "finalHeldout": [
+        3.47185593843,
+        3.47161263227
+      ],
+      "normsPositive": true,
+      "peakBytes": [
+        2716867600.0,
+        3187743760.0
+      ],
+      "medianStepMs": [
+        659.5640000000001,
+        819.8304999999999
+      ],
+      "withinThreshold": true,
+      "status": {
+        "state": "COMPLETED",
+        "code": 0,
+        "signal": null,
+        "reason": "",
+        "peakRss": 1666777088,
+        "seconds": 74.603
+      }
+    },
+    "prism-BFLOAT16": {
+      "finite": true,
+      "storageExact": true,
+      "meanLossDelta": 0.0036337329000000196,
+      "windowDeltas": [
+        -0.0002411831999999947,
+        0.015014199200000355,
+        0.0035810188000002796,
+        -0.003819103199999674
+      ],
+      "heldoutDeltas": [
+        0.00022852420999974754,
+        -0.033156871800000154,
+        -0.005240887409999839,
+        -0.0038947165000000616,
+        -0.00798934698000009
+      ],
+      "finalHeldout": [
+        3.45575594902,
+        3.463745296
+      ],
+      "normsPositive": true,
+      "peakBytes": [
+        2716867600.0,
+        3187743760.0
+      ],
+      "medianStepMs": [
+        909.975,
+        1100.6360000000002
+      ],
+      "withinThreshold": false,
+      "status": {
+        "state": "COMPLETED",
+        "code": 0,
+        "signal": null,
+        "reason": "",
+        "peakRss": 1760821248,
+        "seconds": 103.658
+      }
+    },
+    "nova-FLOAT16": {
+      "finite": true,
+      "storageExact": true,
+      "meanLossDelta": 3.5835999998568013e-06,
+      "windowDeltas": [
+        4.50336000001883e-05,
+        1.4133999999721425e-05,
+        -2.5941199999657272e-05,
+        -1.889199999993707e-05
+      ],
+      "heldoutDeltas": [
+        1.9073499988309095e-06,
+        5.173683999970535e-05,
+        -7.152499996720962e-07,
+        -5.7697299999937e-05,
+        -1.102686000020725e-05
+      ],
+      "finalHeldout": [
+        3.66113197803,
+        3.66114300489
+      ],
+      "normsPositive": true,
+      "peakBytes": [
+        3195580816.0,
+        4043157904.0
+      ],
+      "medianStepMs": [
+        976.1175,
+        1302.5445
+      ],
+      "withinThreshold": true,
+      "status": {
+        "state": "COMPLETED",
+        "code": 0,
+        "signal": null,
+        "reason": "",
+        "peakRss": 1834106880,
+        "seconds": 108.871
+      }
+    },
+    "nova-BFLOAT16": {
+      "finite": true,
+      "storageExact": true,
+      "meanLossDelta": -7.747999999807575e-06,
+      "windowDeltas": [
+        0.0001289199999998658,
+        -8.456239999965476e-05,
+        -4.768399999965922e-05,
+        -2.766560000022622e-05
+      ],
+      "heldoutDeltas": [
+        0.0002019405399984464,
+        -0.00010740756999982892,
+        -0.00013884901999983157,
+        -0.00021034479000014983,
+        -0.00012785195999986954
+      ],
+      "finalHeldout": [
+        3.66065058112,
+        3.66077843308
+      ],
+      "normsPositive": true,
+      "peakBytes": [
+        3195580816.0,
+        4043157904.0
+      ],
+      "medianStepMs": [
+        1361.553,
+        2169.1195
+      ],
+      "withinThreshold": true,
+      "status": {
+        "state": "COMPLETED",
+        "code": 0,
+        "signal": null,
+        "reason": "",
+        "peakRss": 1813069824,
+        "seconds": 152.926
+      }
+    },
+    "loop-FLOAT16": {
+      "finite": true,
+      "storageExact": true,
+      "meanLossDelta": 3.212170000033154e-05,
+      "windowDeltas": [
+        5.016000000246379e-06,
+        -7.726400000684919e-06,
+        -2.7255200000020352e-05,
+        0.0001584524000000087
+      ],
+      "heldoutDeltas": [
+        -1.668930000064961e-05,
+        1.3828280000183213e-05,
+        -2.357364000005191e-05,
+        2.2053699999524667e-06,
+        -4.836916999995111e-05
+      ],
+      "finalHeldout": [
+        3.66593950987,
+        3.66598787904
+      ],
+      "normsPositive": true,
+      "peakBytes": [
+        3724919568.0,
+        4996285200.0
+      ],
+      "medianStepMs": [
+        1453.6465,
+        2408.2695
+      ],
+      "withinThreshold": true,
+      "status": {
+        "state": "COMPLETED",
+        "code": 0,
+        "signal": null,
+        "reason": "",
+        "peakRss": 1772716032,
+        "seconds": 161.347
+      }
+    },
+    "loop-BFLOAT16": {
+      "finite": true,
+      "storageExact": true,
+      "meanLossDelta": -6.733469999975483e-05,
+      "windowDeltas": [
+        -0.00012941280000067223,
+        -1.0510800000140819e-05,
+        -0.00012598920000028713,
+        -3.425999999695506e-06
+      ],
+      "heldoutDeltas": [
+        -0.00013518333000028804,
+        -3.9815910000129406e-05,
+        -0.00016584992000012733,
+        -5.543229999904753e-06,
+        -0.00041803717000021834
+      ],
+      "finalHeldout": [
+        3.66783115268,
+        3.66824918985
+      ],
+      "normsPositive": true,
+      "peakBytes": [
+        3724919568.0,
+        4996285200.0
+      ],
+      "medianStepMs": [
+        2038.6730000000002,
+        3320.03
+      ],
+      "withinThreshold": true,
+      "status": {
+        "state": "COMPLETED",
+        "code": 0,
+        "signal": null,
+        "reason": "",
+        "peakRss": 1827553280,
+        "seconds": 236.636
+      }
+    }
+  },
+  "sameBinaryPositionControl": [
+    {
+      "family": "prism",
+      "version": "baseline",
+      "slot1Ms": 395.0286045,
+      "slot2Ms": 407.14772899999997,
+      "slot2VsSlot1Percent": 3.067910617596814
+    },
+    {
+      "family": "prism",
+      "version": "candidate",
+      "slot1Ms": 405.09752050000003,
+      "slot2Ms": 403.7932915,
+      "slot2VsSlot1Percent": -0.32195432803199253
+    },
+    {
+      "family": "nova",
+      "version": "baseline",
+      "slot1Ms": 560.0939999999999,
+      "slot2Ms": 552.112625,
+      "slot2VsSlot1Percent": -1.4250063382217903
+    },
+    {
+      "family": "nova",
+      "version": "candidate",
+      "slot1Ms": 550.4805625,
+      "slot2Ms": 558.8383544999999,
+      "slot2VsSlot1Percent": 1.518271955333561
+    },
+    {
+      "family": "loop",
+      "version": "baseline",
+      "slot1Ms": 784.6519375,
+      "slot2Ms": 789.556146,
+      "slot2VsSlot1Percent": 0.6250170636964647
+    },
+    {
+      "family": "loop",
+      "version": "candidate",
+      "slot1Ms": 785.9671665,
+      "slot2Ms": 786.0602919999999,
+      "slot2VsSlot1Percent": 0.011848522936985795
+    }
+  ],
+  "typedFiles": {
+    "loop-BFLOAT16-full-resume-3ZsteX": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2817343488,
+      "seconds": 38.109
+    },
+    "loop-BFLOAT16-full-self-1n0pqQ": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2682699776,
+      "seconds": 27.868
+    },
+    "loop-BFLOAT16-full-write-VKtxDw": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3667001344,
+      "seconds": 29.606
+    },
+    "loop-FLOAT16-full-resume-wzKyUW": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2802696192,
+      "seconds": 37.007
+    },
+    "loop-FLOAT16-full-self-RCSBkQ": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2735833088,
+      "seconds": 25.251
+    },
+    "loop-FLOAT16-full-write-76hzyZ": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3681402880,
+      "seconds": 26.721
+    },
+    "nova-BFLOAT16-full-resume-IIlRv8": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2917957632,
+      "seconds": 36.251
+    },
+    "nova-BFLOAT16-full-self-ZrUDMY": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2666905600,
+      "seconds": 24.505
+    },
+    "nova-BFLOAT16-full-write-IRU95T": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3574366208,
+      "seconds": 26.333
+    },
+    "nova-FLOAT16-full-resume-wu0u9p": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3351609344,
+      "seconds": 35.605
+    },
+    "nova-FLOAT16-full-self-64SrG4": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2744221696,
+      "seconds": 22.561
+    },
+    "nova-FLOAT16-full-write-xHzNfL": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3300802560,
+      "seconds": 24.168
+    },
+    "prism-BFLOAT16-full-resume-zjF4G6": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3241656320,
+      "seconds": 32.886
+    },
+    "prism-BFLOAT16-full-self-Spj02k": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2630582272,
+      "seconds": 20.534
+    },
+    "prism-BFLOAT16-full-write-PlNMUw": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3210788864,
+      "seconds": 21.959
+    },
+    "prism-FLOAT16-full-resume-chc9LB": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3329966080,
+      "seconds": 32.586
+    },
+    "prism-FLOAT16-full-self-G0OFWF": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 2412380160,
+      "seconds": 19.421
+    },
+    "prism-FLOAT16-full-write-LKOSgy": {
+      "state": "COMPLETED",
+      "allStateExact": true,
+      "peakRss": 3402514432,
+      "seconds": 20.689
+    },
+    "loop-BFLOAT16-full": {
+      "write": true,
+      "self": true,
+      "resume": true
+    },
+    "loop-FLOAT16-full": {
+      "write": true,
+      "self": true,
+      "resume": true
+    },
+    "nova-BFLOAT16-full": {
+      "write": true,
+      "self": true,
+      "resume": true
+    },
+    "nova-FLOAT16-full": {
+      "write": true,
+      "self": true,
+      "resume": true
+    },
+    "prism-BFLOAT16-full": {
+      "write": true,
+      "self": true,
+      "resume": true
+    },
+    "prism-FLOAT16-full": {
+      "write": true,
+      "self": true,
+      "resume": true
+    }
+  },
+  "compactTiming": [
+    {
+      "family": "loop",
+      "dtype": "BFLOAT16",
+      "round": 0,
+      "oldMs": 3204.711,
+      "newMs": 2569.455,
+      "newVsOldPercent": -19.822567463961647,
+      "oldNativePeak": 4996285200.0,
+      "newNativePeak": 3724919568.0,
+      "oldPeakRss": 1774223360,
+      "newPeakRss": 1936031744
+    },
+    {
+      "family": "loop",
+      "dtype": "BFLOAT16",
+      "round": 1,
+      "oldMs": 3139.0945,
+      "newMs": 2519.088,
+      "newVsOldPercent": -19.75112568289995,
+      "oldNativePeak": 4996285200.0,
+      "newNativePeak": 3724919568.0,
+      "oldPeakRss": 1942831104,
+      "newPeakRss": 1811906560
+    },
+    {
+      "family": "loop",
+      "dtype": "FLOAT16",
+      "round": 0,
+      "oldMs": 1900.65,
+      "newMs": 1457.9489999999998,
+      "newVsOldPercent": -23.292084286954474,
+      "oldNativePeak": 4996285200.0,
+      "newNativePeak": 3724919568.0,
+      "oldPeakRss": 1900806144,
+      "newPeakRss": 1823047680
+    },
+    {
+      "family": "loop",
+      "dtype": "FLOAT16",
+      "round": 1,
+      "oldMs": 1920.681,
+      "newMs": 1475.358,
+      "newVsOldPercent": -23.185682578210542,
+      "oldNativePeak": 4996285200.0,
+      "newNativePeak": 3724919568.0,
+      "oldPeakRss": 1764261888,
+      "newPeakRss": 1787887616
+    },
+    {
+      "family": "nova",
+      "dtype": "BFLOAT16",
+      "round": 0,
+      "oldMs": 1901.5914999999998,
+      "newMs": 1410.3654999999999,
+      "newVsOldPercent": -25.83236199783181,
+      "oldNativePeak": 4043157904.0,
+      "newNativePeak": 3195580816.0,
+      "oldPeakRss": 1760411648,
+      "newPeakRss": 1834418176
+    },
+    {
+      "family": "nova",
+      "dtype": "BFLOAT16",
+      "round": 1,
+      "oldMs": 1756.4365,
+      "newMs": 1398.0735,
+      "newVsOldPercent": -20.402844053855638,
+      "oldNativePeak": 4043157904.0,
+      "newNativePeak": 3195580816.0,
+      "oldPeakRss": 1893777408,
+      "newPeakRss": 1830748160
+    },
+    {
+      "family": "nova",
+      "dtype": "FLOAT16",
+      "round": 0,
+      "oldMs": 1315.572,
+      "newMs": 995.97,
+      "newVsOldPercent": -24.293767273855018,
+      "oldNativePeak": 4043157904.0,
+      "newNativePeak": 3195580816.0,
+      "oldPeakRss": 1854210048,
+      "newPeakRss": 1860222976
+    },
+    {
+      "family": "nova",
+      "dtype": "FLOAT16",
+      "round": 1,
+      "oldMs": 1281.906,
+      "newMs": 989.0514999999999,
+      "newVsOldPercent": -22.8452398225767,
+      "oldNativePeak": 4043157904.0,
+      "newNativePeak": 3195580816.0,
+      "oldPeakRss": 1640415232,
+      "newPeakRss": 1814839296
+    },
+    {
+      "family": "prism",
+      "dtype": "BFLOAT16",
+      "round": 0,
+      "oldMs": 1149.6265,
+      "newMs": 923.6655000000001,
+      "newVsOldPercent": -19.655166264869507,
+      "oldNativePeak": 3187743760.0,
+      "newNativePeak": 2716867600.0,
+      "oldPeakRss": 1662124032,
+      "newPeakRss": 1712586752
+    },
+    {
+      "family": "prism",
+      "dtype": "BFLOAT16",
+      "round": 1,
+      "oldMs": 1115.0545,
+      "newMs": 946.042,
+      "newVsOldPercent": -15.157330874858577,
+      "oldNativePeak": 3187743760.0,
+      "newNativePeak": 2716867600.0,
+      "oldPeakRss": 1778712576,
+      "newPeakRss": 1824997376
+    },
+    {
+      "family": "prism",
+      "dtype": "FLOAT16",
+      "round": 0,
+      "oldMs": 814.5659999999999,
+      "newMs": 656.5415,
+      "newVsOldPercent": -19.399839914752135,
+      "oldNativePeak": 3187743760.0,
+      "newNativePeak": 2716867600.0,
+      "oldPeakRss": 1689518080,
+      "newPeakRss": 1705574400
+    },
+    {
+      "family": "prism",
+      "dtype": "FLOAT16",
+      "round": 1,
+      "oldMs": 797.5305,
+      "newMs": 660.8989999999999,
+      "newVsOldPercent": -17.131821290847192,
+      "oldNativePeak": 3187743760.0,
+      "newNativePeak": 2716867600.0,
+      "oldPeakRss": 1739833344,
+      "newPeakRss": 1835089920
+    }
+  ],
+  "performanceSignoff": "NOT AUTOMATIC. Review every case; the Prism BFLOAT16 step-25 held-out breach is an investigated finding, not waived.",
+  "cpuOnlyControl": {
+    "timing": [
+      {
+        "family": "loop",
+        "round": 0,
+        "order": "old-first",
+        "oldMs": 3266.5735834999996,
+        "newMs": 3264.36775,
+        "newVsOldPercent": -0.06752743949016704,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3219570688,
+        "newPeakRss": 3205152768
+      },
+      {
+        "family": "loop",
+        "round": 1,
+        "order": "new-first",
+        "oldMs": 3348.4529585,
+        "newMs": 3300.2897915,
+        "newVsOldPercent": -1.4383707221491293,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3208560640,
+        "newPeakRss": 3196567552
+      },
+      {
+        "family": "loop",
+        "round": 2,
+        "order": "old-first",
+        "oldMs": 3359.8387085,
+        "newMs": 3364.9782705,
+        "newVsOldPercent": 0.15297049786935357,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3234496512,
+        "newPeakRss": 3199172608
+      },
+      {
+        "family": "nova",
+        "round": 0,
+        "order": "old-first",
+        "oldMs": 2135.7132495,
+        "newMs": 2146.425625,
+        "newVsOldPercent": 0.5015830426911227,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3207905280,
+        "newPeakRss": 3228680192
+      },
+      {
+        "family": "nova",
+        "round": 1,
+        "order": "new-first",
+        "oldMs": 2290.5545835000003,
+        "newMs": 2168.1642915,
+        "newVsOldPercent": -5.343260225346214,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3183640576,
+        "newPeakRss": 3196747776
+      },
+      {
+        "family": "nova",
+        "round": 2,
+        "order": "old-first",
+        "oldMs": 2306.8351665,
+        "newMs": 2310.442562,
+        "newVsOldPercent": 0.15637855501715592,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3208036352,
+        "newPeakRss": 3179855872
+      },
+      {
+        "family": "prism",
+        "round": 0,
+        "order": "old-first",
+        "oldMs": 1360.783396,
+        "newMs": 1391.0776660000001,
+        "newVsOldPercent": 2.226237481222193,
+        "warmedLossesExact": true,
+        "oldPeakRss": 2949840896,
+        "newPeakRss": 3116613632
+      },
+      {
+        "family": "prism",
+        "round": 1,
+        "order": "new-first",
+        "oldMs": 1695.0332709999998,
+        "newMs": 1568.4171039999999,
+        "newVsOldPercent": -7.469833729299102,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3113500672,
+        "newPeakRss": 3105390592
+      },
+      {
+        "family": "prism",
+        "round": 2,
+        "order": "old-first",
+        "oldMs": 1647.8750209999998,
+        "newMs": 1653.8417705,
+        "newVsOldPercent": 0.362087502023023,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3071819776,
+        "newPeakRss": 3122413568
+      }
+    ],
+    "smokeGates": {
+      "prism-smoke-gate": 4,
+      "nova-smoke-gate": 4,
+      "loop-smoke-gate": 4
+    }
+  }
+}
