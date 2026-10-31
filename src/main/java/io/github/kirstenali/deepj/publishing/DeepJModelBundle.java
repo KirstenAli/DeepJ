@@ -214,17 +214,15 @@ public final class DeepJModelBundle {
     }
 
     private static String usageHeader(int version) {
-        String requirement = version > 3
-                ? "This typed checkpoint requires a DeepJ source build supporting checkpoint format "
-                    + version + ".\n\n"
-                : releaseDependency();
+        String requirement = releaseDependency();
+        if (version > 3) requirement += "This bundle uses typed checkpoint format " + version + ".\n\n";
         return requirement + "Download this repository's `model.dj` and `tokenizer.bpe` "
                 + "into `downloaded-model`. Imports are omitted below.\n\n";
     }
 
     private static String releaseDependency() {
-        return "Use [DeepJ 0.11.0-alpha](https://central.sonatype.com/artifact/"
-                + "io.github.kirstenali/deepj/0.11.0-alpha) or newer:\n\n"
+        return "Use [DeepJ 0.12.0-alpha](https://github.com/KirstenAli/DeepJ/releases/tag/"
+                + "v0.12.0-alpha) or newer:\n\n"
                 + dependency();
     }
 
@@ -234,7 +232,7 @@ public final class DeepJModelBundle {
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.11.0-alpha</version>
+                    <version>0.12.0-alpha</version>
                 </dependency>
                 ```
 

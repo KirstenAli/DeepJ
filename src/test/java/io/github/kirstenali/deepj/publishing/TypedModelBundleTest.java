@@ -40,8 +40,8 @@ class TypedModelBundleTest {
         assertEquals(dtype, ModelLoader.load(directory.resolve("model.dj")).parameters().get(0).value.dtype());
         String card = Files.readString(directory.resolve("README.md"));
         if (dtype != DType.FLOAT32) {
-            assertTrue(card.contains("source build supporting checkpoint format 5"));
-            assertFalse(card.contains("<version>0.11.0-alpha</version>"));
+            assertTrue(card.contains("typed checkpoint format 5"));
+            assertTrue(card.contains("<version>0.12.0-alpha</version>"));
         }
     }
 

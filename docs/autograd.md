@@ -2,7 +2,7 @@
 
 Available in DeepJ `0.10.0-alpha` and newer.
 
-The ND/compact-dtype and `TensorScope` details below describe the current source APIs;
+The ND/compact-dtype and `TensorScope` details below require DeepJ `0.12.0-alpha` or newer;
 see [tensors and precision](tensors.md) for availability and matrix-API migration.
 
 DeepJ records differentiable tensor operations when at least one input requires gradients.
