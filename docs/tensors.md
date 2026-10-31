@@ -80,6 +80,17 @@ similar speed, so compact dtypes mainly save memory; they are no longer slower t
 FLOAT32 but should not be expected to be dramatically faster. Earlier results are in the
 [compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md).
 
+On `CpuBackend`, compact and strided matrix products stage their operands once into
+contiguous FLOAT32 arrays and run the same parallel row kernel as dense FLOAT32, with
+FLOAT32 accumulation and a single rounding of the result; the dtype-converting dense
+copy is parallel as well. There is no native 16-bit arithmetic on the CPU, so compact
+dtypes pay a decode/encode cost rather than gaining speed. On the same M4, a 2-layer
+Origin step (width 384, 256 tokens, vocabulary 4,096) measured FLOAT32 at roughly
+300-330 ms and FLOAT16/BFLOAT16 at 350-370 ms, about 15% slower; before the staged
+kernel the compact dtypes took close to 20 s per step. Dense FLOAT32 products use the
+pre-existing fast path and are unaffected. Expect compact dtypes on the CPU to save
+weight memory, not time.
+
 `MetalBackend.supportsNative16Matmul(dtype)` reports native compact-matrix support
 on the active device. It does not promise that every operation uses compact arithmetic.
 
