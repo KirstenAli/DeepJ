@@ -1,10 +1,10 @@
 # Compact attention and mixed backward products
 
-Status: operator, full-size FLOAT32 numerical/checkpoint, full-context compact oracle,
-full-size compact real-data, compact typed FILE, same-binary timing control and matched
-compact whole-model timing checks are complete and recorded below. Hosted CI on the
-final documentation head is the only remaining pre-merge step. These results are not a
-whole-training speed claim for FLOAT32.
+Status: local operator, full-size FLOAT32 numerical/checkpoint, full-context compact
+oracle, compact real-data/typed FILE, CPU controls and matched timing checks are complete
+for the workloads recorded below. CI must also pass on the proposed merge head; its
+current outcome is recorded in GitHub checks. These results are not a whole-training
+speed claim for FLOAT32 or a guarantee outside the tested configurations.
 
 ## Scope and implementation
 
@@ -304,17 +304,18 @@ an order-related effect but does not by itself identify a thermal cause or prove
 speed. No consistent version-specific CPU slowdown was established by these controls.
 RSS and each individual timing result remain disclosed rather than pooled away.
 
-After all suites, `mvn verify` on this head with the Metal device present executed 2,347 of
+After all suites, local `mvn verify` with the Metal device present executed 2,347 of
 2,371 tests (24 explicit opt-in skips), zero failures or errors, with every Java,
 native-source and frontend quality and coverage gate passing (portable lines 95.04%,
 branches 87.47%; autograd 99.82%/96.47%). The production JAR SHA-256 is unchanged at
-`bafcde515ae9e439afdec72657ebb5a68d81dbdc9f294898615b99bcef139cd2`; only documentation and
-evidence files differ from the CI-verified commit `1018c22a`. Raw per-process logs, guards,
+`bafcde515ae9e439afdec72657ebb5a68d81dbdc9f294898615b99bcef139cd2`. Production code is unchanged
+from the CI-verified commit `1018c22a`; later commits add the full-context compact oracle,
+documentation and evidence. Raw per-process logs, guards,
 manifests and analyses for every suite above are summarised in
 [compact-results.json](compact-results.json).
 
-Remaining before merge: hosted CI on the exact final documentation head. No release,
-publication or real checkpoint changes were performed.
+Merge approval also requires hosted CI on the exact proposed head and explicit maintainer
+authorization. No release, publication or real checkpoint changes were performed.
 
 ## Frozen identities
 
