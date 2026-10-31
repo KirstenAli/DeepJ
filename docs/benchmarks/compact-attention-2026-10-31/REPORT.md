@@ -142,11 +142,41 @@ single-operator process-tree RSS budget. That build remains failed. The capabili
 test now checks the supported dtype and still rejects strided storage. That failed local
 build remains failed; the later exact-production-commit integrated CI build passed separately.
 
-Still required: attribution of the positive FLOAT32 timing observations; the new full-context
-compact oracle; full-size compact real-data/stability and exact typed file restore; matched
-compact whole-model timings against old compact and FLOAT32; CPU controls; and final report,
-portable and exact-head CI checks after the pending test changes. No release, publication
-or real checkpoint changes were performed.
+## Full-context compact oracle executed
+
+On 31 October the extended `MetalCompactFusedAttentionTest` ran physically on the M4:
+8 cases, 0 failures/errors/skips, including 1024-token 9/3 grouped and 12/12 multi-head
+FP16 and BF16 against the independent FP64 reference. Largest absolute deviations were
+3.2e-8 (accumulated output), 3.0e-9 (query), 1.4e-8 (key) and 1.3e-6 (value) against
+tolerances of 2e-5/3e-5. Rounded outputs matched the independently rounded accumulated
+output exactly and every gradient stayed FLOAT32.
+
+## FLOAT32 timing attribution
+
+[timing-position-analysis.py](timing-position-analysis.py) re-reads the 18 timing
+processes above and separates slot position from binary version. The second process of a
+pair was slower in 7 of 9 pairs (mean +0.144%), while the candidate was slower in 4 of 9
+(mean -0.014%). Every positive new-minus-old observation (Prism +0.086, Nova +0.265/+0.352,
+Loop +0.199) came from a pair in which the candidate ran second; in the reversed round the
+baseline ran second and was slower by +0.417%/+0.272% in Nova/Loop. Within-process drift
+between the first and last ten measured updates ranged from -0.35% to +0.66%, larger than
+any version difference. GC counts differed by at most one collection per process.
+
+Source review of the FLOAT32 path found no added per-step work: `castToDevice` returns the
+same tensor for an identical dtype, `ensureStorageBuffer` is `ensureGpuBuffer` minus one
+check, and the native `bufferDType`/`requireStorageBuffer` calls are the same O(1) pool
+lookups the previous `requireBuffer` performed.
+
+This supports a slot-position explanation but does not prove it. The falsifiable control is
+a same-binary pair per family (old/old and new/new) under the identical helper and guards:
+a second-slot penalty of roughly +0.1% to +0.4% with no version term supports the hypothesis;
+a flat same-binary pair with a persisting positive new-minus-old term refutes it and would
+point back at the candidate.
+
+Still required: the same-binary position control; full-size compact real-data/stability
+and exact typed file restore; matched compact whole-model timings against old compact and
+FLOAT32; CPU controls; and final report, portable and exact-head CI checks. No release,
+publication or real checkpoint changes were performed.
 
 ## Frozen identities
 
