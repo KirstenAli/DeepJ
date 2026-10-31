@@ -36,6 +36,14 @@ class MetalCompactFusedAttentionTest extends MetalDifferentialTestSupport {
         verify(dtype, 288, 4, 1, -0.5f);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void fullContextGroupedAndMultiHeadDerivativesMatchIndependentReference(DType dtype) {
+        assumeTrue(MetalNative.supportsAttention(dtype));
+        verify(dtype, 1024, 9, 3, 0.125f);
+        verify(dtype, 1024, 12, 12, 0.125f);
+    }
+
     private void verify(DType dtype, int length, int heads, int keys, float scale) {
         Tensor q = Tensor.from(random(length * heads, 64, 613).toFloatArray(), dtype, length * heads, 64);
         Tensor k = Tensor.from(random(length * keys, 64, 617).toFloatArray(), dtype, length * keys, 64);

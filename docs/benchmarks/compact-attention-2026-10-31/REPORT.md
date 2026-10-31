@@ -1,6 +1,7 @@
 # Compact attention and mixed backward products
 
-Status: operator improvements validated; full-model qualification and exact-commit CI pending.
+Status: operator and full-size FLOAT32 numerical/checkpoint checks passed. Full-model
+performance sign-off and compact real-data/checkpoint qualification remain open.
 These results are not merge approval or a whole-training speed claim.
 
 ## Scope and implementation
@@ -77,6 +78,58 @@ The portable build passed 1,522 executed tests, zero failures/errors, with 817 e
 hardware/desktop/opt-in skips. Java, native-source and frontend quality/coverage gates
 passed. Skips are not reported as executed hardware checks.
 
+The exact production commit `1018c22ad72dbfec4f2e7be1a60f392564dcdc7f` also passed
+the clean CPU, Metal, native-instrumented, desktop, frontend and coverage build in
+[CI run 41198131890](https://github.com/KirstenAli/DeepJ/actions/runs/41198131890).
+Its optional performance/diagnostic jobs were skipped, not performance evidence.
+
+## Full-size FLOAT32 checks
+
+The final runtime completed 42 full-size processes on the same Apple M4 configuration:
+18 numerical/checkpoint controls, six 200-update real-data runs and 18 timing runs.
+Prism has 90,128,896 parameters, Nova 99,711,552 and Loop 100,375,680. All use batch 1,
+1,024-token context and identical frozen inputs within each old/new pair.
+
+- Every gradient, weight, first/second optimizer moment and all 16,777,216 logits
+  matched exactly in the full-state comparisons, including actual file restore.
+- Complete model/training checkpoint bytes and SHA-256 matched the qualified files.
+- All 600 paired training losses, 15 held-out measurements, 12 positive gradient norms
+  and 360 warm-up/measured timing losses matched exactly.
+- Steady native storage and buffer counts matched. Maximum native training peaks were
+  3,070,867,472 / 3,617,185,040 / 4,502,628,880 bytes for Prism / Nova / Loop in both
+  versions. Two initial transient peaks were lower in the candidate; no overall training
+  memory reduction is claimed for FLOAT32.
+- No completed case triggered a resource guard or recorded a sampled global swap increase.
+
+Each timing process used 10 warm-up and 30 measured updates. The second pair reversed
+old/new order. These are individual paired median changes, not a pooled speed claim:
+
+| Family | Pair 1 | Pair 2, reversed | Pair 3 |
+|---|---:|---:|---:|
+| Prism | +0.086% | -0.017% | -0.211% |
+| Nova | +0.265% | -0.415% | +0.352% |
+| Loop | +0.199% | -0.272% | -0.106% |
+
+Positive means slower. These small positive observations remain subject to attribution;
+being close to zero or reversing order is not by itself proof of no code-induced regression.
+Total timed real-data updates also differed: Prism 80.913 → 82.565 seconds, Nova
+130.459 → 117.327 seconds and Loop 208.525 → 211.826 seconds. Those different-workload
+totals are retained rather than cancelled against the warmed results. No full-model
+performance sign-off is claimed. [float32-results.json](float32-results.json) preserves
+every process, individual step timing, native observation, GC and sampled-memory summary.
+
+The original runner stopped before the first Loop timing JVM when its earlier training
+confirmation expired. A separately authorized continuation completed only those six
+unfinished processes, with identical binaries, helpers, workloads and resource guards.
+The parent's stopped outcome remains preserved; it was not relabelled a complete suite.
+
+A further permanent test now covers compact FP64-reference comparisons at 1,024 tokens
+with production 9/3 and 12/12 head configurations. It has compiled but has not yet been
+executed physically; it is not included in the 85 completed Metal tests above.
+The handoff build passed `mvn verify`: 2,341 total tests, 1,522 executed, 819 explicit
+hardware/desktop/opt-in skips, zero failures/errors, with all portable quality/coverage
+gates passing. Its production JAR SHA remains identical to the full-size tested runtime.
+
 All completed operator and selected-model runs retained the bounded memory/disk/time
 guards and recorded no sampled increase in global swap usage or swapouts. Short
 processes without periodic RSS samples remain unsampled, not zero-memory processes.
@@ -86,13 +139,14 @@ the unsupported order was removed. Two autograd failures exposed broadcast gradi
 GPU packing corrected them. A larger integrated build encountered an obsolete test
 expecting compact fusion to be unavailable and exceeded the incorrectly reused
 single-operator process-tree RSS budget. That build remains failed. The capability
-test now checks the supported dtype and still rejects strided storage. A fresh full
-build retains the prior full-qualification safety envelope; it is not marked passed.
+test now checks the supported dtype and still rejects strided storage. That failed local
+build remains failed; the later exact-production-commit integrated CI build passed separately.
 
-Still required: complete integrated native/desktop coverage, exact-commit CI,
-full-size real-data training/stability, file restore, and matched whole-model
-performance/memory acceptance. No release, publication or real checkpoint changes
-were performed.
+Still required: attribution of the positive FLOAT32 timing observations; the new full-context
+compact oracle; full-size compact real-data/stability and exact typed file restore; matched
+compact whole-model timings against old compact and FLOAT32; CPU controls; and final report,
+portable and exact-head CI checks after the pending test changes. No release, publication
+or real checkpoint changes were performed.
 
 ## Frozen identities
 
