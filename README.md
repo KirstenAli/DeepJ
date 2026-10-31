@@ -79,9 +79,8 @@ mvn package -Pcli
 java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
 ```
 
-Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
-or check backend availability. Prompts use the same saved format as the desktop UI, including
-Frisky's instruction format. Add `--backend cpu` for CPU-only execution.
+Chat with streaming responses, inspect checkpoints, or check backend availability.
+Choose from several themes to customise the interface. Add `--backend cpu` for CPU-only execution.
 See the [CLI guide](docs/cli.md) for commands and controls.
 
 ## Quick start
