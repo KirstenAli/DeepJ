@@ -61,11 +61,9 @@ records the acceptance bounds, measurements and reproducible evidence.
 
 ## ND, dtype and checkpoint qualification
 
-The [ND qualification report](benchmarks/nd-tensors-2026-10-28/REPORT.md) records the
-final FLOAT32 state and 200-update real-data comparisons, optional FLOAT16/BFLOAT16
-storage and training checks, and actual checkpoint write/restore byte comparisons.
-It separates the current results from earlier failed or superseded attempts and
-scopes the resolved host-CPU finding to its measured workload.
+ND qualification covers tensor shapes, dtype storage, gradients, real-data training
+and actual checkpoint write/restore byte comparisons. Compare changed implementations
+against pinned references for each affected dtype.
 
 Permanent gradient regressions check all three parameter dtypes, non-null FLOAT32
 zeros, cleanup followed by accumulation, lazy Metal storage and unchanged weight

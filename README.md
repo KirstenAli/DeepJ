@@ -139,8 +139,6 @@ JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean verify
 ```
 
 See [coding standards and regression testing](docs/quality-and-regression.md) for the enforced checks and validation requirements.
-The [ND qualification report](docs/benchmarks/nd-tensors-2026-10-28/REPORT.md) records
-the latest numerical, checkpoint, performance and memory checks against the previous implementation.
 
 Maintainers can create signed source, Javadoc, and binary artifacts and publish them through the Central Portal with:
 
