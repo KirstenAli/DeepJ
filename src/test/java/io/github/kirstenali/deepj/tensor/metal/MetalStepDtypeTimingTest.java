@@ -12,22 +12,26 @@ import org.junit.jupiter.api.Test;
 import java.util.Locale;
 import java.util.Random;
 
-/** Manual: Origin step timing. DEEPJ_TIMING_DTYPE=ALL alternates every dtype in one JVM. */
+/** Manual: Origin step timing. DEEPJ_TIMING_DTYPE=ALL alternates every dtype; DEEPJ_TIMING_BACKEND=cpu uses the CPU. */
 @Disabled("manual timing")
 class MetalStepDtypeTimingTest extends MetalDifferentialTestSupport {
-    private static final int SEQUENCE = 1024, WARMUP = 2, STEPS = 4, ROUNDS = 3;
-    private static final DeepJOriginConfig CONFIG = new DeepJOriginConfig(
-            setting("DEEPJ_TIMING_VOCAB", 16384), SEQUENCE, 768, 12, setting("DEEPJ_TIMING_LAYERS", 12), 3072);
+    private static final int WARMUP = 2, STEPS = 4, ROUNDS = 3;
+    private static final int SEQUENCE = setting("DEEPJ_TIMING_SEQUENCE", 1024);
+    private static final int WIDTH = setting("DEEPJ_TIMING_WIDTH", 768);
+    private static final DeepJOriginConfig CONFIG = new DeepJOriginConfig(setting("DEEPJ_TIMING_VOCAB", 16384),
+            SEQUENCE, WIDTH, 12, setting("DEEPJ_TIMING_LAYERS", 12), 4 * WIDTH);
 
     @Test
     void stepTimingForConfiguredDtype() {
+        if (System.getenv().getOrDefault("DEEPJ_TIMING_BACKEND", "metal").equals("cpu")) Tensor.setBackend(cpu);
         String selected = System.getenv().getOrDefault("DEEPJ_TIMING_DTYPE", "FLOAT32");
         DType[] dtypes = selected.equals("ALL") ? DType.values() : new DType[]{DType.valueOf(selected)};
         int rounds = dtypes.length == 1 ? 1 : ROUNDS;
         for (int round = 0; round < rounds; round++) {
             for (DType dtype : dtypes) {
-                System.out.printf(Locale.ROOT, "round %d %-9s layers=%d vocab=%d %8.1f ms/step%n",
-                        round, dtype, CONFIG.nLayers(), CONFIG.vocabSize(), time(dtype));
+                System.out.printf(Locale.ROOT, "round %d %-9s %s layers=%d width=%d seq=%d vocab=%d %8.1f ms/step%n",
+                        round, dtype, Tensor.backend().getClass().getSimpleName(), CONFIG.nLayers(), WIDTH, SEQUENCE,
+                        CONFIG.vocabSize(), time(dtype));
             }
         }
     }
