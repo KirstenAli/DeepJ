@@ -1,0 +1,40 @@
+{
+  "stage": "training-fixes-v111",
+  "state": "COMPLETED 2026-10-31T01:24Z to 01:37Z; four of four cases COMPLETED; see analysis.md, analysis.json, run.log, per-case directories",
+  "candidateCommit": "c9e42914c2a21355728a62c3cb88878c6ca4e923",
+  "candidateBranch": "feature/nd-tensors in local checkout (stack above pushed e427a7b9: 50d19773, c44a18bd, e324affd, 2fd34774, c9e42914)",
+  "baseJar": "final-v104 candidate.jar fffed479e94484a85671b8219c075c86ddb23f6719619eac366f6d88016942a0",
+  "oldJar": "untouched pre-ND baseline bfbadaf4c1fc3d3241fef5b81fdf611767d5f61926204b4e1021ea97c5a3d591",
+  "ndDeviceJarSha256": "77e1c2f8a02cf9277bbb98620f19b81f5a2462db49a261aaf995e4ed5b4ed9d7",
+  "patchedEntries": [
+    "io/github/kirstenali/deepj/optimisers/Parameter.class",
+    "io/github/kirstenali/deepj/training/CausalLMTraining.class",
+    "io/github/kirstenali/deepj/tensor/TensorStorageAccess.class",
+    "io/github/kirstenali/deepj/tensor/GraphCore.class",
+    "io/github/kirstenali/deepj/tensor/GraphLayoutRecordingOps.class",
+    "io/github/kirstenali/deepj/tensor/metal/MetalHostZeroInput.class",
+    "io/github/kirstenali/deepj/tensor/metal/MetalCoreOps.class"
+  ],
+  "allOtherEntriesByteIdentical": true,
+  "toolchain": "temurin-20.0.2 javac --release 20 against the frozen jar; helper classes and guards byte-identical to V109b/V110",
+  "contractTests": "17 passed on Metal against the staged jar via NdNativeStageTestsV2 (contract-summary.txt)",
+  "design": "old-host, nd-device, nd-device, old-host; original 200 Nova 99,711,552-parameter FLOAT32 updates, batch one, 1,024 context, G1 3g, fixed compiler threads, minimal observer; same guards as V109b",
+  "lossBits": "all 800 raw FLOAT32 loss bits identical within arm and nd == old",
+  "ndMinusOldPer200Updates": {
+    "steadyAllocPerUpdateMB": [-0.15, -0.15],
+    "processCpuMs": [-11769.78, -11038.30],
+    "mainThreadCpuMs": [-6830.48, -6021.78],
+    "mainUserMs": [-6542, -6147],
+    "mainKernelMs": [-289, 125],
+    "compilerCpuMs": [286.98, 372.16],
+    "elapsed200s": [-6.66, -8.13],
+    "elapsedMeasured30s": [-0.92, -1.09],
+    "instructionsG": [-73.90, -73.46],
+    "nativePeakBytes": 0
+  },
+  "interpretation": "The V105-V107b residual host CPU is explained and removed. Three stacked causes: (1) Parameter.zeroGrad allocated a host float[] per parameter per update (50d19773); (2) after releaseTemporary a host-less gradient was reused instead of rebound, forcing ensureHost()+clone() uploads and a permanent host array filled and zero-scanned every update (2fd34774); (3) the device-zero replacement allocated and zero-filled a model-sized Metal buffer set every update, visible as +398846208 B native peak and +9 s main-thread kernel time in V110 (c9e42914). With all three, ND uses 11 to 12 CPU-seconds less host process CPU than the pre-ND original per 200 updates in both orders, native peak is identical to old, and losses are bit-exact.",
+  "notAcceptance": "This is one old/new/new/old minimal-observer run on the synthetic Nova workload. It closes the specific host CPU finding; PERFORMANCE-ACCEPTANCE and the final all-model qualification matrix for c9e42914 remain to be executed and signed off by the human.",
+  "gpuStarted": true,
+  "trainingReceipt": "TRAINING-STOPPED.json in this directory; no training JVM observed before admission; Chrome absent; AC power; no swap increase or swapouts in any case"
+}
+

@@ -4,7 +4,55 @@ This report covers the source-branch ND migration, optional FLOAT16/BFLOAT16 sto
 native compact matrix paths and associated lifetime/performance fixes. It is not a
 claim about the published `0.11.0-alpha` artifact or a universal speedup.
 
-## Current review status on 30 October
+## Current review status on 31 October
+
+PR #177 remains **draft and unmerged**. The residual host CPU finding below has
+now been causally explained and removed; the sections dated 30 and 29 October are
+retained as history and do not describe the current candidate.
+
+Three stacked causes were found by tracing the cleanup, `zeroGrad` and gradient
+accumulation lifecycle, each fixed with permanent tests:
+
+1. `Parameter.zeroGrad` allocated a fresh host `float[]` per parameter per update.
+2. After `releaseTemporaryResources()` dropped a gradient's device buffer, the
+   host-less gradient was reused instead of rebound, so the next accumulate
+   uploaded it through `ensureHost()` plus a clone and the gradient then carried a
+   permanent host array that was filled and zero-scanned on every later update.
+3. The device-zero replacement allocated and zero-filled a model-sized set of
+   Metal buffers every update that the following accumulate immediately replaced,
+   visible as a native peak exactly `parameters x 4` bytes above the original and
+   as main-thread kernel time rather than Java user time.
+
+Metal `zeros` are now lazy tensors with neither host nor device storage; uploading
+a host-less tensor queues a device zero-fill; and the zero-input skip recognises
+host-less storage. A zeroed gradient therefore costs nothing until its first
+accumulate writes one output buffer.
+
+Matched original-pre-ND versus candidate Nova FLOAT32 synthetic 200-update runs
+(old/new/new/old independent JVMs, fixed compiler workers, minimal observer)
+retain exact bits for all 800 losses. Ordered candidate-minus-original results:
+host process CPU **-11.77 s / -11.04 s** per 200 updates, main-thread user CPU
+-6.54 s / -6.15 s, main-thread kernel CPU -0.29 s / +0.13 s, retired instructions
+-73.9 G / -73.5 G (about -32%), all-200 elapsed -6.66 s / -8.13 s, steady
+allocation 3.09 versus 3.24 MB per update, native peak identical. No swap increase
+or swapout occurred. This is one controlled synthetic comparison; it closes the
+specific host CPU finding and is not a universal speedup claim.
+
+The three-family FLOAT32 real-data endurance check (Prism, Nova and Loop; 200
+updates, five validations, four gradient norms each) was rerun for the current
+candidate: all 209 recorded loss, validation and gradient lines per family match
+the pre-ND reference exactly and native peaks are byte-identical.
+
+The exact-commit hosted CI run and the local integrated full-coverage build both
+passed on the pushed head: 2,345 tests, zero failures/errors, 12 explicit skips
+(11 disabled manual timing tests and one optional user-checkpoint smoke test).
+
+Outstanding before approval: rerun the typed FLOAT16/BFLOAT16 real-data, complete
+FILE write/resume and full-state suites against this exact head rather than the
+older frozen candidate, and complete the human performance-acceptance sign-off.
+No merge or release is approved.
+
+## Historical review status on 30 October
 
 PR #177 remains **draft and unmerged**. The additional host CPU requirement was
 reopened; the earlier acceptance below is historical and does not approve the

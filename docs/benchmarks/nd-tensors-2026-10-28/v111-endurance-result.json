@@ -1,0 +1,19 @@
+{
+  "stage": "final-endurance-v111",
+  "state": "COMPLETED 2026-10-31; prism, nova, loop training-candidate cases all COMPLETED",
+  "candidateCommit": "c9e42914c2a21355728a62c3cb88878c6ca4e923",
+  "candidateJarSha256": "77e1c2f8a02cf9277bbb98620f19b81f5a2462db49a261aaf995e4ed5b4ed9d7",
+  "guardSha256": "1c14c387a024c71d91b2504d8f6503dd9aacac6778a6b959aae20337d6384cde (byte-identical to final-endurance-v38)",
+  "helperClasses": "final-endurance-v38 candidate-classes used byte-for-byte; recompiling the same sources against the V38 and V111 jars yields identical bytecode",
+  "data": "full-v2/data train-100.bin (1,638,404 B) and validation.bin (65,540 B), hardlinked, unchanged",
+  "workload": "seed 100, batch 1, 1,024 tokens, 200 real-data updates, five eight-batch validations, four gradient norms, 205 native observations per family",
+  "reference": "endurance-v26 pre-ND baseline (jar bfbadaf4c1fc3d3241fef5b81fdf611767d5f61926204b4e1021ea97c5a3d591) training-baseline-0 case logs",
+  "comparison": {
+    "prism": {"linesCompared": 209, "differing": 0, "nativePeakBytes": 3070867472, "baselineNativePeakBytes": 3070867472, "peakRss": 2039824384, "seconds": 87.541},
+    "nova": {"linesCompared": 209, "differing": 0, "nativePeakBytes": 3617185040, "baselineNativePeakBytes": 3617185040},
+    "loop": {"linesCompared": 209, "differing": 0, "nativePeakBytes": 4502628880, "baselineNativePeakBytes": 4502628880, "peakRss": 2006237184, "seconds": 206.503}
+  },
+  "swap": "no global swapout count change and no swap-usage guard trip in any case",
+  "scope": "Closes the three-family FLOAT32 real-data state-lifetime/optimizer endurance check for c9e42914. Does not by itself cover the typed FLOAT16/BFLOAT16 real-data suite, full FILE write/resume byte comparisons or the 8 GiB full-state suite; those remain final-*-v38 results for the older frozen candidate unless rerun."
+}
+
