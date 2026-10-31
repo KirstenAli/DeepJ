@@ -3,8 +3,8 @@
 DeepJ uses one dense `Tensor` API for scalars, vectors, matrices and higher-rank
 arrays. Existing matrices are rank-two tensors; values default to FLOAT32.
 
-These ND and optional-dtype APIs currently require a source build; they are not
-part of the published `0.11.0-alpha` artifact.
+ND and optional-dtype APIs are included in `0.12.0-alpha` and newer. Until that
+version is published on Maven Central, build the GitHub release from source.
 
 ```java
 import io.github.kirstenali.deepj.tensor.DType;
@@ -50,13 +50,17 @@ For binary tensor operations, identical input dtypes stay in that dtype; differi
 including FLOAT16 mixed with BFLOAT16. A FLOAT32 operand is never silently narrowed.
 
 Supported Metal compact-matrix paths use native compact operands with FLOAT32
-accumulation. Eligible larger FLOAT16 products use Apple MPS on supported Apple GPUs;
-smaller, strided and other dtype/device combinations retain their appropriate GPU
-paths. Mixed FLOAT32/FLOAT16 products never narrow the FLOAT32 operand. Selected large,
-narrow FLOAT32/BFLOAT16 backward products widen the BFLOAT16 operand into a tracked,
-temporary GPU buffer before an FP32 MPS product. This is a per-product conversion,
-not a persistent FP32 copy of compact model parameters; other mixed products retain
-their existing GPU paths.
+accumulation. Eligible larger FLOAT16 products use Apple MPS on supported Apple GPUs.
+MPS accepts FLOAT16 on both sides or FLOAT32 on the left and FLOAT16 on the right;
+it does not directly accept the reverse mixed order or BFLOAT16 operands.
+For eligible products, DeepJ losslessly widens BFLOAT16 operands, or a FLOAT16 left
+operand paired with FLOAT32, into scoped GPU buffers. Staging is used only when all
+matrix dimensions are at least 64 and the widened element count is no more than twice
+the output count. Products that would widen a dominant operand retain the compact
+kernel. Two BFLOAT16 inputs produce a result rounded back to BFLOAT16.
+These are per-product conversions, not persistent FLOAT32 parameter copies.
+FLOAT32 operands are never narrowed, and FLOAT32-only routing is unchanged.
+Other shapes, layouts and device capabilities retain their appropriate GPU paths.
 Other operations and unsupported native compact-matrix paths may use
 FLOAT32 arithmetic on the selected backend. This is not automatic mixed precision:
 there is no implicit autocast or loss scaling, and no hidden CPU fallback from Metal.

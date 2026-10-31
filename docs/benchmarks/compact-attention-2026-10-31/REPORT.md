@@ -1,5 +1,13 @@
 # Compact attention and mixed backward products
 
+The measurements below qualify the compact-attention implementation before the
+additional MPS operand-routing change in `3b9b6233`. That later change broadens
+lossless per-product staging to BFLOAT16 operands and eligible FLOAT16-left/FLOAT32-right
+products, while retaining the compact kernel when staging would widen a dominant
+operand. Its operator and policy regressions are `MetalCompactMpsRoutingTest` and
+`MetalMixedMatmulPolicyTest`; release-head CI records the integrated checks. The older
+full-size measurements below must not be attributed to that later routing change.
+
 Status: local operator, full-size FLOAT32 numerical/checkpoint, full-context compact
 oracle, compact real-data/typed FILE, CPU controls and matched timing checks are complete
 for the workloads recorded below. CI must also pass on the proposed merge head; its

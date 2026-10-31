@@ -16,15 +16,14 @@ DeepJ is an alpha project. Its compact model families are designed to make diffe
 
 ## Install
 
-DeepJ requires JDK 20 or newer. The dependency below is the published release.
-The current N-dimensional tensor and optional FLOAT16/BFLOAT16 APIs
-require a [source build](#build-and-release); they are not in `0.11.0-alpha`.
+DeepJ requires JDK 20 or newer. Version `0.12.0-alpha` is a GitHub prerelease;
+Maven Central publication is pending. Until then, [build from source](#build-and-release).
 
 ```xml
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.11.0-alpha</version>
+    <version>0.12.0-alpha</version>
 </dependency>
 ```
 

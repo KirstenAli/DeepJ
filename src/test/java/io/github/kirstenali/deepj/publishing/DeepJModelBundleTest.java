@@ -106,8 +106,8 @@ class DeepJModelBundleTest {
         assertTrue(modelCard.contains("vocabulary.\n\nDeepJ Prism uses low-rank Q/KV attention"));
         assertInferenceDocumentation(modelCard);
         assertTrue(modelCard.contains("## Usage"));
-        assertTrue(modelCard.contains("DeepJ 0.11.0-alpha"));
-        assertTrue(modelCard.contains("<version>0.11.0-alpha</version>"));
+        assertTrue(modelCard.contains("DeepJ 0.12.0-alpha"));
+        assertTrue(modelCard.contains("<version>0.12.0-alpha</version>"));
         assertGenerationSettings(modelCard);
         assertTrue(modelCard.contains("desktop chat UI"));
         assertFalse(modelCard.contains("Use a DeepJ release that supports checkpoint format"));
