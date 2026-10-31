@@ -12,6 +12,7 @@ import io.github.kirstenali.deepj.tensor.TensorScope;
  */
 final class MetalMixedMatmul {
     static final int MPS_FLOOR = 64;
+    static final int CAST_TO_PRODUCT_RATIO = 128;
 
     private MetalMixedMatmul() {}
 
@@ -38,12 +39,12 @@ final class MetalMixedMatmul {
         return left.dtype() == DType.BFLOAT16 || right.dtype() == DType.BFLOAT16;
     }
 
-    /** Keep products on the compact kernel when staging would widen a dominant operand. */
+    /** Stage only when the cast is small next to the product; narrow products with a dominant cast stay compact. */
     private static boolean castsCheaperThanOutput(Tensor left, Tensor right) {
         long widened = (left.dtype() == DType.FLOAT32 ? 0 : left.numel())
                 + (right.dtype() == DType.BFLOAT16 ? right.numel() : 0);
-        long output = (long) left.numel() / left.size(-1) * right.size(-1);
-        return widened <= 2 * output;
+        long product = (long) left.numel() * right.size(-1);
+        return widened * CAST_TO_PRODUCT_RATIO <= product;
     }
 
     private static boolean largeProduct(Tensor left, Tensor right) {

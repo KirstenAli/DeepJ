@@ -13,8 +13,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class MetalCompactMpsRoutingTest extends MetalDifferentialTestSupport {
     @Test
     void bfloatProductsKeepTheirResultTypeAndMatchTheFloat32Reference() {
-        Tensor left = compact(DType.BFLOAT16, 128, 576, 11);
-        Tensor right = compact(DType.BFLOAT16, 576, 192, 13);
+        Tensor left = compact(DType.BFLOAT16, 256, 1024, 11);
+        Tensor right = compact(DType.BFLOAT16, 1024, 512, 13);
+        assertTrue(MetalMixedMatmul.stageBfloat(left, right));
         Tensor output = metal.matmul(left, right);
         assertEquals(DType.BFLOAT16, output.dtype());
         Tensor reference = metal.cast(metal.matmul(widen(left), widen(right)), DType.BFLOAT16);
