@@ -29,7 +29,7 @@ public final class Embedding implements Trainable {
         for (int id : ids) {
             if (id < 0 || id >= vocabSize) throw new IllegalArgumentException("Token id out of range: " + id);
         }
-        return Tensor.sliceRows(weight.value, ids, dModel);
+        return Tensor.sliceRows(weight.value, ids, dModel).to(weight.value.dtype().accumulationType());
     }
 
     public Tensor forwardBatch(int[][] sequences) {

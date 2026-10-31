@@ -26,7 +26,7 @@ class CpuNdMatmulTest {
     }
 
     @Test
-    void stridedMatricesAndVectorsAreReadWithoutHostContiguousCopies() {
+    void stridedMatricesAndVectorsPreserveLogicalOrder() {
         Tensor vector = Tensor.from(new float[]{1, 9, 2, 9, 3, 9}).slice(0, 0, 6, 2);
         assertFalse(vector.isContiguous());
         assertEquals(14, vector.matmul(Tensor.from(new float[]{1, 2, 3})).item());

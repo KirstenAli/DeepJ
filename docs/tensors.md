@@ -54,9 +54,10 @@ MPS accepts FLOAT16 on both sides or FLOAT32 on the left and FLOAT16 on the righ
 it does not directly accept the reverse mixed order or BFLOAT16 operands.
 For eligible products, DeepJ losslessly widens BFLOAT16 operands, or a FLOAT16 left
 operand paired with FLOAT32, into scoped GPU buffers. Staging is used only when all
-matrix dimensions are at least 64 and the widened element count is no more than twice
-the output count. Products that would widen a dominant operand retain the compact
-kernel. Two BFLOAT16 inputs produce a result rounded back to BFLOAT16.
+matrix dimensions are at least 64 and the widened element count times 128 is no more
+than rows x inner x columns, so the cast stays small next to the arithmetic. Products
+whose cast would dominate retain the compact kernel. Two BFLOAT16 inputs produce a
+result rounded back to BFLOAT16.
 These are per-product conversions, not persistent FLOAT32 parameter copies.
 FLOAT32 operands are never narrowed, and FLOAT32-only routing is unchanged.
 Other shapes, layouts and device capabilities retain their appropriate GPU paths.
@@ -66,11 +67,23 @@ there is no implicit autocast or loss scaling, and no hidden CPU fallback from M
 Optimizer master weights, gradients and moments remain FLOAT32. Consequently, two-byte
 weights do not halve total training memory or guarantee faster training.
 
-Full-size Prism, Nova and Loop tests on an Apple M4 MacBook Air with 16 GB unified
-memory found the optimized compact paths faster than their previous implementations,
-but FLOAT32 training remained faster than either compact dtype. This is a measured
-workload/device result, not a universal dtype ranking. See the
-[compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md).
+`ParameterFactory(dtype)` applies the requested compact dtype to parameters with more
+than one row. One-row parameters, including norm gains and biases, stay FLOAT32.
+Embedding lookups widen to FLOAT32, keeping the activation stream eligible for fused
+FLOAT32 kernels while larger weight matrices retain two-byte storage. This is an explicit
+parameter policy, not automatic autocast. A descriptor-based factory and loaded
+checkpoints preserve their individual stored dtypes.
+
+General compact, strided and broadcast CPU matrix products stage their operands in
+temporary contiguous FLOAT32 arrays before the parallel product, then round the result
+to its output dtype. This avoids repeated address calculations and compact-value decoding
+inside every multiply, at the cost of temporary host memory, including expanded batches.
+The existing dense FLOAT32 matrix fast path remains separate.
+
+Relative dtype speed depends on the operation, shape, backend and device. Short manual
+timing probes are exploratory, not a guarantee that compact training matches or exceeds
+FLOAT32 speed. The earlier [compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md)
+retain their original runtime and workload scope.
 
 `MetalBackend.supportsNative16Matmul(dtype)` reports native compact-matrix support
 on the active device. It does not promise that every operation uses compact arithmetic.

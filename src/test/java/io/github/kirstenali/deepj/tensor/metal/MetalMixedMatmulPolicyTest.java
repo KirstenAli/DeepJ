@@ -14,15 +14,18 @@ class MetalMixedMatmulPolicyTest {
         Tensor right = lazy(DType.BFLOAT16, 3, 1024, 64);
         assertTrue(MetalMixedMatmul.stageBfloat(left, right));
         assertTrue(MetalMixedMatmul.stageBfloat(right, lazy(DType.FLOAT32, 3, 64, 1024)));
-        assertTrue(MetalMixedMatmul.stageBfloat(lazy(DType.BFLOAT16, 64, 64), lazy(DType.BFLOAT16, 64, 64)));
+        assertTrue(MetalMixedMatmul.stageBfloat(lazy(DType.BFLOAT16, 256, 256), lazy(DType.BFLOAT16, 256, 256)));
         assertTrue(MetalMixedMatmul.stageBfloat(lazy(DType.BFLOAT16, 1024, 1024), lazy(DType.BFLOAT16, 1024, 1024)));
+        assertTrue(MetalMixedMatmul.stageBfloat(lazy(DType.BFLOAT16, 1024, 3072), lazy(DType.BFLOAT16, 3072, 768)));
+        assertTrue(MetalMixedMatmul.stageBfloat(lazy(DType.FLOAT32, 1024, 16384), lazy(DType.BFLOAT16, 16384, 768)));
     }
 
     @Test
-    void narrowProductsThatWidenADominantOperandStayOnTheCompactKernel() {
+    void productsWhoseCastDominatesTheArithmeticStayOnTheCompactKernel() {
         assertFalse(MetalMixedMatmul.stageBfloat(lazy(DType.BFLOAT16, 3072, 1024), lazy(DType.BFLOAT16, 1024, 64)));
         assertFalse(MetalMixedMatmul.stage(lazy(DType.FLOAT16, 3072, 1024), lazy(DType.FLOAT32, 1024, 64)));
         assertFalse(MetalMixedMatmul.stageBfloat(lazy(DType.FLOAT32, 64, 1024), lazy(DType.BFLOAT16, 1024, 64)));
+        assertFalse(MetalMixedMatmul.stageBfloat(lazy(DType.BFLOAT16, 64, 64), lazy(DType.BFLOAT16, 64, 64)));
     }
 
     @Test

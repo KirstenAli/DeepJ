@@ -134,6 +134,7 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
 
     private void executePendingOps(int[] commands) {
         if (opCount > 0) {
+            GraphOpHistogram.record(commands, cmdPos);
             if (layouts.isEmpty()) runtime.flushOps(commands, cmdPos);
             else runtime.flushOps(commands, cmdPos, layouts.snapshot());
         }

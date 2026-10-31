@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
+import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
+
 /** Assigns logical values with explicit dtype conversion, including overlapping source/destination views. */
 public final class CpuNdAssignment {
     private CpuNdAssignment() {}
@@ -27,8 +29,8 @@ public final class CpuNdAssignment {
             input.memory().copyTo(target.memory(), input.storageOffset(), target.storageOffset(), target.numel());
             return;
         }
-        for (int index = 0; index < target.numel(); index++) {
-            target.memory().set(target.storageOffset() + index, input.memory().get(input.storageOffset() + index));
-        }
+        TensorMemory destination = target.memory(), origin = input.memory();
+        int to = target.storageOffset(), from = input.storageOffset();
+        DeepJExecutor.forRange(0, target.numel(), index -> destination.set(to + index, origin.get(from + index)));
     }
 }

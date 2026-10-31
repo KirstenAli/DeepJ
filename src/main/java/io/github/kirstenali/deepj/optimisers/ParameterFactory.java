@@ -9,7 +9,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 
-/** Explicit, immutable parameter storage policy. Names do not depend on allocation order. */
+/**
+ * Explicit parameter storage policy: a requested dtype applies to multi-row parameters;
+ * one-row parameters remain FLOAT32. Descriptor-based loading preserves each stored dtype.
+ * Names do not depend on allocation order.
+ */
 public final class ParameterFactory {
     private final String prefix;
     private final DType defaultType;
@@ -61,7 +65,7 @@ public final class ParameterFactory {
 
     private DType dtype(String name, int rows, int columns) {
         if (rows < 1 || columns < 1) throw new IllegalArgumentException("Parameter dimensions must be positive");
-        if (defaultType != null) return defaultType;
+        if (defaultType != null) return rows == 1 ? DType.FLOAT32 : defaultType;
         TensorDescriptor descriptor = descriptors.get(path(name));
         if (descriptor == null) throw new IllegalArgumentException("Missing parameter: " + path(name));
         if (!Arrays.equals(descriptor.shape(), new int[]{rows, columns})) {

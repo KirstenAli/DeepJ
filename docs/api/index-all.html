@@ -1777,6 +1777,10 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Thread-local, nestable scope for computations that must not build a backward graph.</div>
 </dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/GraphOpHistogram.html" class="type-name-link" title="class in io.github.kirstenali.deepj.tensor">GraphOpHistogram</a> - Class in <a href="io/github/kirstenali/deepj/tensor/package-summary.html">io.github.kirstenali.deepj.tensor</a></dt>
+<dd>
+<div class="block">Opt-in opcode counter for the executed GPU command stream (-Ddeepj.graph.histogram=true).</div>
+</dd>
 <dt><a href="io/github/kirstenali/deepj/layers/transformer/attention/GroupedQueryAttention.html" class="type-name-link" title="class in io.github.kirstenali.deepj.layers.transformer.attention">GroupedQueryAttention</a> - Class in <a href="io/github/kirstenali/deepj/layers/transformer/attention/package-summary.html">io.github.kirstenali.deepj.layers.transformer.attention</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/layers/transformer/attention/GroupedQueryAttention.html#%3Cinit%3E(io.github.kirstenali.deepj.models.nova.DeepJNovaConfig,java.util.Random)" class="member-name-link">GroupedQueryAttention(DeepJNovaConfig, Random)</a> - Constructor for class io.github.kirstenali.deepj.layers.transformer.attention.<a href="io/github/kirstenali/deepj/layers/transformer/attention/GroupedQueryAttention.html" title="class in io.github.kirstenali.deepj.layers.transformer.attention">GroupedQueryAttention</a></dt>
@@ -3078,6 +3082,8 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/ComputeGraph.html#OP_VARIANCE_ALONG_ROWS" class="member-name-link">OP_VARIANCE_ALONG_ROWS</a> - Static variable in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/ComputeGraph.html" title="class in io.github.kirstenali.deepj.tensor">ComputeGraph</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/GraphOpHistogram.html#opcodeNames()" class="member-name-link">opcodeNames()</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/GraphOpHistogram.html" title="class in io.github.kirstenali.deepj.tensor">GraphOpHistogram</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/TensorScope.html#open()" class="member-name-link">open()</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorScope.html" title="class in io.github.kirstenali.deepj.tensor">TensorScope</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/models/CausalLM.html#openGeneration()" class="member-name-link">openGeneration()</a> - Method in interface io.github.kirstenali.deepj.models.<a href="io/github/kirstenali/deepj/models/CausalLM.html" title="interface in io.github.kirstenali.deepj.models">CausalLM</a></dt>
@@ -3141,7 +3147,8 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/optimisers/ParameterFactory.html" class="type-name-link" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a> - Class in <a href="io/github/kirstenali/deepj/optimisers/package-summary.html">io.github.kirstenali.deepj.optimisers</a></dt>
 <dd>
-<div class="block">Explicit, immutable parameter storage policy.</div>
+<div class="block">Explicit parameter storage policy: a requested dtype applies to multi-row parameters;
+ one-row parameters remain FLOAT32.</div>
 </dd>
 <dt><a href="io/github/kirstenali/deepj/optimisers/ParameterFactory.html#%3Cinit%3E(io.github.kirstenali.deepj.tensor.DType)" class="member-name-link">ParameterFactory(DType)</a> - Constructor for class io.github.kirstenali.deepj.optimisers.<a href="io/github/kirstenali/deepj/optimisers/ParameterFactory.html" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a></dt>
 <dd>&nbsp;</dd>
@@ -3569,6 +3576,8 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/HeadCacheOps.html#requireWrite(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">requireWrite(Tensor, Tensor, int, int)</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/HeadCacheOps.html" title="class in io.github.kirstenali.deepj.tensor">HeadCacheOps</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/GraphOpHistogram.html#reset()" class="member-name-link">reset()</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/GraphOpHistogram.html" title="class in io.github.kirstenali.deepj.tensor">GraphOpHistogram</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/TensorManipulations.html#reshape(int...)" class="member-name-link">reshape(int...)</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorManipulations.html" title="class in io.github.kirstenali.deepj.tensor">TensorManipulations</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/autograd/ViewOps.html#reshape(io.github.kirstenali.deepj.tensor.Tensor,int...)" class="member-name-link">reshape(Tensor, int...)</a> - Static method in class io.github.kirstenali.deepj.autograd.<a href="io/github/kirstenali/deepj/autograd/ViewOps.html" title="class in io.github.kirstenali.deepj.autograd">ViewOps</a></dt>
@@ -3899,6 +3908,8 @@ loadScripts(document, 'script');</script>
 <dt><a href="io/github/kirstenali/deepj/tensor/cpu/CpuBackend.html#sliceRows(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D,int)" class="member-name-link">sliceRows(Tensor, int[], int)</a> - Method in class io.github.kirstenali.deepj.tensor.cpu.<a href="io/github/kirstenali/deepj/tensor/cpu/CpuBackend.html" title="class in io.github.kirstenali.deepj.tensor.cpu">CpuBackend</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/Tensor.html#sliceRows(io.github.kirstenali.deepj.tensor.Tensor,int%5B%5D,int)" class="member-name-link">sliceRows(Tensor, int[], int)</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/GraphOpHistogram.html#snapshot()" class="member-name-link">snapshot()</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/GraphOpHistogram.html" title="class in io.github.kirstenali.deepj.tensor">GraphOpHistogram</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/TensorManipulations.html#softmax(int)" class="member-name-link">softmax(int)</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorManipulations.html" title="class in io.github.kirstenali.deepj.tensor">TensorManipulations</a></dt>
 <dd>&nbsp;</dd>

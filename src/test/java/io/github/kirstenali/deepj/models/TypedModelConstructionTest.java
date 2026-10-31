@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.optimisers.*;
 import io.github.kirstenali.deepj.tensor.*;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import io.github.kirstenali.deepj.testing.TypedParameterPolicy;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -23,7 +24,7 @@ class TypedModelConstructionTest {
         DecoderOnlyModel model = model(family, 95, new ParameterFactory(dtype));
         Tensor logits = model.forwardBatch(inputs());
         assertArrayEquals(new int[]{2, 4, 19}, logits.shape());
-        assertEquals(dtype, logits.dtype());
+        assertEquals(DType.FLOAT32, logits.dtype());
         CrossEntropyLoss.forward(logits.select(0, 0), targets()[0], masks()[0])
                 .add(CrossEntropyLoss.forward(logits.select(0, 1), targets()[1], masks()[1])).backward();
         var names = new HashSet<String>();
@@ -36,9 +37,7 @@ class TypedModelConstructionTest {
 
     private static void assertParameter(DType dtype, Parameter parameter) {
         assertFalse(parameter.name().isEmpty());
-        assertEquals(dtype, parameter.value.dtype());
-        assertEquals(dtype.storageBytes(parameter.value.numel()), parameter.value.storageBytes());
-        assertEquals(DType.FLOAT32, parameter.grad().dtype());
+        TypedParameterPolicy.assertStorage(dtype, parameter);
         for (float value : parameter.grad().toFloatArray()) { assertTrue(Float.isFinite(value)); }
     }
 
@@ -76,7 +75,7 @@ class TypedModelConstructionTest {
                 int[] prefix = java.util.Arrays.copyOf(inputs()[0], length);
                 Tensor expected = model.forward(prefix).slice(0, length - 1, length);
                 Tensor actual = session.apply(prefix);
-                assertEquals(dtype, actual.dtype());
+                assertEquals(DType.FLOAT32, actual.dtype());
                 assertArrayEquals(expected.toFloatArray(), actual.toFloatArray(), 3e-6f);
             }
         }

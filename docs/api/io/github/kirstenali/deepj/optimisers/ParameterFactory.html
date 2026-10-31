@@ -92,7 +92,9 @@ loadScripts(document, 'script');</script>
 <hr>
 <div class="type-signature"><span class="modifiers">public final class </span><span class="element-name type-name-label">ParameterFactory</span>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></span></div>
-<div class="block">Explicit, immutable parameter storage policy. Names do not depend on allocation order.</div>
+<div class="block">Explicit parameter storage policy: a requested dtype applies to multi-row parameters;
+ one-row parameters remain FLOAT32. Descriptor-based loading preserves each stored dtype.
+ Names do not depend on allocation order.</div>
 </section>
 <section class="summary">
 <ul class="summary-list">
