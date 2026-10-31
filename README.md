@@ -16,7 +16,9 @@ DeepJ is an alpha project. Its compact model families are designed to make diffe
 
 ## Install
 
-DeepJ requires JDK 20 or newer.
+DeepJ requires JDK 20 or newer. The dependency below is the published release.
+The N-dimensional tensor and optional FLOAT16/BFLOAT16 APIs in this branch currently
+require a [source build](#build-and-release); they are not in `0.11.0-alpha`.
 
 ```xml
 <dependency>
@@ -30,7 +32,8 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ## What is included
 
-- A two-dimensional `Tensor` API with first-order [autograd](docs/autograd.md) on CPU and Metal.
+- An [N-dimensional `Tensor` API](docs/tensors.md) with first-order [autograd](docs/autograd.md) on CPU and Metal.
+- FLOAT32 by default, with optional FLOAT16 and BFLOAT16 storage.
 - CPU execution and an optional Metal backend with fused training operations and a custom FP32 implementation of FlashAttention for supported devices and shapes.
 - Trainable decoder-only Transformer architectures, described in [Model architectures](#model-architectures).
 - Byte and BPE tokenizers, including BPE training and persistence.
@@ -44,7 +47,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 
 ![DeepJ Chat desktop interface](docs/chat-ui.png)
 
-The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and keeps generation settings tucked away.
+The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and a **See alternative responses** button for the same prompt.
 It automatically uses Metal on supported Apple GPUs and falls back to the CPU elsewhere.
 
 Under Settings → Generation settings:
@@ -62,10 +65,26 @@ Run it from this repository with JDK 20 or newer:
 
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 20) \
-  mvn org.openjfx:javafx-maven-plugin:0.0.8:run
+  mvn compile org.openjfx:javafx-maven-plugin:0.0.8:run
 ```
 
 Choose a `.dj` model file in the app. The screenshot shows the initial screen before a model is loaded.
+
+## Command line
+
+![DeepJ CLI with its coloured wordmark and streaming terminal chat](docs/cli.png)
+
+Build the optional terminal app with JDK 20 or newer:
+
+```bash
+mvn package -Pcli
+java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
+```
+
+Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
+or check backend availability. Prompts use the same saved format as the desktop UI, including
+Frisky's instruction format. Add `--backend cpu` for CPU-only execution.
+See the [CLI guide](docs/cli.md) for commands and controls.
 
 ## Quick start
 
@@ -85,18 +104,6 @@ and returns only the generated answer. `chat.stream(prompt, listener)` delivers 
 answers as they are generated. Each call is independent; conversation history is not
 retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced use.
 
-## Command line
-
-Build the optional terminal app with JDK 20 or newer:
-
-```bash
-mvn package -Pcli
-java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
-```
-
-Chat with streaming responses and selectable themes, generate text for scripts, inspect checkpoints,
-or check backend availability. See the [CLI guide](docs/cli.md) for commands and controls.
-
 ## Model architectures
 
 DeepJ provides the following decoder-only Transformer architectures:
@@ -113,12 +120,11 @@ DeepJ provides the following decoder-only Transformer architectures:
 
 Meet [Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning.
 
-Download its `model.dj` and `tokenizer.bpe` files to try the quick start above or chat with it in the desktop UI. Frisky is experimental and can repeat itself or make factual mistakes; its model card has details and limitations. The [training examples](src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
+Download its `model.dj` and `tokenizer.bpe` files to try the quick start above or chat in the desktop UI or CLI. Although Frisky can produce coherent responses, it is a small experimental model and can repeat itself or make factual, reasoning, maths and coding errors. The [training examples](src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
 
 ## Current limitations
 
 - The public API and checkpoint format may change before a stable release.
-- Tensors are currently two-dimensional and use `float32` values.
 - Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
 - Default generation rebuilds the KV cache after each context-window shift. Optional [rolling generation](docs/inference.md#rolling-generation) avoids this for RoPE models, with different behaviour after eviction.
 - Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
@@ -131,6 +137,10 @@ Build the library locally:
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean verify
 ```
+
+See [coding standards and regression testing](docs/quality-and-regression.md) for the enforced checks and validation requirements.
+The [ND qualification report](docs/benchmarks/nd-tensors-2026-10-28/REPORT.md) records
+the latest numerical, checkpoint, performance and memory checks against the previous implementation.
 
 Maintainers can create signed source, Javadoc, and binary artifacts and publish them through the Central Portal with:
 

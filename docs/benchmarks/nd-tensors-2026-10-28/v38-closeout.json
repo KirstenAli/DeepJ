@@ -1,0 +1,745 @@
+{
+  "date": "2026-10-29",
+  "qualification": "V38",
+  "runtimeSha256": "a80914e4cf97ccd53501e96874e1acf609081f0757f5860bc906471f013b5093",
+  "nativeSha256": "e2d2ac15c972e10475704c0dff30af4d80d34890235727fbc192e91cd4428134",
+  "acceptance": {
+    "local": "Accepted for the tested training workflows under the explicitly agreed training-speed/correctness/memory criterion.",
+    "compilerCpu": "Additional compilation CPU is disclosed and accepted as a resource trade-off, not claimed eliminated.",
+    "uncertainty": "No universal every-step/startup/energy equivalence or general speedup claim; positive observations and historical failures retained.",
+    "ci": "Required separately on the exact proposed commit; consult PR checks.",
+    "mergeOrRelease": false
+  },
+  "localFullBuild": {
+    "tests": 2297,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12
+  },
+  "float32FullState": [
+    {
+      "family": "prism",
+      "parameters": 90128896,
+      "cases": 6,
+      "everyStateAndFileComparisonExact": true,
+      "valuesPerComparison": 377292800,
+      "nativeIncreases": 0
+    },
+    {
+      "family": "nova",
+      "parameters": 99711552,
+      "cases": 6,
+      "everyStateAndFileComparisonExact": true,
+      "valuesPerComparison": 415623424,
+      "nativeIncreases": 0
+    },
+    {
+      "family": "loop",
+      "parameters": 100375680,
+      "cases": 6,
+      "everyStateAndFileComparisonExact": true,
+      "valuesPerComparison": 418279936,
+      "nativeIncreases": 0
+    }
+  ],
+  "float32Endurance": {
+    "updatesPerFamily": 200,
+    "families": [
+      "prism",
+      "nova",
+      "loop"
+    ],
+    "losses": 600,
+    "validations": 15,
+    "gradientNorms": 12,
+    "allNumericalRowsExact": true,
+    "noSampledSwap": true,
+    "originalPeakEqualityReportPassed": false,
+    "memoryFindingResolution": {
+      "causalCases": 12,
+      "controlsPassed": true,
+      "cause": "Collection-dependent weak scratch reuse and orphan retirement exist in both versions; controlled plans, release ledgers and peaks match.",
+      "retainedLiveAndCountRowsMatched": 615,
+      "productionGcOrRetirementPolicyChanged": false
+    }
+  },
+  "compactRealData": [
+    {
+      "family": "prism",
+      "dtype": "FLOAT16",
+      "recordedNumericalRowsMatch": true,
+      "trainingCount": 100,
+      "validationCount": 5,
+      "gradientCount": 4,
+      "physicalParameterBytes": 180257792,
+      "nativeTrainLive": 1264425984,
+      "nativeValidationLive": 1264425984,
+      "nativeTrainBuffers": 596,
+      "nativeValidationBuffers": 596,
+      "nativePeak": 3187743760,
+      "peakRss": 1973338112,
+      "processSeconds": 93.203,
+      "heapUsedMin": 695869952,
+      "heapUsedMax": 948474448,
+      "finalGcCount": 54,
+      "finalGcMillis": 23,
+      "swapIncrease": 0,
+      "swapoutIncrease": 0,
+      "minimumAvailable": 4438753280,
+      "logSha256": "f2b3306c089b6a6ecd7bb9d1e004e12f03898dea5b45bc9fef54aab05ce58e04"
+    },
+    {
+      "family": "prism",
+      "dtype": "BFLOAT16",
+      "recordedNumericalRowsMatch": true,
+      "trainingCount": 100,
+      "validationCount": 5,
+      "gradientCount": 4,
+      "physicalParameterBytes": 180257792,
+      "nativeTrainLive": 1264425984,
+      "nativeValidationLive": 1264425984,
+      "nativeTrainBuffers": 596,
+      "nativeValidationBuffers": 596,
+      "nativePeak": 3187743760,
+      "peakRss": 2211381248,
+      "processSeconds": 126.946,
+      "heapUsedMin": 708536464,
+      "heapUsedMax": 1083926672,
+      "finalGcCount": 48,
+      "finalGcMillis": 17,
+      "swapIncrease": 0,
+      "swapoutIncrease": 0,
+      "minimumAvailable": 4433264640,
+      "logSha256": "e18b8aad2c0ef85b4c6e87e4d4f5227c9cca8dccabe29d86ca7c93b0477f32d0"
+    },
+    {
+      "family": "nova",
+      "dtype": "FLOAT16",
+      "recordedNumericalRowsMatch": true,
+      "trainingCount": 100,
+      "validationCount": 5,
+      "gradientCount": 4,
+      "physicalParameterBytes": 199423104,
+      "nativeTrainLive": 1402253184,
+      "nativeValidationLive": 1402253184,
+      "nativeTrainBuffers": 1112,
+      "nativeValidationBuffers": 1112,
+      "nativePeak": 4043157904,
+      "peakRss": 2749431808,
+      "processSeconds": 142.922,
+      "heapUsedMin": 797041920,
+      "heapUsedMax": 1583473920,
+      "finalGcCount": 47,
+      "finalGcMillis": 25,
+      "swapIncrease": 0,
+      "swapoutIncrease": 0,
+      "minimumAvailable": 4111187968,
+      "logSha256": "cfac0520164f9c563a66ae88bbe52e50ea58d3318fffbf4c29603b34b5358813"
+    },
+    {
+      "family": "nova",
+      "dtype": "BFLOAT16",
+      "recordedNumericalRowsMatch": true,
+      "trainingCount": 100,
+      "validationCount": 5,
+      "gradientCount": 4,
+      "physicalParameterBytes": 199423104,
+      "nativeTrainLive": 1402253184,
+      "nativeValidationLive": 1402253184,
+      "nativeTrainBuffers": 1112,
+      "nativeValidationBuffers": 1112,
+      "nativePeak": 4043157904,
+      "peakRss": 2373369856,
+      "processSeconds": 191.179,
+      "heapUsedMin": 722609928,
+      "heapUsedMax": 1204472960,
+      "finalGcCount": 73,
+      "finalGcMillis": 29,
+      "swapIncrease": 0,
+      "swapoutIncrease": 0,
+      "minimumAvailable": 4133601280,
+      "logSha256": "032c8c1c971346f9dc24f9f2160600ab54450874fa6d367eae4a05acafb62b9f"
+    },
+    {
+      "family": "loop",
+      "dtype": "FLOAT16",
+      "recordedNumericalRowsMatch": true,
+      "trainingCount": 100,
+      "validationCount": 5,
+      "gradientCount": 4,
+      "physicalParameterBytes": 200751360,
+      "nativeTrainLive": 1411550976,
+      "nativeValidationLive": 1411550976,
+      "nativeTrainBuffers": 1124,
+      "nativeValidationBuffers": 1124,
+      "nativePeak": 4996285200,
+      "peakRss": 2267185152,
+      "processSeconds": 207.75,
+      "heapUsedMin": 706106832,
+      "heapUsedMax": 1094239848,
+      "finalGcCount": 65,
+      "finalGcMillis": 26,
+      "swapIncrease": 0,
+      "swapoutIncrease": 0,
+      "minimumAvailable": 3589013504,
+      "logSha256": "f3c0a4c80b5ca20e80407738abd3749b90eb2656bbeeb3bff207311ed9404066"
+    },
+    {
+      "family": "loop",
+      "dtype": "BFLOAT16",
+      "recordedNumericalRowsMatch": true,
+      "trainingCount": 100,
+      "validationCount": 5,
+      "gradientCount": 4,
+      "physicalParameterBytes": 200751360,
+      "nativeTrainLive": 1411550976,
+      "nativeValidationLive": 1411550976,
+      "nativeTrainBuffers": 1124,
+      "nativeValidationBuffers": 1124,
+      "nativePeak": 4996285200,
+      "peakRss": 2590851072,
+      "processSeconds": 288.218,
+      "heapUsedMin": 733837016,
+      "heapUsedMax": 1387489920,
+      "finalGcCount": 59,
+      "finalGcMillis": 28,
+      "swapIncrease": 0,
+      "swapoutIncrease": 0,
+      "minimumAvailable": 3632824320,
+      "logSha256": "d57d940cc0a9c326b5ae9daf84a87c48d5196b6fdd3161234fba30a92bbbcfbe"
+    }
+  ],
+  "compactFiles": [
+    {
+      "family": "prism",
+      "everyCompleteStateLogitAndResavedByteExact": true,
+      "noSampledSwap": true,
+      "dtypes": [
+        {
+          "dtype": "FLOAT16",
+          "files": [
+            {
+              "name": "model.dj",
+              "bytes": 180265869,
+              "sha256": "5d38e0012bbf7a5cd8868d3a6133064c5a4cf0c28819ccdcd9e3d63810e07193"
+            },
+            {
+              "name": "training.dj",
+              "bytes": 1261818635,
+              "sha256": "892eaac4eebd818687e2a3d1bc1272e3f1f575285b4acbe290d9af3b44e17b8c"
+            }
+          ],
+          "cases": [
+            {
+              "mode": "write",
+              "seconds": 23.216,
+              "sampledPeakRss": 3734208512,
+              "commandTreePeakRss": 3734323200,
+              "minimumAvailable": 4752572416,
+              "minimumFreeDisk": 19062435840,
+              "initialAvailable": 8469299200,
+              "peakNativeBytes": 3187743760,
+              "finalNativeLive": 1264425984,
+              "finalNativeBuffers": 596,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "self",
+              "seconds": 20.22,
+              "sampledPeakRss": 3294445568,
+              "commandTreePeakRss": 3294511104,
+              "minimumAvailable": 4523442176,
+              "minimumFreeDisk": 19035942912,
+              "initialAvailable": 8642166784,
+              "peakNativeBytes": 3236797456,
+              "finalNativeLive": 1264425984,
+              "finalNativeBuffers": 596,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "resume",
+              "seconds": 33.582,
+              "sampledPeakRss": 3408461824,
+              "commandTreePeakRss": 3475668992,
+              "minimumAvailable": 4269277184,
+              "minimumFreeDisk": 17760673792,
+              "initialAvailable": 8541863936,
+              "peakNativeBytes": 3187743760,
+              "finalNativeLive": 1264425984,
+              "finalNativeBuffers": 596,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            }
+          ]
+        },
+        {
+          "dtype": "BFLOAT16",
+          "files": [
+            {
+              "name": "model.dj",
+              "bytes": 180265869,
+              "sha256": "531e3a81693ee1f0cb44b7b12906b0d6dca4b2be51120a61973e70122abb3eb9"
+            },
+            {
+              "name": "training.dj",
+              "bytes": 1261818635,
+              "sha256": "26a7c5ee578a35c5d2ea4e5cc0f1dd7ac8f29ddd4491d8e8afc763190cb3d710"
+            }
+          ],
+          "cases": [
+            {
+              "mode": "write",
+              "seconds": 23.274,
+              "sampledPeakRss": 3513958400,
+              "commandTreePeakRss": 3547447296,
+              "minimumAvailable": 4961779712,
+              "minimumFreeDisk": 18985758720,
+              "initialAvailable": 9231499264,
+              "peakNativeBytes": 3223821328,
+              "finalNativeLive": 1264425984,
+              "finalNativeBuffers": 596,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "self",
+              "seconds": 21.553,
+              "sampledPeakRss": 2913665024,
+              "commandTreePeakRss": 2913730560,
+              "minimumAvailable": 4891557888,
+              "minimumFreeDisk": 18962067456,
+              "initialAvailable": 9083682816,
+              "peakNativeBytes": 3187743760,
+              "finalNativeLive": 1264425984,
+              "finalNativeBuffers": 596,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "resume",
+              "seconds": 34.199,
+              "sampledPeakRss": 3617882112,
+              "commandTreePeakRss": 3674767360,
+              "minimumAvailable": 4581801984,
+              "minimumFreeDisk": 17680052224,
+              "initialAvailable": 8988377088,
+              "peakNativeBytes": 3187743760,
+              "finalNativeLive": 1264425984,
+              "finalNativeBuffers": 596,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "family": "nova",
+      "everyCompleteStateLogitAndResavedByteExact": true,
+      "noSampledSwap": true,
+      "dtypes": [
+        {
+          "dtype": "FLOAT16",
+          "files": [
+            {
+              "name": "model.dj",
+              "bytes": 199437994,
+              "sha256": "96a98fa7d819ca95239ca79b4fc03655d76152450855f295c9c7e200fb9fd3c5"
+            },
+            {
+              "name": "training.dj",
+              "bytes": 1395987650,
+              "sha256": "34119d05076a69df201860507ca3fb05c0c9e2fb0361ffe225d2ffeb900f52c9"
+            }
+          ],
+          "cases": [
+            {
+              "mode": "write",
+              "seconds": 26.128,
+              "sampledPeakRss": 3820060672,
+              "commandTreePeakRss": 3869818880,
+              "minimumAvailable": 4557914112,
+              "minimumFreeDisk": 18745339904,
+              "initialAvailable": 9250439168,
+              "peakNativeBytes": 4139815312,
+              "finalNativeLive": 1402253184,
+              "finalNativeBuffers": 1112,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "self",
+              "seconds": 24.146,
+              "sampledPeakRss": 3030876160,
+              "commandTreePeakRss": 3044147200,
+              "minimumAvailable": 3940139008,
+              "minimumFreeDisk": 18718261248,
+              "initialAvailable": 9048588288,
+              "peakNativeBytes": 4242518416,
+              "finalNativeLive": 1402253184,
+              "finalNativeBuffers": 1112,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "resume",
+              "seconds": 37.046,
+              "sampledPeakRss": 3543433216,
+              "commandTreePeakRss": 3636969472,
+              "minimumAvailable": 3522363392,
+              "minimumFreeDisk": 17303339008,
+              "initialAvailable": 9027452928,
+              "peakNativeBytes": 4043157904,
+              "finalNativeLive": 1402253184,
+              "finalNativeBuffers": 1112,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            }
+          ]
+        },
+        {
+          "dtype": "BFLOAT16",
+          "files": [
+            {
+              "name": "model.dj",
+              "bytes": 199437994,
+              "sha256": "c7a572ee79f851a7e0c274e2d7de153e74f8a91f6c62940d4665f3bc4600542b"
+            },
+            {
+              "name": "training.dj",
+              "bytes": 1395987650,
+              "sha256": "6a4995b320b251d932c75088326525a62295eabe5d624d9d57b03b4a947388eb"
+            }
+          ],
+          "cases": [
+            {
+              "mode": "write",
+              "seconds": 28.433,
+              "sampledPeakRss": 3805790208,
+              "commandTreePeakRss": 3819749376,
+              "minimumAvailable": 4690165760,
+              "minimumFreeDisk": 18652315648,
+              "initialAvailable": 9602760704,
+              "peakNativeBytes": 4242518416,
+              "finalNativeLive": 1402253184,
+              "finalNativeBuffers": 1112,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "self",
+              "seconds": 26.265,
+              "sampledPeakRss": 3063988224,
+              "commandTreePeakRss": 3121364992,
+              "minimumAvailable": 4381097984,
+              "minimumFreeDisk": 18627375104,
+              "initialAvailable": 9529540608,
+              "peakNativeBytes": 4043157904,
+              "finalNativeLive": 1402253184,
+              "finalNativeBuffers": 1112,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "resume",
+              "seconds": 38.906,
+              "sampledPeakRss": 3646406656,
+              "commandTreePeakRss": 3646406656,
+              "minimumAvailable": 3662430208,
+              "minimumFreeDisk": 17214439424,
+              "initialAvailable": 9449340928,
+              "peakNativeBytes": 4043157904,
+              "finalNativeLive": 1402253184,
+              "finalNativeBuffers": 1112,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "family": "loop",
+      "everyCompleteStateLogitAndResavedByteExact": true,
+      "noSampledSwap": true,
+      "dtypes": [
+        {
+          "dtype": "FLOAT16",
+          "files": [
+            {
+              "name": "model.dj",
+              "bytes": 200767792,
+              "sha256": "39781606a1e9460bd5d3b6d188dd6a93dc75654cb8cee5e674d3b4351baf2d79"
+            },
+            {
+              "name": "training.dj",
+              "bytes": 1405285753,
+              "sha256": "6a4b2fc2e03b8f744b0dc1cdac793871f7c6312cdac2fa30488f54f890bfb956"
+            }
+          ],
+          "cases": [
+            {
+              "mode": "write",
+              "seconds": 29.067,
+              "sampledPeakRss": 3839819776,
+              "commandTreePeakRss": 3880894464,
+              "minimumAvailable": 3815555072,
+              "minimumFreeDisk": 18560540672,
+              "initialAvailable": 9667510272,
+              "peakNativeBytes": 4996285200,
+              "finalNativeLive": 1411550976,
+              "finalNativeBuffers": 1124,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "self",
+              "seconds": 27.296,
+              "sampledPeakRss": 3065298944,
+              "commandTreePeakRss": 3125903360,
+              "minimumAvailable": 3316908032,
+              "minimumFreeDisk": 18517123072,
+              "initialAvailable": 9441198080,
+              "peakNativeBytes": 4996285200,
+              "finalNativeLive": 1411550976,
+              "finalNativeBuffers": 1124,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "resume",
+              "seconds": 38.886,
+              "sampledPeakRss": 3709059072,
+              "commandTreePeakRss": 3709059072,
+              "minimumAvailable": 2708045824,
+              "minimumFreeDisk": 17103568896,
+              "initialAvailable": 8994177024,
+              "peakNativeBytes": 4996285200,
+              "finalNativeLive": 1411550976,
+              "finalNativeBuffers": 1124,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            }
+          ]
+        },
+        {
+          "dtype": "BFLOAT16",
+          "files": [
+            {
+              "name": "model.dj",
+              "bytes": 200767792,
+              "sha256": "57330f671e92aaa0413a0651ee64ff65365c442ae130301f74934cdf0e8da9c2"
+            },
+            {
+              "name": "training.dj",
+              "bytes": 1405285753,
+              "sha256": "c6e5294111cce65a375631f0a48ce4b1d8735d8c5a59e94ada5edd9c73fc884c"
+            }
+          ],
+          "cases": [
+            {
+              "mode": "write",
+              "seconds": 32.671,
+              "sampledPeakRss": 3824320512,
+              "commandTreePeakRss": 3861528576,
+              "minimumAvailable": 3888676864,
+              "minimumFreeDisk": 18451316736,
+              "initialAvailable": 9740042240,
+              "peakNativeBytes": 5057774352,
+              "finalNativeLive": 1411550976,
+              "finalNativeBuffers": 1124,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "self",
+              "seconds": 30.564,
+              "sampledPeakRss": 3037872128,
+              "commandTreePeakRss": 3083436032,
+              "minimumAvailable": 3561603072,
+              "minimumFreeDisk": 18428600320,
+              "initialAvailable": 9567109120,
+              "peakNativeBytes": 5196972816,
+              "finalNativeLive": 1411550976,
+              "finalNativeBuffers": 1124,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            },
+            {
+              "mode": "resume",
+              "seconds": 41.67,
+              "sampledPeakRss": 3282976768,
+              "commandTreePeakRss": 3502964736,
+              "minimumAvailable": 2769649664,
+              "minimumFreeDisk": 17007476736,
+              "initialAvailable": 9563947008,
+              "peakNativeBytes": 4996285200,
+              "finalNativeLive": 1411550976,
+              "finalNativeBuffers": 1124,
+              "swapouts": 125140,
+              "exactDigestReceiptLines": 18
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "performance": {
+    "cpu": {
+      "model": "Loop",
+      "context": 64,
+      "normalCompilation": true,
+      "qualificationVersion": "V37; V38 changes only GPU GraphCore",
+      "cases": [
+        {
+          "pair": 0,
+          "arm": "baseline",
+          "warmupSeconds": 24.549534376000004,
+          "measuredSeconds": 74.571171418,
+          "allFortySeconds": 99.12070579399999,
+          "measuredProcessCpuNanos": 389164987000,
+          "allThermalNominal": true
+        },
+        {
+          "pair": 0,
+          "arm": "candidate",
+          "warmupSeconds": 24.464421668,
+          "measuredSeconds": 73.481661459,
+          "allFortySeconds": 97.946083127,
+          "measuredProcessCpuNanos": 385756925000,
+          "allThermalNominal": true
+        },
+        {
+          "pair": 1,
+          "arm": "baseline",
+          "warmupSeconds": 25.067902166999996,
+          "measuredSeconds": 76.93947825400002,
+          "allFortySeconds": 102.00738042100002,
+          "measuredProcessCpuNanos": 414976539000,
+          "allThermalNominal": true
+        },
+        {
+          "pair": 1,
+          "arm": "candidate",
+          "warmupSeconds": 24.674422457,
+          "measuredSeconds": 75.269750665,
+          "allFortySeconds": 99.944173122,
+          "measuredProcessCpuNanos": 405511514000,
+          "allThermalNominal": true
+        }
+      ],
+      "pairs": [
+        {
+          "pair": 0,
+          "measuredPercent": -1.4610337189057798,
+          "wholeWindowProcessCpuPercent": -0.6495265563464803,
+          "allFortyPercent": -1.1850426786116586,
+          "individuallySlowerMeasuredUpdates": 4
+        },
+        {
+          "pair": 1,
+          "measuredPercent": -2.170183145104976,
+          "wholeWindowProcessCpuPercent": -2.0955798874944143,
+          "allFortyPercent": -2.0226059040873823,
+          "individuallySlowerMeasuredUpdates": 2
+        }
+      ]
+    },
+    "gpu": {
+      "model": "Nova",
+      "context": 1024,
+      "normalCompilation": true,
+      "qualificationVersion": "V38",
+      "cases": [
+        {
+          "order": 0,
+          "arm": "baseline",
+          "warmupSeconds": 6.342564957000001,
+          "measuredSeconds": 17.663787874000004,
+          "allFortySeconds": 24.006352830999997,
+          "wholeDiagnosticProcessSeconds": 26.406,
+          "measuredProcessCpuNanos": 4249444000,
+          "measuredCompilerCpuNanos": 356208000,
+          "allThermalNominal": true,
+          "noSampledSwap": true
+        },
+        {
+          "order": 1,
+          "arm": "candidate",
+          "warmupSeconds": 6.110838708,
+          "measuredSeconds": 17.453333962,
+          "allFortySeconds": 23.56417267,
+          "wholeDiagnosticProcessSeconds": 25.703,
+          "measuredProcessCpuNanos": 4248220000,
+          "measuredCompilerCpuNanos": 531552000,
+          "allThermalNominal": true,
+          "noSampledSwap": true
+        },
+        {
+          "order": 2,
+          "arm": "candidate",
+          "warmupSeconds": 6.011334001000001,
+          "measuredSeconds": 17.372901289,
+          "allFortySeconds": 23.384235290000003,
+          "wholeDiagnosticProcessSeconds": 25.499,
+          "measuredProcessCpuNanos": 4176110000,
+          "measuredCompilerCpuNanos": 516474000,
+          "allThermalNominal": true,
+          "noSampledSwap": true
+        },
+        {
+          "order": 3,
+          "arm": "baseline",
+          "warmupSeconds": 6.001534126,
+          "measuredSeconds": 17.374408250000005,
+          "allFortySeconds": 23.375942376000005,
+          "wholeDiagnosticProcessSeconds": 25.457,
+          "measuredProcessCpuNanos": 3981544000,
+          "measuredCompilerCpuNanos": 327341000,
+          "allThermalNominal": true,
+          "noSampledSwap": true
+        }
+      ],
+      "pairs": [
+        {
+          "pair": 0,
+          "warmupPercent": -3.653510063688914,
+          "measuredPercent": -1.1914427047087672,
+          "allFortyPercent": -1.841929776309037,
+          "wholeProcessPercent": -2.662273725668407,
+          "measuredProcessCpuPercent": -0.02880376821061681,
+          "measuredCompilerCpuPercent": 49.22517180972914
+        },
+        {
+          "pair": 1,
+          "warmupPercent": 0.16328949888904098,
+          "measuredPercent": -0.008673452231122702,
+          "allFortyPercent": 0.035476276706236654,
+          "wholeProcessPercent": 0.16498409081979748,
+          "measuredProcessCpuPercent": 4.886697220977587,
+          "measuredCompilerCpuPercent": 57.77858563394136
+        }
+      ]
+    }
+  },
+  "rejectedExperiments": [
+    "V39 lazy reader list",
+    "V40 primitive scratch lookup",
+    "V41 duplicate-reader suppression"
+  ],
+  "evidenceHashes": {
+    "v38-full-state-prism-results.json": "71f1ede7a823cf5b4180c94daeac11c7ce2bf05bb9affed293f64bef98447cf9",
+    "v38-full-state-nova-results.json": "264ef9f921dd99b23f9293f23427aa852c89e672a913dcad1389995ec0c041c0",
+    "v38-full-state-loop-results.json": "d04d729ffa939c7fe56afca00c1e32a539bab7b6045ae43766137d21f80f7693",
+    "v38-final-realdata-results.json": "0489a2a67b9e6c772474c2dc1db54b91ea229cfdd5ed07ccf58add721db97b33",
+    "v38-final-files-prism-results.json": "27623dd5bae859ece8ed79e4e97673e9e372b328f0f299a5ef2951b0d341de79",
+    "v38-final-files-nova-results.json": "6211ca230bb9c803511a2499ec993864b0ee563fec5a4366ec442901a5428765",
+    "v38-final-files-loop-results.json": "3e03eed303a38c0d8f56aa106fc0874cb8490e702b67f9927fa6a798a43c552f",
+    "v38-final-endurance-results.json": "c09d981d3bdd9513a2f8275fa52f853093d8d8bf91114bdc0c197b391df7030d",
+    "v38-orphan-control-analysis.json": "af64ab9d9eebc21488193b7781e44d7bfad1a89c392fc87174235b42c9707b20",
+    "v37-cpu-default-interleave-results.json": "c5f0e97efd16871fcd1be88aeb0d8569e74fe3149d2ccb50aab53f226a875c8b",
+    "v38-binding-original-results.json": "9f66651567338dc48083a2b40adcaa77b47e96b582578a72c1d34f79808abeec"
+  }
+}

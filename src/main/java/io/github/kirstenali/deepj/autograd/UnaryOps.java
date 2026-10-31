@@ -42,12 +42,14 @@ public final class UnaryOps {
     }
 
     public static Tensor pow(Tensor input, float exponent) {
-        int rows = input.rows, cols = input.cols;
+        int[] shape = input.shape();
+        var gradientType = input.dtype().gradientType();
         if (exponent == 0) {
-            return record(input, Tensor.backend().pow(input, exponent), g -> Tensor.zeros(rows, cols));
+            return record(input, Tensor.backend().pow(input, exponent),
+                    g -> Tensor.backend().zeros(gradientType, shape));
         }
         return record(input, Tensor.backend().pow(input, exponent),
-                g -> g.multiply(input.pow(exponent - 1)).multiplyScalar(exponent), input);
+                g -> g.multiply(GradientDType.accumulation(input).pow(exponent - 1)).multiplyScalar(exponent), input);
     }
 
     static Tensor record(Tensor input, Tensor output, Function<Tensor, Tensor> derivative, Tensor... saved) {

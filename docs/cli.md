@@ -1,10 +1,12 @@
 # DeepJ command line
 
+![DeepJ terminal chat with a coloured wordmark and streamed responses](cli.png)
+
 The optional CLI provides streaming terminal chat, single-prompt generation, checkpoint inspection and backend diagnostics. It uses the same models, saved prompt formats and generation API as the Java library. No server or network connection is needed to use downloaded models.
 
 ## Build and start
 
-With JDK 20 or newer, run from this repository:
+Build the CLI from the current source checkout with JDK 20 or newer:
 
 ```bash
 mvn package -Pcli
@@ -14,6 +16,16 @@ java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-
 The model directory should contain `model.dj` and, for BPE models, `tokenizer.bpe`. You can also pass a `.dj` checkpoint path with its tokenizer alongside it. Architecture and prompt formatting are read from the checkpoint; enter your question normally, preserving your preferred capitalization.
 
 The CLI selects Metal when available and otherwise uses the CPU. Use `--backend cpu` or `--backend metal` to select explicitly. Explicit Metal selection reports an error if unavailable rather than silently falling back.
+
+For CPU-only chat:
+
+```bash
+java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m --backend cpu
+```
+
+For Frisky, type only your question; the saved `Instruction:\n...\nResponse:\n` template is applied
+automatically, just as in the desktop UI. Do not add those markers yourself.
+The screenshot illustrates the interface, not a guarantee of response accuracy.
 
 ## Commands
 

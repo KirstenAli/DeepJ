@@ -18,8 +18,8 @@ public class PositionalEmbeddingTest {
 
         var p = pe.parameters().get(0);
         for (int i = 0; i < 4; i++) {
-            p.value.data[i * 2 + 0] = 10 + i;
-            p.value.data[i * 2 + 1] = 20 + i;
+            p.value.rawData()[i * 2 + 0] = 10 + i;
+            p.value.rawData()[i * 2 + 1] = 20 + i;
         }
 
         Tensor out = pe.forward(3);
@@ -36,12 +36,12 @@ public class PositionalEmbeddingTest {
         w.zeroGrad();
 
         Tensor gradOut = Tensor.ones(2, 3);
-        pe.forward(gradOut.rows).backward(gradOut);
+        pe.forward(gradOut.matrixRows()).backward(gradOut);
 
         for (int r = 0; r < 5; r++) {
             for (int c = 0; c < 3; c++) {
                 double expected = (r < 2) ? 1.0f : 0.0f;
-                assertEquals(expected, w.grad().data[r * 3 + c], 1e-12f, "grad mismatch at [" + r + "," + c + "]");
+                assertEquals(expected, w.grad().rawData()[r * 3 + c], 1e-12f, "grad mismatch at [" + r + "," + c + "]");
             }
         }
     }
@@ -79,7 +79,7 @@ public class PositionalEmbeddingTest {
         w.zeroGrad();
 
         Tensor y = pe.forward(seqLen);
-        TestSupport.assertTensorShape(y, seqLen, target.cols);
+        TestSupport.assertTensorShape(y, seqLen, target.matrixCols());
 
         MSELoss mse = new MSELoss();
         double loss = mse.loss(y, target);
@@ -88,8 +88,9 @@ public class PositionalEmbeddingTest {
         pe.forward(seqLen).backward(gradOut);
 
         for (int r = 0; r < seqLen; r++) {
-            for (int c = 0; c < w.value.cols; c++) {
-                w.value.data[r * w.value.cols + c] -= lr * w.grad().data[r * w.grad().cols + c];
+            for (int c = 0; c < w.value.matrixCols(); c++) {
+                w.value.rawData()[r * w.value.matrixCols() + c] -=
+                        lr * w.grad().rawData()[r * w.grad().matrixCols() + c];
             }
         }
 

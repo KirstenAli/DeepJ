@@ -29,9 +29,9 @@ class SwiGLULayerTest {
         SwiGLULayer layer = new SwiGLULayer(4, 8, new Random(2));
         Tensor x = randomTensor(2, 4, 7);
         Tensor y = layer.forward(x);
-        for (int r = 0; r < y.rows; r++) {
-            for (int c = 0; c < y.cols; c++) {
-                assertTrue(Double.isFinite(y.data[r * y.cols + c]),
+        for (int r = 0; r < y.matrixRows(); r++) {
+            for (int c = 0; c < y.matrixCols(); c++) {
+                assertTrue(Double.isFinite(y.rawData()[r * y.matrixCols() + c]),
                         "output must be finite at [" + r + "," + c + "]");
             }
         }
@@ -50,7 +50,7 @@ class SwiGLULayerTest {
         SwiGLULayer layer = new SwiGLULayer(6, 12, new Random(4));
         Tensor x = randomTensor(4, 6, 99);
         Tensor y = layer.forward(x);
-        Tensor gradIn = AutogradTestSupport.backward(layer::forward, x, Tensor.ones(y.rows, y.cols));
+        Tensor gradIn = AutogradTestSupport.backward(layer::forward, x, Tensor.ones(y.matrixRows(), y.matrixCols()));
         TestSupport.assertTensorShape(gradIn, 4, 6);
     }
 
@@ -85,8 +85,8 @@ class SwiGLULayerTest {
 
     private static void assertNumericalGradient(Tensor x, Tensor analytic, int dModel,
                                                 int dFF, float eps, float tol) {
-        for (int r = 0; r < x.rows; r++) {
-            for (int c = 0; c < x.cols; c++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
+            for (int c = 0; c < x.matrixCols(); c++) {
                 float orig = x.get(r, c);
 
                 x.set(r, c, orig + eps);
@@ -142,9 +142,9 @@ class SwiGLULayerTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;

@@ -21,7 +21,7 @@ class MatmulBackwardCompareTest {
             Tensor b = Tensor.random(weightGradient ? 4 : 2, 3, random);
             Tensor explicit = MatmulBackwardCompare.product(a, b, weightGradient, false);
             Tensor flagged = MatmulBackwardCompare.product(a, b, weightGradient, true);
-            assertArrayEquals(explicit.data, flagged.data, 1e-6f);
+            assertArrayEquals(explicit.rawData(), flagged.rawData(), 1e-6f);
         } finally {
             Tensor.setBackend(original);
         }

@@ -66,7 +66,7 @@ class TrainingCheckpointTest {
         sourceOptimizer.step(source);
         restoredOptimizer.step(restored);
         assertEquals(sourceOptimizer.stepCount(), restoredOptimizer.stepCount());
-        assertArrayEquals(source.get(0).value.data, restored.get(0).value.data, 0.0f);
+        assertArrayEquals(source.get(0).value.rawData(), restored.get(0).value.rawData(), 0.0f);
     }
 
     private static AdamW trainedOptimizer(List<Parameter> params) {

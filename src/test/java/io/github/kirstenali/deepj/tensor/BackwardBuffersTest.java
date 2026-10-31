@@ -92,6 +92,35 @@ class BackwardBuffersTest extends ComputeGraphTestSupport {
 
     private Tensor output() { return graph.createOutputTensor(graph.newOutputBuffer(1, 4)); }
 
+    @Test
+    void selectiveReleasePreservesUnrelatedCallerOutputsAndRetainedPrivateStorage() {
+        Tensor caller = output(), retained, privateValue;
+        try (var scope = BackwardBuffers.begin()) {
+            privateValue = scope.capture(this::output);
+            retained = scope.capture(this::output).retainDeviceBuffer();
+            scope.releaseTemporaryResources();
+            assertNull(privateValue.getGpuTag());
+            assertNotNull(caller.getGpuTag());
+            assertNotNull(retained.getGpuTag());
+            assertEquals(2, graph.allocatedBufferIds.size());
+        }
+        assertEquals(2, graph.allocatedBufferIds.size());
+    }
+
+    @Test
+    void privateDerivativeAliasesDoNotPreventScratchReuseBeforeGarbageCollection() {
+        List<Tensor> aliases;
+        GpuBuffer input = graph.ensureGpuBuffer(Tensor.ones(1, 4));
+        try (var scope = BackwardBuffers.begin()) {
+            aliases = scope.capture(() -> chain(input).stream().map(Tensor::aliasStorage).toList());
+        }
+        assertEquals(4, graph.backwardBufferIds.size());
+        assertEquals(3, GraphBufferReuse.prepare(graph).allocations().size());
+        graph.flush();
+        assertEquals(1, graph.allocatedBufferIds.size());
+        assertTrue(aliases.stream().allMatch(value -> value.getGpuTag() == null));
+    }
+
     private List<Tensor> chain(GpuBuffer input) {
         var values = new java.util.ArrayList<Tensor>();
         for (int index = 0; index < 4; index++) {

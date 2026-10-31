@@ -7,15 +7,12 @@ import java.util.Arrays;
 import java.util.Random;
 
 final class TensorStorage {
-    static final int RETAIN_DEVICE = 1;
-    static final int LAZY_HOST = 2;
-
     private static final CpuBackend CPU = new CpuBackend();
 
     private TensorStorage() {}
 
     static void discardStaleHostStorage(Tensor tensor) {
-        if ((tensor.storageFlags & LAZY_HOST) != 0) tensor.data = null;
+        tensor.memory().discardStaleHost();
     }
 
     static TensorBackend requireBackend(TensorBackend backend) {
@@ -23,24 +20,17 @@ final class TensorStorage {
         return backend;
     }
 
-    static float[] initialStorage(int rows, int cols, boolean host) {
-        int size = checkedSize(rows, cols);
-        return host ? new float[size] : null;
-    }
-
     static float[] hostStorage(Tensor tensor) {
-        if (tensor.data == null) tensor.data = new float[checkedSize(tensor.rows, tensor.cols)];
-        return tensor.data;
+        return tensor.memory().floats();
     }
 
     static float[] hostData(Tensor tensor) {
         materialize(tensor);
-        return tensor.data;
+        return tensor.rawData();
     }
 
     static float item(Tensor tensor) {
-        if (tensor.rows != 1 || tensor.cols != 1) throw new IllegalStateException("item requires a scalar tensor");
-        return tensor.get(0, 0);
+        return TensorValues.item(tensor);
     }
 
     static int checkedSize(int rows, int cols) {
@@ -52,9 +42,9 @@ final class TensorStorage {
         }
     }
 
-    static float[] copyData(Tensor source) {
-        source.materialize();
-        return Arrays.copyOf(source.data, source.data.length);
+    static TensorMemory copyMemory(Tensor source) {
+        requireSource(source);
+        return TensorValues.copy(source);
     }
 
     static void requireSource(Tensor source) {
@@ -64,15 +54,23 @@ final class TensorStorage {
     static float[] rowData(Tensor tensor, int row) {
         requireRow(tensor, row);
         tensor.materialize();
-        return Arrays.copyOfRange(tensor.data, row * tensor.cols, (row + 1) * tensor.cols);
+        int width = tensor.matrixCols();
+        if (tensor.dtype() == DType.FLOAT32 && tensor.coversStorage()) {
+            return Arrays.copyOfRange(tensor.rawData(), row * width, (row + 1) * width);
+        }
+        float[] result = new float[width];
+        for (int column = 0; column < width; column++) {
+            result[column] = tensor.memory().get(tensor.layout().address(row, column));
+        }
+        return result;
     }
 
     static void materialize(Tensor tensor) {
-        if (tensor.gpuTag != null) Tensor.backend().materializeTensor(tensor);
-        if (tensor.gpuTag instanceof GpuBuffer buffer && buffer.cpuStale && buffer.owner != null) {
+        if (tensor.getGpuTag() != null) Tensor.backend().materializeTensor(tensor);
+        if (tensor.getGpuTag() instanceof GpuBuffer buffer && buffer.cpuStale && buffer.owner != null) {
             buffer.owner.materialize(tensor);
         }
-        tensor.hostStorage();
+        tensor.memory().ensureHost();
     }
 
     static Tensor from2D(float[][] data) {
@@ -90,8 +88,8 @@ final class TensorStorage {
 
     private static void copyRows(float[][] data, Tensor tensor) {
         for (int row = 0; row < data.length; row++) {
-            requireRowWidth(data[row], tensor.cols);
-            System.arraycopy(data[row], 0, tensor.data, row * tensor.cols, tensor.cols);
+            requireRowWidth(data[row], tensor.matrixCols());
+            System.arraycopy(data[row], 0, tensor.rawData(), row * tensor.matrixCols(), tensor.matrixCols());
         }
     }
 
@@ -99,20 +97,6 @@ final class TensorStorage {
         if (row == null || row.length != columns) {
             throw new IllegalArgumentException("All rows must have the same length (expected " + columns + ")");
         }
-    }
-
-    static float get(Tensor tensor, int row, int column) {
-        requireIndex(tensor, row, column);
-        tensor.materialize();
-        return CPU.get(tensor, row, column);
-    }
-
-    static void set(Tensor tensor, int row, int column, float value) {
-        tensor.gradientState().beforeMutation();
-        requireIndex(tensor, row, column);
-        tensor.materialize();
-        CPU.set(tensor, row, column, value);
-        markGpuNeedsUpload(tensor);
     }
 
     static Tensor getRow(Tensor tensor, int row) {
@@ -124,7 +108,9 @@ final class TensorStorage {
     static void setRow(Tensor tensor, int row, Tensor source, int sourceRow) {
         requireRow(tensor, row);
         requireRow(source, sourceRow);
-        if (source.cols != tensor.cols) throw new IllegalArgumentException("Source row width must match tensor width");
+        if (source.matrixCols() != tensor.matrixCols()) {
+            throw new IllegalArgumentException("Source row width must match tensor width");
+        }
         tensor.materialize();
         source.materialize();
         CPU.setRow(tensor, row, source, sourceRow);
@@ -132,7 +118,9 @@ final class TensorStorage {
     }
 
     static Tensor sliceRows(Tensor tensor, int[] rows, int columns) {
-        if (columns != tensor.cols) throw new IllegalArgumentException("Requested width must match tensor width");
+        if (columns != tensor.matrixCols()) {
+            throw new IllegalArgumentException("Requested width must match tensor width");
+        }
         for (int row : rows) {
             requireRow(tensor, row);
         }
@@ -143,9 +131,9 @@ final class TensorStorage {
         if (count < 1) throw new IllegalArgumentException("Sample count must be positive");
         int[] indices = new int[count];
         for (int index = 0; index < count; index++) {
-            indices[index] = random.nextInt(tensor.rows);
+            indices[index] = random.nextInt(tensor.matrixRows());
         }
-        return sliceRows(tensor, indices, tensor.cols);
+        return sliceRows(tensor, indices, tensor.matrixCols());
     }
 
     static void print(Tensor tensor, String label) {
@@ -159,28 +147,21 @@ final class TensorStorage {
     static Tensor causalMask(int size) { return CPU.causalMask(size); }
 
     static void requireSameShape(Tensor left, Tensor right, String operation) {
-        if (left.rows == right.rows && left.cols == right.cols) return;
+        if (left.layout().shape().equals(right.layout().shape())) return;
         throw new IllegalArgumentException("Shape mismatch for " + operation + ": "
-                + left.rows + "x" + left.cols + " vs " + right.rows + "x" + right.cols);
+                + left.layout().shape() + " vs " + right.layout().shape());
     }
 
     static void requireTargetsMatchRows(Tensor logits, int[] targets) {
-        if (targets.length == logits.rows) return;
-        throw new IllegalArgumentException(
-                "targets length " + targets.length + " must match logits rows " + logits.rows);
-    }
-
-    private static void requireIndex(Tensor tensor, int row, int column) {
-        requireRow(tensor, row);
-        if (column < 0 || column >= tensor.cols) throw new IndexOutOfBoundsException("Column index: " + column);
+        CrossEntropyChecks.requireTargets(logits, targets);
     }
 
     private static void requireRow(Tensor tensor, int row) {
-        if (row < 0 || row >= tensor.rows) throw new IndexOutOfBoundsException("Row index: " + row);
+        if (row < 0 || row >= tensor.matrixRows()) throw new IndexOutOfBoundsException("Row index: " + row);
     }
 
-    static void markGpuNeedsUpload(Tensor tensor) {
-        if (!(tensor.gpuTag instanceof GpuBuffer buffer)) return;
+    static void markGpuNeedsUpload(TensorStorageAccess tensor) {
+        if (!(tensor.getGpuTag() instanceof GpuBuffer buffer)) return;
         buffer.needsUpload = true;
         buffer.cpuStale = false;
     }

@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.transformer;
 
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
+
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.activations.GELU;
 import io.github.kirstenali.deepj.layers.Layer;
@@ -19,6 +21,12 @@ public final class DeepJOriginTransformerBuilder {
     private Supplier<ActivationFunction> ffnActivationFactory = GELU::new;
     private Random rnd;
     private long seed = 42;
+    private ParameterFactory parameters = ParameterFactory.float32();
+
+    public DeepJOriginTransformerBuilder parameters(ParameterFactory factory) {
+        this.parameters = java.util.Objects.requireNonNull(factory, "factory");
+        return this;
+    }
 
     public DeepJOriginTransformerBuilder dModel(int dModel) {
         this.dModel = dModel;
@@ -64,7 +72,8 @@ public final class DeepJOriginTransformerBuilder {
         Random random = (rnd != null) ? rnd : new Random(seed);
         List<Layer> blocks = new ArrayList<>(nLayers);
         for (int i = 0; i < nLayers; i++) {
-            blocks.add(new DeepJOriginTransformerBlock(dModel, nHeads, dFF, ffnActivationFactory, random));
+            blocks.add(new DeepJOriginTransformerBlock(dModel, nHeads, dFF, ffnActivationFactory, random,
+                    parameters.scope(Integer.toString(i))));
         }
         return new TransformerStack(blocks);
     }

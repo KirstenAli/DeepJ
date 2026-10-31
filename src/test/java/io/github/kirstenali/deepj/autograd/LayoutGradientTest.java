@@ -54,7 +54,7 @@ class LayoutGradientTest {
         Tensor output = Tensor.sliceRows(table, indices, 2);
         indices[0] = 0;
         output.sumTensor().backward();
-        assertArrayEquals(new float[]{0, 0, 2, 2, 1, 1}, table.grad().data);
+        assertArrayEquals(new float[]{0, 0, 2, 2, 1, 1}, table.grad().rawData());
     }
 
     @Test
@@ -67,7 +67,7 @@ class LayoutGradientTest {
             counts[random.nextInt(3)]++;
         }
         assertArrayEquals(new float[]{counts[0], counts[0], counts[1], counts[1], counts[2], counts[2]},
-                table.grad().data);
+                table.grad().rawData());
     }
 
     private static Tensor point(int rows, int columns) {

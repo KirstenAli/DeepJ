@@ -49,7 +49,7 @@ final class MetalBackendTrainingTest extends MetalBackendTestSupport {
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> gpu.layerNormBackward(dXHat, xHat, badStd, dXHat.cols));
+                () -> gpu.layerNormBackward(dXHat, xHat, badStd, dXHat.matrixCols()));
         assertTrue(ex.getMessage().contains("layerNormBackward: std"));
     }
 

@@ -1,9 +1,22 @@
 package io.github.kirstenali.deepj.tensor;
 
-abstract class GraphRecordingOps extends GraphCore {
+abstract class GraphRecordingOps extends GraphPositionRecordingOps {
     GraphRecordingOps(GpuRuntime runtime) {
         super(runtime);
     }
+
+    public void recordStorageCopy(GpuBuffer input, GpuBuffer output, int source, int target, int count) {
+        GraphCopies.requireRange(this, input, output, source, target, count);
+        beginOp(6);
+        emitInt(OP_STORAGE_COPY);
+        emitStorageBuffer(input);
+        emitStorageBuffer(output);
+        emitInt(source);
+        emitInt(target);
+        emitInt(count);
+        endOp();
+    }
+
     public void recordBinary(int opCode, GpuBuffer a, GpuBuffer b, GpuBuffer out) {
         beginOp(5);
         emitInt(opCode);
@@ -116,16 +129,6 @@ abstract class GraphRecordingOps extends GraphCore {
         emitInt(opCode);
         emitBuffer(in);
         emitBuffer(out);
-        emitInt(out.floatCount());
-        endOp();
-    }
-
-    public void recordMultiplyScalar(GpuBuffer in, GpuBuffer out, float scalar) {
-        beginOp(5);
-        emitInt(OP_MULTIPLY_SCALAR);
-        emitBuffer(in);
-        emitBuffer(out);
-        emitFloatBits(scalar);
         emitInt(out.floatCount());
         endOp();
     }

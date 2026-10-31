@@ -57,13 +57,13 @@ public class LayerNorm1DTest {
         LayerNorm1D ln = new LayerNorm1D(dim);
         Tensor x = gradientInput();
         ln.forward(x);
-        Tensor analytic = AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.rows, dim));
+        Tensor analytic = AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.matrixRows(), dim));
         assertInputGradient(ln, x, analytic, dim, eps, tol);
     }
 
     private static void assertInputGradient(LayerNorm1D ln, Tensor x, Tensor analytic,
                                             int dim, float eps, float tol) {
-        for (int r = 0; r < x.rows; r++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
             for (int c = 0; c < dim; c++) {
                 float orig = x.get(r, c);
                 x.set(r, c, orig + eps);
@@ -86,9 +86,9 @@ public class LayerNorm1DTest {
         LayerNorm1D ln = new LayerNorm1D(dim);
         Tensor x = gradientInput();
         ln.forward(x);
-        AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.rows, dim));
+        AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.matrixRows(), dim));
         Parameter gamma = ln.parameters().get(0);
-        float[] analytic = gamma.grad().data.clone();
+        float[] analytic = gamma.grad().rawData().clone();
         assertGammaGradient(ln, x, gamma, analytic, dim, eps, tol);
     }
 
@@ -120,19 +120,19 @@ public class LayerNorm1DTest {
         });
 
         ln.forward(x);
-        AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.rows, dim));
+        AutogradTestSupport.backward(ln::forward, x, Tensor.ones(x.matrixRows(), dim));
 
         Parameter beta = ln.parameters().get(1);
         for (int c = 0; c < dim; c++) {
-            assertEquals((float) x.rows, beta.grad().data[c], 1e-6f, "beta grad at col " + c);
+            assertEquals((float) x.matrixRows(), beta.grad().rawData()[c], 1e-6f, "beta grad at col " + c);
         }
     }
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;

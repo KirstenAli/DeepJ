@@ -21,10 +21,12 @@ final class HeadOps {
     }
 
     static Tensor dotProductScores(Tensor queries, Tensor keys, int heads) {
+        if (queries.rank() == 4) return queries.matmul(keys.transpose(-2, -1));
         return batched(queries, keys, heads, false, true);
     }
 
     static Tensor applyAttentionToValues(Tensor attention, Tensor values, int heads) {
+        if (attention.rank() == 4) return attention.matmul(values);
         return batched(attention, values, heads, false, false);
     }
 

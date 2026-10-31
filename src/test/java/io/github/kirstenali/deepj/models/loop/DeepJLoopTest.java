@@ -33,12 +33,12 @@ class DeepJLoopTest {
     void repeatedPassesDoNotDuplicateWeights(int loops) {
         var settings = small(loops);
         var decoder = new DeepJLoop(settings, 17L);
-        long weights = decoder.parameters().stream().mapToLong(p -> p.value.data.length).sum();
+        long weights = decoder.parameters().stream().mapToLong(p -> p.value.rawData().length).sum();
         assertEquals(DeepJLoopParameterCount.count(settings), weights);
         assertEquals(decoder.parameters().size(), decoder.parameters().stream().distinct().count());
         assertEquals(3, settings.nLayers());
         assertEquals(loops + 2, settings.executedLayers());
-        assertEquals(1, decoder.parameters().stream().filter(p -> p.value.rows == 11).count());
+        assertEquals(1, decoder.parameters().stream().filter(p -> p.value.matrixRows() == 11).count());
     }
 
     @Test
@@ -55,16 +55,16 @@ class DeepJLoopTest {
         var once = new DeepJLoop(small(1), 17L);
         var repeated = new DeepJLoop(small(4), 17L);
         for (int index = 0; index < once.parameters().size(); index++) {
-            assertArrayEquals(once.parameters().get(index).value.data,
-                    repeated.parameters().get(index).value.data, 0.0f);
+            assertArrayEquals(once.parameters().get(index).value.rawData(),
+                    repeated.parameters().get(index).value.rawData(), 0.0f);
         }
     }
 
     @Test
     void futureTokensDoNotAffectEarlierPredictions() {
         var decoder = new DeepJLoop(small(2), 17L);
-        float[] first = decoder.forward(new int[]{1, 2, 3}).data.clone();
-        float[] changed = decoder.forward(new int[]{1, 2, 8}).data;
+        float[] first = decoder.forward(new int[]{1, 2, 3}).rawData().clone();
+        float[] changed = decoder.forward(new int[]{1, 2, 8}).rawData();
         assertArrayEquals(Arrays.copyOf(first, 22), Arrays.copyOf(changed, 22), 1e-6f);
     }
 
@@ -93,8 +93,8 @@ class DeepJLoopTest {
         assertEquals(decoder.config(), restored.config());
         assertEquals(decoder.promptFormat(), restored.promptFormat());
         assertEquals(decoder.metadata(), restored.metadata());
-        assertArrayEquals(decoder.forward(new int[]{1, 4}).data,
-                restored.forward(new int[]{1, 4}).data, 0.0f);
+        assertArrayEquals(decoder.forward(new int[]{1, 4}).rawData(),
+                restored.forward(new int[]{1, 4}).rawData(), 0.0f);
         assertThrows(java.io.IOException.class, () -> new DeepJLoop(small(2), 17L).load(saved));
     }
 
@@ -103,11 +103,11 @@ class DeepJLoopTest {
         var settings = new DeepJLoopConfig(11, 3, 8, 4, 2, 0, 1, 0, 2, 12, false, 0.3f, 0.7f, 0.5f);
         var decoder = new DeepJLoop(settings, 17L);
         assertEquals(DeepJLoopParameterCount.count(settings),
-                decoder.parameters().stream().mapToLong(p -> p.value.data.length).sum());
+                decoder.parameters().stream().mapToLong(p -> p.value.rawData().length).sum());
         Path saved = directory.resolve("core.dj");
         decoder.save(saved);
         assertEquals(settings, ModelLoader.load(saved).config());
-        assertEquals(3, decoder.forward(new int[]{1, 2, 3}).rows);
+        assertEquals(3, decoder.forward(new int[]{1, 2, 3}).matrixRows());
     }
 
     private static DeepJLoopConfig small(int loops) {

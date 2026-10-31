@@ -67,7 +67,7 @@ public final class AutogradTrainingBenchmark {
     private static void summarize(DecoderOnlyModel model, String profile, int batchSize, double[] seconds) {
         Arrays.sort(seconds);
         double median = (seconds[(seconds.length - 1) / 2] + seconds[seconds.length / 2]) / 2;
-        long parameters = model.parameters().stream().mapToLong(p -> p.value.data.length).sum();
+        long parameters = model.parameters().stream().mapToLong(p -> p.value.rawData().length).sum();
         System.out.printf("RESULT profile=%s parameters=%d batch=%d sequence=1024 medianSeconds=%.6f%n",
                 profile, parameters, batchSize, median);
     }

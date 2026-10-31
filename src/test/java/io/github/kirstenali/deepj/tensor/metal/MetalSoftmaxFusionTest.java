@@ -18,21 +18,21 @@ class MetalSoftmaxFusionTest extends MetalDifferentialTestSupport {
         Tensor actual = metal.softmaxBackward(gradient, probabilities, scale);
         expected.materialize();
         actual.materialize();
-        assertArrayEquals(expected.data, actual.data);
+        assertArrayEquals(expected.rawData(), actual.rawData());
     }
 
     @ParameterizedTest
     @CsvSource({"1,1", "3,5", "4,65", "2,1024"})
     void causalGradientsMatchCpuWithoutChangingInputs(int heads, int length) {
         Tensor scores = random(heads * length, length, 31);
-        Tensor gradient = random(scores.rows, scores.cols, 41);
+        Tensor gradient = random(scores.matrixRows(), scores.matrixCols(), 41);
         Tensor original = new Tensor(gradient);
         float scale = 0.125f;
         Tensor expected = cpu.softmaxBackward(gradient, cpu.causalSoftmax(scores, length, scale), scale);
         Tensor actual = metal.softmaxBackward(gradient, metal.causalSoftmax(scores, length, scale), scale);
         assertTensorClose(expected, actual, 2e-6f, 2e-4f);
         gradient.materialize();
-        assertArrayEquals(original.data, gradient.data);
+        assertArrayEquals(original.rawData(), gradient.rawData());
     }
 
     @Test

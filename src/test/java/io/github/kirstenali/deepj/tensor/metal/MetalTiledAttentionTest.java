@@ -33,21 +33,21 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
 
     private void compare(TensorBackend reference, int length, int heads, float scale, float amplitude) {
         Tensor query = cpu.multiplyScalar(random(length * heads, 64, 11), amplitude);
-        Tensor key = cpu.multiplyScalar(random(query.rows, 64, 23), amplitude);
-        Tensor value = random(query.rows, 64, 37), gradient = random(query.rows, 64, 43);
+        Tensor key = cpu.multiplyScalar(random(query.matrixRows(), 64, 23), amplitude);
+        Tensor value = random(query.matrixRows(), 64, 37), gradient = random(query.matrixRows(), 64, 43);
         var expected = reference(reference, query, key, value, gradient, heads, scale);
         var saved = metal.causalAttention(query, key, value, heads, scale);
         var actual = metal.causalAttentionBackward(query, key, value, saved, gradient, heads, scale);
         assertTensorClose(expected.output(), saved.output(), 2e-5f, 2e-4f);
         assertGradients(expected.gradients(), actual);
-        assertEquals(query.rows, saved.normalization().rows);
-        assertEquals(2, saved.normalization().cols);
+        assertEquals(query.matrixRows(), saved.normalization().matrixRows());
+        assertEquals(2, saved.normalization().matrixCols());
     }
 
     private static Reference reference(TensorBackend backend, Tensor q, Tensor k, Tensor v,
                                         Tensor gradient, int heads, float scale) {
         Tensor scores = backend.batchedMatmul(q, k, heads, false, true);
-        Tensor probabilities = backend.causalSoftmax(scores, q.rows / heads, scale);
+        Tensor probabilities = backend.causalSoftmax(scores, q.matrixRows() / heads, scale);
         Tensor dp = backend.batchedMatmul(gradient, v, heads, false, true);
         Tensor ds = backend.softmaxBackward(dp, probabilities, scale);
         var gradients = new AttentionGradients(backend.batchedMatmul(ds, k, heads, false, false),
@@ -64,8 +64,8 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
 
     @Test
     void cancellationSensitiveFixtureAgreesWithIndependentDoubleArithmetic() {
-        Tensor q = random(12 * 1024, 64, 229), k = random(q.rows, 64, 233);
-        Tensor v = random(q.rows, 64, 239), gradient = random(q.rows, 64, 241);
+        Tensor q = random(12 * 1024, 64, 229), k = random(q.matrixRows(), 64, 233);
+        Tensor v = random(q.matrixRows(), 64, 239), gradient = random(q.matrixRows(), 64, 241);
         var expected = AttentionDoubleReference.calculate(
                 new AttentionDoubleReference.Inputs(q, k, v, gradient, 12, 0.125f));
         var saved = metal.causalAttention(q, k, v, 12, 0.125f);
@@ -94,7 +94,7 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
         try (var ignored = GradMode.noGrad()) {
             Tensor output = AttentionOps.causal(input, input, input, 1, 0.125f);
             assertFalse(output.requiresGrad());
-            assertEquals(256, output.rows);
+            assertEquals(256, output.matrixRows());
             output.materialize();
         }
     }
@@ -112,13 +112,14 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
     @ParameterizedTest
     @CsvSource({"256,2", "1024,9", "1024,12"})
     void repeatedRunsHaveIdenticalOutputsAndGradients(int length, int heads) {
-        Tensor q = random(length * heads, 64, 97), k = random(q.rows, 64, 101), v = random(q.rows, 64, 103);
-        Tensor gradient = random(q.rows, 64, 107);
+        Tensor q = random(length * heads, 64, 97);
+        Tensor k = random(q.matrixRows(), 64, 101), v = random(q.matrixRows(), 64, 103);
+        Tensor gradient = random(q.matrixRows(), 64, 107);
         List<Tensor> expected = snapshot(q, k, v, gradient, heads);
         for (int repeat = 0; repeat < 3; repeat++) {
             List<Tensor> actual = snapshot(q, k, v, gradient, heads);
             for (int index = 0; index < expected.size(); index++) {
-                assertArrayEquals(expected.get(index).data, actual.get(index).data);
+                assertArrayEquals(expected.get(index).rawData(), actual.get(index).rawData());
             }
         }
     }
@@ -135,9 +136,9 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
         Tensor q = random(256, 64, 109), k = random(256, 64, 113), v = random(256, 64, 127);
         Tensor expected = new Tensor(metal.causalAttention(q, k, v, 1, 0.125f).output());
         Tensor changed = new Tensor(v), gradient = Tensor.zeros(256, 64);
-        for (int index = 0; index < changed.data.length; index++) {
-            if (index / 64 >= 128) changed.data[index] += 100;
-            else gradient.data[index] = 1;
+        for (int index = 0; index < changed.rawData().length; index++) {
+            if (index / 64 >= 128) changed.rawData()[index] += 100;
+            else gradient.rawData()[index] = 1;
         }
         var saved = metal.causalAttention(q, k, changed, 1, 0.125f);
         var result = metal.causalAttentionBackward(q, k, changed, saved, gradient, 1, 0.125f);
@@ -148,11 +149,11 @@ class MetalTiledAttentionTest extends MetalDifferentialTestSupport {
     }
 
     private static void assertCausalBoundary(Tensor expected, Tensor output, AttentionGradients gradients) {
-        for (int index = 0; index < output.data.length; index++) {
-            if (index / 64 < 128) assertEquals(expected.data[index], output.data[index]);
+        for (int index = 0; index < output.rawData().length; index++) {
+            if (index / 64 < 128) assertEquals(expected.rawData()[index], output.rawData()[index]);
             else {
-                assertEquals(0.0f, gradients.key().data[index]);
-                assertEquals(0.0f, gradients.value().data[index]);
+                assertEquals(0.0f, gradients.key().rawData()[index]);
+                assertEquals(0.0f, gradients.value().rawData()[index]);
             }
         }
     }

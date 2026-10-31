@@ -41,6 +41,8 @@ class DeepJModelBundleTest {
         assertDoesNotThrow(() -> new DeepJOrigin(config, 1L).load(bundle.resolve(DeepJModelBundle.MODEL_FILE)));
         assertEquals(config, ModelLoader.load(bundle.resolve(DeepJModelBundle.MODEL_FILE)).config());
         assertTrue(Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE)).contains("\"deepj-origin\""));
+        assertTrue(Files.readString(bundle.resolve(DeepJModelBundle.CONFIG_FILE))
+                .contains("\"checkpoint_format_version\": 3"));
         assertTrue(Files.readString(bundle.resolve(DeepJModelBundle.MODEL_CARD_FILE)).contains("library_name: deepj"));
     }
 
@@ -88,6 +90,7 @@ class DeepJModelBundleTest {
     private static void assertDeepJPrismConfig(String json) {
         assertTrue(json.contains("\"deepj-prism\""));
         assertTrue(json.contains("\"q_rank\": 4"));
+        assertTrue(json.contains("\"checkpoint_format_version\": 3"));
     }
 
     private static void assertRedactedMetadata(Path bundle, DeepJPrism original) throws Exception {
@@ -124,6 +127,9 @@ class DeepJModelBundleTest {
     private static void assertInferenceDocumentation(String modelCard) {
         assertFalse(modelCard.contains("recalculates the full context for every generated token"));
         assertTrue(modelCard.contains("Generation uses DeepJ's key/value cache"));
+        assertTrue(modelCard.contains("[generation options](https://github.com/KirstenAli/DeepJ/"
+                + "blob/master/docs/inference.md)"));
+        assertFalse(modelCard.contains("DeepJ rebuilds the cache for that window."));
         assertTrue(modelCard.contains("command-line interface"));
     }
 

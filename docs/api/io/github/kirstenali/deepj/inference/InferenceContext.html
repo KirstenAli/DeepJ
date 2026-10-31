@@ -111,6 +111,9 @@ implements <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base
 <div class="table-header col-last">Description</div>
 <div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(int)" class="member-name-link">InferenceContext</a><wbr>(int&nbsp;capacity)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(int,boolean)" class="member-name-link">InferenceContext</a><wbr>(int&nbsp;capacity,
+ boolean&nbsp;rolling)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 </div>
 </section>
 </li>
@@ -146,6 +149,12 @@ implements <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#position()" class="member-name-link">position</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#rotate(io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">rotate</a><wbr>(<a href="../transformer/embeddings/RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rotary,
+ <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;length,
+ int&nbsp;heads)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -169,6 +178,13 @@ implements <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">InferenceContext</span><wbr><span class="parameters">(int&nbsp;capacity)</span></div>
 </section>
 </li>
+<li>
+<section class="detail" id="&lt;init&gt;(int,boolean)">
+<h3>InferenceContext</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">InferenceContext</span><wbr><span class="parameters">(int&nbsp;capacity,
+ boolean&nbsp;rolling)</span></div>
+</section>
+</li>
 </ul>
 </section>
 </li>
@@ -187,6 +203,15 @@ implements <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base
 <section class="detail" id="begin(int)">
 <h3>begin</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">begin</span><wbr><span class="parameters">(int&nbsp;offset)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="rotate(io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,io.github.kirstenali.deepj.tensor.Tensor,int,int)">
+<h3>rotate</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">rotate</span><wbr><span class="parameters">(<a href="../transformer/embeddings/RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rotary,
+ <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;length,
+ int&nbsp;heads)</span></div>
 </section>
 </li>
 <li>

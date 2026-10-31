@@ -136,9 +136,17 @@ loadScripts(document, 'script');</script>
  int&nbsp;seqLen,
  int&nbsp;nHeads)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#headDim()" class="member-name-link">headDim</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#applyInference(io.github.kirstenali.deepj.tensor.Tensor,int,int,int)" class="member-name-link">applyInference</a><wbr>(<a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;length,
+ int&nbsp;heads,
+ int&nbsp;offset)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Continuing positions for rolling inference; persistent rotary tables never grow.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#headDim()" class="member-name-link">headDim</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -194,6 +202,16 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">applyBackward</span><wbr><span class="parameters">(<a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;t,
  int&nbsp;seqLen,
  int&nbsp;nHeads)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="applyInference(io.github.kirstenali.deepj.tensor.Tensor,int,int,int)">
+<h3>applyInference</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">applyInference</span><wbr><span class="parameters">(<a href="../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;length,
+ int&nbsp;heads,
+ int&nbsp;offset)</span></div>
+<div class="block">Continuing positions for rolling inference; persistent rotary tables never grow.</div>
 </section>
 </li>
 <li>

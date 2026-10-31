@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.HeadLayout;
 import io.github.kirstenali.deepj.autograd.LayoutOps;
 import io.github.kirstenali.deepj.autograd.GradMode;
 
@@ -37,8 +38,8 @@ public final class RotaryEmbedding {
                 float theta = (float) (position
                         / Math.pow(10_000.0f, (2.0f * dimension) / headDim));
                 int index = position * halfDim + dimension;
-                cosTable.data[index] = (float) Math.cos(theta);
-                sinTable.data[index] = (float) Math.sin(theta);
+                cosTable.rawData()[index] = (float) Math.cos(theta);
+                sinTable.rawData()[index] = (float) Math.sin(theta);
             }
         }
     }
@@ -51,7 +52,7 @@ public final class RotaryEmbedding {
     public Tensor apply(Tensor tensor, int length, int heads, int offset) {
         if (offset == 0) return apply(tensor, length, heads);
         validateInput(tensor, length, heads);
-        if (offset < 0 || (long) offset + length > cosTable.rows) {
+        if (offset < 0 || (long) offset + length > cosTable.matrixRows()) {
             throw new IllegalArgumentException("Rotary position exceeds the configured context");
         }
         int[] rows = IntStream.range(offset, offset + length).toArray();
@@ -66,7 +67,7 @@ public final class RotaryEmbedding {
 
     /** Continuing positions for rolling inference; persistent rotary tables never grow. */
     public Tensor applyInference(Tensor input, int length, int heads, int offset) {
-        if ((long) offset + length <= cosTable.rows) return apply(input, length, heads, offset);
+        if ((long) offset + length <= cosTable.matrixRows()) return apply(input, length, heads, offset);
         if (GradMode.isEnabled()) throw new IllegalStateException("Rolling RoPE requires noGrad inference");
         validateInput(input, length, heads);
         Math.addExact(offset, length);
@@ -79,14 +80,25 @@ public final class RotaryEmbedding {
     }
 
     private void validateInput(Tensor tensor, int seqLen, int nHeads) {
-        if (seqLen <= 0 || seqLen > cosTable.rows) {
+        if (seqLen <= 0 || seqLen > cosTable.matrixRows()) {
             throw new IllegalArgumentException(
-                    "seqLen must be in [1, " + cosTable.rows + "], got " + seqLen);
+                    "seqLen must be in [1, " + cosTable.matrixRows() + "], got " + seqLen);
         }
         if (nHeads <= 0) throw new IllegalArgumentException("nHeads must be > 0");
-        if (tensor.cols != headDim) throw new IllegalArgumentException("Tensor width must equal headDim");
-        if ((long) tensor.rows != (long) seqLen * nHeads) {
+        if (tensor.rank() == 4) {
+            validateBatched(tensor, seqLen, nHeads);
+            return;
+        }
+        if (tensor.matrixCols() != headDim) throw new IllegalArgumentException("Tensor width must equal headDim");
+        if ((long) tensor.matrixRows() != (long) seqLen * nHeads) {
             throw new IllegalArgumentException("Tensor rows must equal seqLen * nHeads");
+        }
+    }
+
+    private void validateBatched(Tensor tensor, int seqLen, int nHeads) {
+        HeadLayout.require(tensor, nHeads);
+        if (tensor.size(2) != seqLen || tensor.size(3) != headDim) {
+            throw new IllegalArgumentException("Rotary time or head-width axis mismatch");
         }
     }
 }

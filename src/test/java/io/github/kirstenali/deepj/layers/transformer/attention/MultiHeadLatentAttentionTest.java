@@ -53,8 +53,8 @@ public class MultiHeadLatentAttentionTest {
         Tensor x = Tensor.random(SEQ_LEN, D_MODEL, new Random(2L));
         Tensor out = attn.forward(x);
 
-        assertEquals(SEQ_LEN, out.rows);
-        assertEquals(D_MODEL, out.cols);
+        assertEquals(SEQ_LEN, out.matrixRows());
+        assertEquals(D_MODEL, out.matrixCols());
     }
 
     @Test
@@ -73,13 +73,13 @@ public class MultiHeadLatentAttentionTest {
     void backward_accumulatesGradients() {
         Tensor x   = Tensor.random(SEQ_LEN, D_MODEL, new Random(4L));
         Tensor out = attn.forward(x);
-        Tensor dOut = Tensor.ones(out.rows, out.cols);
+        Tensor dOut = Tensor.ones(out.matrixRows(), out.matrixCols());
 
         attn.parameters().forEach(p -> p.zeroGrad());
         Tensor dX = AutogradTestSupport.backward(attn::forward, x, dOut);
 
-        assertEquals(SEQ_LEN, dX.rows);
-        assertEquals(D_MODEL, dX.cols);
+        assertEquals(SEQ_LEN, dX.matrixRows());
+        assertEquals(D_MODEL, dX.matrixCols());
 
         boolean anyNonZero = attn.parameters().stream()
                 .anyMatch(p -> p.grad().sumAbs() > 0.0f);
@@ -90,7 +90,7 @@ public class MultiHeadLatentAttentionTest {
     void backward_inputGradientIsNonZero() {
         Tensor x   = Tensor.random(SEQ_LEN, D_MODEL, new Random(5L));
         Tensor out = attn.forward(x);
-        Tensor dX  = AutogradTestSupport.backward(attn::forward, x, Tensor.ones(out.rows, out.cols));
+        Tensor dX  = AutogradTestSupport.backward(attn::forward, x, Tensor.ones(out.matrixRows(), out.matrixCols()));
 
         assertTrue(dX.sumAbs() > 0.0f, "input gradient must be non-zero");
     }
@@ -119,9 +119,9 @@ public class MultiHeadLatentAttentionTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;

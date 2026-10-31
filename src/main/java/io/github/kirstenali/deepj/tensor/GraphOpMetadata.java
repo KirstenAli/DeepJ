@@ -68,13 +68,31 @@ abstract class GraphOpMetadata {
     public static final int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
     public static final int OP_HEAD_CACHE_WRITE = 60;
     public static final int OP_HEAD_PREFIX_MATMUL = 61;
+    public static final int OP_STORAGE_COPY = 62;
+    public static final int OP_LAYOUT_TRANSFER = 63;
+    public static final int OP_LAYOUT_BINARY = 64;
+    public static final int OP_LAYOUT_UNARY = 65;
+    public static final int OP_LAYOUT_ASSIGN = 66;
+    public static final int OP_LAYOUT_REDUCE = 67;
+    public static final int OP_LAYOUT_SOFTMAX = 68;
+    public static final int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
+    public static final int OP_LAYOUT_MATMUL = 70;
+    public static final int OP_LAYOUT_INDEX_SELECT = 71;
+    public static final int OP_LAYOUT_INDEX_ADD = 72;
+    public static final int OP_LAYOUT_NORMALIZE = 73;
+    public static final int OP_LAYOUT_NORMALIZATION_BACKWARD = 74;
+    public static final int OP_LAYOUT_SWIGLU_BACKWARD = 75;
+    public static final int OP_LAYOUT_ADAMW = 76;
+    public static final int OP_LAYOUT_CROSS_ENTROPY = 77;
+    public static final int OP_LAYOUT_CAUSAL = 78;
+    public static final int OP_LAYOUT_ROTARY = 79;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_HEAD_PREFIX_MATMUL + 1];
+        OpMeta[] meta = new OpMeta[OP_LAYOUT_ROTARY + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -82,7 +100,33 @@ abstract class GraphOpMetadata {
         registerAttentionMeta(meta);
         registerBroadcastMeta(meta);
         registerComplexMeta(meta);
+        registerLayoutMeta(meta);
         return meta;
+    }
+
+    private static void registerLayoutMeta(OpMeta[] meta) {
+        registerMeta(meta, OP_STORAGE_COPY, 6, 1, 2);
+        registerMeta(meta, OP_LAYOUT_TRANSFER, 4, 1, 2);
+        registerMeta(meta, OP_LAYOUT_BINARY, 7, 1, 2, 3);
+        registerMeta(meta, OP_LAYOUT_UNARY, 7, 1, 2);
+        registerMeta(meta, OP_LAYOUT_ASSIGN, 5, 1, 2);
+        registerMeta(meta, OP_LAYOUT_REDUCE, 7, 1, 2);
+        registerMeta(meta, OP_LAYOUT_SOFTMAX, 6, 1, 2);
+        registerMeta(meta, OP_LAYOUT_MAXIMUM_BACKWARD, 10, 1, 2, 3, 4);
+        registerMeta(meta, OP_LAYOUT_MATMUL, 6, 1, 2, 3);
+        registerMeta(meta, OP_LAYOUT_INDEX_SELECT, 6, 1, 2);
+        registerMeta(meta, OP_LAYOUT_INDEX_ADD, 7, 1, 2);
+        registerLayoutTrainingMeta(meta);
+    }
+
+    private static void registerLayoutTrainingMeta(OpMeta[] meta) {
+        registerMeta(meta, OP_LAYOUT_NORMALIZE, 12, 1, 2, 3, 4, 5, 6);
+        registerMeta(meta, OP_LAYOUT_NORMALIZATION_BACKWARD, 11, 1, 2, 3, 4, 5);
+        registerMeta(meta, OP_LAYOUT_SWIGLU_BACKWARD, 9, 1, 2, 3, 4, 5);
+        registerMeta(meta, OP_LAYOUT_ADAMW, 16, 1, 2, 3, 4);
+        registerMeta(meta, OP_LAYOUT_CROSS_ENTROPY, 7, 1, 2, 3);
+        registerMeta(meta, OP_LAYOUT_CAUSAL, 7, 1, 2);
+        registerMeta(meta, OP_LAYOUT_ROTARY, 10, 1, 2, 3, 4);
     }
 
     static void registerUnaryMeta(OpMeta[] meta) {

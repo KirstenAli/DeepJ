@@ -18,8 +18,8 @@ class MetalAttentionOracleTest extends MetalDifferentialTestSupport {
             int length, int heads, float scale, float amplitude) {
         assumeTrue(MetalNative.TILED_ATTENTION_AVAILABLE);
         Tensor query = cpu.multiplyScalar(random(length * heads, 64, 307), amplitude);
-        Tensor key = cpu.multiplyScalar(random(query.rows, 64, 311), amplitude);
-        Tensor value = random(query.rows, 64, 313), upstream = random(query.rows, 64, 317);
+        Tensor key = cpu.multiplyScalar(random(query.matrixRows(), 64, 311), amplitude);
+        Tensor value = random(query.matrixRows(), 64, 313), upstream = random(query.matrixRows(), 64, 317);
         var inputs = new AttentionDoubleReference.Inputs(query, key, value, upstream, heads, scale);
         var expected = AttentionDoubleReference.calculate(inputs);
         var saved = metal.causalAttention(query, key, value, heads, scale);
@@ -32,13 +32,13 @@ class MetalAttentionOracleTest extends MetalDifferentialTestSupport {
 
     static void compare(String label, double[] expected, Tensor actual, double absolute, double relative) {
         actual.materialize();
-        assertEquals(expected.length, actual.data.length);
+        assertEquals(expected.length, actual.rawData().length);
         double maximum = 0;
         for (int index = 0; index < expected.length; index++) {
-            double error = Math.abs(expected[index] - actual.data[index]);
-            assertTrue(Float.isFinite(actual.data[index]), label + " nonfinite at " + index);
+            double error = Math.abs(expected[index] - actual.rawData()[index]);
+            assertTrue(Float.isFinite(actual.rawData()[index]), label + " nonfinite at " + index);
             assertTrue(error <= absolute + relative * Math.abs(expected[index]),
-                    label + " at " + index + " expected=" + expected[index] + " actual=" + actual.data[index]);
+                    label + " at " + index + " expected=" + expected[index] + " actual=" + actual.rawData()[index]);
             maximum = Math.max(maximum, error);
         }
         System.out.printf("FP64 variable=%s values=%d maxAbs=%.12g%n", label, expected.length, maximum);

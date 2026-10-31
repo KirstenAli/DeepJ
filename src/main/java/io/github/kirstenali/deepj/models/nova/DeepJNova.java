@@ -6,6 +6,8 @@ import io.github.kirstenali.deepj.layers.transformer.blocks.DeepJNovaTransformer
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.transformer.TransformerStack;
 import io.github.kirstenali.deepj.transformer.embeddings.Embedding;
 
@@ -20,21 +22,32 @@ public final class DeepJNova extends DecoderOnlyModel {
     private final List<Parameter> trainable;
 
     public DeepJNova(DeepJNovaConfig config, long seed) {
-        this(config, seed, new Embedding(config.vocabSize(), config.dModel(), new Random(seed)));
+        this(config, seed, ParameterFactory.float32());
     }
 
-    private DeepJNova(DeepJNovaConfig config, long seed, Embedding embedding) {
-        super(embedding, stack(config, new Random(seed + 1)), new RMSNorm1D(config.dModel()),
+    public DeepJNova(DeepJNovaConfig config, long seed, DType dtype) {
+        this(config, seed, new ParameterFactory(dtype));
+    }
+
+    public DeepJNova(DeepJNovaConfig config, long seed, ParameterFactory parameters) {
+        this(config, seed, new Embedding(config.vocabSize(), config.dModel(), new Random(seed),
+                parameters.scope("tokens")), parameters);
+    }
+
+    private DeepJNova(DeepJNovaConfig config, long seed, Embedding embedding, ParameterFactory parameters) {
+        super(embedding, stack(config, new Random(seed + 1), parameters.scope("stack")),
+                new RMSNorm1D(config.dModel(), parameters.scope("finalNorm")),
                 new TiedEmbeddingProjection(embedding.weight()));
         this.config = config;
         trainable = super.parameters().stream().distinct().toList();
         applyInitScale(config.initScale());
     }
 
-    private static TransformerStack stack(DeepJNovaConfig config, Random random) {
+    private static TransformerStack stack(DeepJNovaConfig config, Random random, ParameterFactory parameters) {
         List<Layer> blocks = new ArrayList<>(config.nLayers());
         for (int layer = 0; layer < config.nLayers(); layer++) {
-            blocks.add(new DeepJNovaTransformerBlock(config, random));
+            blocks.add(new DeepJNovaTransformerBlock(config, random, 1.0f,
+                    parameters.scope(Integer.toString(layer))));
         }
         return new TransformerStack(blocks);
     }

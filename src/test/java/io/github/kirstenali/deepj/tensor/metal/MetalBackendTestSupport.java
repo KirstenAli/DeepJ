@@ -116,7 +116,7 @@ abstract class MetalBackendTestSupport {
         Tensor targetCpu = randomTensor(64, 32, 129L);
         Tensor targetGpu = new Tensor(targetCpu);
         Tensor gradient = randomTensor(128, 32, 130L);
-        int[] indices = randomIndices(128, targetCpu.rows, 131L);
+        int[] indices = randomIndices(128, targetCpu.matrixRows(), 131L);
         cpu.scatterAddRows(targetCpu, indices, gradient);
         Tensor.scatterAddRows(targetGpu, indices, gradient);
         assertTensorClose(targetCpu, targetGpu, 1e-3f, 1e-3f);
@@ -191,9 +191,9 @@ abstract class MetalBackendTestSupport {
     }
 
     protected static Tensor standardDeviations(Tensor normalized) {
-        Tensor deviation = new Tensor(normalized.rows, 1);
-        for (int row = 0; row < deviation.rows; row++) {
-            deviation.data[row] = 0.5f + Math.abs(normalized.data[row * normalized.cols]);
+        Tensor deviation = new Tensor(normalized.matrixRows(), 1);
+        for (int row = 0; row < deviation.matrixRows(); row++) {
+            deviation.rawData()[row] = 0.5f + Math.abs(normalized.rawData()[row * normalized.matrixCols()]);
         }
         return deviation;
     }
@@ -261,15 +261,15 @@ abstract class MetalBackendTestSupport {
     protected record AdamState(Tensor weights, Tensor firstMoment, Tensor secondMoment) {}
 
     protected static void assertTensorClose(Tensor expected, Tensor actual, double atol, double rtol) {
-        assertEquals(expected.rows, actual.rows, "rows mismatch");
-        assertEquals(expected.cols, actual.cols, "cols mismatch");
+        assertEquals(expected.matrixRows(), actual.matrixRows(), "rows mismatch");
+        assertEquals(expected.matrixCols(), actual.matrixCols(), "cols mismatch");
         expected.materialize();
         actual.materialize();
 
-        for (int r = 0; r < expected.rows; r++) {
-            for (int c = 0; c < expected.cols; c++) {
-                double e = expected.data[r * expected.cols + c];
-                double a = actual.data[r * actual.cols + c];
+        for (int r = 0; r < expected.matrixRows(); r++) {
+            for (int c = 0; c < expected.matrixCols(); c++) {
+                double e = expected.rawData()[r * expected.matrixCols() + c];
+                double a = actual.rawData()[r * actual.matrixCols() + c];
                 double tol = atol + rtol * Math.abs(e);
                 assertTrue(Math.abs(e - a) <= tol, "Mismatch at (" + r + "," + c + ") expected=" + e + " actual=" + a);
             }

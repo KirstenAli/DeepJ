@@ -78,6 +78,21 @@ class GraphCommandEncodingTest extends ComputeGraphTestSupport {
     }
 
     @Test
+    void tiledAttentionUsesLogicalResultRowsRatherThanPhysicalInputAllocationGeometry() {
+        GpuBuffer physical = graph.newOutputBuffer(1, 512 * 64);
+        GpuBuffer output = graph.newOutputBuffer(512, 64), normalization = graph.newOutputBuffer(512, 2);
+        graph.recordCausalAttention(physical, physical, physical, output, normalization, 2, 0.125f);
+        assertCommand(ComputeGraph.OP_TILED_CAUSAL_ATTENTION, physical.id, physical.id, physical.id,
+                output.id, normalization.id, 512, 2, 2, bits(0.125f));
+        GpuBuffer delta = graph.newOutputBuffer(512, 1);
+        graph.recordCausalAttentionBackward(physical, physical, physical, output, output, normalization,
+                delta, output, output, output, 2, 0.125f);
+        assertCommand(ComputeGraph.OP_TILED_CAUSAL_ATTENTION_BACKWARD, physical.id, physical.id, physical.id,
+                output.id, output.id, normalization.id, delta.id, output.id, output.id, output.id,
+                512, 2, 2, bits(0.125f));
+    }
+
+    @Test
     void headCacheCommandsPreserveOffsetsAndPrefixDimensions() {
         graph.recordHeadCacheWrite(a, b, 2, 3);
         assertCommand(ComputeGraph.OP_HEAD_CACHE_WRITE, a.id, b.id, 2, 1, 1, 3, 3);
@@ -85,6 +100,17 @@ class GraphCommandEncodingTest extends ComputeGraphTestSupport {
         assertCommand(ComputeGraph.OP_HEAD_PREFIX_MATMUL, a.id, b.id, c.id, 2, 1, 3, 1, 3, 1);
         graph.recordHeadPrefixMatmul(a, b, c, 1, 2, false);
         assertCommand(ComputeGraph.OP_HEAD_PREFIX_MATMUL, a.id, b.id, c.id, 1, 2, 3, 2, 3, 0);
+    }
+
+    @Test
+    void ndCacheCommandsEncodeLogicalGeometryIndependentlyOfPhysicalAllocationShape() {
+        GpuBuffer physical = graph.newOutputBuffer(1, 512 * 64), cache = graph.newOutputBuffer(1, 2048 * 64);
+        GpuBuffer output = graph.newOutputBuffer(512, 1024);
+        graph.recordHeadCacheWrite(physical, cache, 2, 256, 1024, 64, 0);
+        assertCommand(ComputeGraph.OP_HEAD_CACHE_WRITE, physical.id, cache.id, 2, 256, 1024, 64, 0);
+        graph.recordHeadPrefixMatmul(physical, cache, output, 2, 1024, true, 512, 64, 64);
+        assertCommand(ComputeGraph.OP_HEAD_PREFIX_MATMUL, physical.id, cache.id, output.id,
+                2, 256, 64, 1024, 64, 1);
     }
 
     @ParameterizedTest

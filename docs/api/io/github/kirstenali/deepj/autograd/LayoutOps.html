@@ -118,20 +118,25 @@ loadScripts(document, 'script');</script>
  int[]&nbsp;indices)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#mergeHeads(io.github.kirstenali.deepj.tensor.Tensor,int)" class="member-name-link">mergeHeads</a><wbr>(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
- int&nbsp;heads)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#indexSelect(io.github.kirstenali.deepj.tensor.Tensor,int,int%5B%5D)" class="member-name-link">indexSelect</a><wbr>(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;axis,
+ int[]&nbsp;indices)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#rotary(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,boolean)" class="member-name-link">rotary</a><wbr>(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#mergeHeads(io.github.kirstenali.deepj.tensor.Tensor,int)" class="member-name-link">mergeHeads</a><wbr>(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;heads)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#rotary(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,int,boolean)" class="member-name-link">rotary</a><wbr>(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
  <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;cosine,
  <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;sine,
  int&nbsp;length,
  boolean&nbsp;inverse)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#splitHeads(io.github.kirstenali.deepj.tensor.Tensor,int)" class="member-name-link">splitHeads</a><wbr>(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
- int&nbsp;heads)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#splitHeads(io.github.kirstenali.deepj.tensor.Tensor,int)" class="member-name-link">splitHeads</a><wbr>(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;heads)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -149,6 +154,14 @@ loadScripts(document, 'script');</script>
 <section class="method-details" id="method-detail">
 <h2>Method Details</h2>
 <ul class="member-list">
+<li>
+<section class="detail" id="indexSelect(io.github.kirstenali.deepj.tensor.Tensor,int,int[])">
+<h3>indexSelect</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">indexSelect</span><wbr><span class="parameters">(<a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;axis,
+ int[]&nbsp;indices)</span></div>
+</section>
+</li>
 <li>
 <section class="detail" id="gather(io.github.kirstenali.deepj.tensor.Tensor,int[])">
 <h3>gather</h3>

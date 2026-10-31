@@ -54,11 +54,30 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Package</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><a href="#io.github.kirstenali.deepj.layers.transformer.attention">io.github.kirstenali.deepj.layers.transformer.attention</a></div>
+<div class="col-first even-row-color"><a href="#io.github.kirstenali.deepj.inference">io.github.kirstenali.deepj.inference</a></div>
 <div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><a href="#io.github.kirstenali.deepj.layers.transformer.attention">io.github.kirstenali.deepj.layers.transformer.attention</a></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 </div>
 <section class="class-uses">
 <ul class="block-list">
+<li>
+<section class="detail" id="io.github.kirstenali.deepj.inference">
+<h2>Uses of <a href="../RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a> in <a href="../../../inference/package-summary.html">io.github.kirstenali.deepj.inference</a></h2>
+<div class="caption"><span>Methods in <a href="../../../inference/package-summary.html">io.github.kirstenali.deepj.inference</a> with parameters of type <a href="../RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a></span></div>
+<div class="summary-table three-column-summary">
+<div class="table-header col-first">Modifier and Type</div>
+<div class="table-header col-second">Method</div>
+<div class="table-header col-last">Description</div>
+<div class="col-first even-row-color"><code><a href="../../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color"><span class="type-name-label">InferenceContext.</span><code><a href="../../../inference/InferenceContext.html#rotate(io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,io.github.kirstenali.deepj.tensor.Tensor,int,int)" class="member-name-link">rotate</a><wbr>(<a href="../RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rotary,
+ <a href="../../../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;input,
+ int&nbsp;length,
+ int&nbsp;heads)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+</div>
+</section>
+</li>
 <li>
 <section class="detail" id="io.github.kirstenali.deepj.layers.transformer.attention">
 <h2>Uses of <a href="../RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a> in <a href="../../../layers/transformer/attention/package-summary.html">io.github.kirstenali.deepj.layers.transformer.attention</a></h2>
@@ -76,11 +95,28 @@ loadScripts(document, 'script');</script>
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
 <div class="col-first odd-row-color"><code>&nbsp;</code></div>
-<div class="col-second odd-row-color"><code><a href="../../../layers/transformer/attention/RoPEMultiHeadSelfAttention.html#%3Cinit%3E(int,int,boolean,io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,java.util.Random)" class="member-name-link">RoPEMultiHeadSelfAttention</a><wbr>(int&nbsp;dModel,
+<div class="col-second odd-row-color"><code><a href="../../../layers/transformer/attention/MultiHeadLatentAttention.html#%3Cinit%3E(int,int,int,int,io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,java.util.Random,io.github.kirstenali.deepj.optimisers.ParameterFactory)" class="member-name-link">MultiHeadLatentAttention</a><wbr>(int&nbsp;dModel,
+ int&nbsp;nHeads,
+ int&nbsp;qRank,
+ int&nbsp;kvRank,
+ <a href="../RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rope,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd,
+ <a href="../../../optimisers/ParameterFactory.html" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a>&nbsp;parameters)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>&nbsp;</code></div>
+<div class="col-second even-row-color"><code><a href="../../../layers/transformer/attention/RoPEMultiHeadSelfAttention.html#%3Cinit%3E(int,int,boolean,io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,java.util.Random)" class="member-name-link">RoPEMultiHeadSelfAttention</a><wbr>(int&nbsp;dModel,
  int&nbsp;nHeads,
  boolean&nbsp;causalMask,
  <a href="../RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rope,
  <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd)</code></div>
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-first odd-row-color"><code>&nbsp;</code></div>
+<div class="col-second odd-row-color"><code><a href="../../../layers/transformer/attention/RoPEMultiHeadSelfAttention.html#%3Cinit%3E(int,int,boolean,io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding,java.util.Random,io.github.kirstenali.deepj.optimisers.ParameterFactory)" class="member-name-link">RoPEMultiHeadSelfAttention</a><wbr>(int&nbsp;dModel,
+ int&nbsp;nHeads,
+ boolean&nbsp;causalMask,
+ <a href="../RotaryEmbedding.html" title="class in io.github.kirstenali.deepj.transformer.embeddings">RotaryEmbedding</a>&nbsp;rope,
+ <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/util/Random.html" title="class or interface in java.util" class="external-link">Random</a>&nbsp;rnd,
+ <a href="../../../optimisers/ParameterFactory.html" title="class in io.github.kirstenali.deepj.optimisers">ParameterFactory</a>&nbsp;parameters)</code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
 </div>
 </section>

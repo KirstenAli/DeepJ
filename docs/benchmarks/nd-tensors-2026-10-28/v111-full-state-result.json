@@ -1,0 +1,17 @@
+{
+  "stage": "full-state-v111",
+  "state": "COMPLETED 2026-10-31; 18 of 18 FLOAT32 full-state cases COMPLETED (prism, nova, loop x write-baseline, compare-baseline, compare-candidate, resume-candidate, save-baseline, save-candidate)",
+  "candidateCommit": "c9e42914c2a21355728a62c3cb88878c6ca4e923",
+  "candidateJarSha256": "77e1c2f8a02cf9277bbb98620f19b81f5a2462db49a261aaf995e4ed5b4ed9d7",
+  "baselineJarSha256": "bfbadaf4c1fc3d3241fef5b81fdf611767d5f61926204b4e1021ea97c5a3d591 (pre-ND original)",
+  "guardSha256": "343e6a522a24f8f26562c712279fd418e52835c87a188f7c7a75bcbdd236807d (byte-identical to full-state-scoped-v38 scoped guard)",
+  "helperClasses": "full-state-scoped-v38 baseline-classes and candidate-classes used byte-for-byte; pins.json unchanged",
+  "workload": "full 1,024-token FLOAT32 state: three updates, save, two continuation updates; candidate fresh compare, candidate actual FILE restore, baseline and candidate saved-byte controls; original bounds (3 GiB heap, 5 GiB native, 15 GiB disk floor plus write/save reserve, scoped admission 6/6.5/7.5 GiB)",
+  "comparisons": "60 of 60 COMPARISON lines report mismatches=0: gradients, weights, firstMoments, secondMoments (90,128,896 / 99,711,552 / 100,375,680 values) and fullLogits (16,777,216 values) for every family in write, compare-baseline and compare-candidate; all resume cases steps=5 cursor=5; all six save cases savedBytesExact=true",
+  "rawStreams": "each family's raw state stream was regenerated into this NEW root and verified by the guard against the pinned SHA-256 and byte size before any comparison; after the family's six cases passed it was retired, with SHA-256, inode, link count and size recorded in references/baseline-1024/<family>-state.gz.retired.sha",
+  "retainedReferences": "prism/nova/loop model.dj and training.dj hardlinked from the preserved retained set; every regenerated file matched them byte-for-byte (guard cmp) and was replaced by a hardlink",
+  "preflightEvent": "the first loop candidate save attempt was refused at preflight (available 7.34 GiB < scoped 7.5 GiB admission) before any JVM started; directory preserved as loop-save-candidate-NbpZTQ.PREFLIGHT-FAILED; the case was re-run unchanged after memory settled and COMPLETED",
+  "swap": "no global swapout change in any case",
+  "scope": "Closes the complete FLOAT32 state and actual-FILE-resume check for c9e42914."
+}
+

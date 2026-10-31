@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 struct MetalContext {
     id<MTLDevice>       device;
@@ -17,6 +18,29 @@ struct MetalContext {
     id<MTLLibrary>      library;
 
     id<MTLComputePipelineState> addPSO;
+    id<MTLComputePipelineState> storageCopyPSO;
+    id<MTLComputePipelineState> layoutTransferPSO;
+    id<MTLComputePipelineState> layoutBinaryPSO;
+    id<MTLComputePipelineState> layoutUnaryPSO;
+    id<MTLComputePipelineState> layoutAssignPSO;
+    id<MTLComputePipelineState> layoutReducePSO;
+    id<MTLComputePipelineState> layoutSoftmaxPSO;
+    id<MTLComputePipelineState> layoutMaximumBackwardPSO;
+    id<MTLComputePipelineState> layoutMatmulPSO;
+    std::once_flag compactMatmulOnce;
+    id<MTLComputePipelineState> halfMatmulPSO;
+    id<MTLComputePipelineState> bfloatMatmulPSO;
+    id<MTLComputePipelineState> mixedMatmulPSO;
+    id<MTLComputePipelineState> layoutIndexSelectPSO;
+    id<MTLComputePipelineState> layoutIndexAddPSO;
+    id<MTLComputePipelineState> layoutNormalizePSO;
+    id<MTLComputePipelineState> layoutNormalizationBackwardPSO;
+    id<MTLComputePipelineState> layoutSwiGluBackwardPSO;
+    id<MTLComputePipelineState> layoutAdamWPSO;
+    id<MTLComputePipelineState> layoutCrossEntropyPSO;
+    id<MTLComputePipelineState> layoutCausalMaskPSO;
+    id<MTLComputePipelineState> layoutCausalSoftmaxPSO;
+    id<MTLComputePipelineState> layoutRotaryPSO;
     id<MTLComputePipelineState> subtractPSO;
     id<MTLComputePipelineState> multiplyPSO;
     id<MTLComputePipelineState> dividePSO;
@@ -387,12 +411,641 @@ kernel void kernel_attention_key_value_backward(device const float* query [[buff
     attention_write_gradient(dv, values, block, params.length, tid);
 }
 )";
+static NSString* compactMatmulShaderSource = @R"(
+#include <metal_stdlib>
+#include <metal_simdgroup_matrix>
+using namespace metal;
+
+#if COMPACT_KIND == 2
+using CompactValue = half;
+#elif COMPACT_KIND == 3
+using CompactValue = bfloat;
+#else
+using CompactValue = float;
+#endif
+using CompactMatrix = simdgroup_matrix<CompactValue, 8, 8>;
+
+struct CompactInputs {
+    device const unsigned char* left;
+    device const unsigned char* right;
+    device unsigned char* output;
+    device const ulong* layouts;
+    constant uint* params;
+};
+
+struct CompactLayout {
+    ulong offset, row, column;
+};
+struct CompactSums {
+    simdgroup_float8x8 a, b, c, d;
+};
+
+inline CompactLayout compact_layout(device const ulong* words, uint start, uint batch) {
+    uint rank = uint(words[start]);
+    ulong offset = words[start + 3];
+    for (int axis = int(rank) - 3; axis >= 0; axis--) {
+        offset += words[start + 4 + rank + axis] * (batch % uint(words[start + 4 + axis]));
+        batch /= uint(words[start + 4 + axis]);
+    }
+    return {offset, words[start + 2 + 2 * rank], words[start + 3 + 2 * rank]};
+}
+
+inline CompactValue compact_read(device const unsigned char* source, ulong address, uint dtype) {
+#if COMPACT_KIND == 1
+    if (dtype == 1) return ((device const float*)source)[address];
+    ushort bits = ((device const ushort*)source)[address];
+    return dtype == 2 ? float(as_type<half>(bits)) : as_type<float>(uint(bits) << 16);
+#else
+    return ((device const CompactValue*)source)[address];
+#endif
+}
+
+inline CompactValue compact_load(device const unsigned char* source, CompactLayout layout,
+                                 uint row, uint column, uint rows, uint columns, uint dtype) {
+    if (row >= rows || column >= columns) return CompactValue(0);
+    return compact_read(source, layout.offset + row * layout.row + column * layout.column, dtype);
+}
+
+inline void compact_tiles(CompactInputs input, threadgroup CompactValue* left,
+                           threadgroup CompactValue* right, uint3 tile, uint inner, uint lane) {
+    auto a = compact_layout(input.layouts, input.params[0], tile.z);
+    auto b = compact_layout(input.layouts, input.params[1], tile.z);
+    for (uint index = lane; index < 512; index += 128) {
+        left[index] = compact_load(input.left, a, tile.y * 32 + index / 16, inner + index % 16,
+                                    input.params[5], input.params[7], input.params[2]);
+        right[index] = compact_load(input.right, b, inner + index / 32, tile.x * 32 + index % 32,
+                                     input.params[7], input.params[6], input.params[3]);
+    }
+}
+
+inline void compact_accumulate(thread CompactSums& sums, threadgroup CompactValue* left,
+                                threadgroup CompactValue* right, uint group) {
+    for (uint inner = 0; inner < 16; inner += 8) {
+        CompactMatrix a, b, c, d;
+        simdgroup_load(a, left + (group / 2 * 16) * 16 + inner, 16);
+        simdgroup_load(b, left + (group / 2 * 16 + 8) * 16 + inner, 16);
+        simdgroup_load(c, right + inner * 32 + group % 2 * 16, 32);
+        simdgroup_load(d, right + inner * 32 + group % 2 * 16 + 8, 32);
+        simdgroup_multiply_accumulate(sums.a, a, c, sums.a);
+        simdgroup_multiply_accumulate(sums.b, a, d, sums.b);
+        simdgroup_multiply_accumulate(sums.c, b, c, sums.c);
+        simdgroup_multiply_accumulate(sums.d, b, d, sums.d);
+    }
+}
+
+inline void compact_store(CompactInputs input, threadgroup float* values, uint3 tile, uint lane) {
+    uint rows = input.params[5], columns = input.params[6];
+    for (uint index = lane; index < 1024; index += 128) {
+        uint row = tile.y * 32 + index / 32, column = tile.x * 32 + index % 32;
+        if (row < rows && column < columns) {
+            ulong address = (ulong(tile.z) * rows + row) * columns + column;
+            ((device CompactValue*)input.output)[address] = CompactValue(values[index]);
+        }
+    }
+}
+
+inline void compact_results(CompactInputs input, thread CompactSums& sums, threadgroup float* values,
+                             uint3 tile, uint lane, uint group) {
+    uint offset = group / 2 * 16 * 32 + group % 2 * 16;
+    simdgroup_store(sums.a, values + offset, 32);
+    simdgroup_store(sums.b, values + offset + 8, 32);
+    simdgroup_store(sums.c, values + offset + 8 * 32, 32);
+    simdgroup_store(sums.d, values + offset + 8 * 32 + 8, 32);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    compact_store(input, values, tile, lane);
+}
+
+inline void compact_product(CompactInputs input, threadgroup CompactValue* left,
+                             threadgroup CompactValue* right, threadgroup float* values,
+                             uint3 tile, uint lane, uint group) {
+    CompactSums sums{simdgroup_float8x8(0.0f), simdgroup_float8x8(0.0f),
+                     simdgroup_float8x8(0.0f), simdgroup_float8x8(0.0f)};
+    for (uint inner = 0; inner < input.params[7]; inner += 16) {
+        compact_tiles(input, left, right, tile, inner, lane);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        compact_accumulate(sums, left, right, group);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    compact_results(input, sums, values, tile, lane, group);
+}
+
+kernel void kernel_compact_matmul(device const unsigned char* left [[buffer(0)]],
+                                  device const unsigned char* right [[buffer(1)]],
+                                  device unsigned char* output [[buffer(2)]],
+                                  device const ulong* layouts [[buffer(3)]], constant uint* params [[buffer(4)]],
+                                  uint3 tile [[threadgroup_position_in_grid]],
+                                  uint lane [[thread_index_in_threadgroup]],
+                                  uint group [[simdgroup_index_in_threadgroup]]) {
+    threadgroup CompactValue first[512], second[512];
+    threadgroup float values[1024];
+    compact_product({left, right, output, layouts, params}, first, second, values, tile, lane, group);
+}
+)";
+
 static MetalContext* gCtx = nullptr;
 static std::mutex gContextMutex;
 
 static NSString* metalShaderSource = @R"(
 #include <metal_stdlib>
 using namespace metal;
+
+inline uint storage_round_shift(uint value, uint shift) {
+    uint quotient = value >> shift;
+    uint halfway = 1u << (shift - 1);
+    uint remainder = value & ((1u << shift) - 1);
+    return quotient + uint(remainder > halfway || (remainder == halfway && (quotient & 1u) != 0));
+}
+
+inline uint storage_decode_half(ushort bits) {
+    uint sign = (uint(bits) & 0x8000u) << 16;
+    uint exponent = (uint(bits) >> 10) & 31u;
+    uint fraction = uint(bits) & 1023u;
+    if (exponent == 31) return sign | 0x7f800000u | (fraction << 13);
+    if (exponent != 0) return sign | ((exponent + 112u) << 23) | (fraction << 13);
+    if (fraction == 0) return sign;
+    uint shift = clz(fraction) - 21u;
+    return sign | ((113u - shift) << 23) | (((fraction << shift) & 1023u) << 13);
+}
+
+inline ushort storage_encode_half(uint bits) {
+    uint sign = (bits >> 16) & 0x8000u;
+    uint fraction = bits & 0x007fffffu;
+    int exponent = int((bits >> 23) & 255u) - 127;
+    if (exponent == 128) return ushort(sign | 0x7c00u | (fraction == 0 ? 0u : 0x0200u | (fraction >> 13)));
+    if (exponent > 15) return ushort(sign | 0x7c00u);
+    if (exponent >= -14) {
+        return ushort(sign | ((uint(exponent + 15) << 10) + storage_round_shift(fraction, 13)));
+    }
+    if (exponent < -25) return ushort(sign);
+    return ushort(sign | storage_round_shift(fraction | 0x00800000u, uint(-exponent - 1)));
+}
+
+inline ushort storage_encode_bfloat(uint bits) {
+    if ((bits & 0x7fffffffu) > 0x7f800000u) return ushort((bits >> 16) | 0x0040u);
+    return ushort((bits + 0x7fffu + ((bits >> 16) & 1u)) >> 16);
+}
+
+inline uint storage_float_bits(device const unsigned char* input, uint index, uint dtype) {
+    if (dtype == 1) return ((device const uint*)input)[index];
+    ushort bits = ((device const ushort*)input)[index];
+    return dtype == 2 ? storage_decode_half(bits) : uint(bits) << 16;
+}
+
+inline void storage_write_bits(device unsigned char* output, uint index, uint dtype, uint bits) {
+    if (dtype == 1) ((device uint*)output)[index] = bits;
+    else ((device ushort*)output)[index] = dtype == 2 ? storage_encode_half(bits) : storage_encode_bfloat(bits);
+}
+
+inline uint layout_address(device const ulong* words, uint start, uint logical) {
+    uint rank = uint(words[start]);
+    ulong address = words[start + 3];
+    // Dense matrices, including offset views, need no per-element coordinate division.
+    if (rank == 2 && words[start + 7] == 1 && words[start + 6] == words[start + 5]) {
+        return uint(address + logical);
+    }
+    for (int axis = int(rank) - 1; axis >= 0; axis--) {
+        uint dimension = uint(words[start + 4 + axis]);
+        address += words[start + 4 + rank + axis] * (logical % dimension);
+        logical /= dimension;
+    }
+    return uint(address);
+}
+
+inline void layout_raw_copy(device const unsigned char* input, device unsigned char* output,
+                            uint source, uint target, uint dtype) {
+    uint width = dtype == 1 ? 4u : 2u;
+    for (uint byte = 0; byte < width; byte++) {
+        output[ulong(target) * width + byte] = input[ulong(source) * width + byte];
+    }
+}
+
+kernel void kernel_layout_transfer(device const unsigned char* input [[buffer(0)]],
+                                   device unsigned char* output [[buffer(1)]],
+                                   device const ulong* layouts [[buffer(2)]],
+                                   constant uint4& params [[buffer(3)]],
+                                   uint id [[thread_position_in_grid]]) {
+    uint address = layout_address(layouts, params.x, id);
+    if (params.y == params.z) layout_raw_copy(input, output, address, id, params.y);
+    else storage_write_bits(output, id, params.z, storage_float_bits(input, address, params.y));
+}
+
+inline float layout_matmul_dot(device const unsigned char* a, device const unsigned char* b,
+                               device const ulong* layouts, constant uint* params, uint index) {
+    uint m = params[5], n = params[6], k = params[7], batch = index / (m * n);
+    uint first = layout_address(layouts, params[0], (batch * m + index / n % m) * k);
+    uint second = layout_address(layouts, params[1], batch * k * n + index % n);
+    uint aRank = uint(layouts[params[0]]), bRank = uint(layouts[params[1]]);
+    ulong aStep = layouts[params[0] + 3 + 2 * aRank];
+    ulong bStep = layouts[params[1] + 2 + 2 * bRank];
+    float sum = 0.0f;
+    for (uint inner = 0; inner < k; inner++) {
+        float x = as_type<float>(storage_float_bits(a, uint(first + inner * aStep), params[2]));
+        float y = as_type<float>(storage_float_bits(b, uint(second + inner * bStep), params[3]));
+        sum += x * y;
+    }
+    return sum;
+}
+
+kernel void kernel_layout_matmul(device const unsigned char* a [[buffer(0)]],
+                                 device const unsigned char* b [[buffer(1)]],
+                                 device unsigned char* output [[buffer(2)]],
+                                 device const ulong* layouts [[buffer(3)]],
+                                 constant uint* params [[buffer(4)]], uint index [[thread_position_in_grid]]) {
+    float sum = layout_matmul_dot(a, b, layouts, params, index);
+    storage_write_bits(output, index, params[4], as_type<uint>(sum));
+}
+
+kernel void kernel_layout_index_select(device const unsigned char* input [[buffer(0)]],
+                                       device unsigned char* output [[buffer(1)]],
+                                       device const ulong* layouts [[buffer(2)]],
+                                       constant uint* params [[buffer(3)]], uint index [[thread_position_in_grid]]) {
+    uint row = index / params[3], selected = uint(layouts[params[1] + 2 + row % params[4]]);
+    uint logical = (row / params[4] * params[2] + selected) * params[3] + index % params[3];
+    layout_raw_copy(input, output, layout_address(layouts, params[0], logical), index, params[5]);
+}
+
+inline float layout_index_sum(device const unsigned char* updates, device const ulong* layouts,
+                               constant uint* params, uint other, uint group, float sum) {
+    uint start = params[2], count = uint(layouts[start]), groups = params[7];
+    uint offsets = start + 2 + count + groups, positions = offsets + groups + 1;
+    uint first = uint(layouts[offsets + group]), end = uint(layouts[offsets + group + 1]);
+    uint base = other / params[4] * count * params[4] + other % params[4];
+    for (uint position = first; position < end; position++) {
+        uint row = uint(layouts[positions + position]);
+        uint address = layout_address(layouts, params[1], base + row * params[4]);
+        sum += as_type<float>(storage_float_bits(updates, address, params[6]));
+    }
+    return sum;
+}
+
+kernel void kernel_layout_index_add(device unsigned char* target [[buffer(0)]],
+                                    device const unsigned char* updates [[buffer(1)]],
+                                    device const ulong* layouts [[buffer(2)]],
+                                    constant uint* params [[buffer(3)]], uint index [[thread_position_in_grid]]) {
+    uint other = index / params[7], group = index % params[7], count = uint(layouts[params[2]]);
+    uint selected = uint(layouts[params[2] + 2 + count + group]);
+    uint logical = (other / params[4] * params[3] + selected) * params[4] + other % params[4];
+    uint address = layout_address(layouts, params[0], logical);
+    float initial = as_type<float>(storage_float_bits(target, address, params[5]));
+    float sum = layout_index_sum(updates, layouts, params, other, group, initial);
+    storage_write_bits(target, address, params[5], as_type<uint>(sum));
+}
+
+inline float layout_gelu(float x) {
+    float t = 0.7978845608f * (x + 0.044715f * x * x * x);
+    return 0.5f * x * (1.0f + tanh(t));
+}
+
+inline float layout_gelu_gradient(float x, float gradient) {
+    float x2 = x * x, t = 0.7978845608f * (x + 0.044715f * x2 * x);
+    float tanhT = tanh(t), sech2 = 1.0f - tanhT * tanhT;
+    float derivative = 0.7978845608f * (1.0f + 3.0f * 0.044715f * x2);
+    return gradient * (0.5f * (1.0f + tanhT) + 0.5f * x * sech2 * derivative);
+}
+
+inline float layout_binary_value(float a, float b, uint operation) {
+    switch (operation) {
+        case 1: return a + b;
+        case 2: return a - b;
+        case 3: return a * b;
+        case 4: return a / b;
+        case 14: return a > 0.0f ? b : 0.0f;
+        case 55: return (a * (1.0f / (1.0f + exp(-a)))) * b;
+        default: return layout_gelu_gradient(a, b);
+    }
+}
+
+inline float layout_activation_value(float x, uint operation) {
+    switch (operation) {
+        case 9: return exp(x);
+        case 10: return log(x);
+        case 11: return tanh(x);
+        case 12: return 1.0f / (1.0f + exp(-x));
+        case 13: return max(0.0f, x);
+        default: return layout_gelu(x);
+    }
+}
+
+inline float layout_unary_value(float x, uint operation, float first, float second) {
+    switch (operation) {
+        case 6: return x * first;
+        case 7: return sqrt(x);
+        case 8: return -x;
+        case 21: return x + first;
+        case 22: return x / first;
+        case 35: return min(second, max(first, x));
+        case 36: return pow(x, first);
+        default: return layout_activation_value(x, operation);
+    }
+}
+
+kernel void kernel_layout_binary(device const unsigned char* a [[buffer(0)]],
+                                 device const unsigned char* b [[buffer(1)]],
+                                 device unsigned char* output [[buffer(2)]],
+                                 device const ulong* layouts [[buffer(3)]],
+                                 constant uint* params [[buffer(4)]],
+                                 uint index [[thread_position_in_grid]]) {
+    uint first = layout_address(layouts, params[0], index), second = layout_address(layouts, params[1], index);
+    float left = as_type<float>(storage_float_bits(a, first, params[2]));
+    float right = as_type<float>(storage_float_bits(b, second, params[3]));
+    float result = layout_binary_value(left, right, params[5]);
+    storage_write_bits(output, index, params[4], as_type<uint>(result));
+}
+
+kernel void kernel_layout_unary(device const unsigned char* input [[buffer(0)]],
+                                device unsigned char* output [[buffer(1)]],
+                                device const ulong* layouts [[buffer(2)]],
+                                constant uint* params [[buffer(3)]],
+                                uint index [[thread_position_in_grid]]) {
+    uint address = layout_address(layouts, params[0], index);
+    float value = as_type<float>(storage_float_bits(input, address, params[1]));
+    float result = layout_unary_value(value, params[2], as_type<float>(params[3]), as_type<float>(params[4]));
+    storage_write_bits(output, index, params[1], as_type<uint>(result));
+}
+
+kernel void kernel_layout_assign(device const unsigned char* input [[buffer(0)]],
+                                 device unsigned char* output [[buffer(1)]],
+                                 device const ulong* layouts [[buffer(2)]],
+                                 constant uint4& params [[buffer(3)]],
+                                 uint index [[thread_position_in_grid]]) {
+    uint source = layout_address(layouts, params.x, index), target = layout_address(layouts, params.y, index);
+    if (params.z == params.w) layout_raw_copy(input, output, source, target, params.z);
+    else storage_write_bits(output, target, params.w, storage_float_bits(input, source, params.z));
+}
+
+inline float layout_value(device const unsigned char* input, device const ulong* layouts,
+                          uint start, uint dtype, uint logical) {
+    return as_type<float>(storage_float_bits(input, layout_address(layouts, start, logical), dtype));
+}
+
+struct LayoutNormInputs {
+    device const unsigned char* input;
+    device const unsigned char* gamma;
+    device const unsigned char* beta;
+};
+
+inline float2 layout_normalization_statistics(device const unsigned char* input, device const ulong* layouts,
+                                              constant uint* params, uint row) {
+    uint width = params[3], base = row * width;
+    float inverse = 1.0f / float(width), mean = 0.0f, squares = 0.0f;
+    if (params[9] != 0) {
+        for (uint column = 0; column < width; column++) {
+            mean += layout_value(input, layouts, params[0], params[5], base + column);
+        }
+        mean *= inverse;
+    }
+    for (uint column = 0; column < width; column++) {
+        float difference = layout_value(input, layouts, params[0], params[5], base + column) - mean;
+        squares += difference * difference;
+    }
+    return float2(mean, sqrt(squares * inverse + as_type<float>(params[10])));
+}
+
+inline void write_layout_normalization(LayoutNormInputs inputs, device unsigned char* output,
+                                       device float* normalized, device const ulong* layouts,
+                                       constant uint* params, uint row, float2 statistics) {
+    uint width = params[3], base = row * width;
+    for (uint column = 0; column < width; column++) {
+        float value = (layout_value(inputs.input, layouts, params[0], params[5], base + column)
+                        - statistics.x) / statistics.y;
+        normalized[base + column] = value;
+        float scaled = value * layout_value(inputs.gamma, layouts, params[1], params[6], column);
+        if (params[9] != 0) scaled += layout_value(inputs.beta, layouts, params[2], params[7], column);
+        storage_write_bits(output, base + column, params[8], as_type<uint>(scaled));
+    }
+}
+
+kernel void kernel_layout_normalize(device const unsigned char* input [[buffer(0)]],
+                                    device const unsigned char* gamma [[buffer(1)]],
+                                    device const unsigned char* beta [[buffer(2)]],
+                                    device unsigned char* output [[buffer(3)]],
+                                    device float* normalized [[buffer(4)]], device float* denominator [[buffer(5)]],
+                                    device const ulong* layouts [[buffer(6)]], constant uint* params [[buffer(7)]],
+                                    uint row [[thread_position_in_grid]]) {
+    float2 statistics = layout_normalization_statistics(input, layouts, params, row);
+    denominator[row] = statistics.y;
+    write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, row, statistics);
+}
+
+struct LayoutNormBackwardInputs {
+    device const unsigned char* gradient;
+    device const unsigned char* normalized;
+    device const unsigned char* denominator;
+    device const unsigned char* gamma;
+};
+
+inline float layout_normalization_scaled(LayoutNormBackwardInputs inputs, device const ulong* layouts,
+                                          constant uint* params, uint logical, uint column) {
+    return layout_value(inputs.gradient, layouts, params[0], params[6], logical)
+            * layout_value(inputs.gamma, layouts, params[3], params[9], column);
+}
+
+inline float2 layout_normalization_sums(LayoutNormBackwardInputs inputs, device const ulong* layouts,
+                                        constant uint* params, uint base) {
+    float sum = 0.0f, dot = 0.0f;
+    for (uint column = 0; column < params[4]; column++) {
+        float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
+        sum += scaled;
+        dot += scaled * layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
+    }
+    return float2(sum, dot);
+}
+
+inline void write_layout_normalization_gradient(LayoutNormBackwardInputs inputs, device float* output,
+                                                device const ulong* layouts, constant uint* params, uint row) {
+    uint width = params[4], base = row * width;
+    float2 sums = layout_normalization_sums(inputs, layouts, params, base);
+    float denominator = layout_value(inputs.denominator, layouts, params[2], params[8], row);
+    float inverse = 1.0f / denominator;
+    for (uint column = 0; column < width; column++) {
+        float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
+        float norm = layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
+        output[base + column] = params[10] != 0
+                ? inverse * (scaled - sums.x / width - norm * (sums.y / width))
+                : (scaled - norm * (sums.y * (1.0f / width))) / denominator;
+    }
+}
+
+kernel void kernel_layout_normalization_backward(device const unsigned char* gradient [[buffer(0)]],
+                                                  device const unsigned char* normalized [[buffer(1)]],
+                                                  device const unsigned char* denominator [[buffer(2)]],
+                                                  device const unsigned char* gamma [[buffer(3)]],
+                                                  device float* output [[buffer(4)]],
+                                                  device const ulong* layouts [[buffer(5)]],
+                                                  constant uint* params [[buffer(6)]],
+                                                  uint row [[thread_position_in_grid]]) {
+    write_layout_normalization_gradient({gradient, normalized, denominator, gamma}, output, layouts, params, row);
+}
+
+kernel void kernel_layout_swiglu_backward(device const unsigned char* gradient [[buffer(0)]],
+                                          device const unsigned char* gate [[buffer(1)]],
+                                          device const unsigned char* up [[buffer(2)]],
+                                          device float* gateGradient [[buffer(3)]],
+                                          device float* upGradient [[buffer(4)]],
+                                          device const ulong* layouts [[buffer(5)]],
+                                          constant uint* params [[buffer(6)]], uint index [[thread_position_in_grid]]) {
+    float value = layout_value(gate, layouts, params[1], params[4], index);
+    float upstream = layout_value(gradient, layouts, params[0], params[3], index);
+    float sigmoid = 1.0f / (1.0f + exp(-value)), activated = value * sigmoid;
+    float derivative = sigmoid + activated * (1.0f - sigmoid);
+    gateGradient[index] = (upstream * layout_value(up, layouts, params[2], params[5], index)) * derivative;
+    upGradient[index] = upstream * activated;
+}
+
+inline bool layout_nan(float value) {
+    return (as_type<uint>(value) & 0x7fffffffu) > 0x7f800000u;
+}
+
+inline float layout_maximum(float first, float second) {
+    if (layout_nan(first) || layout_nan(second)) return as_type<float>(0x7fc00000u);
+    if (first == 0.0f && second == 0.0f) return as_type<float>(as_type<uint>(first) & as_type<uint>(second));
+    return first > second ? first : second;
+}
+
+inline float layout_group_sum(device const unsigned char* input, device const ulong* layouts,
+                              uint start, uint dtype, uint base, uint width, uint operation) {
+    float sum = 0.0f;
+    for (uint index = 0; index < width; index++) {
+        float value = layout_value(input, layouts, start, dtype, base + index);
+        if (operation == 4) value = abs(value);
+        if (operation == 5) value *= value;
+        sum += value;
+    }
+    return sum;
+}
+
+inline float layout_group_maximum(device const unsigned char* input, device const ulong* layouts,
+                                  uint start, uint dtype, uint base, uint width) {
+    float maximum = -INFINITY;
+    for (uint index = 0; index < width; index++) {
+        maximum = layout_maximum(maximum, layout_value(input, layouts, start, dtype, base + index));
+    }
+    return maximum;
+}
+
+inline float layout_group_variance(device const unsigned char* input, device const ulong* layouts,
+                                   constant uint* params, uint base, float mean) {
+    if (params[4] <= params[6]) return as_type<float>(0x7fc00000u);
+    float sum = 0.0f;
+    for (uint index = 0; index < params[4]; index++) {
+        float centered = layout_value(input, layouts, params[0], params[1], base + index) - mean;
+        sum += centered * centered;
+    }
+    return sum / float(params[4] - params[6]);
+}
+
+inline float layout_reduced_value(device const unsigned char* input, device const ulong* layouts,
+                                  constant uint* params, uint group) {
+    uint base = group * params[4];
+    if (params[5] == 3) return layout_group_maximum(input, layouts, params[0], params[1], base, params[4]);
+    float sum = layout_group_sum(input, layouts, params[0], params[1], base, params[4], params[5]);
+    if (params[5] == 1) return sum / float(params[4]);
+    if (params[5] == 2) return layout_group_variance(input, layouts, params, base, sum / float(params[4]));
+    return sum;
+}
+
+kernel void kernel_layout_reduce(device const unsigned char* input [[buffer(0)]],
+                                 device unsigned char* output [[buffer(1)]],
+                                 device const ulong* layouts [[buffer(2)]],
+                                 constant uint* params [[buffer(3)]],
+                                 uint group [[thread_position_in_grid]]) {
+    float value = layout_reduced_value(input, layouts, params, group);
+    storage_write_bits(output, group, params[2], as_type<uint>(value));
+}
+
+inline float layout_exponential(float value, uint dtype) {
+    return dtype == 1 || !COMPACT_PRECISE_NORMALIZATION ? exp(value) : precise::exp(value);
+}
+
+inline float layout_probability(float value, float total, uint dtype) {
+    // Compatibility devices can cross compact rounding midpoints with fast reciprocal math.
+    return dtype == 1 || !COMPACT_PRECISE_NORMALIZATION ? exp(value) / total
+            : precise::divide(precise::exp(value), total);
+}
+
+inline float layout_softmax_sum(device const unsigned char* input, device const ulong* layouts,
+                                constant uint* params, uint base, float maximum) {
+    float sum = 0.0f;
+    for (uint index = 0; index < params[3]; index++) {
+        sum += layout_exponential(layout_value(input, layouts, params[0], params[2], base + index) - maximum,
+                                  params[2]);
+    }
+    return sum;
+}
+
+inline void layout_softmax_write(device const unsigned char* input, device unsigned char* output,
+                                 device const ulong* layouts, constant uint* params, uint base,
+                                 float maximum, float sum) {
+    bool invalid = (as_type<uint>(maximum) & 0x7fffffffu) >= 0x7f800000u;
+    for (uint index = 0; index < params[3]; index++) {
+        float value = invalid ? as_type<float>(0x7fc00000u)
+                : layout_probability(layout_value(input, layouts, params[0], params[2], base + index) - maximum,
+                                     sum, params[2]);
+        uint address = layout_address(layouts, params[1], base + index);
+        storage_write_bits(output, address, params[2], as_type<uint>(value));
+    }
+}
+
+kernel void kernel_layout_softmax(device const unsigned char* input [[buffer(0)]],
+                                  device unsigned char* output [[buffer(1)]],
+                                  device const ulong* layouts [[buffer(2)]],
+                                  constant uint* params [[buffer(3)]],
+                                  uint group [[thread_position_in_grid]]) {
+    uint base = group * params[3];
+    float maximum = layout_group_maximum(input, layouts, params[0], params[2], base, params[3]);
+    float sum = layout_softmax_sum(input, layouts, params, base, maximum);
+    layout_softmax_write(input, output, layouts, params, base, maximum, sum);
+}
+
+inline uint layout_maximum_ties(device const unsigned char* input, device const ulong* layouts,
+                                constant uint* params, uint base, float maximum) {
+    uint count = 0;
+    for (uint index = 0; index < params[6]; index++) {
+        if (layout_value(input, layouts, params[0], params[4], base + index) == maximum) count++;
+    }
+    return count;
+}
+
+inline float layout_maximum_derivative(float value, float maximum, float gradient, uint ties) {
+    if (layout_nan(maximum)) return as_type<float>(0x7fc00000u);
+    return value == maximum ? gradient / float(ties) : 0.0f;
+}
+
+inline void layout_maximum_write(device const unsigned char* input, device unsigned char* output,
+                                 device const ulong* layouts, constant uint* params, uint base,
+                                 float maximum, float gradient, uint ties) {
+    for (uint index = 0; index < params[6]; index++) {
+        float value = layout_value(input, layouts, params[0], params[4], base + index);
+        float derivative = layout_maximum_derivative(value, maximum, gradient, ties);
+        uint address = layout_address(layouts, params[3], base + index);
+        storage_write_bits(output, address, 1, as_type<uint>(derivative));
+    }
+}
+
+kernel void kernel_layout_maximum_backward(device const unsigned char* input [[buffer(0)]],
+                                           device const unsigned char* maximum [[buffer(1)]],
+                                           device const unsigned char* gradient [[buffer(2)]],
+                                           device unsigned char* output [[buffer(3)]],
+                                           device const ulong* layouts [[buffer(4)]],
+                                           constant uint* params [[buffer(5)]],
+                                           uint group [[thread_position_in_grid]]) {
+    uint base = group * params[6];
+    float winner = layout_value(maximum, layouts, params[1], params[5], group);
+    float upstream = layout_value(gradient, layouts, params[2], 1, group);
+    uint ties = layout_maximum_ties(input, layouts, params, base, winner);
+    layout_maximum_write(input, output, layouts, params, base, winner, upstream, ties);
+}
+
+kernel void kernel_storage_copy(device const unsigned char* input [[buffer(0)]],
+                                device unsigned char* output [[buffer(1)]],
+                                constant uint4& range [[buffer(2)]],
+                                uint id [[thread_position_in_grid]]) {
+    ulong source = (ulong(range.y) + id) * range.w;
+    ulong target = (ulong(range.z) + id) * range.w;
+    for (uint byte = 0; byte < range.w; byte++) {
+        output[target + byte] = input[source + byte];
+    }
+}
 
 kernel void kernel_add(device const float* a [[buffer(0)]],
                        device const float* b [[buffer(1)]],
@@ -672,17 +1325,23 @@ inline float reduce_sum(threadgroup float* scratch, float value,
     return result;
 }
 
-inline float reduce_max(threadgroup float* scratch, float value,
-                        uint tid, uint width) {
+template<bool PreserveNaN>
+inline float reduce_row_max(threadgroup float* scratch, float value,
+                            uint tid, uint width) {
     scratch[tid] = value;
     threadgroup_barrier(mem_flags::mem_threadgroup);
     for (uint stride = width >> 1; stride > 0; stride >>= 1) {
-        if (tid < stride) scratch[tid] = max(scratch[tid], scratch[tid + stride]);
+        if (tid < stride) scratch[tid] = PreserveNaN ? layout_maximum(scratch[tid], scratch[tid + stride])
+                                                  : max(scratch[tid], scratch[tid + stride]);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
     float result = scratch[0];
     threadgroup_barrier(mem_flags::mem_threadgroup);
     return result;
+}
+
+inline float reduce_max(threadgroup float* scratch, float value, uint tid, uint width) {
+    return reduce_row_max<false>(scratch, value, tid, width);
 }
 
 inline void write_row_value(device float* output, uint base, uint cols,
@@ -821,8 +1480,11 @@ kernel void kernel_max_along_rows(device const float* a      [[buffer(0)]],
     uint rows = dims[0].x, cols = dims[0].y, row = gid.y, tid = tid3.x;
     if (row >= rows) return;
     threadgroup float scratch[1024];
-    float value = row_max(a, row * cols, cols, tid, tptg.x);
-    float maximum = reduce_max(scratch, value, tid, tptg.x);
+    float value = -INFINITY;
+    for (uint column = tid; column < cols; column += tptg.x) {
+        value = layout_maximum(value, a[row * cols + column]);
+    }
+    float maximum = reduce_row_max<true>(scratch, value, tid, tptg.x);
     if (tid == 0) out[row] = maximum;
 }
 
@@ -911,6 +1573,172 @@ kernel void kernel_cross_entropy_fused(device const float* logits [[buffer(0)]],
     if (tid == 0) losses[row] = cross_entropy_value(logits, base, cols, target, maximum, sumExp);
     write_cross_entropy_gradient(logits, gradient, base, cols, tid, tptg.x,
                                  target, maximum, sumExp, 1.0f / (float)rows);
+}
+
+struct LayoutCrossEntropyParams {
+    uint layout, plan, rows, cols, dtype, included, mode;
+};
+
+inline float layout_ce_value(device const unsigned char* input, device const ulong* words,
+                              constant LayoutCrossEntropyParams& params, uint index) {
+    return as_type<float>(storage_float_bits(input, layout_address(words, params.layout, index), params.dtype));
+}
+
+// Keep very long per-lane sums stable without changing ordinary vocabulary reduction order.
+inline float layout_ce_large_sum(device const unsigned char* input, device const ulong* words,
+                                  constant LayoutCrossEntropyParams& params, uint base, uint tid,
+                                  uint width, float maximum) {
+#pragma clang fp reassociate(off) contract(off)
+    float total = 0.0f, correction = 0.0f;
+    for (uint column = tid; column < params.cols; column += width) {
+        float adjusted = exp(layout_ce_value(input, words, params, base + column) - maximum) - correction;
+        float next = total + adjusted;
+        correction = (next - total) - adjusted;
+        total = next;
+    }
+    return total;
+}
+
+inline float layout_ce_partial(device const unsigned char* input, device const ulong* words,
+                                constant LayoutCrossEntropyParams& params, uint base, uint tid,
+                                uint width, float maximum, bool exponentials) {
+    if (exponentials && params.cols > 65536) {
+        return layout_ce_large_sum(input, words, params, base, tid, width, maximum);
+    }
+    float result = exponentials ? 0.0f : -INFINITY;
+    for (uint column = tid; column < params.cols; column += width) {
+        float value = layout_ce_value(input, words, params, base + column);
+        result = exponentials ? result + layout_exponential(value - maximum, params.dtype) : max(result, value);
+    }
+    return result;
+}
+
+inline void layout_ce_gradient(device const unsigned char* input, device float* gradient,
+                                device const ulong* words, constant LayoutCrossEntropyParams& params,
+                                uint row, uint tid, uint width, float maximum, float total) {
+    uint base = row * params.cols, target = uint(words[params.plan + 3 + row]);
+    bool included = words[params.plan + 3 + params.rows + row] != 0;
+    for (uint column = tid; column < params.cols; column += width) {
+        float value = 0.0f;
+        if (included) {
+            value = exp(layout_ce_value(input, words, params, base + column) - maximum) / total;
+            value = (value - (column == target ? 1.0f : 0.0f)) * (1.0f / float(params.rows));
+        }
+        uint bits = included ? as_type<uint>(value) : (column == target ? 0x80000000u : 0u);
+        ((device uint*)gradient)[base + column] = bits;
+    }
+}
+
+inline float2 layout_ce_statistics(device const unsigned char* input, device const ulong* words,
+                                    constant LayoutCrossEntropyParams& params, uint row, uint tid,
+                                    uint width, threadgroup float* scratch) {
+    if (words[params.plan + 3 + params.rows + row] == 0) return float2(0.0f, 1.0f);
+    float maximum = reduce_max(scratch,
+            layout_ce_partial(input, words, params, row * params.cols, tid, width, 0.0f, false), tid, width);
+    float total = reduce_sum(scratch,
+            layout_ce_partial(input, words, params, row * params.cols, tid, width, maximum, true), tid, width);
+    return float2(maximum, total);
+}
+
+inline void layout_ce_loss(device const unsigned char* input, device float* losses,
+                            device const ulong* words, constant LayoutCrossEntropyParams& params,
+                            uint row, float2 statistics) {
+    if (words[params.plan + 3 + params.rows + row] == 0) {
+        losses[row] = 0.0f;
+        return;
+    }
+    uint target = uint(words[params.plan + 3 + row]);
+    losses[row] = log(statistics.y) + statistics.x
+            - layout_ce_value(input, words, params, row * params.cols + target);
+}
+
+kernel void kernel_layout_cross_entropy(device const unsigned char* input [[buffer(0)]],
+                                        device float* losses [[buffer(1)]], device float* gradient [[buffer(2)]],
+                                        device const ulong* words [[buffer(3)]],
+                                        constant LayoutCrossEntropyParams& params [[buffer(4)]],
+                                        uint3 group [[threadgroup_position_in_grid]],
+                                        uint tid [[thread_index_in_threadgroup]],
+                                        uint3 width [[threads_per_threadgroup]]) {
+    uint row = group.y;
+    threadgroup float scratch[1024];
+    float2 statistics = layout_ce_statistics(input, words, params, row, tid, width.x, scratch);
+    if ((params.mode & 1u) != 0 && tid == 0) layout_ce_loss(input, losses, words, params, row, statistics);
+    if ((params.mode & 2u) != 0) {
+        layout_ce_gradient(input, gradient, words, params, row, tid, width.x, statistics.x, statistics.y);
+    }
+}
+
+struct LayoutCausalParams {
+    uint layout, rows, length, dtype, mode;
+    float scale;
+};
+
+kernel void kernel_layout_causal_mask(device const unsigned char* input [[buffer(0)]],
+                                      device unsigned char* output [[buffer(1)]],
+                                      device const ulong* words [[buffer(2)]],
+                                      constant LayoutCausalParams& params [[buffer(3)]],
+                                      uint index [[thread_position_in_grid]]) {
+    if (index % params.length > index / params.length % params.length) {
+        storage_write_bits(output, index, params.dtype, as_type<uint>(-1.0e9f));
+    } else {
+        layout_raw_copy(input, output, layout_address(words, params.layout, index), index, params.dtype);
+    }
+}
+
+inline float layout_causal_partial(device const unsigned char* input, device const ulong* words,
+                                    constant LayoutCausalParams& params, uint row, uint tid,
+                                    uint width, float maximum, bool exponentials) {
+    float result = exponentials ? 0.0f : -INFINITY;
+    for (uint column = tid; column <= row % params.length; column += width) {
+        float value = layout_value(input, words, params.layout, params.dtype, row * params.length + column)
+                        * params.scale;
+        result = exponentials ? result + exp(value - maximum) : max(result, value);
+    }
+    return result;
+}
+
+inline void layout_causal_write(device const unsigned char* input, device unsigned char* output,
+                                device const ulong* words, constant LayoutCausalParams& params,
+                                uint row, uint tid, uint width, float maximum, float total) {
+    for (uint column = tid; column < params.length; column += width) {
+        float probability = 0.0f;
+        if (column <= row % params.length) {
+            float value = layout_value(input, words, params.layout, params.dtype, row * params.length + column);
+            probability = layout_probability(value * params.scale - maximum, total, params.dtype);
+        }
+        storage_write_bits(output, row * params.length + column, params.dtype, as_type<uint>(probability));
+    }
+}
+
+kernel void kernel_layout_causal_softmax(device const unsigned char* input [[buffer(0)]],
+                                         device unsigned char* output [[buffer(1)]],
+                                         device const ulong* words [[buffer(2)]],
+                                         constant LayoutCausalParams& params [[buffer(3)]],
+                                         uint3 group [[threadgroup_position_in_grid]],
+                                         uint tid [[thread_index_in_threadgroup]],
+                                         uint3 width [[threads_per_threadgroup]]) {
+    threadgroup float scratch[1024];
+    float maximum = reduce_max(scratch,
+            layout_causal_partial(input, words, params, group.y, tid, width.x, 0.0f, false), tid, width.x);
+    float total = reduce_sum(scratch,
+            layout_causal_partial(input, words, params, group.y, tid, width.x, maximum, true), tid, width.x);
+    layout_causal_write(input, output, words, params, group.y, tid, width.x, maximum, total);
+}
+
+kernel void kernel_layout_rotary(device const unsigned char* input [[buffer(0)]],
+                                 device const unsigned char* cosine [[buffer(1)]],
+                                 device const unsigned char* sine [[buffer(2)]],
+                                 device unsigned char* output [[buffer(3)]],
+                                 device const ulong* words [[buffer(4)]], constant uint* params [[buffer(5)]],
+                                 uint pair [[thread_position_in_grid]]) {
+    uint width = params[4], index = pair * 2, row = index / width;
+    uint table = row % params[5] * (width / 2) + pair % (width / 2);
+    float x = layout_value(input, words, params[0], params[6], index);
+    float y = layout_value(input, words, params[0], params[6], index + 1);
+    float c = layout_value(cosine, words, params[1], params[7], table);
+    float s = layout_value(sine, words, params[2], params[8], table) * (params[9] == 0 ? 1.0f : -1.0f);
+    storage_write_bits(output, index, params[6], as_type<uint>(x * c - y * s));
+    storage_write_bits(output, index + 1, params[6], as_type<uint>(x * s + y * c));
 }
 
 struct RmsNormParams {
@@ -1422,6 +2250,30 @@ kernel void kernel_adamw_update(device float* w            [[buffer(0)]],
     w[id] -= update;
 }
 
+inline float layout_adamw_step(float original, float gradient, thread float& first, thread float& second,
+                               constant uint* params) {
+    float lr = as_type<float>(params[4]), beta1 = as_type<float>(params[5]), beta2 = as_type<float>(params[6]);
+    first = beta1 * first + (1.0f - beta1) * gradient;
+    second = beta2 * second + (1.0f - beta2) * (gradient * gradient);
+    float update = (lr * (first / as_type<float>(params[9])))
+            / (sqrt(second / as_type<float>(params[10])) + as_type<float>(params[7]));
+    float decay = as_type<float>(params[8]);
+    if (decay != 0.0f) update += lr * decay * original;
+    return original - update;
+}
+
+kernel void kernel_layout_adamw(device float* weight [[buffer(0)]], device const float* gradient [[buffer(1)]],
+                                device float* first [[buffer(2)]], device float* second [[buffer(3)]],
+                                device const ulong* layouts [[buffer(4)]], constant uint* params [[buffer(5)]],
+                                uint index [[thread_position_in_grid]]) {
+    uint w = layout_address(layouts, params[0], index), g = layout_address(layouts, params[1], index);
+    uint m = layout_address(layouts, params[2], index), v = layout_address(layouts, params[3], index);
+    float firstValue = first[m], secondValue = second[v];
+    weight[w] = layout_adamw_step(weight[w], gradient[g], firstValue, secondValue, params);
+    first[m] = firstValue;
+    second[v] = secondValue;
+}
+
 )";
 
 
@@ -1455,8 +2307,10 @@ static id<MTLComputePipelineState> makePSO(id<MTLLibrary> lib, NSString* name) {
     return pso;
 }
 
-static MTLCompileOptions* makeCompileOptions() {
+static MTLCompileOptions* makeCompileOptions(id<MTLDevice> device) {
     MTLCompileOptions* options = [[MTLCompileOptions alloc] init];
+    // Preserve qualified Apple arithmetic; other devices need precise compact normalization.
+    options.preprocessorMacros = @{@"COMPACT_PRECISE_NORMALIZATION": @(![device supportsFamily:MTLGPUFamilyApple7])};
     if (@available(macOS 15.0, *)) {
         options.mathMode = MTLMathModeFast;
     } else {
@@ -1471,7 +2325,7 @@ static MTLCompileOptions* makeCompileOptions() {
 static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = metalShaderSource) {
     NSError* error = nil;
     id<MTLLibrary> library = [device newLibraryWithSource:source
-                                                  options:makeCompileOptions()
+                                                  options:makeCompileOptions(device)
                                                     error:&error];
     if (library != nil) return library;
     NSString* desc = error.localizedDescription ?: @"Unknown error";
@@ -1481,10 +2335,79 @@ static id<MTLLibrary> compileLibrary(id<MTLDevice> device, NSString* source = me
 static id<MTLLibrary> compileAttentionLibrary(id<MTLDevice> device) {
     if ([device supportsFamily:MTLGPUFamilyApple7]) return compileLibrary(device, tiledAttentionShaderSource);
     // Virtual devices may expose the instructions without advertising an Apple GPU family.
-    return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions() error:nil];
+    return [device newLibraryWithSource:tiledAttentionShaderSource options:makeCompileOptions(device) error:nil];
+}
+
+static MTLCompileOptions* compactCompileOptions(int dtype) {
+    MTLCompileOptions* options = [[MTLCompileOptions alloc] init];
+    if (@available(macOS 15.0, *)) options.mathMode = MTLMathModeSafe;
+    else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        options.fastMathEnabled = NO;
+#pragma clang diagnostic pop
+    }
+    if (@available(macOS 14.0, *)) options.languageVersion = MTLLanguageVersion3_1;
+    else options.languageVersion = MTLLanguageVersion2_3;
+    options.preprocessorMacros = @{@"COMPACT_KIND": @(dtype)};
+    return options;
+}
+
+static id<MTLComputePipelineState> compileCompactMatmul(MetalContext* ctx, int dtype) {
+    if (dtype == 3) {
+        if (@available(macOS 14.0, *)) {} else return nil;
+    }
+    NSError* error = nil;
+    auto library = [ctx->device newLibraryWithSource:compactMatmulShaderSource
+        options:compactCompileOptions(dtype) error:&error];
+    // Virtual devices can support SIMD-group matrices without advertising an Apple family.
+    if (library == nil && ![ctx->device supportsFamily:MTLGPUFamilyApple7]) return nil;
+    if (library == nil) throw std::runtime_error(std::string("Compact matmul shader compilation failed: ")
+        + [(error.localizedDescription ?: @"Unknown error") UTF8String]);
+    auto pipeline = makePSO(library, @"kernel_compact_matmul");
+    if (pipeline.threadExecutionWidth != 32 || pipeline.maxTotalThreadsPerThreadgroup < 128) return nil;
+    return pipeline;
+}
+
+static void ensureCompactMatmul(MetalContext* ctx) {
+    std::call_once(ctx->compactMatmulOnce, [ctx] {
+        auto half = compileCompactMatmul(ctx, 2);
+        auto bfloat = compileCompactMatmul(ctx, 3);
+        auto mixed = compileCompactMatmul(ctx, 1);
+        ctx->halfMatmulPSO = half;
+        ctx->bfloatMatmulPSO = bfloat;
+        ctx->mixedMatmulPSO = mixed;
+    });
+}
+
+static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->layoutCausalMaskPSO = makePSO(library, @"kernel_layout_causal_mask");
+    ctx->layoutCausalSoftmaxPSO = makePSO(library, @"kernel_layout_causal_softmax");
+    ctx->layoutRotaryPSO = makePSO(library, @"kernel_layout_rotary");
+}
+
+static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    initPositionPipelines(ctx, library);
+    ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
+    ctx->layoutTransferPSO = makePSO(library, @"kernel_layout_transfer");
+    ctx->layoutBinaryPSO = makePSO(library, @"kernel_layout_binary");
+    ctx->layoutUnaryPSO = makePSO(library, @"kernel_layout_unary");
+    ctx->layoutAssignPSO = makePSO(library, @"kernel_layout_assign");
+    ctx->layoutReducePSO = makePSO(library, @"kernel_layout_reduce");
+    ctx->layoutSoftmaxPSO = makePSO(library, @"kernel_layout_softmax");
+    ctx->layoutMaximumBackwardPSO = makePSO(library, @"kernel_layout_maximum_backward");
+    ctx->layoutMatmulPSO = makePSO(library, @"kernel_layout_matmul");
+    ctx->layoutIndexSelectPSO = makePSO(library, @"kernel_layout_index_select");
+    ctx->layoutIndexAddPSO = makePSO(library, @"kernel_layout_index_add");
+    ctx->layoutNormalizePSO = makePSO(library, @"kernel_layout_normalize");
+    ctx->layoutNormalizationBackwardPSO = makePSO(library, @"kernel_layout_normalization_backward");
+    ctx->layoutSwiGluBackwardPSO = makePSO(library, @"kernel_layout_swiglu_backward");
+    ctx->layoutAdamWPSO = makePSO(library, @"kernel_layout_adamw");
+    ctx->layoutCrossEntropyPSO = makePSO(library, @"kernel_layout_cross_entropy");
 }
 
 static void initBasicPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    initLayoutPipelines(ctx, library);
     ctx->addPSO = makePSO(library, @"kernel_add");
     ctx->subtractPSO = makePSO(library, @"kernel_subtract");
     ctx->multiplyPSO = makePSO(library, @"kernel_multiply");
@@ -1613,9 +2536,30 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAtte
     }
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsCompactMatmul(
+        JNIEnv* env, jclass, jint dtype) {
+    try {
+        if (dtype != 2 && dtype != 3) return JNI_FALSE;
+        auto ctx = getContext();
+        ensureCompactMatmul(ctx);
+        return (dtype == 2 ? ctx->halfMatmulPSO : ctx->bfloatMatmulPSO) != nil;
+    } catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
+}
+
 #include <unordered_map>
 
-using BufferPool = std::unordered_map<int, id<MTLBuffer>>;
+struct BufferRecord {
+    id<MTLBuffer> buffer;
+    int dtype;
+
+    BufferRecord(id<MTLBuffer> value, int storageType) : buffer(value), dtype(storageType) {}
+};
+
+using BufferPool = std::unordered_map<int, BufferRecord>;
 using BufferEntry = BufferPool::iterator;
 
 static BufferPool gBufferPool;
@@ -1701,13 +2645,47 @@ static constexpr int OP_TILED_CAUSAL_ATTENTION = 58;
 static constexpr int OP_TILED_CAUSAL_ATTENTION_BACKWARD = 59;
 static constexpr int OP_HEAD_CACHE_WRITE = 60;
 static constexpr int OP_HEAD_PREFIX_MATMUL = 61;
+static constexpr int OP_STORAGE_COPY = 62;
+static constexpr int OP_LAYOUT_TRANSFER = 63;
+static constexpr int OP_LAYOUT_BINARY = 64;
+static constexpr int OP_LAYOUT_UNARY = 65;
+static constexpr int OP_LAYOUT_ASSIGN = 66;
+static constexpr int OP_LAYOUT_REDUCE = 67;
+static constexpr int OP_LAYOUT_SOFTMAX = 68;
+static constexpr int OP_LAYOUT_MAXIMUM_BACKWARD = 69;
+static constexpr int OP_LAYOUT_MATMUL = 70;
+static constexpr int OP_LAYOUT_INDEX_SELECT = 71;
+static constexpr int OP_LAYOUT_INDEX_ADD = 72;
+static constexpr int OP_LAYOUT_NORMALIZE = 73;
+static constexpr int OP_LAYOUT_NORMALIZATION_BACKWARD = 74;
+static constexpr int OP_LAYOUT_SWIGLU_BACKWARD = 75;
+static constexpr int OP_LAYOUT_ADAMW = 76;
+static constexpr int OP_LAYOUT_CROSS_ENTROPY = 77;
+static constexpr int OP_LAYOUT_CAUSAL = 78;
+static constexpr int OP_LAYOUT_ROTARY = 79;
 
-static id<MTLBuffer> requireBuffer(int id, const char* opName) {
-    auto it = gBufferPool.find(id);
-    if (it == gBufferPool.end() || it->second == nil) {
+static BufferEntry requireStorageEntry(int id, const char* opName) {
+    auto entry = gBufferPool.find(id);
+    if (entry == gBufferPool.end() || entry->second.buffer == nil) {
         throw std::runtime_error(std::string(opName) + ": missing GPU buffer id=" + std::to_string(id));
     }
-    return it->second;
+    return entry;
+}
+
+static id<MTLBuffer> requireStorageBuffer(int id, const char* opName) {
+    return requireStorageEntry(id, opName)->second.buffer;
+}
+
+static int bufferDType(int id) {
+    return gBufferPool.at(id).dtype;
+}
+
+static id<MTLBuffer> requireBuffer(int bufferId, const char* opName) {
+    auto entry = requireStorageEntry(bufferId, opName);
+    if (entry->second.dtype != 1) {
+        throw std::runtime_error(std::string(opName) + ": matrix opcode requires FLOAT32 storage");
+    }
+    return entry->second.buffer;
 }
 
 static NSUInteger rowReductionWidth(id<MTLComputePipelineState> pso) {
@@ -1838,31 +2816,36 @@ static void releaseAllocationArrays(JNIEnv* env, jintArray ids, jintArray sizes,
     if (arrays.sizes != nullptr) env->ReleaseIntArrayElements(sizes, arrays.sizes, JNI_ABORT);
 }
 
-static void allocateBuffer(MetalContext* ctx, int bufferId, int floatCount) {
-    if (bufferId < 0 || floatCount <= 0) throw std::runtime_error("Invalid GPU buffer allocation");
-    NSUInteger bytes = (NSUInteger)floatCount * sizeof(float);
+static NSUInteger storageBytes(int elements, int dtype) {
+    if (elements <= 0 || dtype < 1 || dtype > 3) throw std::runtime_error("Invalid typed GPU allocation");
+    return (NSUInteger)elements * (dtype == 1 ? sizeof(float) : sizeof(jshort));
+}
+
+static void allocateTypedBuffer(MetalContext* ctx, int bufferId, int elements, int dtype) {
+    if (bufferId < 0) throw std::runtime_error("Invalid GPU buffer id");
+    NSUInteger bytes = storageBytes(elements, dtype);
     auto existing = gBufferPool.find(bufferId);
     if (existing != gBufferPool.end()) {
-        if ([existing->second length] != bytes) {
-            throw std::runtime_error("GPU buffer id already has a different size");
+        if ([existing->second.buffer length] != bytes || existing->second.dtype != dtype) {
+            throw std::runtime_error("GPU buffer id already has a different size or dtype");
         }
         return;
     }
     id<MTLBuffer> buffer = [ctx->device newBufferWithLength:bytes
                                                     options:MTLResourceStorageModeShared];
     if (buffer == nil) throw std::runtime_error("Failed to allocate Metal buffer");
-    gBufferPool[bufferId] = buffer;
+    gBufferPool.try_emplace(bufferId, buffer, dtype);
 }
 
 static void allocateBuffers(const jint* ids, const jint* sizes, int count) {
     MetalContext* ctx = getContext();
     for (int i = 0; i < count; i++) {
-        allocateBuffer(ctx, ids[i], sizes[i]);
+        allocateTypedBuffer(ctx, ids[i], sizes[i], 1);
     }
 }
 
-static BufferEntry transferEntry(JNIEnv* env, int bufferId, jfloatArray values,
-                                 const char* operation) {
+static BufferEntry transferEntry(JNIEnv* env, int bufferId, jarray values,
+                                 NSUInteger valueBytes, const char* operation) {
     if (values == nullptr) {
         throwJavaRuntimeException(env, (std::string(operation) + " data cannot be null").c_str());
         return gBufferPool.end();
@@ -1872,9 +2855,10 @@ static BufferEntry transferEntry(JNIEnv* env, int bufferId, jfloatArray values,
         throwJavaRuntimeException(env, (std::string(operation) + " buffer was not found").c_str());
         return entry;
     }
-    NSUInteger bytes = (NSUInteger)env->GetArrayLength(values) * sizeof(float);
-    if (bytes == [entry->second length]) return entry;
-    throwJavaRuntimeException(env, (std::string(operation) + " length does not match buffer size").c_str());
+    int dtype = entry->second.dtype;
+    NSUInteger bytes = (NSUInteger)env->GetArrayLength(values) * valueBytes;
+    if (bytes == [entry->second.buffer length] && (dtype == 1) == (valueBytes == sizeof(float))) return entry;
+    throwJavaRuntimeException(env, (std::string(operation) + " length or dtype does not match buffer").c_str());
     return gBufferPool.end();
 }
 
@@ -1900,12 +2884,84 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocBuffers(
     @autoreleasepool { allocateRequestedBuffers(env, idsArr, sizesArr, count); }
 }
 
+struct IntArrayView {
+    JNIEnv* env;
+    jintArray source;
+    jint* values;
+
+    IntArrayView(JNIEnv* environment, jintArray array) : env(environment), source(array),
+            values(env->GetIntArrayElements(source, nullptr)) {}
+    ~IntArrayView() {
+        if (values != nullptr) env->ReleaseIntArrayElements(source, values, JNI_ABORT);
+    }
+};
+
+static void allocateRequestedTypedBuffers(JNIEnv* env, jintArray idsArr, jintArray sizesArr,
+                                          jintArray typesArr, jint count) {
+    if (!validateAllocationArrays(env, idsArr, sizesArr, count) ||
+        !validateAllocationArrays(env, idsArr, typesArr, count)) return;
+    IntArrayView ids(env, idsArr), sizes(env, sizesArr), types(env, typesArr);
+    if (ids.values == nullptr || sizes.values == nullptr || types.values == nullptr) return;
+    for (int index = 0; index < count; index++) {
+        if (ids.values[index] < 0) throw std::runtime_error("Invalid GPU buffer id");
+        storageBytes(sizes.values[index], types.values[index]);
+    }
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    MetalContext* ctx = getContext();
+    for (int index = 0; index < count; index++) {
+        allocateTypedBuffer(ctx, ids.values[index], sizes.values[index], types.values[index]);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeAllocTypedBuffers(
+        JNIEnv* env, jclass, jintArray ids, jintArray elements, jintArray dtypes, jint count) {
+    @autoreleasepool {
+        try { allocateRequestedTypedBuffers(env, ids, elements, dtypes, count); }
+        catch (const std::exception& error) { throwJavaRuntimeException(env, error.what()); }
+    }
+}
+
+static void transferBuffer16(JNIEnv* env, jint bufferId, jshortArray values, bool upload) {
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    BufferEntry entry = transferEntry(env, bufferId, values, sizeof(jshort), "16-bit transfer");
+    if (entry == gBufferPool.end()) return;
+    jint length = env->GetArrayLength(values);
+    jshort* memory = (jshort*)[entry->second.buffer contents];
+    if (upload) env->GetShortArrayRegion(values, 0, length, memory);
+    else env->SetShortArrayRegion(values, 0, length, memory);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer16(
+        JNIEnv* env, jclass, jint bufferId, jshortArray values) {
+    @autoreleasepool { transferBuffer16(env, bufferId, values, true); }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeDownloadBuffer16(
+        JNIEnv* env, jclass, jint bufferId, jshortArray values) {
+    @autoreleasepool { transferBuffer16(env, bufferId, values, false); }
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeBufferByteLength(
+        JNIEnv* env, jclass, jint bufferId) {
+    @autoreleasepool {
+        std::lock_guard<std::mutex> lock(gBufferMutex);
+        auto entry = gBufferPool.find(bufferId);
+        if (entry != gBufferPool.end()) return (jlong)[entry->second.buffer length];
+        throwJavaRuntimeException(env, "GPU buffer was not found");
+        return 0;
+    }
+}
+
 static void uploadBuffer(JNIEnv* env, jint bufId, jfloatArray dataArr) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    BufferEntry entry = transferEntry(env, bufId, dataArr, "Upload");
+    BufferEntry entry = transferEntry(env, bufId, dataArr, sizeof(float), "Upload");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(dataArr);
-    env->GetFloatArrayRegion(dataArr, 0, len, (jfloat*)[entry->second contents]);
+    env->GetFloatArrayRegion(dataArr, 0, len, (jfloat*)[entry->second.buffer contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -1914,29 +2970,35 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeUploadBuffer(
     @autoreleasepool { uploadBuffer(env, bufId, dataArr); }
 }
 
-static void zeroBuffer(JNIEnv* env, jint bufferId, jint floatCount) {
+static void zeroTypedBuffer(JNIEnv* env, jint bufferId, jint elements, jint dtype) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
     auto entry = gBufferPool.find(bufferId);
-    if (entry == gBufferPool.end() || floatCount <= 0 ||
-        (NSUInteger)floatCount * sizeof(float) != [entry->second length]) {
+    if (entry == gBufferPool.end() || elements <= 0 || dtype < 1 || dtype > 3 ||
+        entry->second.dtype != dtype || storageBytes(elements, dtype) != [entry->second.buffer length]) {
         throwJavaRuntimeException(env, "Zero buffer was not found or its size does not match");
         return;
     }
-    memset([entry->second contents], 0, [entry->second length]);
+    memset([entry->second.buffer contents], 0, [entry->second.buffer length]);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeZeroBuffer(
         JNIEnv* env, jclass, jint bufferId, jint floatCount) {
-    @autoreleasepool { zeroBuffer(env, bufferId, floatCount); }
+    @autoreleasepool { zeroTypedBuffer(env, bufferId, floatCount, 1); }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeZeroTypedBuffer(
+        JNIEnv* env, jclass, jint bufferId, jint elements, jint dtype) {
+    @autoreleasepool { zeroTypedBuffer(env, bufferId, elements, dtype); }
 }
 
 static void downloadBuffer(JNIEnv* env, jint bufId, jfloatArray outArr) {
     std::lock_guard<std::mutex> lock(gBufferMutex);
-    BufferEntry entry = transferEntry(env, bufId, outArr, "Download");
+    BufferEntry entry = transferEntry(env, bufId, outArr, sizeof(float), "Download");
     if (entry == gBufferPool.end()) return;
     jint len = env->GetArrayLength(outArr);
-    env->SetFloatArrayRegion(outArr, 0, len, (const jfloat*)[entry->second contents]);
+    env->SetFloatArrayRegion(outArr, 0, len, (const jfloat*)[entry->second.buffer contents]);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -1968,10 +3030,17 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeReleaseBuffers(
     @autoreleasepool { releaseBuffers(env, idsArr, count); }
 }
 
+struct GraphLayoutWords {
+    const jlong* words;
+    int count;
+    id<MTLBuffer> buffer;
+};
+
 struct GraphState {
     MetalContext* ctx;
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
+    GraphLayoutWords layouts;
 
     ~GraphState() {
         if (encoder != nil) [encoder endEncoding];
@@ -2021,6 +3090,731 @@ static void dispatch1D(id<MTLComputeCommandEncoder> encoder,
     NSUInteger threads = MIN(count, pipeline.maxTotalThreadsPerThreadgroup);
     [encoder dispatchThreads:MTLSizeMake(count, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
+}
+
+static std::array<uint32_t, 4> storageCopyRange(const jint* cmd, int pos,
+                                              id<MTLBuffer> input, id<MTLBuffer> output) {
+    int dtype = bufferDType(cmd[pos + 1]);
+    if (cmd[pos + 1] == cmd[pos + 2] || dtype != bufferDType(cmd[pos + 2])) {
+        throw std::runtime_error("Raw GPU copies require matching dtypes and distinct allocations");
+    }
+    uint32_t count = (uint32_t)positiveCount(cmd[pos + 5], "copy elements");
+    uint32_t width = dtype == 1 ? sizeof(float) : sizeof(jshort);
+    if (cmd[pos + 3] < 0 || cmd[pos + 4] < 0 ||
+        ((NSUInteger)cmd[pos + 3] + count) * width > [input length] ||
+        ((NSUInteger)cmd[pos + 4] + count) * width > [output length]) {
+        throw std::runtime_error("GPU copy range exceeds its physical allocation");
+    }
+    return {count, (uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], width};
+}
+
+static void encodeStorageCopy(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "storage copy");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "storage copy");
+    auto range = storageCopyRange(cmd, pos, input, output);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->storageCopyPSO];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:output offset:0 atIndex:1];
+    bindValue(encoder, range, 2);
+    dispatch1D(encoder, state.ctx->storageCopyPSO, range[0]);
+}
+
+struct LogicalLayout {
+    const jlong* axes;
+    uint32_t rank, count, storage, offset;
+};
+
+static uint32_t layoutWord(jlong value) {
+    if (value < 0 || value > INT32_MAX) throw std::runtime_error("Invalid GPU layout word");
+    return (uint32_t)value;
+}
+
+static LogicalLayout layoutHeader(const GraphLayoutWords& stream, int start) {
+    if (stream.words == nullptr || start < 0 || start > stream.count - 4) {
+        throw std::runtime_error("Missing or truncated GPU layout descriptor");
+    }
+    const jlong* head = stream.words + start;
+    uint32_t rank = layoutWord(head[0]);
+    if (rank > (uint32_t)(stream.count - start - 4) / 2) {
+        throw std::runtime_error("Truncated GPU layout axes");
+    }
+    LogicalLayout result{head + 4, rank, layoutWord(head[1]), layoutWord(head[2]), layoutWord(head[3])};
+    if (result.count == 0 || result.offset >= result.storage) throw std::runtime_error("Empty GPU layout dispatch");
+    return result;
+}
+
+static uint64_t layoutAxisExtent(const LogicalLayout& layout, uint32_t axis, uint64_t last) {
+    uint32_t dimension = layoutWord(layout.axes[axis]);
+    jlong stride = layout.axes[layout.rank + axis];
+    if (dimension == 0 || stride < 0) throw std::runtime_error("Invalid GPU layout dimension or stride");
+    uint64_t steps = dimension - 1;
+    if (steps != 0 && (uint64_t)stride > (layout.storage - 1 - last) / steps) {
+        throw std::runtime_error("GPU layout exceeds its physical storage");
+    }
+    return last + steps * (uint64_t)stride;
+}
+
+static void validateLayoutAxes(const LogicalLayout& layout) {
+    uint64_t product = 1, last = layout.offset;
+    for (uint32_t axis = 0; axis < layout.rank; axis++) {
+        uint32_t dimension = layoutWord(layout.axes[axis]);
+        if (dimension == 0 || product > layout.count / dimension) {
+            throw std::runtime_error("GPU layout element count does not match dimensions");
+        }
+        product *= dimension;
+        last = layoutAxisExtent(layout, axis, last);
+    }
+    if (product != layout.count) throw std::runtime_error("GPU layout count does not match its shape");
+}
+
+static LogicalLayout requireLogicalLayout(const GraphLayoutWords& stream, int start,
+                                          id<MTLBuffer> buffer, int dtype) {
+    LogicalLayout result = layoutHeader(stream, start);
+    if (storageBytes((int)result.storage, dtype) != [buffer length]) {
+        throw std::runtime_error("GPU layout storage does not match its buffer");
+    }
+    validateLayoutAxes(result);
+    return result;
+}
+
+static id<MTLBuffer> layoutGpuBuffer(GraphState& state) {
+    if (state.layouts.buffer != nil) return state.layouts.buffer;
+    state.layouts.buffer = [state.ctx->device newBufferWithBytes:state.layouts.words
+            length:(NSUInteger)state.layouts.count * sizeof(jlong) options:MTLResourceStorageModeShared];
+    if (state.layouts.buffer == nil) throw std::runtime_error("Failed to allocate GPU layout metadata");
+    return state.layouts.buffer;
+}
+
+static std::array<uint32_t, 4> layoutTransferParams(GraphState& state, const jint* cmd, int pos,
+                                                   id<MTLBuffer> input, id<MTLBuffer> output) {
+    if (cmd[pos + 1] == cmd[pos + 2]) throw std::runtime_error("Layout transfer requires distinct allocations");
+    int sourceType = bufferDType(cmd[pos + 1]), targetType = bufferDType(cmd[pos + 2]);
+    auto layout = requireLogicalLayout(state.layouts, cmd[pos + 3], input, sourceType);
+    if (storageBytes((int)layout.count, targetType) != [output length]) {
+        throw std::runtime_error("Layout transfer output must match logical element count");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)sourceType, (uint32_t)targetType, layout.count};
+}
+
+template <typename T>
+static void encodeLayoutPair(GraphState& state, id<MTLComputePipelineState> pipeline,
+                             id<MTLBuffer> input, id<MTLBuffer> output, const T& params, uint32_t count) {
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:output offset:0 atIndex:1];
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:2];
+    bindValue(encoder, params, 3);
+    dispatch1D(encoder, pipeline, count);
+}
+
+static void encodeLayoutTransfer(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout transfer");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout transfer");
+    auto params = layoutTransferParams(state, cmd, pos, input, output);
+    encodeLayoutPair(state, state.ctx->layoutTransferPSO, input, output, params, params[3]);
+}
+
+static void requireSameLayoutShape(const LogicalLayout& first, const LogicalLayout& second) {
+    if (first.rank != second.rank || first.count != second.count ||
+        !std::equal(first.axes, first.axes + first.rank, second.axes)) {
+        throw std::runtime_error("GPU operand layout shapes must match");
+    }
+}
+
+static void requireWritableLayout(const LogicalLayout& layout) {
+    std::vector<std::pair<uint64_t, uint32_t>> axes;
+    for (uint32_t axis = 0; axis < layout.rank; axis++) {
+        if (layout.axes[axis] > 1) axes.emplace_back(layout.axes[layout.rank + axis], layout.axes[axis]);
+    }
+    std::sort(axes.begin(), axes.end());
+    uint64_t span = 1;
+    for (auto [stride, dimension] : axes) {
+        if (stride < span) throw std::runtime_error("Overlapping GPU output layouts cannot be written");
+        span += (dimension - 1) * stride;
+    }
+}
+
+static std::array<uint32_t, 5> layoutAssignParams(GraphState& state, const jint* cmd, int pos,
+                                                id<MTLBuffer> input, id<MTLBuffer> output) {
+    if (cmd[pos + 1] == cmd[pos + 2]) throw std::runtime_error("GPU assignment requires an alias snapshot");
+    int sourceType = bufferDType(cmd[pos + 1]), targetType = bufferDType(cmd[pos + 2]);
+    auto source = requireLogicalLayout(state.layouts, cmd[pos + 3], input, sourceType);
+    auto target = requireLogicalLayout(state.layouts, cmd[pos + 4], output, targetType);
+    requireSameLayoutShape(source, target);
+    requireWritableLayout(target);
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], (uint32_t)sourceType,
+            (uint32_t)targetType, source.count};
+}
+
+static void encodeLayoutAssign(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout assign");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout assign");
+    auto params = layoutAssignParams(state, cmd, pos, input, output);
+    encodeLayoutPair(state, state.ctx->layoutAssignPSO, input, output, params, params[4]);
+}
+
+static void requireLayoutBinaryOperation(int operation) {
+    if (operation >= OP_ADD && operation <= OP_DIVIDE) return;
+    if (operation == OP_RELU_BACKWARD || operation == OP_GELU_BACKWARD || operation == OP_SWIGLU) return;
+    throw std::runtime_error("Invalid GPU layout binary operation");
+}
+
+static void requireLayoutUnaryOperation(int operation) {
+    if (operation >= OP_MULTIPLY_SCALAR && operation <= OP_RELU) return;
+    if (operation == OP_GELU || operation == OP_ADD_SCALAR || operation == OP_DIVIDE_SCALAR ||
+        operation == OP_CLAMP || operation == OP_POW) return;
+    throw std::runtime_error("Invalid GPU layout unary operation");
+}
+
+static std::array<uint32_t, 6> layoutUnaryParams(GraphState& state, const jint* cmd, int pos,
+                                               id<MTLBuffer> input, id<MTLBuffer> output) {
+    requireLayoutUnaryOperation(cmd[pos + 4]);
+    auto transfer = layoutTransferParams(state, cmd, pos, input, output);
+    if (transfer[1] != transfer[2]) throw std::runtime_error("GPU unary output must retain input dtype");
+    return {transfer[0], transfer[1], (uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5],
+            (uint32_t)cmd[pos + 6], transfer[3]};
+}
+
+static void encodeLayoutUnary(GraphState& state, const jint* cmd, int pos) {
+    id<MTLBuffer> input = requireStorageBuffer(cmd[pos + 1], "layout unary");
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 2], "layout unary");
+    auto params = layoutUnaryParams(state, cmd, pos, input, output);
+    encodeLayoutPair(state, state.ctx->layoutUnaryPSO, input, output, params, params[5]);
+}
+
+static std::array<uint32_t, 7> layoutBinaryParams(GraphState& state, const jint* cmd, int pos) {
+    requireLayoutBinaryOperation(cmd[pos + 6]);
+    int a = cmd[pos + 1], b = cmd[pos + 2], out = cmd[pos + 3];
+    if (a == out || b == out) throw std::runtime_error("GPU binary output must be independent");
+    int at = bufferDType(a), bt = bufferDType(b), ot = bufferDType(out);
+    auto first = requireLogicalLayout(state.layouts, cmd[pos + 4], requireStorageBuffer(a, "binary"), at);
+    auto second = requireLogicalLayout(state.layouts, cmd[pos + 5], requireStorageBuffer(b, "binary"), bt);
+    requireSameLayoutShape(first, second);
+    if (ot != (at == bt ? at : 1) || storageBytes((int)first.count, ot) !=
+        [requireStorageBuffer(out, "binary output") length]) throw std::runtime_error("Invalid GPU binary output");
+    return {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], (uint32_t)at, (uint32_t)bt,
+            (uint32_t)ot, (uint32_t)cmd[pos + 6], first.count};
+}
+
+static void encodeLayoutBinary(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutBinaryParams(state, cmd, pos);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->layoutBinaryPSO];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 1], "binary") offset:0 atIndex:0];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 2], "binary") offset:0 atIndex:1];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 3], "binary") offset:0 atIndex:2];
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    bindValue(encoder, params, 4);
+    dispatch1D(encoder, state.ctx->layoutBinaryPSO, params[6]);
+}
+
+struct GroupedLayout {
+    LogicalLayout layout;
+    uint32_t groups, width;
+};
+
+static GroupedLayout requireGroupedLayout(GraphState& state, int start, int retained, int buffer) {
+    auto layout = requireLogicalLayout(state.layouts, start, requireStorageBuffer(buffer, "grouped layout"),
+                                       bufferDType(buffer));
+    if (retained < 0 || (uint32_t)retained > layout.rank) throw std::runtime_error("Invalid retained GPU axes");
+    uint32_t groups = 1;
+    for (int axis = 0; axis < retained; axis++) {
+        groups *= (uint32_t)layout.axes[axis];
+    }
+    return {layout, groups, layout.count / groups};
+}
+
+static void requireReductionOperation(int operation, int correction) {
+    if (operation < 0 || operation > 5) throw std::runtime_error("Invalid GPU reduction operation");
+    if (correction < 0 || (operation != 2 && correction != 0)) {
+        throw std::runtime_error("Invalid GPU variance correction");
+    }
+}
+
+static std::array<uint32_t, 7> layoutReduceParams(GraphState& state, const jint* cmd, int pos) {
+    requireReductionOperation(cmd[pos + 5], cmd[pos + 6]);
+    int source = cmd[pos + 1], target = cmd[pos + 2];
+    if (source == target) throw std::runtime_error("Reduction output requires independent storage");
+    auto group = requireGroupedLayout(state, cmd[pos + 3], cmd[pos + 4], source);
+    int sourceType = bufferDType(source), targetType = bufferDType(target);
+    if ((targetType != sourceType && targetType != 1) || (cmd[pos + 5] >= 4 && targetType != 1) ||
+        storageBytes((int)group.groups, targetType) != [requireStorageBuffer(target, "reduce output") length]) {
+        throw std::runtime_error("Invalid grouped GPU reduction output");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)sourceType, (uint32_t)targetType, group.groups,
+            group.width, (uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6]};
+}
+
+static void encodeLayoutReduce(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutReduceParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutReducePSO, requireStorageBuffer(cmd[pos + 1], "reduce"),
+                     requireStorageBuffer(cmd[pos + 2], "reduce"), params, params[3]);
+}
+
+static LogicalLayout requireCompleteOutput(GraphState& state, int start, int target,
+                                           const LogicalLayout& input, int dtype) {
+    auto output = requireLogicalLayout(state.layouts, start, requireStorageBuffer(target, "layout output"),
+                                       bufferDType(target));
+    requireSameLayoutShape(input, output);
+    requireWritableLayout(output);
+    if (bufferDType(target) != dtype || output.count != output.storage) {
+        throw std::runtime_error("Invalid complete GPU output layout");
+    }
+    return output;
+}
+
+static std::array<uint32_t, 5> layoutSoftmaxParams(GraphState& state, const jint* cmd, int pos) {
+    int source = cmd[pos + 1], target = cmd[pos + 2];
+    if (source == target) throw std::runtime_error("Softmax output requires independent storage");
+    auto group = requireGroupedLayout(state, cmd[pos + 3], cmd[pos + 5], source);
+    if ((uint32_t)cmd[pos + 5] + 1 != group.layout.rank) throw std::runtime_error("Softmax requires one axis");
+    int dtype = bufferDType(source);
+    requireCompleteOutput(state, cmd[pos + 4], target, group.layout, dtype);
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], (uint32_t)dtype, group.width, group.groups};
+}
+
+static void encodeLayoutSoftmax(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutSoftmaxParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutSoftmaxPSO, requireStorageBuffer(cmd[pos + 1], "softmax"),
+                     requireStorageBuffer(cmd[pos + 2], "softmax"), params, params[4]);
+}
+
+static void requireMaximumUpstream(GraphState& state, const jint* cmd, int pos, uint32_t groups, int dtype) {
+    int maximum = cmd[pos + 2], gradient = cmd[pos + 3];
+    auto winner = requireLogicalLayout(state.layouts, cmd[pos + 6], requireStorageBuffer(maximum, "maximum"),
+                                       bufferDType(maximum));
+    auto upstream = requireLogicalLayout(state.layouts, cmd[pos + 7], requireStorageBuffer(gradient, "gradient"),
+                                         bufferDType(gradient));
+    requireSameLayoutShape(winner, upstream);
+    if (winner.count != groups || bufferDType(maximum) != dtype || bufferDType(gradient) != 1) {
+        throw std::runtime_error("Invalid maximum adjoint values or dtypes");
+    }
+}
+
+static std::array<uint32_t, 8> layoutMaximumParams(GraphState& state, const jint* cmd, int pos) {
+    int target = cmd[pos + 4];
+    if (target == cmd[pos + 1] || target == cmd[pos + 2] || target == cmd[pos + 3]) {
+        throw std::runtime_error("Maximum adjoint output requires independent storage");
+    }
+    auto group = requireGroupedLayout(state, cmd[pos + 5], cmd[pos + 9], cmd[pos + 1]);
+    int dtype = bufferDType(cmd[pos + 1]);
+    requireMaximumUpstream(state, cmd, pos, group.groups, dtype);
+    requireCompleteOutput(state, cmd[pos + 8], target, group.layout, 1);
+    return {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7],
+            (uint32_t)cmd[pos + 8], (uint32_t)dtype, (uint32_t)dtype, group.width, group.groups};
+}
+
+static void encodeLayoutMaximumBackward(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutMaximumParams(state, cmd, pos);
+    id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->layoutMaximumBackwardPSO];
+    for (NSUInteger index = 0; index < 4; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + 1 + index], "maximum adjoint") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:4];
+    bindValue(encoder, params, 5);
+    dispatch1D(encoder, state.ctx->layoutMaximumBackwardPSO, params[7]);
+}
+
+struct IndexPlan {
+    uint32_t count, groups;
+    const jlong* indices;
+    const jlong* targets;
+    const jlong* offsets;
+    const jlong* positions;
+};
+
+static IndexPlan indexPlanHeader(const GraphLayoutWords& stream, int start) {
+    if (stream.words == nullptr || start < 0 || start > stream.count - 2) {
+        throw std::runtime_error("Missing GPU index metadata");
+    }
+    const jlong* words = stream.words + start;
+    uint32_t count = layoutWord(words[0]), groups = layoutWord(words[1]);
+    if (count == 0 || groups == 0 || groups > count ||
+        3 + 2ULL * count + 2ULL * groups > (uint64_t)(stream.count - start)) {
+        throw std::runtime_error("Invalid or truncated GPU index metadata");
+    }
+    const jlong* indices = words + 2;
+    return {count, groups, indices, indices + count, indices + count + groups,
+            indices + count + 2 * groups + 1};
+}
+
+static void validateIndexGroup(const IndexPlan& plan, uint32_t group, std::vector<bool>& seen) {
+    uint32_t first = layoutWord(plan.offsets[group]), end = layoutWord(plan.offsets[group + 1]);
+    if (first >= end || end > plan.count) throw std::runtime_error("Invalid GPU index group bounds");
+    int64_t previous = -1;
+    for (uint32_t position = first; position < end; position++) {
+        uint32_t source = layoutWord(plan.positions[position]);
+        if (source >= plan.count || seen[source] || source <= previous ||
+            plan.indices[source] != plan.targets[group]) {
+            throw std::runtime_error("GPU index groups must preserve each source position once in order");
+        }
+        seen[source] = true;
+        previous = source;
+    }
+}
+
+static IndexPlan requireIndexPlan(const GraphLayoutWords& stream, int start, uint32_t width) {
+    auto plan = indexPlanHeader(stream, start);
+    for (uint32_t index = 0; index < plan.count; index++) {
+        if (layoutWord(plan.indices[index]) >= width) throw std::runtime_error("GPU index out of range");
+    }
+    std::vector<jlong> targets(plan.targets, plan.targets + plan.groups);
+    std::sort(targets.begin(), targets.end());
+    if (targets.front() < 0 || targets.back() >= width ||
+        std::adjacent_find(targets.begin(), targets.end()) != targets.end() ||
+        plan.offsets[0] != 0 || plan.offsets[plan.groups] != plan.count) {
+        throw std::runtime_error("Invalid GPU index destinations or coverage");
+    }
+    std::vector<bool> seen(plan.count, false);
+    for (uint32_t group = 0; group < plan.groups; group++) {
+        validateIndexGroup(plan, group, seen);
+    }
+    return plan;
+}
+
+static uint32_t indexTrailing(const LogicalLayout& layout, int axis) {
+    if (axis < 0 || (uint32_t)axis >= layout.rank) throw std::runtime_error("Invalid GPU index axis");
+    uint32_t trailing = 1;
+    for (uint32_t next = axis + 1; next < layout.rank; next++) {
+        trailing *= layout.axes[next];
+    }
+    return trailing;
+}
+
+static std::array<uint32_t, 7> layoutIndexSelectParams(GraphState& state, const jint* cmd, int pos) {
+    int input = cmd[pos + 1], output = cmd[pos + 2], dtype = bufferDType(input);
+    auto source = requireLogicalLayout(state.layouts, cmd[pos + 3], requireStorageBuffer(input, "gather"), dtype);
+    uint32_t trailing = indexTrailing(source, cmd[pos + 5]), width = source.axes[cmd[pos + 5]];
+    auto plan = requireIndexPlan(state.layouts, cmd[pos + 4], width);
+    uint64_t count = (uint64_t)(source.count / width) * plan.count;
+    if (input == output || bufferDType(output) != dtype || count > INT32_MAX ||
+        [requireStorageBuffer(output, "gather output") length] != count * (dtype == 1 ? 4 : 2)) {
+        throw std::runtime_error("Invalid typed GPU gather output");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], width, trailing, plan.count,
+            (uint32_t)dtype, (uint32_t)count};
+}
+
+static void encodeLayoutIndexSelect(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutIndexSelectParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutIndexSelectPSO, requireStorageBuffer(cmd[pos + 1], "gather"),
+                     requireStorageBuffer(cmd[pos + 2], "gather"), params, params[6]);
+}
+
+static void requireIndexUpdateShape(const LogicalLayout& target, const LogicalLayout& updates,
+                                    uint32_t axis, uint32_t count) {
+    if (target.rank != updates.rank) throw std::runtime_error("Indexed updates must match target rank");
+    for (uint32_t dimension = 0; dimension < target.rank; dimension++) {
+        uint32_t expected = dimension == axis ? count : target.axes[dimension];
+        if (updates.axes[dimension] != expected) throw std::runtime_error("Invalid indexed update shape");
+    }
+    requireWritableLayout(target);
+}
+
+static std::array<uint32_t, 9> layoutIndexAddParams(GraphState& state, const jint* cmd, int pos) {
+    int target = cmd[pos + 1], input = cmd[pos + 2], dtype = bufferDType(target), from = bufferDType(input);
+    auto output = requireLogicalLayout(state.layouts, cmd[pos + 3], requireStorageBuffer(target, "scatter"), dtype);
+    auto updates = requireLogicalLayout(state.layouts, cmd[pos + 4], requireStorageBuffer(input, "scatter"), from);
+    uint32_t trailing = indexTrailing(output, cmd[pos + 6]), width = output.axes[cmd[pos + 6]];
+    auto plan = requireIndexPlan(state.layouts, cmd[pos + 5], width);
+    requireIndexUpdateShape(output, updates, cmd[pos + 6], plan.count);
+    if (target == input || (dtype != 1 && from != dtype)) {
+        throw std::runtime_error("Indexed updates require an alias snapshot and cannot narrow dtype");
+    }
+    return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], width, trailing,
+            (uint32_t)dtype, (uint32_t)from, plan.groups, output.count / width * plan.groups};
+}
+
+static void encodeLayoutIndexAdd(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutIndexAddParams(state, cmd, pos);
+    encodeLayoutPair(state, state.ctx->layoutIndexAddPSO, requireStorageBuffer(cmd[pos + 1], "scatter"),
+                     requireStorageBuffer(cmd[pos + 2], "scatter"), params, params[8]);
+}
+
+static LogicalLayout commandLayout(GraphState& state, const jint* cmd, int pos, int buffer, int layout) {
+    int id = cmd[pos + buffer];
+    return requireLogicalLayout(state.layouts, cmd[pos + layout], requireStorageBuffer(id, "layout input"),
+                                 bufferDType(id));
+}
+
+static void requireTypedCount(int id, uint32_t dtype, uint32_t count) {
+    if (bufferDType(id) != (int)dtype ||
+        [requireStorageBuffer(id, "typed output") length] != storageBytes((int)count, dtype)) {
+        throw std::runtime_error("Invalid GPU output storage type or element count");
+    }
+}
+
+static void requireOutputSeparation(const jint* cmd, int pos, int inputs, int buffers) {
+    for (int output = inputs + 1; output <= buffers; output++) {
+        for (int previous = 1; previous < output; previous++) {
+            if (cmd[pos + output] == cmd[pos + previous]) {
+                throw std::runtime_error("GPU outputs must not alias inputs or other outputs");
+            }
+        }
+    }
+}
+
+static uint32_t normalizationWidth(const LogicalLayout& input) {
+    if (input.rank == 0) throw std::runtime_error("Normalization requires a final axis");
+    return (uint32_t)input.axes[input.rank - 1];
+}
+
+static void requireNormalizationParameter(const LogicalLayout& parameter, uint32_t width) {
+    if ((parameter.rank != 1 && !(parameter.rank == 2 && parameter.axes[0] == 1)) ||
+        parameter.count != width) throw std::runtime_error("Invalid normalization parameter shape");
+}
+
+static void requireNormalizationDenominator(const LogicalLayout& input, const LogicalLayout& denominator) {
+    if (input.rank != denominator.rank || denominator.axes[denominator.rank - 1] != 1 ||
+        !std::equal(input.axes, input.axes + input.rank - 1, denominator.axes)) {
+        throw std::runtime_error("Invalid saved normalization statistics shape");
+    }
+}
+
+static uint32_t normalizationMode(int mode) {
+    if (mode != 0 && mode != 1) throw std::runtime_error("Invalid normalization mode");
+    return (uint32_t)mode;
+}
+
+static std::array<uint32_t, 11> layoutNormalizationParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 7);
+    uint32_t width = normalizationWidth(input), rows = input.count / width;
+    requireNormalizationParameter(commandLayout(state, cmd, pos, 2, 8), width);
+    requireNormalizationParameter(commandLayout(state, cmd, pos, 3, 9), width);
+    uint32_t mode = normalizationMode(cmd[pos + 11]);
+    float epsilon = floatFromBits(cmd[pos + 10]);
+    if (!std::isfinite(epsilon) || epsilon <= 0) throw std::runtime_error("Invalid normalization epsilon");
+    uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
+    uint32_t c = bufferDType(cmd[pos + 3]), output = a == b && (mode == 0 || a == c) ? a : 1;
+    requireOutputSeparation(cmd, pos, 3, 6);
+    requireTypedCount(cmd[pos + 4], output, input.count);
+    requireTypedCount(cmd[pos + 5], 1, input.count);
+    requireTypedCount(cmd[pos + 6], 1, rows);
+    return {(uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8], (uint32_t)cmd[pos + 9], width,
+            rows, a, b, c, output, mode, (uint32_t)cmd[pos + 10]};
+}
+
+static std::array<uint32_t, 11> layoutNormalizationBackwardParams(GraphState& state, const jint* cmd, int pos) {
+    auto gradient = commandLayout(state, cmd, pos, 1, 6), normalized = commandLayout(state, cmd, pos, 2, 7);
+    uint32_t width = normalizationWidth(normalized);
+    requireSameLayoutShape(gradient, normalized);
+    requireNormalizationDenominator(normalized, commandLayout(state, cmd, pos, 3, 8));
+    requireNormalizationParameter(commandLayout(state, cmd, pos, 4, 9), width);
+    requireOutputSeparation(cmd, pos, 4, 5);
+    requireTypedCount(cmd[pos + 5], 1, gradient.count);
+    return {(uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8],
+            (uint32_t)cmd[pos + 9], width, gradient.count / width, (uint32_t)bufferDType(cmd[pos + 1]),
+            (uint32_t)bufferDType(cmd[pos + 2]), (uint32_t)bufferDType(cmd[pos + 3]),
+            (uint32_t)bufferDType(cmd[pos + 4]), normalizationMode(cmd[pos + 10])};
+}
+
+template <typename T>
+static void encodeLayoutMany(GraphState& state, id<MTLComputePipelineState> pipeline, const jint* cmd,
+                              int pos, int buffers, const T& params, uint32_t count) {
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < buffers; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + index + 1], "layout operation") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:buffers];
+    bindValue(encoder, params, buffers + 1);
+    dispatch1D(encoder, pipeline, count);
+}
+
+static void encodeLayoutNormalization(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutNormalizationParams(state, cmd, pos);
+    encodeLayoutMany(state, state.ctx->layoutNormalizePSO, cmd, pos, 6, params, params[4]);
+}
+
+static void encodeLayoutNormalizationBackward(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutNormalizationBackwardParams(state, cmd, pos);
+    encodeLayoutMany(state, state.ctx->layoutNormalizationBackwardPSO, cmd, pos, 5, params, params[5]);
+}
+
+static std::array<uint32_t, 7> layoutSwiGluBackwardParams(GraphState& state, const jint* cmd, int pos) {
+    auto gradient = commandLayout(state, cmd, pos, 1, 6), gate = commandLayout(state, cmd, pos, 2, 7);
+    auto up = commandLayout(state, cmd, pos, 3, 8);
+    requireSameLayoutShape(gradient, gate);
+    requireSameLayoutShape(gate, up);
+    requireOutputSeparation(cmd, pos, 3, 5);
+    requireTypedCount(cmd[pos + 4], 1, gradient.count);
+    requireTypedCount(cmd[pos + 5], 1, gradient.count);
+    return {(uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8],
+            (uint32_t)bufferDType(cmd[pos + 1]), (uint32_t)bufferDType(cmd[pos + 2]),
+            (uint32_t)bufferDType(cmd[pos + 3]), gradient.count};
+}
+
+static void encodeLayoutSwiGluBackward(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutSwiGluBackwardParams(state, cmd, pos);
+    encodeLayoutMany(state, state.ctx->layoutSwiGluBackwardPSO, cmd, pos, 5, params, params[6]);
+}
+
+static std::array<uint32_t, 11> layoutAdamWParams(GraphState& state, const jint* cmd, int pos) {
+    auto weight = commandLayout(state, cmd, pos, 1, 5);
+    requireOutputSeparation(cmd, pos, 0, 4);
+    for (int index = 1; index <= 4; index++) {
+        auto layout = commandLayout(state, cmd, pos, index, index + 4);
+        requireSameLayoutShape(weight, layout);
+        if (bufferDType(cmd[pos + index]) != 1) throw std::runtime_error("AdamW requires FLOAT32 state");
+        if (index != 2) requireWritableLayout(layout);
+    }
+    std::array<uint32_t, 11> params;
+    for (int index = 0; index < 11; index++) {
+        params[index] = (uint32_t)cmd[pos + index + 5];
+    }
+    return params;
+}
+
+static void encodeLayoutAdamW(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutAdamWParams(state, cmd, pos);
+    auto weight = commandLayout(state, cmd, pos, 1, 5);
+    encodeLayoutMany(state, state.ctx->layoutAdamWPSO, cmd, pos, 4, params, weight.count);
+}
+
+static const jlong* crossEntropyPlan(const GraphLayoutWords& stream, int start, uint32_t rows) {
+    if (stream.words == nullptr || start < 0 || start > stream.count - 3 ||
+        rows > (uint32_t)(stream.count - start - 3) / 2) {
+        throw std::runtime_error("Missing or truncated GPU cross entropy targets");
+    }
+    const jlong* plan = stream.words + start;
+    if (plan[0] != rows || plan[1] <= 0 || plan[1] > rows || (plan[2] != 0 && plan[2] != 1)) {
+        throw std::runtime_error("Invalid GPU cross entropy target count or mask header");
+    }
+    return plan;
+}
+
+static uint32_t validateCrossEntropyPlan(const GraphLayoutWords& stream, int start,
+                                         uint32_t rows, uint32_t classes) {
+    const jlong* plan = crossEntropyPlan(stream, start, rows);
+    uint32_t included = 0;
+    for (uint32_t row = 0; row < rows; row++) {
+        jlong target = plan[3 + row], mask = plan[3 + rows + row];
+        if (target < 0 || target >= classes || (mask != 0 && mask != 1) || (plan[2] == 0 && mask != 1)) {
+            throw std::runtime_error("Invalid GPU cross entropy target or mask bit");
+        }
+        included += (uint32_t)mask;
+    }
+    if (included != plan[1]) throw std::runtime_error("GPU cross entropy included count mismatch");
+    return included;
+}
+
+static void requireCrossEntropyOutputs(const jint* cmd, int pos, uint32_t rows, uint32_t count) {
+    int mode = cmd[pos + 6];
+    if (mode < 1 || mode > 3) throw std::runtime_error("Invalid GPU cross entropy output mode");
+    if (cmd[pos + 1] == cmd[pos + 2] || cmd[pos + 1] == cmd[pos + 3]) {
+        throw std::runtime_error("GPU cross entropy output aliases logits");
+    }
+    if (mode == 3) requireOutputSeparation(cmd, pos, 1, 3);
+    else if (cmd[pos + 2] != cmd[pos + 3]) throw std::runtime_error("Unexpected unused cross entropy output");
+    if ((mode & 1) != 0) requireTypedCount(cmd[pos + 2], 1, rows);
+    if ((mode & 2) != 0) requireTypedCount(cmd[pos + 3], 1, count);
+}
+
+static std::array<uint32_t, 7> layoutCrossEntropyParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 4);
+    if (input.rank == 0) throw std::runtime_error("Cross entropy requires a final class axis");
+    uint32_t width = (uint32_t)input.axes[input.rank - 1], rows = input.count / width;
+    uint32_t included = validateCrossEntropyPlan(state.layouts, cmd[pos + 5], rows, width);
+    requireCrossEntropyOutputs(cmd, pos, rows, input.count);
+    return {(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], rows, width,
+            (uint32_t)bufferDType(cmd[pos + 1]), included, (uint32_t)cmd[pos + 6]};
+}
+
+static void encodeLayoutCrossEntropy(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutCrossEntropyParams(state, cmd, pos);
+    auto pipeline = state.ctx->layoutCrossEntropyPSO;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 3; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + index + 1], "cross entropy") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    bindValue(encoder, params, 4);
+    [encoder dispatchThreadgroups:MTLSizeMake(1, params[2], 1)
+           threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(pipeline), 1, 1)];
+}
+
+static std::array<uint32_t, 6> layoutCausalParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 3);
+    uint32_t length = (uint32_t)positiveCount(cmd[pos + 4], "causal length");
+    float scale = floatFromBits(cmd[pos + 5]);
+    if (input.rank != 2 || input.axes[1] != length || input.axes[0] % length != 0 ||
+        !std::isfinite(scale) || (cmd[pos + 6] != 1 && cmd[pos + 6] != 2)) {
+        throw std::runtime_error("Invalid typed causal shape,scale or mode");
+    }
+    requireOutputSeparation(cmd, pos, 1, 2);
+    uint32_t dtype = bufferDType(cmd[pos + 1]);
+    requireTypedCount(cmd[pos + 2], dtype, input.count);
+    return {(uint32_t)cmd[pos + 3], (uint32_t)input.axes[0], length, dtype,
+            (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 5]};
+}
+
+static void encodeLayoutCausalSoftmax(GraphState& state, const jint* cmd, int pos,
+                                      const std::array<uint32_t, 6>& params) {
+    auto pipeline = state.ctx->layoutCausalSoftmaxPSO;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 1], "causal softmax") offset:0 atIndex:0];
+    [encoder setBuffer:requireStorageBuffer(cmd[pos + 2], "causal softmax") offset:0 atIndex:1];
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:2];
+    bindValue(encoder, params, 3);
+    [encoder dispatchThreadgroups:MTLSizeMake(1, params[1], 1)
+           threadsPerThreadgroup:MTLSizeMake(rowReductionWidth(pipeline), 1, 1)];
+}
+
+static void encodeLayoutCausal(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutCausalParams(state, cmd, pos);
+    if (params[4] == 2) encodeLayoutCausalSoftmax(state, cmd, pos, params);
+    else encodeLayoutPair(state, state.ctx->layoutCausalMaskPSO,
+            requireStorageBuffer(cmd[pos + 1], "causal mask"), requireStorageBuffer(cmd[pos + 2], "causal mask"),
+            params, params[1] * params[2]);
+}
+
+static void requireRotaryLayouts(const LogicalLayout& input, const LogicalLayout& cosine,
+                                  const LogicalLayout& sine, uint32_t length) {
+    requireSameLayoutShape(cosine, sine);
+    if (input.rank != 2 || cosine.rank != 2 || input.axes[1] % 2 != 0 || input.axes[0] % length != 0 ||
+        cosine.axes[0] < length || cosine.axes[1] != input.axes[1] / 2) {
+        throw std::runtime_error("Invalid typed rotary activation or table shape");
+    }
+}
+
+static std::array<uint32_t, 10> layoutRotaryParams(GraphState& state, const jint* cmd, int pos) {
+    auto input = commandLayout(state, cmd, pos, 1, 5), cosine = commandLayout(state, cmd, pos, 2, 6);
+    auto sine = commandLayout(state, cmd, pos, 3, 7);
+    uint32_t length = (uint32_t)positiveCount(cmd[pos + 8], "rotary length");
+    requireRotaryLayouts(input, cosine, sine, length);
+    if (cmd[pos + 9] != 0 && cmd[pos + 9] != 1) throw std::runtime_error("Invalid inverse rotary flag");
+    requireOutputSeparation(cmd, pos, 3, 4);
+    uint32_t dtype = bufferDType(cmd[pos + 1]);
+    requireTypedCount(cmd[pos + 4], dtype, input.count);
+    return {(uint32_t)cmd[pos + 5], (uint32_t)cmd[pos + 6], (uint32_t)cmd[pos + 7],
+            (uint32_t)input.axes[0], (uint32_t)input.axes[1], length, dtype,
+            (uint32_t)bufferDType(cmd[pos + 2]), (uint32_t)bufferDType(cmd[pos + 3]), (uint32_t)cmd[pos + 9]};
+}
+
+static void encodeLayoutRotary(GraphState& state, const jint* cmd, int pos) {
+    auto params = layoutRotaryParams(state, cmd, pos);
+    auto pipeline = state.ctx->layoutRotaryPSO;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 4; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + index + 1], "rotary") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:4];
+    bindValue(encoder, params, 5);
+    dispatch1D(encoder, pipeline, params[3] * (params[4] / 2));
 }
 
 static id<MTLComputePipelineState> binaryPipeline(MetalContext* ctx, int op) {
@@ -2512,6 +4306,181 @@ static void encodeBatchedMatmul(GraphState& state, const jint* cmd, int pos) {
         rightMatrix:right resultMatrix:output];
 }
 
+struct LayoutMatmulSpec {
+    LogicalLayout left, right;
+    uint32_t rows, columns, inner, batches, count, leftType, rightType, outputType;
+};
+
+static void requireMatmulLayouts(const LogicalLayout& left, const LogicalLayout& right) {
+    if (left.rank < 2 || left.rank != right.rank ||
+        !std::equal(left.axes, left.axes + left.rank - 2, right.axes) ||
+        left.axes[left.rank - 1] != right.axes[right.rank - 2]) {
+        throw std::runtime_error("Invalid promoted GPU matmul dimensions");
+    }
+}
+
+static LayoutMatmulSpec layoutMatmulSpec(GraphState& state, const jint* cmd, int pos) {
+    uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
+    auto left = requireLogicalLayout(state.layouts, cmd[pos + 4],
+                                     requireStorageBuffer(cmd[pos + 1], "matmul left"), a);
+    auto right = requireLogicalLayout(state.layouts, cmd[pos + 5],
+                                      requireStorageBuffer(cmd[pos + 2], "matmul right"), b);
+    requireMatmulLayouts(left, right);
+    uint32_t m = left.axes[left.rank - 2], k = left.axes[left.rank - 1], n = right.axes[right.rank - 1];
+    uint32_t batches = left.count / m / k, dtype = a == b ? a : 1;
+    uint64_t count = (uint64_t)batches * m * n;
+    id<MTLBuffer> output = requireStorageBuffer(cmd[pos + 3], "matmul output");
+    if (count > INT32_MAX || output.length != count * (dtype == 1 ? 4 : 2) ||
+        bufferDType(cmd[pos + 3]) != (int)dtype || cmd[pos + 3] == cmd[pos + 1] ||
+        cmd[pos + 3] == cmd[pos + 2]) throw std::runtime_error("Invalid GPU matmul output storage");
+    return {left, right, m, n, k, batches, (uint32_t)count, a, b, dtype};
+}
+
+struct MpsLayoutMatrix {
+    uint32_t rows, columns;
+    uint64_t rowStride;
+    bool transposed;
+};
+
+static bool mpsLayoutMatrix(const LogicalLayout& layout, MpsLayoutMatrix& matrix) {
+    uint32_t rows = layout.axes[layout.rank - 2], cols = layout.axes[layout.rank - 1];
+    uint64_t rowStride = layout.axes[2 * layout.rank - 2], colStride = layout.axes[2 * layout.rank - 1];
+    if ((cols == 1 || colStride == 1) && (rows == 1 || rowStride >= cols)) {
+        matrix = {rows, cols, rows == 1 ? cols : rowStride, false};
+        return true;
+    }
+    if ((rows == 1 || rowStride == 1) && (cols == 1 || colStride >= rows)) {
+        matrix = {cols, rows, cols == 1 ? rows : colStride, true};
+        return true;
+    }
+    return false;
+}
+
+static NSUInteger matmulBatchAddress(const LogicalLayout& layout, uint32_t batch) {
+    NSUInteger address = layout.offset;
+    for (int axis = (int)layout.rank - 3; axis >= 0; axis--) {
+        address += (batch % layout.axes[axis]) * layout.axes[layout.rank + axis];
+        batch /= layout.axes[axis];
+    }
+    return address;
+}
+
+static uint64_t matmulBatchStride(const LogicalLayout& layout) {
+    if (layout.rank == 2) return 0;
+    uint64_t stride = 0, expected = 0;
+    for (int axis = (int)layout.rank - 3; axis >= 0; axis--) {
+        if (layout.axes[axis] == 1) continue;
+        uint64_t step = layout.axes[layout.rank + axis];
+        if (stride == 0) {
+            stride = step;
+            expected = step;
+        }
+        if (expected == 0 || step != expected) return 0;
+        expected *= layout.axes[axis];
+    }
+    return stride;
+}
+
+static MPSMatrix* layoutMpsMatrix(id<MTLBuffer> buffer, const MpsLayoutMatrix& matrix,
+                                  NSUInteger offset, uint32_t batches, uint64_t batchStride, uint32_t dtype) {
+    NSUInteger bytes = dtype == 2 ? sizeof(uint16_t) : sizeof(float);
+    MPSDataType type = dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeFloat32;
+    auto descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:matrix.rows columns:matrix.columns
+        matrices:batches rowBytes:matrix.rowStride * bytes
+        matrixBytes:batchStride * bytes dataType:type];
+    return [[MPSMatrix alloc] initWithBuffer:buffer offset:offset * bytes descriptor:descriptor];
+}
+
+static bool mpsBatchCompatible(const MpsLayoutMatrix& matrix, uint64_t stride) {
+    // MPS may advance by rows * rowStride despite a larger descriptor matrixBytes.
+    // Padded batches must use separate dispatches with explicit storage offsets.
+    return stride == matrix.rows * matrix.rowStride;
+}
+
+static void encodeLayoutMpsBatch(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec,
+                                 const MpsLayoutMatrix& a, const MpsLayoutMatrix& b,
+                                 uint32_t batch, uint32_t count, uint64_t firstStride, uint64_t secondStride) {
+    auto left = layoutMpsMatrix(requireStorageBuffer(cmd[pos + 1], "layout matmul"), a,
+                                matmulBatchAddress(spec.left, batch), count, firstStride, spec.leftType);
+    auto right = layoutMpsMatrix(requireStorageBuffer(cmd[pos + 2], "layout matmul"), b,
+                                 matmulBatchAddress(spec.right, batch), count, secondStride, spec.rightType);
+    MpsLayoutMatrix result{spec.rows, spec.columns, spec.columns, false};
+    auto output = layoutMpsMatrix(requireStorageBuffer(cmd[pos + 3], "layout matmul"), result,
+                                  (NSUInteger)batch * spec.rows * spec.columns, count,
+                                  (uint64_t)spec.rows * spec.columns, spec.outputType);
+    [configuredMatmulKernel(state.ctx, spec.rows, spec.columns, spec.inner, a.transposed, b.transposed, count)
+        encodeToCommandBuffer:state.commandBuffer leftMatrix:left rightMatrix:right resultMatrix:output];
+}
+
+static bool supportsLayoutMpsMatmul(MetalContext* ctx, const LayoutMatmulSpec& spec) {
+    // Preserve small-matrix accumulation order and avoid MPS setup on tiny products.
+    // Other devices keep the existing compact/generic GPU capability dispatch.
+    return (spec.leftType == 1 && spec.rightType == 1)
+        || ((spec.leftType == 1 || spec.leftType == 2) && spec.rightType == 2
+            && spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64
+            && (spec.leftType == 2 || (spec.columns >= 256 && spec.inner >= 256))
+            && [ctx->device supportsFamily:MTLGPUFamilyApple7]);
+}
+
+static bool encodeLayoutMpsMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
+    MpsLayoutMatrix a, b;
+    if (!supportsLayoutMpsMatmul(state.ctx, spec) ||
+        !mpsLayoutMatrix(spec.left, a) || !mpsLayoutMatrix(spec.right, b)) return false;
+    endGraphEncoder(state);
+    uint64_t first = matmulBatchStride(spec.left), second = matmulBatchStride(spec.right);
+    if (mpsBatchCompatible(a, first) && mpsBatchCompatible(b, second)) {
+        encodeLayoutMpsBatch(state, cmd, pos, spec, a, b, 0, spec.batches, first, second);
+    } else {
+        for (uint32_t batch = 0; batch < spec.batches; batch++) {
+            encodeLayoutMpsBatch(state, cmd, pos, spec, a, b, batch, 1,
+                                 a.rows * a.rowStride, b.rows * b.rowStride);
+        }
+    }
+    return true;
+}
+
+static id<MTLComputePipelineState> compactMatmulPipeline(MetalContext* ctx, const LayoutMatmulSpec& spec) {
+    if (spec.leftType == 1 && spec.rightType == 1) return nil;
+    ensureCompactMatmul(ctx);
+    if (spec.leftType != spec.rightType) return ctx->mixedMatmulPSO;
+    return spec.leftType == 2 ? ctx->halfMatmulPSO : ctx->bfloatMatmulPSO;
+}
+
+static bool encodeCompactMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
+    auto pipeline = compactMatmulPipeline(state.ctx, spec);
+    if (pipeline == nil) return false;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 3; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + 1 + index], "compact matmul") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    std::array<uint32_t, 8> params{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], spec.leftType,
+        spec.rightType, spec.outputType, spec.rows, spec.columns, spec.inner};
+    bindValue(encoder, params, 4);
+    [encoder dispatchThreadgroups:MTLSizeMake((spec.columns + 31) / 32, (spec.rows + 31) / 32, spec.batches)
+        threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
+    return true;
+}
+
+static void encodeLayoutMatmul(GraphState& state, const jint* cmd, int pos) {
+    auto spec = layoutMatmulSpec(state, cmd, pos);
+    if (encodeLayoutMpsMatmul(state, cmd, pos, spec)) return;
+    if (encodeCompactMatmul(state, cmd, pos, spec)) return;
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->layoutMatmulPSO];
+    for (int index = 0; index < 3; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + 1 + index], "layout matmul") offset:0 atIndex:index];
+    }
+    [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:3];
+    std::array<uint32_t, 8> params{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], spec.leftType,
+        spec.rightType, spec.outputType, spec.rows, spec.columns, spec.inner};
+    bindValue(encoder, params, 4);
+    dispatch1D(encoder, state.ctx->layoutMatmulPSO, spec.count);
+}
+
 static NSUInteger cacheElementCount(uint32_t heads, uint32_t length, uint32_t width) {
     if ((uint64_t)heads * length > INT32_MAX / width) {
         throw std::runtime_error("Head cache shape exceeds supported storage");
@@ -2841,7 +4810,32 @@ static int attentionCommandWidth(int op) {
     throw std::runtime_error("Unknown attention op code: " + std::to_string(op));
 }
 
+static int layoutTrainingCommandWidth(int op) {
+    if (op == OP_LAYOUT_NORMALIZE) return 12;
+    if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) return 11;
+    if (op == OP_LAYOUT_SWIGLU_BACKWARD) return 9;
+    if (op == OP_LAYOUT_ADAMW) return 16;
+    if (op == OP_LAYOUT_CROSS_ENTROPY) return 7;
+    if (op == OP_LAYOUT_CAUSAL) return 7;
+    if (op == OP_LAYOUT_ROTARY) return 10;
+    throw std::runtime_error("Unknown layout op code: " + std::to_string(op));
+}
+
+static int layoutCommandWidth(int op) {
+    if (op == OP_STORAGE_COPY) return 6;
+    if (op == OP_LAYOUT_TRANSFER) return 4;
+    if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY || op == OP_LAYOUT_REDUCE) return 7;
+    if (op == OP_LAYOUT_ASSIGN) return 5;
+    if (op == OP_LAYOUT_SOFTMAX) return 6;
+    if (op == OP_LAYOUT_MATMUL) return 6;
+    if (op == OP_LAYOUT_INDEX_SELECT) return 6;
+    if (op == OP_LAYOUT_INDEX_ADD) return 7;
+    if (op == OP_LAYOUT_MAXIMUM_BACKWARD) return 10;
+    return layoutTrainingCommandWidth(op);
+}
+
 static int commandWidth(int op) {
+    if (op >= OP_STORAGE_COPY) return layoutCommandWidth(op);
     if (op >= OP_TILED_CAUSAL_ATTENTION) return attentionCommandWidth(op);
     if (isUnaryOp(op) || op == OP_SUM_SQUARES_SCALAR) return 4;
     if (isFiveWidthOp(op)) return 5;
@@ -2911,7 +4905,38 @@ static bool encodeSpecialCommand(GraphState& state, const jint* cmd, int pos) {
     return true;
 }
 
+static bool encodeLayoutTrainingCommand(GraphState& state, const jint* cmd, int pos) {
+    int op = cmd[pos];
+    if (op == OP_LAYOUT_NORMALIZE) encodeLayoutNormalization(state, cmd, pos);
+    else if (op == OP_LAYOUT_NORMALIZATION_BACKWARD) encodeLayoutNormalizationBackward(state, cmd, pos);
+    else if (op == OP_LAYOUT_SWIGLU_BACKWARD) encodeLayoutSwiGluBackward(state, cmd, pos);
+    else if (op == OP_LAYOUT_ADAMW) encodeLayoutAdamW(state, cmd, pos);
+    else if (op == OP_LAYOUT_CROSS_ENTROPY) encodeLayoutCrossEntropy(state, cmd, pos);
+    else if (op == OP_LAYOUT_CAUSAL) encodeLayoutCausal(state, cmd, pos);
+    else if (op == OP_LAYOUT_ROTARY) encodeLayoutRotary(state, cmd, pos);
+    else return false;
+    return true;
+}
+
+static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
+    int op = cmd[pos];
+    if (op == OP_STORAGE_COPY) encodeStorageCopy(state, cmd, pos);
+    else if (op == OP_LAYOUT_TRANSFER) encodeLayoutTransfer(state, cmd, pos);
+    else if (op == OP_LAYOUT_BINARY) encodeLayoutBinary(state, cmd, pos);
+    else if (op == OP_LAYOUT_UNARY) encodeLayoutUnary(state, cmd, pos);
+    else if (op == OP_LAYOUT_ASSIGN) encodeLayoutAssign(state, cmd, pos);
+    else if (op == OP_LAYOUT_REDUCE) encodeLayoutReduce(state, cmd, pos);
+    else if (op == OP_LAYOUT_SOFTMAX) encodeLayoutSoftmax(state, cmd, pos);
+    else if (op == OP_LAYOUT_MAXIMUM_BACKWARD) encodeLayoutMaximumBackward(state, cmd, pos);
+    else if (op == OP_LAYOUT_MATMUL) encodeLayoutMatmul(state, cmd, pos);
+    else if (op == OP_LAYOUT_INDEX_SELECT) encodeLayoutIndexSelect(state, cmd, pos);
+    else if (op == OP_LAYOUT_INDEX_ADD) encodeLayoutIndexAdd(state, cmd, pos);
+    else return encodeLayoutTrainingCommand(state, cmd, pos);
+    return true;
+}
+
 static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
+    if (encodeLayoutCommand(state, cmd, pos)) return;
     if (encodeBasicCommand(state, cmd, pos)) return;
     if (encodeSpecialCommand(state, cmd, pos)) return;
     throw std::runtime_error("Unknown op code in graph: " + std::to_string(cmd[pos]));
@@ -2940,10 +4965,10 @@ static void finishCommandBuffer(GraphState& state) {
     checkCommandBuffer(state.commandBuffer);
 }
 
-static void executeGraph(const jint* commandStream, int length) {
+static void executeGraph(const jint* commandStream, int length, const jlong* layouts = nullptr, int layoutCount = 0) {
     @autoreleasepool {
         MetalContext* ctx = getContext();
-        GraphState state{ctx, graphCommands(ctx->queue), nil};
+        GraphState state{ctx, graphCommands(ctx->queue), nil, {layouts, layoutCount, nil}};
         encodeCommandStream(state, commandStream, length);
         finishCommandBuffer(state);
     }
@@ -2975,4 +5000,40 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushOps(
         return;
     }
     env->ReleaseIntArrayElements(cmdStreamArr, cmd, JNI_ABORT);
+}
+
+struct LongArrayView {
+    JNIEnv* env;
+    jlongArray source;
+    jlong* values;
+
+    LongArrayView(JNIEnv* environment, jlongArray array) : env(environment), source(array),
+            values(env->GetLongArrayElements(source, nullptr)) {}
+    ~LongArrayView() {
+        if (values != nullptr) env->ReleaseLongArrayElements(source, values, JNI_ABORT);
+    }
+};
+
+static void flushLayoutCommands(JNIEnv* env, jintArray commands, jint length, jlongArray layouts) {
+    if (!validateCommandArray(env, commands, length)) return;
+    if (layouts == nullptr) {
+        throwJavaRuntimeException(env, "GPU layout words cannot be null");
+        return;
+    }
+    IntArrayView commandWords(env, commands);
+    LongArrayView layoutWords(env, layouts);
+    if (env->ExceptionCheck()) return;
+    int layoutCount = env->GetArrayLength(layouts);
+    if (commandWords.values == nullptr || (layoutCount != 0 && layoutWords.values == nullptr)) return;
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    executeGraph(commandWords.values, length, layoutWords.values, layoutCount);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeFlushLayoutOps(
+        JNIEnv* env, jclass, jintArray commands, jint length, jlongArray layouts) {
+    @autoreleasepool {
+        try { flushLayoutCommands(env, commands, length, layouts); }
+        catch (const std::exception& error) { throwJavaRuntimeException(env, error.what()); }
+    }
 }

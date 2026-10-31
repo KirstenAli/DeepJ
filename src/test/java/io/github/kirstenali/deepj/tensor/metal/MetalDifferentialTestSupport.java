@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -77,12 +78,11 @@ abstract class MetalDifferentialTestSupport {
 
     protected static void assertTensorClose(Tensor expected, Tensor actual, float absoluteTolerance,
                                           float relativeTolerance, String label) {
-        expected.materialize();
-        actual.materialize();
-        assertEquals(expected.rows, actual.rows, "row count");
-        assertEquals(expected.cols, actual.cols, "column count");
-        for (int i = 0; i < expected.data.length; i++) {
-            assertElementClose(expected.data[i], actual.data[i], absoluteTolerance, relativeTolerance, label, i);
+        assertArrayEquals(expected.shape(), actual.shape(), "logical shape");
+        float[] first = expected.toFloatArray(), second = actual.toFloatArray();
+        for (int i = 0; i < first.length; i++) {
+            assertElementClose(first[i], second[i],
+                    absoluteTolerance, relativeTolerance, label, i);
         }
     }
 

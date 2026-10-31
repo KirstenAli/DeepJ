@@ -1,9 +1,12 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.ProjectionOps;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.SequenceLayout;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 
 import java.util.List;
@@ -28,6 +31,11 @@ public final class MultiHeadLatentAttention implements Layer {
 
     public MultiHeadLatentAttention(int dModel, int nHeads, int qRank, int kvRank,
                                     RotaryEmbedding rope, Random rnd) {
+        this(dModel, nHeads, qRank, kvRank, rope, rnd, ParameterFactory.float32());
+    }
+
+    public MultiHeadLatentAttention(int dModel, int nHeads, int qRank, int kvRank,
+                                    RotaryEmbedding rope, Random rnd, ParameterFactory parameters) {
         validateDimensions(dModel, nHeads, qRank, kvRank, rope);
 
         this.nHeads  = nHeads;
@@ -35,12 +43,12 @@ public final class MultiHeadLatentAttention implements Layer {
         this.scale   = (float) (1.0 / Math.sqrt(headDim));
         this.rope    = rope;
 
-        this.Wdq  = new Parameter(Tensor.random(dModel, qRank,  rnd));
-        this.Wuq  = new Parameter(Tensor.random(qRank,  dModel, rnd));
-        this.Wdkv = new Parameter(Tensor.random(dModel, kvRank, rnd));
-        this.Wuk  = new Parameter(Tensor.random(kvRank, dModel, rnd));
-        this.Wuv  = new Parameter(Tensor.random(kvRank, dModel, rnd));
-        this.Wo   = new Parameter(Tensor.random(dModel, dModel, rnd));
+        this.Wdq  = parameters.random("queryDown.weight", dModel, qRank, rnd);
+        this.Wuq  = parameters.random("queryUp.weight", qRank, dModel, rnd);
+        this.Wdkv = parameters.random("keyValueDown.weight", dModel, kvRank, rnd);
+        this.Wuk  = parameters.random("keyUp.weight", kvRank, dModel, rnd);
+        this.Wuv  = parameters.random("valueUp.weight", kvRank, dModel, rnd);
+        this.Wo   = parameters.random("output.weight", dModel, dModel, rnd);
     }
 
     private static void validateDimensions(int dModel, int nHeads, int qRank, int kvRank,
@@ -64,12 +72,12 @@ public final class MultiHeadLatentAttention implements Layer {
 
     @Override
     public Tensor forward(Tensor input) {
-        Tensor query = input.matmul(Wdq.value).matmul(Wuq.value);
-        Tensor compressed = input.matmul(Wdkv.value);
-        Tensor key = compressed.matmul(Wuk.value);
-        Tensor value = compressed.matmul(Wuv.value);
-        Tensor context = attend(query, key, value, input.rows);
-        return HeadOps.mergeHeads(context, nHeads).matmul(Wo.value);
+        Tensor query = ProjectionOps.linear(ProjectionOps.linear(input, Wdq.value), Wuq.value);
+        Tensor compressed = ProjectionOps.linear(input, Wdkv.value);
+        Tensor key = ProjectionOps.linear(compressed, Wuk.value);
+        Tensor value = ProjectionOps.linear(compressed, Wuv.value);
+        Tensor context = attend(query, key, value, SequenceLayout.length(input));
+        return ProjectionOps.linear(HeadOps.mergeHeads(context, nHeads), Wo.value);
     }
 
     private Tensor attend(Tensor query, Tensor key, Tensor value, int length) {
@@ -83,14 +91,14 @@ public final class MultiHeadLatentAttention implements Layer {
 
     @Override
     public Tensor forward(Tensor input, InferenceContext context) {
-        Tensor query = input.matmul(Wdq.value).matmul(Wuq.value);
-        Tensor compressed = input.matmul(Wdkv.value);
-        Tensor queries = context.rotate(rope, HeadOps.splitHeads(query, nHeads), input.rows, nHeads);
-        Tensor keys = context.rotate(rope, HeadOps.splitHeads(compressed.matmul(Wuk.value), nHeads),
-                input.rows, nHeads);
-        Tensor values = HeadOps.splitHeads(compressed.matmul(Wuv.value), nHeads);
+        Tensor query = ProjectionOps.linear(ProjectionOps.linear(input, Wdq.value), Wuq.value);
+        Tensor compressed = ProjectionOps.linear(input, Wdkv.value);
+        Tensor queries = context.rotate(rope, HeadOps.splitHeads(query, nHeads), SequenceLayout.length(input), nHeads);
+        Tensor keys = context.rotate(rope, HeadOps.splitHeads(ProjectionOps.linear(compressed, Wuk.value), nHeads),
+                SequenceLayout.length(input), nHeads);
+        Tensor values = HeadOps.splitHeads(ProjectionOps.linear(compressed, Wuv.value), nHeads);
         Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
-        return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);
+        return ProjectionOps.linear(HeadOps.mergeHeads(attended, nHeads), Wo.value);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;
 
@@ -12,7 +13,12 @@ public final class RoPEMultiHeadSelfAttention extends MultiHeadSelfAttention {
 
     public RoPEMultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask,
                                       RotaryEmbedding rope, Random rnd) {
-        super(dModel, nHeads, causalMask, rnd);
+        this(dModel, nHeads, causalMask, rope, rnd, ParameterFactory.float32());
+    }
+
+    public RoPEMultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask,
+                                      RotaryEmbedding rope, Random rnd, ParameterFactory parameters) {
+        super(dModel, nHeads, causalMask, rnd, parameters);
         if (rope == null) throw new IllegalArgumentException("rope must not be null");
         if (rope.headDim() != headDim) {
             throw new IllegalArgumentException("RoPE head dimension does not match attention");

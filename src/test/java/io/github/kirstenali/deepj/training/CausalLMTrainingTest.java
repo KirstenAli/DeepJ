@@ -102,6 +102,23 @@ public class CausalLMTrainingTest {
     }
 
     @Test
+    void batchOfOne_skipsGradientAveragingPass() throws IOException {
+        List<Long> single = gradientVersions(1);
+        List<Long> batched = gradientVersions(2);
+
+        for (int index = 0; index < single.size(); index++) {
+            Assertions.assertEquals(batched.get(index) - 1, single.get(index),
+                    "Only batches above one may add an averaging mutation");
+        }
+    }
+
+    private static List<Long> gradientVersions(int batchSize) throws IOException {
+        VersionRecorder optimizer = new VersionRecorder();
+        CausalLMTraining.trainer(averagingModel(), averagingDataset(), optimizer).trainStep(batchSize);
+        return optimizer.versions;
+    }
+
+    @Test
     void trainer_usesConfigGradClipNorm_toLimitUpdateMagnitude() throws IOException {
         Path tmp = Files.createTempFile("deepj_lm_clip", ".txt");
         Files.writeString(tmp, "hello hello hello hello hello hello");
@@ -157,14 +174,24 @@ public class CausalLMTrainingTest {
     }
 
     private static void assertTensorAverage(Tensor actual, Tensor first, Tensor second) {
-        for (int index = 0; index < actual.data.length; index++) {
-            float expected = (first.data[index] + second.data[index]) * 0.5f;
-            Assertions.assertEquals(expected, actual.data[index], 1e-6f);
+        for (int index = 0; index < actual.rawData().length; index++) {
+            float expected = (first.rawData()[index] + second.rawData()[index]) * 0.5f;
+            Assertions.assertEquals(expected, actual.rawData()[index], 1e-6f);
         }
     }
 
     private record TrainingObservation(List<Float> losses,
                                        List<List<Tensor>> gradients) {}
+
+    private static final class VersionRecorder implements ParameterOptimizer {
+
+        private final List<Long> versions = new ArrayList<>();
+
+        @Override
+        public void step(List<Parameter> parameters) {
+            parameters.forEach(parameter -> versions.add(parameter.grad().gradientState().version()));
+        }
+    }
 
     private static final class GradientRecorder implements ParameterOptimizer {
 

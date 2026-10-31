@@ -25,9 +25,9 @@ class SavedGradientBufferTest {
                 : parameter.value.multiplyScalar(3);
         leaf.sumTensor().add(input.multiply(saved).sumTensor()).backward();
         float addition = gather ? 1 : 3;
-        assertArrayEquals(new float[]{2, 4}, input.grad().data);
-        assertArrayEquals(new float[]{2, 4}, saved.data);
-        assertArrayEquals(new float[]{2 + addition, 4 + addition}, parameter.grad().data);
+        assertArrayEquals(new float[]{2, 4}, input.grad().rawData());
+        assertArrayEquals(new float[]{2, 4}, saved.rawData());
+        assertArrayEquals(new float[]{2 + addition, 4 + addition}, parameter.grad().rawData());
         assertNotSame(saved, parameter.grad());
     }
 }

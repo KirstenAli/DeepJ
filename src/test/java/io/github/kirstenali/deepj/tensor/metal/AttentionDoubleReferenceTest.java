@@ -26,7 +26,7 @@ class AttentionDoubleReferenceTest {
     }
 
     private static void check(AttentionDoubleReference.Inputs input, Tensor variable, double[] derivative) {
-        int[] indices = {3, variable.data.length / 2 + 7, variable.data.length - 1};
+        int[] indices = {3, variable.rawData().length / 2 + 7, variable.rawData().length - 1};
         for (int index : indices) {
             for (double step : new double[]{0.003, 0.001, 0.0003}) {
                 double numerical = difference(input, variable, index, step);
@@ -37,15 +37,15 @@ class AttentionDoubleReferenceTest {
 
     private static double difference(AttentionDoubleReference.Inputs input, Tensor variable,
                                       int index, double step) {
-        float original = variable.data[index];
+        float original = variable.rawData()[index];
         float upper = (float) (original + step), lower = (float) (original - step);
         try {
-            variable.data[index] = upper;
+            variable.rawData()[index] = upper;
             double positive = objective(input);
-            variable.data[index] = lower;
+            variable.rawData()[index] = lower;
             return (positive - objective(input)) / ((double) upper - lower);
         } finally {
-            variable.data[index] = original;
+            variable.rawData()[index] = original;
         }
     }
 
@@ -53,7 +53,7 @@ class AttentionDoubleReferenceTest {
         double[] output = AttentionDoubleReference.calculate(input).output();
         double value = 0;
         for (int index = 0; index < output.length; index++) {
-            value += output[index] * input.upstream().data[index];
+            value += output[index] * input.upstream().rawData()[index];
         }
         return value;
     }

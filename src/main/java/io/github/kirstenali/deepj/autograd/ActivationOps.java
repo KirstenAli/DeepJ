@@ -7,12 +7,13 @@ public final class ActivationOps {
 
     public static Tensor tanh(Tensor input) {
         Tensor output = Tensor.backend().tanh(input);
-        return UnaryOps.record(input, output, g -> g.multiply(output.multiply(output).neg().addScalar(1)), output);
+        return UnaryOps.record(input, output, g -> g.multiply(GradientDType.square(output).neg().addScalar(1)), output);
     }
 
     public static Tensor sigmoid(Tensor input) {
         Tensor output = Tensor.backend().sigmoid(input);
-        return UnaryOps.record(input, output, g -> g.multiply(output).multiply(output.neg().addScalar(1)), output);
+        return UnaryOps.record(input, output, g -> g.multiply(output)
+                .multiply(GradientDType.accumulation(output).neg().addScalar(1)), output);
     }
 
     public static Tensor relu(Tensor input) {

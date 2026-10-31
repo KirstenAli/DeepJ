@@ -38,14 +38,14 @@ public class ActivationsTest {
         Tensor x = Tensor.from2D(new float[][]{{-10, 0, 10}});
         Tensor y = s.forward(x);
 
-        for (int c = 0; c < y.cols; c++) {
-            Assertions.assertTrue(y.data[c] > 0.0f && y.data[c] < 1.0f);
+        for (int c = 0; c < y.matrixCols(); c++) {
+            Assertions.assertTrue(y.rawData()[c] > 0.0f && y.rawData()[c] < 1.0f);
         }
 
         Tensor gradOut = Tensor.from2D(new float[][]{{1, 1, 1}});
         Tensor gx = AutogradTestSupport.backward(s::forward, x, gradOut);
-        for (int c = 0; c < gx.cols; c++) {
-            Assertions.assertTrue(gx.data[c] >= 0.0f, "sigmoid' should be >= 0");
+        for (int c = 0; c < gx.matrixCols(); c++) {
+            Assertions.assertTrue(gx.rawData()[c] >= 0.0f, "sigmoid' should be >= 0");
         }
     }
 
@@ -54,7 +54,7 @@ public class ActivationsTest {
         Tanh t = new Tanh();
         Tensor x1 = Tensor.from2D(new float[][]{{0.5f, -0.5f}});
         Tensor y1 = t.forward(x1);
-        Assertions.assertEquals(y1.data[0], -y1.data[1], 1e-12f);
+        Assertions.assertEquals(y1.rawData()[0], -y1.rawData()[1], 1e-12f);
     }
 
     @Test
@@ -63,8 +63,8 @@ public class ActivationsTest {
         Tensor x = Tensor.from2D(new float[][]{{-1e-3f, 0.0f, 1e-3f}});
         Tensor y = g.forward(x);
 
-        Assertions.assertTrue(y.data[0] < y.data[1]);
-        Assertions.assertTrue(y.data[1] < y.data[2]);
+        Assertions.assertTrue(y.rawData()[0] < y.rawData()[1]);
+        Assertions.assertTrue(y.rawData()[1] < y.rawData()[2]);
     }
 
     @Test
@@ -76,10 +76,10 @@ public class ActivationsTest {
         });
         Tensor p = sm.forward(logits);
 
-        for (int r = 0; r < p.rows; r++) {
+        for (int r = 0; r < p.matrixRows(); r++) {
             float sum = 0.0f;
-            for (int c = 0; c < p.cols; c++) {
-                sum += p.data[r * p.cols + c];
+            for (int c = 0; c < p.matrixCols(); c++) {
+                sum += p.rawData()[r * p.matrixCols() + c];
             }
             Assertions.assertEquals(1.0f, sum, 1e-6f);
         }
@@ -93,7 +93,7 @@ public class ActivationsTest {
 
         Sigmoid s = new Sigmoid();
         Tensor y = s.forward(x);
-        Tensor analytic = AutogradTestSupport.backward(s::forward, x, Tensor.ones(y.rows, y.cols));
+        Tensor analytic = AutogradTestSupport.backward(s::forward, x, Tensor.ones(y.matrixRows(), y.matrixCols()));
 
         Tensor numeric = finiteDiffGradSum(t -> {
             Sigmoid ss = new Sigmoid();
@@ -109,7 +109,7 @@ public class ActivationsTest {
 
         Tanh t = new Tanh();
         Tensor y = t.forward(x);
-        Tensor analytic = AutogradTestSupport.backward(t::forward, x, Tensor.ones(y.rows, y.cols));
+        Tensor analytic = AutogradTestSupport.backward(t::forward, x, Tensor.ones(y.matrixRows(), y.matrixCols()));
 
         Tensor numeric = finiteDiffGradSum(u -> {
             Tanh tt = new Tanh();
@@ -125,7 +125,7 @@ public class ActivationsTest {
 
         GELU g = new GELU();
         Tensor y = g.forward(x);
-        Tensor analytic = AutogradTestSupport.backward(g::forward, x, Tensor.ones(y.rows, y.cols));
+        Tensor analytic = AutogradTestSupport.backward(g::forward, x, Tensor.ones(y.matrixRows(), y.matrixCols()));
 
         Tensor numeric = finiteDiffGradSum(u -> {
             GELU gg = new GELU();
@@ -157,10 +157,10 @@ public class ActivationsTest {
     }
 
     private static Tensor finiteDiffGradSum(Function<Tensor, Tensor> f, Tensor x, float eps) {
-        Tensor grad = new Tensor(x.rows, x.cols);
+        Tensor grad = new Tensor(x.matrixRows(), x.matrixCols());
 
-        for (int r = 0; r < x.rows; r++) {
-            for (int c = 0; c < x.cols; c++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
+            for (int c = 0; c < x.matrixCols(); c++) {
                 float old = x.get(r, c);
 
                 x.set(r, c, old + eps);
@@ -178,10 +178,10 @@ public class ActivationsTest {
     }
 
     private static Tensor finiteDiffGradScalarObjective(Function<Tensor, Float> objective, Tensor x, float eps) {
-        Tensor grad = new Tensor(x.rows, x.cols);
+        Tensor grad = new Tensor(x.matrixRows(), x.matrixCols());
 
-        for (int r = 0; r < x.rows; r++) {
-            for (int c = 0; c < x.cols; c++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
+            for (int c = 0; c < x.matrixCols(); c++) {
                 float old = x.get(r, c);
 
                 x.set(r, c, old + eps);
@@ -203,9 +203,9 @@ public class ActivationsTest {
         Tensor p = sm.forward(logits);
 
         float s = 0.0f;
-        for (int r = 0; r < p.rows; r++) {
-            for (int c = 0; c < p.cols; c++) {
-                s += p.data[r * p.cols + c] * upstream.data[r * upstream.cols + c];
+        for (int r = 0; r < p.matrixRows(); r++) {
+            for (int c = 0; c < p.matrixCols(); c++) {
+                s += p.rawData()[r * p.matrixCols() + c] * upstream.rawData()[r * upstream.matrixCols() + c];
             }
         }
         return s;

@@ -32,7 +32,7 @@ final class ExpandedAttentionReferenceBackend {
     private CausalAttentionResult forward(Object[] args) {
         Tensor query = (Tensor) args[0], key = (Tensor) args[1], value = (Tensor) args[2];
         int queryHeads = (int) args[3], keyHeads = (int) args[4];
-        int[] mapping = mapping(query.rows, queryHeads, keyHeads);
+        int[] mapping = mapping(query.matrixRows(), queryHeads, keyHeads);
         Tensor expandedKey = metal.sliceRows(key, mapping), expandedValue = metal.sliceRows(value, mapping);
         var saved = metal.causalAttention(query, expandedKey, expandedValue, queryHeads, (float) args[5]);
         if (GradMode.isEnabled()) pending.put(saved, new Saved(expandedKey, expandedValue, mapping));
@@ -51,7 +51,7 @@ final class ExpandedAttentionReferenceBackend {
     }
 
     private Tensor fold(Tensor compact, int[] mapping, Tensor gradient) {
-        Tensor result = new Tensor(compact.rows, compact.cols);
+        Tensor result = new Tensor(compact.matrixRows(), compact.matrixCols());
         metal.scatterAddRows(result, mapping, gradient);
         return result;
     }

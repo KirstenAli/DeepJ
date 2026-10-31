@@ -16,9 +16,9 @@ final class MetalHostZeroInput {
     }
 
     static boolean isUnboundZero(Tensor target) {
-        return target.getGpuTag() == null
-                && target.data != null && target.data.length == (long) target.rows * target.cols
-                && positiveZeros(target.data);
+        if (target.getGpuTag() != null) return false;
+        if (!target.hasHostStorage()) return true;
+        return target.rawData() != null && positiveZeros(target.rawData());
     }
 
     static boolean positiveZeros(float[] values) {

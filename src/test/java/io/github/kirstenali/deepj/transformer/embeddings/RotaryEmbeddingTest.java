@@ -35,11 +35,11 @@ class RotaryEmbeddingTest {
                                              {1.0f, 0.0f, 0.0f, 0.0f}});
         Tensor y = rope.apply(x, 2, 1);
 
-        assertEquals(1.0f, y.data[0], 1e-6f);
-        assertEquals(0.0f, y.data[1], 1e-6f);
+        assertEquals(1.0f, y.rawData()[0], 1e-6f);
+        assertEquals(0.0f, y.rawData()[1], 1e-6f);
 
-        assertEquals(Math.cos(1.0f), y.data[1 * 4 + 0], 1e-6f);
-        assertEquals(Math.sin(1.0f), y.data[1 * 4 + 1], 1e-6f);
+        assertEquals(Math.cos(1.0f), y.rawData()[1 * 4 + 0], 1e-6f);
+        assertEquals(Math.sin(1.0f), y.rawData()[1 * 4 + 1], 1e-6f);
     }
 
     @Test
@@ -66,7 +66,7 @@ class RotaryEmbeddingTest {
                                              {2.0f, -3.0f, 0.0f, 5.0f}});
         Tensor y = rope.apply(x, 3, 1);
 
-        for (int r = 0; r < x.rows; r++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
             double normX = rowNorm(x, r);
             double normY = rowNorm(y, r);
             assertEquals(normX, normY, 1e-6f, "Norm should be preserved at row " + r);
@@ -110,8 +110,8 @@ class RotaryEmbeddingTest {
 
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
-                assertEquals(ySingle.data[r * 4 + c], yDouble.data[r * 4 + c],       1e-6f, "head0 row " + r);
-                assertEquals(ySingle.data[r * 4 + c], yDouble.data[(r + 2) * 4 + c], 1e-6f, "head1 row " + r);
+                assertEquals(ySingle.rawData()[r * 4 + c], yDouble.rawData()[r * 4 + c],       1e-6f, "head0 row " + r);
+                assertEquals(ySingle.rawData()[r * 4 + c], yDouble.rawData()[(r + 2) * 4 + c], 1e-6f, "head1 row " + r);
             }
         }
     }
@@ -234,9 +234,9 @@ class RotaryEmbeddingTest {
 
     private static double rowNorm(Tensor t, int row) {
         double s = 0;
-        int base = row * t.cols;
-        for (int c = 0; c < t.cols; c++) {
-            s += t.data[base + c] * t.data[base + c];
+        int base = row * t.matrixCols();
+        for (int c = 0; c < t.matrixCols(); c++) {
+            s += t.rawData()[base + c] * t.rawData()[base + c];
         }
         return Math.sqrt(s);
     }
@@ -258,8 +258,8 @@ class RotaryEmbeddingTest {
     private static void assertRotaryGradients(RotaryEmbedding rope, Tensor x, Tensor g,
                                               Tensor analytic, int seqLen, int nHeads,
                                               float eps, float tol) {
-        for (int r = 0; r < x.rows; r++) {
-            for (int c = 0; c < x.cols; c++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
+            for (int c = 0; c < x.matrixCols(); c++) {
                 float orig = x.get(r, c);
                 x.set(r, c, orig + eps);
                 float fPlus = weightedSum(rope.apply(x, seqLen, nHeads), g);
@@ -289,8 +289,8 @@ class RotaryEmbeddingTest {
     private static void assertAttentionInputGradient(RoPEMultiHeadSelfAttention attention,
                                                      Tensor input, Tensor gradient,
                                                      float eps, float tol) {
-        for (int r = 0; r < input.rows; r++) {
-            for (int c = 0; c < input.cols; c++) {
+        for (int r = 0; r < input.matrixRows(); r++) {
+            for (int c = 0; c < input.matrixCols(); c++) {
                 float orig = input.get(r, c);
                 input.set(r, c, orig + eps);
                 float fPlus = sumAll(attention.forward(input));
@@ -305,9 +305,9 @@ class RotaryEmbeddingTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;
@@ -315,8 +315,8 @@ class RotaryEmbeddingTest {
 
     private static float weightedSum(Tensor y, Tensor g) {
         float s = 0.0f;
-        for (int i = 0; i < y.data.length; i++) {
-            s += y.data[i] * g.data[i];
+        for (int i = 0; i < y.rawData().length; i++) {
+            s += y.rawData()[i] * g.rawData()[i];
         }
         return s;
     }

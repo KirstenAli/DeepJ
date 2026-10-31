@@ -4,7 +4,10 @@ import io.github.kirstenali.deepj.activations.Softmax;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.ProjectionOps;
+import io.github.kirstenali.deepj.tensor.SequenceLayout;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 
 import java.util.List;
 import java.util.Random;
@@ -27,6 +30,11 @@ public class MultiHeadSelfAttention implements Layer {
     private final Softmax softmax;
 
     public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd) {
+        this(dModel, nHeads, causalMask, rnd, ParameterFactory.float32());
+    }
+
+    public MultiHeadSelfAttention(int dModel, int nHeads, boolean causalMask, Random rnd,
+                                   ParameterFactory parameters) {
         validateDimensions(dModel, nHeads);
 
         this.dModel = dModel;
@@ -35,10 +43,10 @@ public class MultiHeadSelfAttention implements Layer {
         this.causalMask = causalMask;
         this.scale = (float) (1.0 / Math.sqrt(headDim));
 
-        this.Wq = new Parameter(Tensor.random(dModel, dModel, rnd));
-        this.Wk = new Parameter(Tensor.random(dModel, dModel, rnd));
-        this.Wv = new Parameter(Tensor.random(dModel, dModel, rnd));
-        this.Wo = new Parameter(Tensor.random(dModel, dModel, rnd));
+        this.Wq = parameters.random("query.weight", dModel, dModel, rnd);
+        this.Wk = parameters.random("key.weight", dModel, dModel, rnd);
+        this.Wv = parameters.random("value.weight", dModel, dModel, rnd);
+        this.Wo = parameters.random("output.weight", dModel, dModel, rnd);
 
         this.softmax = new Softmax();
     }
@@ -53,11 +61,11 @@ public class MultiHeadSelfAttention implements Layer {
     public Tensor forward(Tensor x) {
         validateInput(x);
         Projections proj = projectInputs(x);
-        Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), x.rows);
-        Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), x.rows);
+        Tensor queries = transformQueryKey(HeadOps.splitHeads(proj.Q, nHeads), SequenceLayout.length(x));
+        Tensor keys = transformQueryKey(HeadOps.splitHeads(proj.K, nHeads), SequenceLayout.length(x));
         Tensor values = HeadOps.splitHeads(proj.V, nHeads);
         Tensor context = attend(queries, keys, values);
-        return HeadOps.mergeHeads(context, nHeads).matmul(Wo.value);
+        return ProjectionOps.linear(HeadOps.mergeHeads(context, nHeads), Wo.value);
     }
 
     protected Tensor transformQueryKey(Tensor heads, int seqLen) {
@@ -81,25 +89,23 @@ public class MultiHeadSelfAttention implements Layer {
         validateInput(input);
         Projections projections = projectInputs(input);
         Tensor queries = transformQueryKey(HeadOps.splitHeads(projections.Q, nHeads),
-                input.rows, context);
+                SequenceLayout.length(input), context);
         Tensor keys = transformQueryKey(HeadOps.splitHeads(projections.K, nHeads),
-                input.rows, context);
+                SequenceLayout.length(input), context);
         Tensor values = HeadOps.splitHeads(projections.V, nHeads);
         Tensor attended = context.attend(this, queries, keys, values, nHeads, nHeads, scale);
-        return HeadOps.mergeHeads(attended, nHeads).matmul(Wo.value);
+        return ProjectionOps.linear(HeadOps.mergeHeads(attended, nHeads), Wo.value);
     }
 
     private void validateInput(Tensor x) {
-        if (x.cols != dModel) {
-            throw new IllegalArgumentException("Expected cols=" + dModel + " got " + x.cols);
-        }
+        SequenceLayout.requireWidth(x, dModel);
     }
 
     private Projections projectInputs(Tensor x) {
         return new Projections(
-                x.matmul(Wq.value),
-                x.matmul(Wk.value),
-                x.matmul(Wv.value));
+                ProjectionOps.linear(x, Wq.value),
+                ProjectionOps.linear(x, Wk.value),
+                ProjectionOps.linear(x, Wv.value));
     }
 
     private Tensor attend(Tensor queries, Tensor keys, Tensor values) {

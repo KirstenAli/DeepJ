@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.optimisers.Parameter;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.training.Trainable;
 
 import java.util.List;
@@ -14,9 +15,13 @@ public final class PositionalEmbedding implements Trainable {
     private final Parameter weight;
 
     public PositionalEmbedding(int maxSeq, int dModel, Random rnd) {
+        this(maxSeq, dModel, rnd, ParameterFactory.float32());
+    }
+
+    public PositionalEmbedding(int maxSeq, int dModel, Random rnd, ParameterFactory parameters) {
         this.maxSeq = maxSeq;
         this.dModel = dModel;
-        this.weight = new Parameter(Tensor.random(maxSeq, dModel, rnd));
+        this.weight = parameters.random("weight", maxSeq, dModel, rnd);
     }
 
     public Tensor forward(int seqLen) {

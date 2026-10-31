@@ -1,9 +1,16 @@
 package io.github.kirstenali.deepj.autograd;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.HeadLayout;
 
 public final class LayoutOps {
     private LayoutOps() {}
+
+    public static Tensor indexSelect(Tensor input, int axis, int[] indices) {
+        int[] saved = indices.clone();
+        Tensor output = Tensor.backend().indexSelect(input, axis, saved);
+        return Autograd.recordSaved(output, new IndexSelectBackward(input, axis, saved), new Tensor[]{input});
+    }
 
     public static Tensor gather(Tensor input, int[] indices) {
         int[] saved = indices.clone();
@@ -12,11 +19,13 @@ public final class LayoutOps {
     }
 
     public static Tensor splitHeads(Tensor input, int heads) {
+        if (input.rank() == 3) return HeadLayout.split(input, heads);
         return UnaryOps.record(input, Tensor.backend().splitHeads(input, heads),
                 g -> Tensor.backend().mergeHeads(g, heads));
     }
 
     public static Tensor mergeHeads(Tensor input, int heads) {
+        if (input.rank() == 4) return HeadLayout.merge(input, heads);
         return UnaryOps.record(input, Tensor.backend().mergeHeads(input, heads),
                 g -> Tensor.backend().splitHeads(g, heads));
     }
@@ -35,6 +44,10 @@ public final class LayoutOps {
     public static Tensor rotary(Tensor input, Tensor cosine, Tensor sine, int length, boolean inverse) {
         if (cosine.requiresGrad() || sine.requiresGrad()) {
             throw new IllegalArgumentException("Rotary tables must be constants");
+        }
+        if (input.rank() == 4) {
+            if (input.size(2) != length) throw new IllegalArgumentException("Rotary time axis mismatch");
+            return rotary(HeadLayout.pack(input), cosine, sine, length, inverse).reshape(input.shape());
         }
         Tensor output = Tensor.backend().rotary(input, cosine, sine, length, inverse);
         return Autograd.recordBuiltinSaved(output,

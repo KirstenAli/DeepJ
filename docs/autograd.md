@@ -2,6 +2,9 @@
 
 Available in DeepJ `0.10.0-alpha` and newer.
 
+The ND/compact-dtype and `TensorScope` details below describe the current source branch;
+see [tensors and precision](tensors.md) for availability and matrix-API migration.
+
 DeepJ records differentiable tensor operations when at least one input requires gradients.
 Calling `backward()` follows those operations in reverse and accumulates gradients on leaf tensors.
 The engine is Java code and uses the selected CPU or Metal backend, including fused backward kernels.
@@ -17,6 +20,8 @@ float derivative = x.grad().item(); // 7.0
 
 For non-scalar outputs, pass an upstream tensor of the same shape to `output.backward(upstream)`.
 Gradients accumulate until `tensor.zeroGrad()` or `model.zeroGrad()` is called.
+Broadcasting, views and repeated indices accumulate into the original input shape.
+FLOAT16 and BFLOAT16 inputs use FLOAT32 gradients; see [tensors and precision](tensors.md).
 A backward graph is released after use. Run forward again for another backward pass.
 Higher-order derivatives and retaining graphs for repeated backward passes are not supported.
 Graph connections retain shape and gradient metadata, not complete activation arrays. Each operation
@@ -30,6 +35,12 @@ last-forward caches. Each parameter's `value` is a tracked leaf tensor; `paramet
 `parameter.value.grad()` access the same gradient buffer.
 Transformer stacks and decoder models list shared parameters once, preserving first-use order so
 gradient scaling and optimizer updates are not repeated for a reused layer.
+
+For trainable parameters, `zeroGrad()` keeps a non-null FLOAT32 zero gradient for every parameter
+dtype. CPU gradients reuse existing host storage when possible. Metal gradients use lazy zeros
+and avoid disposable host arrays and device-zero buffers before accumulation. Explicitly reading
+a gradient can materialize its storage. Zeroing a gradient is not the same as removing it:
+optimizer step and weight-decay semantics are preserved.
 
 ```java
 model.zeroGrad();
@@ -62,20 +73,30 @@ To update values manually, use `set(...)`, `setRow(...)` or in-place operations 
 Changing a tensor needed by an outstanding backward pass causes an error rather than using stale values.
 
 `detach()` returns an independent, untracked copy. `copy()` preserves gradient tracking.
-Neither introduces shared GPU-buffer ownership.
+Views such as `permute`, `slice` and compatible `view` operations share storage and mutation checks.
 
-The public `data` array and `Tensor.backend()` are low-level escape hatches for kernels and advanced
-code. Direct array writes and raw backend calls bypass autograd's managed mutation checks and tracking.
+`rawData()`, the mutable array returned by `data()`, and `Tensor.backend()` are low-level escape
+hatches for kernels and advanced code. Direct array writes and raw backend calls bypass autograd's managed
+mutation checks and tracking. The replaceable public `data` field has been removed.
 Do not use them to modify tensors belonging to a live backward graph. Use tensor operations for
 differentiable code, and managed writes or `TensorAdapters.unpackF32Into(...)` for explicit value replacement.
 
-Metal results allocate CPU storage only when requested. Use `tensor.data()` to download and access
-current values, or call `tensor.materialize()` before accessing the raw `tensor.data` field, which can
-be `null` beforehand. `get`, `rowData`, copying and serialization handle this automatically. Ordinary
-CPU tensor constructors still allocate their arrays immediately. Scratch GPU buffers can share storage
+Metal results allocate CPU storage only when requested. Use `get(indices...)` or
+`toFloatArray()` to read any dtype or layout. `data()` and `rawData()` expose a mutable array
+only for full, contiguous FLOAT32 storage; they are not general ND or compact-storage accessors.
+For that layout, `data()` downloads current values; `rawData()` can be `null` until
+`materialize()` is called. Explicit conversions may allocate copies. Ordinary CPU tensor
+constructors allocate their selected dtype's storage immediately. Scratch GPU buffers can share storage
 when their command lifetimes do not overlap. Library-owned backward scratch is retired explicitly,
 without waiting for garbage collection. Custom backward inputs, live public tensors, saved values and
 retained parameter/cache buffers remain protected.
+
+For custom repeated evaluation, consume each batch's output inside a `TensorScope`, then
+call `Tensor.backend().releaseTemporaryResources()` after the scope closes. Keep only scalar
+metrics outside that scope. This gives temporary views a deterministic lifetime without
+waiting for garbage collection; `noGrad()` alone does not define their ownership.
+Use `CausalLMEvaluation.evaluate(...)` for ordinary held-out evaluation. Do not keep scoped
+outputs for later use unless explicitly escaped or retained.
 
 GPU buffer IDs are opaque and may be reused after release. Raw handles must not be retained across
 resource cleanup; attempts to reuse a disposed handle are rejected.
@@ -94,8 +115,12 @@ resource cleanup; attempts to reuse a disposed handle are rejected.
 - Tensor convenience wrappers for `reluBackward`, `geluBackward`, `softmaxBackward`,
   `crossEntropyGradient` and `layerNormBackward` are removed; autograd invokes the backend rules.
 
-No model or training-checkpoint format changes are required. Saved parameter ordering, tied-weight
-identity, optimizer moments and resume counters are unchanged. Runtime autograd graphs are not saved.
+The autograd engine does not save runtime operation graphs. Existing FLOAT32 checkpoints
+retain their parameter ordering, tied weights, optimizer moments and resume counters.
+ND/compact tensors use shape- and dtype-aware formats; compact training checkpoints also
+preserve FLOAT32 master weights. Precision conversion is explicit, not an implicit resume step.
+Transient lazy-zero buffers and operation graphs are not checkpoint payloads; restoration preserves
+values and optimizer state rather than depending on old device-buffer identities.
 
 ## Verification
 

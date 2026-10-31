@@ -7,12 +7,15 @@ public final class SelectionOps {
 
     /** Tied maxima share the row gradient equally. */
     public static Tensor maximum(Tensor input) {
+        if (input.dtype() != io.github.kirstenali.deepj.tensor.DType.FLOAT32) {
+            return AxisReductionOps.maximum(input, new int[]{1}, true);
+        }
         Tensor output = Tensor.backend().maxAlongRows(input);
         return UnaryOps.record(input, output, g -> maximumGradient(input, output, g), input, output);
     }
 
     private static Tensor maximumGradient(Tensor input, Tensor maximum, Tensor gradient) {
-        Tensor ones = Tensor.ones(input.rows, input.cols);
+        Tensor ones = Tensor.ones(input.matrixRows(), input.matrixCols());
         Tensor distance = input.subtractBroadcastCols(maximum).neg();
         Tensor selected = ones.subtract(Tensor.backend().reluBackward(distance, ones));
         Tensor shared = gradient.divide(selected.sumAlongRows());

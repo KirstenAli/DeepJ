@@ -23,7 +23,7 @@ public final class BroadcastOps {
     public static Tensor divide(Tensor a, Tensor b) {
         return BinaryOps.record(Tensor.backend().divideBroadcastCols(a, b), a, b,
                 g -> g.divideBroadcastCols(b),
-                g -> g.multiply(a).sumAlongRows().divide(b.multiply(b)).neg());
+                g -> g.multiply(a).sumAlongRows().divide(GradientDType.square(b)).neg());
     }
 
     private static Tensor product(Tensor a, Tensor b, boolean columns) {

@@ -1,0 +1,80 @@
+{
+  "scope": "Tested fixes for draft PR review, not complete model/performance sign-off",
+  "date": "2026-10-30",
+  "reviewOnly": true,
+  "mergeOrReleaseApproved": false,
+  "baselineJarSha256": "bfbadaf4c1fc3d3241fef5b81fdf611767d5f61926204b4e1021ea97c5a3d591",
+  "frozenCandidateJarSha256": "fffed479e94484a85671b8219c075c86ddb23f6719619eac366f6d88016942a0",
+  "rebuiltJarSha256": "a4960c5ed04b254ff6797aba5b5b4bfe64a94a5663556d54c1dca96c1a5defc3",
+  "allExtractedProductionJarEntriesByteExact": true,
+  "sourceManifestFilesVerifiedBeforeReportUpdate": 1378,
+  "portableBuild": {
+    "totalTests": 2312,
+    "passedTests": 1518,
+    "skippedOptInTests": 794,
+    "failures": 0,
+    "errors": 0,
+    "frontendCliQualityCoveragePassed": true
+  },
+  "integratedBuild": {
+    "totalTests": 2332,
+    "passedTests": 2320,
+    "failures": 0,
+    "errors": 0,
+    "skips": {"disabledManualTimingTests": 11, "optionalLocalCheckpointSmoke": 1},
+    "metalPackageTestsPassed": 847,
+    "desktopWindowTestsPassed": 11,
+    "newNativeRegistryDtypeCasesPassed": 3,
+    "allEnforcedCoverageAndQualityGatesPassed": true,
+    "fullJavaLinePercent": 94.52041785375118,
+    "fullJavaBranchPercent": 86.25075711689885,
+    "autogradLinePercent": 99.81949458483754,
+    "autogradBranchPercent": 96.44970414201184,
+    "nativeLinePercent": 97.50334373606778,
+    "nativeBranchPercent": 88.20033955857386,
+    "nativeFunctionPercent": 100,
+    "metalKernelSelections": {"covered": 82, "total": 82},
+    "frontendLineStatementFunctionBranchPercent": 100,
+    "noSampledGlobalSwapIncreaseOrSwapouts": true,
+    "originalSmallBuildGuardsUnchanged": true,
+    "buildLogSha256": "4e3b854bd61c59c1094368de69967d06203c5be6e47a61603eceae8940cec79a"
+  },
+  "normalNovaSynthetic200UpdateComparison": {
+    "orders": ["oldThenNew", "newThenOld"],
+    "all800LossBitsExact": true,
+    "trackedNativeLivePeakAndCountExact": true,
+    "noSampledGlobalSwapIncreaseOrSwapouts": true,
+    "hostCpuChangePercent": [0.47105607302035946, 0.7330981144594739],
+    "measured30UpdateElapsedChangePercent": [0.058956441804380866, 0.2077223550564833],
+    "whole200UpdateElapsedChangePercent": [0.34524731354803606, 0.2991958912601067],
+    "performanceApproved": false
+  },
+  "fixedWorkerSplitDiagnostic": {
+    "normalAcceptanceReplacement": false,
+    "all800LossBitsExact": true,
+    "allCompilerWorkerIdentitiesStable": true,
+    "allStoredUserKernelSplitsMatchExistingTotals": true,
+    "trackedNativeLivePeakAndCountExact": true,
+    "noSampledGlobalSwapIncreaseOrSwapouts": true,
+    "noObservedChromeCompetition": true,
+    "whole200HostCpuDeltaMilliseconds": [162.136, 124.824],
+    "whole200CompilerCpuDeltaMilliseconds": [228.435, 23.930],
+    "whole200NoncompilerCpuDeltaMilliseconds": [-66.299, 100.894],
+    "last80NoncompilerCpuDeltaMilliseconds": [85.747, -35.455],
+    "last80MainUserCpuDeltaMilliseconds": [15.886, -9.308],
+    "last80MainKernelCpuDeltaMilliseconds": [17.645, 5.041],
+    "causalExplanationEstablished": false
+  },
+  "preservedFailure": {
+    "precedingSplitAttempt": "global swap guard stopped third process; fourth unstarted",
+    "globalSwapIncreaseMiB": 68.25,
+    "backgroundConditionsChanged": true,
+    "perProcessSwapCauseEstablished": false,
+    "relabelledAsPassed": false
+  },
+  "outstanding": [
+    "Host CPU causal explanation and performance acceptance under the human requirements",
+    "Final integrated all-model numerical, state, file, dtype, real-data, endurance and memory qualification",
+    "Exact-head CI for the review commit"
+  ]
+}

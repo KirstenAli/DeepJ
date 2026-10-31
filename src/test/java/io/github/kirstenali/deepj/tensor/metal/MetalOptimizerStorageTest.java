@@ -13,8 +13,8 @@ class MetalOptimizerStorageTest extends MetalDifferentialTestSupport {
     @Test
     void backendZerosAreLazyWhilePublicTensorZerosRemainCpuBacked() {
         Tensor state = metal.zeros(3, 5).retainDeviceBuffer();
-        assertNull(state.data);
-        assertNotNull(Tensor.zeros(3, 5).data);
+        assertNull(state.rawData());
+        assertNotNull(Tensor.zeros(3, 5).rawData());
         metal.releaseTemporaryResources();
         assertArrayEquals(new float[15], state.data());
     }
@@ -32,14 +32,14 @@ class MetalOptimizerStorageTest extends MetalDifferentialTestSupport {
         optimizer.step(List.of(parameter));
         metal.releaseTemporaryResources();
         assertLazyMoments(state);
-        assertNotNull(parameter.value.data);
+        assertNotNull(parameter.value.rawData());
         assertTrue(first.retainsDeviceBuffer());
         assertArrayEquals(new float[]{0.19f, -0.19f}, first.data(), 1e-7f);
     }
 
     private static void assertLazyMoments(AdamW.State state) {
-        assertNull(state.firstMoments().get(0).data);
-        assertNull(state.secondMoments().get(0).data);
+        assertNull(state.firstMoments().get(0).rawData());
+        assertNull(state.secondMoments().get(0).rawData());
     }
 
     @Test
@@ -52,10 +52,10 @@ class MetalOptimizerStorageTest extends MetalDifferentialTestSupport {
         AdamW optimizer = AdamW.defaultAdamW(1e-3f);
         optimizer.restoreState(List.of(parameter), supplied);
         Tensor restored = optimizer.state(List.of(parameter)).firstMoments().get(0);
-        first.data[1] = 9;
-        assertNull(restored.data);
+        first.rawData()[1] = 9;
+        assertNull(restored.rawData());
         assertArrayEquals(new float[]{-0.0f, Float.MIN_VALUE}, restored.data());
-        assertEquals(0x80000000, Float.floatToRawIntBits(restored.data[0]));
+        assertEquals(0x80000000, Float.floatToRawIntBits(restored.rawData()[0]));
         assertNotSame(first, restored);
     }
 

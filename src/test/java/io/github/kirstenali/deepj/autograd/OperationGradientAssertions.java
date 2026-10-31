@@ -12,20 +12,20 @@ public final class OperationGradientAssertions {
     public static void check(Function<Tensor, Tensor> forward, Tensor point) {
         Tensor variable = new Tensor(point).requiresGrad(true);
         Tensor output = forward.apply(variable);
-        output.backward(Tensor.ones(output.rows, output.cols));
+        output.backward(Tensor.ones(output.matrixRows(), output.matrixCols()));
         Tensor analytic = variable.grad();
         analytic.materialize();
         try (var ignored = GradMode.noGrad()) {
-            for (int index = 0; index < point.data.length; index++) {
+            for (int index = 0; index < point.rawData().length; index++) {
                 float numerical = difference(forward, point, index);
-                assertEquals(numerical, analytic.data[index], 3e-3f + Math.abs(numerical) * 2e-2f,
+                assertEquals(numerical, analytic.rawData()[index], 3e-3f + Math.abs(numerical) * 2e-2f,
                         "gradient at flat index " + index);
             }
         }
     }
 
     private static float difference(Function<Tensor, Tensor> forward, Tensor point, int index) {
-        int row = index / point.cols, column = index % point.cols;
+        int row = index / point.matrixCols(), column = index % point.matrixCols();
         float original = point.get(row, column), epsilon = 1e-3f;
         try {
             point.set(row, column, original + epsilon);

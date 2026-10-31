@@ -41,16 +41,24 @@ final class MetalNative {
 
     private static native boolean nativeSupportsTiledAttention();
 
+    static native boolean nativeSupportsCompactMatmul(int dtype);
+
     static native void nativeAllocBuffers(int[] ids, int[] sizes, int count);
+    static native void nativeAllocTypedBuffers(int[] ids, int[] elements, int[] dtypes, int count);
 
     static native void nativeUploadBuffer(int bufId, float[] data);
+    static native void nativeUploadBuffer16(int bufId, short[] data);
 
     static native void nativeZeroBuffer(int bufId, int floatCount);
+    static native void nativeZeroTypedBuffer(int bufId, int elements, int dtype);
 
     static native void nativeDownloadBuffer(int bufId, float[] out);
+    static native void nativeDownloadBuffer16(int bufId, short[] out);
+    static native long nativeBufferByteLength(int bufId);
 
     static native void nativeReleaseBuffers(int[] ids, int count);
 
     static native void nativeFlushOps(int[] cmdStream, int cmdStreamLength);
+    static native void nativeFlushLayoutOps(int[] commands, int length, long[] layouts);
 
 }

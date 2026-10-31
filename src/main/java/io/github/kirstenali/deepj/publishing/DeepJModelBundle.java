@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.IntFunction;
 
 public final class DeepJModelBundle {
 
@@ -83,8 +84,9 @@ public final class DeepJModelBundle {
             The `model.dj` checkpoint and `tokenizer.bpe` files use DeepJ's versioned binary formats.
             They are not directly loadable by the Python Transformers library.
 
-            Generation uses DeepJ's key/value cache. When the context window shifts,
-            DeepJ rebuilds the cache for that window.
+            Generation uses DeepJ's key/value cache. See
+            [generation options](https://github.com/KirstenAli/DeepJ/blob/master/docs/inference.md)
+            for cache modes and context-window behaviour.
 
             ## Usage
 
@@ -107,7 +109,8 @@ public final class DeepJModelBundle {
         DeepJOriginConfig config = model.config();
         validate(directory, tokenizer, card, config.vocabSize());
         return writeBundle(directory, model, tokenizer,
-                configJson(config, model.promptFormat()), modelCard(card, config, model.promptFormat()));
+                version -> configJson(config, model.promptFormat(), version),
+                version -> modelCard(card, config, model.promptFormat(), version));
     }
 
     public static Path export(Path directory, DeepJPrism model, BPEModel tokenizer,
@@ -116,17 +119,19 @@ public final class DeepJModelBundle {
         DeepJPrismConfig config = model.config();
         validate(directory, tokenizer, card, config.vocabSize());
         return writeBundle(directory, model, tokenizer,
-                configJson(config, model.promptFormat()), modelCard(card, config, model.promptFormat()));
+                version -> configJson(config, model.promptFormat(), version),
+                version -> modelCard(card, config, model.promptFormat(), version));
     }
 
     private static Path writeBundle(Path directory, DecoderOnlyModel model, BPEModel tokenizer,
-                                    String configJson, String modelCard) throws IOException {
+                                    IntFunction<String> configJson, IntFunction<String> modelCard) throws IOException {
         Files.createDirectories(directory);
         ModelSerializer.save(model.parameters(), directory.resolve(MODEL_FILE),
                 new ModelSettings(model.config(), model.promptFormat(), publicMetadata(model)));
         BPEModelIO.save(directory.resolve(TOKENIZER_FILE), tokenizer);
-        writeText(directory.resolve(CONFIG_FILE), configJson);
-        writeText(directory.resolve(MODEL_CARD_FILE), modelCard);
+        int version = ModelSerializer.formatVersion(directory.resolve(MODEL_FILE));
+        writeText(directory.resolve(CONFIG_FILE), configJson.apply(version));
+        writeText(directory.resolve(MODEL_CARD_FILE), modelCard.apply(version));
         return directory;
     }
 
@@ -156,31 +161,31 @@ public final class DeepJModelBundle {
         Files.writeString(path, content, StandardCharsets.UTF_8);
     }
 
-    private static String configJson(DeepJOriginConfig config, PromptFormat format) {
+    private static String configJson(DeepJOriginConfig config, PromptFormat format, int checkpointVersion) {
         return ORIGIN_CONFIG_TEMPLATE.formatted(format.name().toLowerCase(Locale.ROOT),
-                ModelSerializer.CURRENT_FORMAT_VERSION,
+                checkpointVersion,
                 BPEModel.CURRENT_FORMAT_VERSION,
                 config.vocabSize(), config.maxSeqLen(), config.dModel(), config.nHeads(),
                 config.nLayers(), config.dFF(), config.initScale(), config.gradClipNorm());
     }
 
-    private static String configJson(DeepJPrismConfig config, PromptFormat format) {
+    private static String configJson(DeepJPrismConfig config, PromptFormat format, int checkpointVersion) {
         return PRISM_CONFIG_TEMPLATE.formatted(format.name().toLowerCase(Locale.ROOT),
-                ModelSerializer.CURRENT_FORMAT_VERSION,
+                checkpointVersion,
                 BPEModel.CURRENT_FORMAT_VERSION, config.vocabSize(), config.maxSeqLen(),
                 config.dModel(), config.nHeads(), config.nLayers(), config.dFF(),
                 config.qRank(), config.kvRank(), config.initScale(), config.gradClipNorm());
     }
 
-    private static String modelCard(ModelCard card, DeepJOriginConfig config, PromptFormat format) {
+    private static String modelCard(ModelCard card, DeepJOriginConfig config, PromptFormat format, int version) {
         String details = "This DeepJ Origin model has %d layers, a hidden size of %d, "
                 .formatted(config.nLayers(), config.dModel())
                 + "%d attention heads and a %,d-token vocabulary."
                 .formatted(config.nHeads(), config.vocabSize());
-        return formatModelCard(card, details, usage(format));
+        return formatModelCard(card, details, usage(format, version));
     }
 
-    private static String modelCard(ModelCard card, DeepJPrismConfig config, PromptFormat format) {
+    private static String modelCard(ModelCard card, DeepJPrismConfig config, PromptFormat format, int version) {
         String details = "This compact language model was created with "
                 + "[DeepJ](https://github.com/KirstenAli/DeepJ) and uses the DeepJ Prism "
                 + "Transformer architecture with %d layers, a hidden size of %d, "
@@ -189,7 +194,7 @@ public final class DeepJModelBundle {
                 .formatted(config.nHeads(), config.qRank(), config.kvRank(), config.vocabSize())
                 + "\n\nDeepJ Prism uses low-rank Q/KV attention with rotary embeddings, "
                 + "RMSNorm and SwiGLU.";
-        return formatModelCard(card, details, usage(format));
+        return formatModelCard(card, details, usage(format, version));
     }
 
     private static String formatModelCard(ModelCard card, String details, String usage) {
@@ -197,10 +202,10 @@ public final class DeepJModelBundle {
                 details, usage, card.trainingData(), card.limitations());
     }
 
-    private static String usage(PromptFormat format) {
+    private static String usage(PromptFormat format, int version) {
         String prompt = format == PromptFormat.INSTRUCTION_RESPONSE
                 ? "What is a computer?" : "Once upon a time";
-        return usageHeader() + """
+        return usageHeader(version) + """
                 ```java
                 DeepJChat chat = DeepJChat.load(Path.of("downloaded-model"));
                 String answer = chat.generate("%s");
@@ -208,11 +213,19 @@ public final class DeepJModelBundle {
                 """.formatted(prompt) + desktopUsage().stripTrailing();
     }
 
-    private static String usageHeader() {
+    private static String usageHeader(int version) {
+        String requirement = version > 3
+                ? "This typed checkpoint requires a DeepJ source build supporting checkpoint format "
+                    + version + ".\n\n"
+                : releaseDependency();
+        return requirement + "Download this repository's `model.dj` and `tokenizer.bpe` "
+                + "into `downloaded-model`. Imports are omitted below.\n\n";
+    }
+
+    private static String releaseDependency() {
         return "Use [DeepJ 0.11.0-alpha](https://central.sonatype.com/artifact/"
                 + "io.github.kirstenali/deepj/0.11.0-alpha) or newer:\n\n"
-                + dependency() + "Download this repository's `model.dj` and `tokenizer.bpe` "
-                + "into `downloaded-model`. Imports are omitted below.\n\n";
+                + dependency();
     }
 
     private static String dependency() {

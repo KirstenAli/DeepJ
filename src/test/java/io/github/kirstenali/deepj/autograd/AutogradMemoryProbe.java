@@ -13,7 +13,7 @@ public final class AutogradMemoryProbe {
             case "softmax" -> softmaxBranches(input);
             default -> throw new IllegalArgumentException("Unknown memory probe");
         };
-        output.backward(Tensor.ones(output.rows, output.cols));
+        output.backward(Tensor.ones(output.matrixRows(), output.matrixCols()));
         float expectedGradient = args[0].equals("shift") ? 1 : 0;
         if (input.grad().get(0, 0) != expectedGradient) {
             throw new AssertionError("Incorrect gradient after releasing unused values");
@@ -35,7 +35,7 @@ public final class AutogradMemoryProbe {
         for (int index = 0; index < 20; index++) {
             output = output.add(input.addScalar(index).softmaxRows().sumTensor());
         }
-        if (output.item() != 20 * input.rows) throw new AssertionError("Incorrect output");
+        if (output.item() != 20 * input.matrixRows()) throw new AssertionError("Incorrect output");
         return output;
     }
 }

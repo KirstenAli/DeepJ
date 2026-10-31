@@ -113,15 +113,18 @@ loadScripts(document, 'script');</script>
 <div class="col-first even-row-color"><code>boolean</code></div>
 <div class="col-second even-row-color"><code><a href="#cpuStale" class="member-name-link">cpuStale</a></code></div>
 <div class="col-last even-row-color">&nbsp;</div>
-<div class="col-first odd-row-color"><code>final int</code></div>
-<div class="col-second odd-row-color"><code><a href="#id" class="member-name-link">id</a></code></div>
+<div class="col-first odd-row-color"><code>final <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a></code></div>
+<div class="col-second odd-row-color"><code><a href="#dtype" class="member-name-link">dtype</a></code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
-<div class="col-first even-row-color"><code>boolean</code></div>
-<div class="col-second even-row-color"><code><a href="#needsUpload" class="member-name-link">needsUpload</a></code></div>
+<div class="col-first even-row-color"><code>final int</code></div>
+<div class="col-second even-row-color"><code><a href="#id" class="member-name-link">id</a></code></div>
 <div class="col-last even-row-color">&nbsp;</div>
-<div class="col-first odd-row-color"><code>final int</code></div>
-<div class="col-second odd-row-color"><code><a href="#rows" class="member-name-link">rows</a></code></div>
+<div class="col-first odd-row-color"><code>boolean</code></div>
+<div class="col-second odd-row-color"><code><a href="#needsUpload" class="member-name-link">needsUpload</a></code></div>
 <div class="col-last odd-row-color">&nbsp;</div>
+<div class="col-first even-row-color"><code>final int</code></div>
+<div class="col-second even-row-color"><code><a href="#rows" class="member-name-link">rows</a></code></div>
+<div class="col-last even-row-color">&nbsp;</div>
 </div>
 </section>
 </li>
@@ -138,6 +141,12 @@ loadScripts(document, 'script');</script>
  int&nbsp;cols,
  boolean&nbsp;needsUpload)</code></div>
 <div class="col-last even-row-color">&nbsp;</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(int,int,int,io.github.kirstenali.deepj.tensor.DType,boolean)" class="member-name-link">GpuBuffer</a><wbr>(int&nbsp;id,
+ int&nbsp;rows,
+ int&nbsp;cols,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype,
+ boolean&nbsp;needsUpload)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 </div>
 </section>
 </li>
@@ -152,6 +161,12 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>long</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#byteLength()" class="member-name-link">byteLength</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#elementCount()" class="member-name-link">elementCount</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#floatCount()" class="member-name-link">floatCount</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
@@ -191,6 +206,12 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
+<section class="detail" id="dtype">
+<h3>dtype</h3>
+<div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type"><a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a></span>&nbsp;<span class="element-name">dtype</span></div>
+</section>
+</li>
+<li>
 <section class="detail" id="needsUpload">
 <h3>needsUpload</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">needsUpload</span></div>
@@ -225,6 +246,16 @@ loadScripts(document, 'script');</script>
  boolean&nbsp;needsUpload)</span></div>
 </section>
 </li>
+<li>
+<section class="detail" id="&lt;init&gt;(int,int,int,io.github.kirstenali.deepj.tensor.DType,boolean)">
+<h3>GpuBuffer</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">GpuBuffer</span><wbr><span class="parameters">(int&nbsp;id,
+ int&nbsp;rows,
+ int&nbsp;cols,
+ <a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype,
+ boolean&nbsp;needsUpload)</span></div>
+</section>
+</li>
 </ul>
 </section>
 </li>
@@ -233,6 +264,18 @@ loadScripts(document, 'script');</script>
 <section class="method-details" id="method-detail">
 <h2>Method Details</h2>
 <ul class="member-list">
+<li>
+<section class="detail" id="elementCount()">
+<h3>elementCount</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">elementCount</span>()</div>
+</section>
+</li>
+<li>
+<section class="detail" id="byteLength()">
+<h3>byteLength</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">long</span>&nbsp;<span class="element-name">byteLength</span>()</div>
+</section>
+</li>
 <li>
 <section class="detail" id="floatCount()">
 <h3>floatCount</h3>

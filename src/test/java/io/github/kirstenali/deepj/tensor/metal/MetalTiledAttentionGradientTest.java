@@ -26,7 +26,7 @@ class MetalTiledAttentionGradientTest extends MetalDifferentialTestSupport {
         analytic.materialize();
         for (int index : new int[]{0, 63, 1024, 2048, 4095}) {
             double numerical = difference(inputs, variable, index, upstream);
-            assertEquals(numerical, analytic.data[index], 5e-4 + Math.abs(numerical) * 2e-2,
+            assertEquals(numerical, analytic.rawData()[index], 5e-4 + Math.abs(numerical) * 2e-2,
                     "variable " + variable + " flat index " + index);
         }
     }
@@ -38,16 +38,16 @@ class MetalTiledAttentionGradientTest extends MetalDifferentialTestSupport {
         Tensor value = random(32 * heads, 64, 173), gradient = Tensor.zeros(32 * heads, 64);
         for (int head = 0; head < heads; head++) {
             for (int column = 0; column < 64; column++) {
-                gradient.data[head * 32 * 64 + column] = 0.7f;
+                gradient.rawData()[head * 32 * 64 + column] = 0.7f;
             }
         }
         var saved = metal.causalAttention(query, key, value, heads, 0.125f);
         var result = metal.causalAttentionBackward(query, key, value, saved, gradient, heads, 0.125f);
         result.query().materialize();
         result.key().materialize();
-        for (int index = 0; index < query.data.length; index++) {
-            assertEquals(0.0f, result.query().data[index], "query derivative at " + index);
-            assertEquals(0.0f, result.key().data[index], "key derivative at " + index);
+        for (int index = 0; index < query.rawData().length; index++) {
+            assertEquals(0.0f, result.query().rawData()[index], "query derivative at " + index);
+            assertEquals(0.0f, result.key().rawData()[index], "key derivative at " + index);
         }
     }
 
@@ -69,8 +69,8 @@ class MetalTiledAttentionGradientTest extends MetalDifferentialTestSupport {
         Tensor output = metal.causalAttention(inputs.get(0), inputs.get(1), inputs.get(2), 2, 0.125f).output();
         output.materialize();
         double result = 0;
-        for (int index = 0; index < output.data.length; index++) {
-            result += (double) output.data[index] * upstream.data[index];
+        for (int index = 0; index < output.rawData().length; index++) {
+            result += (double) output.rawData()[index] * upstream.rawData()[index];
         }
         return result;
     }

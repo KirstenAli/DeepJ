@@ -69,12 +69,12 @@ class MetalOptimizerCheckpointTest extends MetalDifferentialTestSupport {
         assertLazy(optimizer.state(parameters));
         TrainingCheckpoint.save(parameters, optimizer, dataset,
                 new TrainingProgress(1, 2, 2), schedule(), path);
-        assertNotNull(optimizer.state(parameters).firstMoments().get(0).data);
+        assertNotNull(optimizer.state(parameters).firstMoments().get(0).rawData());
     }
 
     private static void assertLazy(AdamW.State state) {
-        assertNull(state.firstMoments().get(0).data);
-        assertNull(state.secondMoments().get(0).data);
+        assertNull(state.firstMoments().get(0).rawData());
+        assertNull(state.secondMoments().get(0).rawData());
     }
 
     private static void assertSameMoments(AdamW.State expected, AdamW.State actual) {

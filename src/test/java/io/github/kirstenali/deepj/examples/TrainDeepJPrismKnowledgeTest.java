@@ -14,7 +14,7 @@ class TrainDeepJPrismKnowledgeTest {
         var model = new DeepJPrism(config, 42L);
 
         long parameters = model.parameters().stream()
-                .mapToLong(parameter -> parameter.value.data.length)
+                .mapToLong(parameter -> parameter.value.rawData().length)
                 .sum();
 
         assertEquals(19_006_848L, parameters);

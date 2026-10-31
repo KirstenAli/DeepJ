@@ -75,7 +75,7 @@ public final class LoopCheckpointProbe {
     private static void update(MessageDigest digest, Tensor tensor) {
         tensor.materialize();
         ByteBuffer buffer = ByteBuffer.allocate(65_536);
-        for (float value : tensor.data) {
+        for (float value : tensor.rawData()) {
             if (!buffer.hasRemaining()) {
                 digest.update(buffer.array());
                 buffer.clear();

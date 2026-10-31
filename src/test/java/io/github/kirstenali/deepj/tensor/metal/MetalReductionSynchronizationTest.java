@@ -27,7 +27,7 @@ class MetalReductionSynchronizationTest extends MetalDifferentialTestSupport {
         for (int round = 0; round < rounds; round++) {
             Tensor variance = metal.varianceAlongRows(input);
             variance.materialize();
-            for (float value : variance.data) {
+            for (float value : variance.rawData()) {
                 assertEquals(0.0f, value, 1e-12f);
             }
             metal.releaseTemporaryResources();
@@ -83,7 +83,7 @@ class MetalReductionSynchronizationTest extends MetalDifferentialTestSupport {
 
     private static Tensor constant(int rows, int columns, float value) {
         Tensor tensor = new Tensor(rows, columns);
-        Arrays.fill(tensor.data, value);
+        Arrays.fill(tensor.rawData(), value);
         return tensor;
     }
 
@@ -91,17 +91,17 @@ class MetalReductionSynchronizationTest extends MetalDifferentialTestSupport {
         gradient.materialize();
         float other = 1.0f / (rows * columns);
         float target = (1.0f / columns - 1) / rows;
-        for (int index = 0; index < gradient.data.length; index++) {
-            assertEquals(index % columns == 0 ? target : other, gradient.data[index]);
+        for (int index = 0; index < gradient.rawData().length; index++) {
+            assertEquals(index % columns == 0 ? target : other, gradient.rawData()[index]);
         }
     }
 
     private static void assertUniformCausalRows(Tensor probabilities) {
         probabilities.materialize();
-        for (int index = 0; index < probabilities.data.length; index++) {
-            int row = index / probabilities.cols, column = index % probabilities.cols;
+        for (int index = 0; index < probabilities.rawData().length; index++) {
+            int row = index / probabilities.matrixCols(), column = index % probabilities.matrixCols();
             float expected = column <= row ? 1.0f / (row + 1) : 0;
-            assertEquals(expected, probabilities.data[index], 2e-7f);
+            assertEquals(expected, probabilities.rawData()[index], 2e-7f);
         }
     }
 }

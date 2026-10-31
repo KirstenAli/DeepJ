@@ -30,7 +30,7 @@ class SiLUTest {
         float expected = (float) (1.0f / (1.0f + Math.exp(-1.0f)));
         Tensor x = Tensor.from2D(new float[][]{{1.0f}});
         Tensor y = silu.forward(x);
-        assertEquals(expected, y.data[0], 1e-6f);
+        assertEquals(expected, y.rawData()[0], 1e-6f);
     }
 
     @Test
@@ -40,7 +40,7 @@ class SiLUTest {
         float expected = -1.0f * sig;
         Tensor x = Tensor.from2D(new float[][]{{-1.0f}});
         Tensor y = silu.forward(x);
-        assertEquals(expected, y.data[0], 1e-6f);
+        assertEquals(expected, y.rawData()[0], 1e-6f);
     }
 
     @Test
@@ -54,8 +54,8 @@ class SiLUTest {
     void forward_positive_inputs_are_positive() {
         Tensor x = Tensor.from2D(new float[][]{{0.5f, 1.0f, 2.0f, 5.0f}});
         Tensor y = silu.forward(x);
-        for (int c = 0; c < y.cols; c++) {
-            assertTrue(y.data[c] > 0, "SiLU of positive input should be positive");
+        for (int c = 0; c < y.matrixCols(); c++) {
+            assertTrue(y.rawData()[c] > 0, "SiLU of positive input should be positive");
         }
     }
 
@@ -65,7 +65,7 @@ class SiLUTest {
         Tensor x = Tensor.from2D(new float[][]{{0.0f}});
         silu.forward(x);
         Tensor grad = AutogradTestSupport.backward(silu::forward, x, Tensor.ones(1, 1));
-        assertEquals(0.5f, grad.data[0], 1e-6f);
+        assertEquals(0.5f, grad.rawData()[0], 1e-6f);
     }
 
     @Test
@@ -84,14 +84,14 @@ class SiLUTest {
         for (float v : vals) {
             SiLU s1 = new SiLU();
             SiLU s2 = new SiLU();
-            float plus  = s1.forward(Tensor.from2D(new float[][]{{v + eps}})).data[0];
-            float minus = s2.forward(Tensor.from2D(new float[][]{{v - eps}})).data[0];
+            float plus  = s1.forward(Tensor.from2D(new float[][]{{v + eps}})).rawData()[0];
+            float minus = s2.forward(Tensor.from2D(new float[][]{{v - eps}})).rawData()[0];
             float numerical = (plus - minus) / (2 * eps);
 
             SiLU analytic = new SiLU();
             analytic.forward(Tensor.from2D(new float[][]{{v}}));
             Tensor input = Tensor.from2D(new float[][]{{v}});
-            float analytical = AutogradTestSupport.backward(analytic::forward, input, Tensor.ones(1, 1)).data[0];
+            float analytical = AutogradTestSupport.backward(analytic::forward, input, Tensor.ones(1, 1)).rawData()[0];
 
             assertEquals(numerical, analytical, 2e-3f,
                     "Gradient mismatch at x=" + v);
@@ -108,7 +108,7 @@ class SiLUTest {
         silu.forward(x);
         Tensor g3 = AutogradTestSupport.backward(silu::forward, x, Tensor.from2D(new float[][]{{3.0f}}));
 
-        assertEquals(g1.data[0] * 3.0f, g3.data[0], 1e-6f);
+        assertEquals(g1.rawData()[0] * 3.0f, g3.rawData()[0], 1e-6f);
     }
 
     @Test

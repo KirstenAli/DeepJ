@@ -86,7 +86,7 @@ loadScripts(document, 'script');</script>
 </li>
 <li>
 <div id="class-summary">
-<div class="table-tabs" role="tablist" aria-orientation="horizontal"><button id="class-summary-tab0" role="tab" aria-selected="true" aria-controls="class-summary.tabpanel" tabindex="0" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary', 2)" class="active-table-tab">All Classes and Interfaces</button><button id="class-summary-tab1" role="tab" aria-selected="false" aria-controls="class-summary.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary-tab1', 2)" class="table-tab">Interfaces</button><button id="class-summary-tab2" role="tab" aria-selected="false" aria-controls="class-summary.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary-tab2', 2)" class="table-tab">Classes</button><button id="class-summary-tab4" role="tab" aria-selected="false" aria-controls="class-summary.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary-tab4', 2)" class="table-tab">Record Classes</button></div>
+<div class="table-tabs" role="tablist" aria-orientation="horizontal"><button id="class-summary-tab0" role="tab" aria-selected="true" aria-controls="class-summary.tabpanel" tabindex="0" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary', 2)" class="active-table-tab">All Classes and Interfaces</button><button id="class-summary-tab1" role="tab" aria-selected="false" aria-controls="class-summary.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary-tab1', 2)" class="table-tab">Interfaces</button><button id="class-summary-tab2" role="tab" aria-selected="false" aria-controls="class-summary.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary-tab2', 2)" class="table-tab">Classes</button><button id="class-summary-tab3" role="tab" aria-selected="false" aria-controls="class-summary.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary-tab3', 2)" class="table-tab">Enum Classes</button><button id="class-summary-tab4" role="tab" aria-selected="false" aria-controls="class-summary.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('class-summary', 'class-summary-tab4', 2)" class="table-tab">Record Classes</button></div>
 <div id="class-summary.tabpanel" role="tabpanel">
 <div class="summary-table two-column-summary" aria-labelledby="class-summary-tab0">
 <div class="table-header col-first">Class</div>
@@ -107,26 +107,150 @@ loadScripts(document, 'script');</script>
 </div>
 <div class="col-first even-row-color class-summary class-summary-tab2"><a href="ComputeGraph.html" title="class in io.github.kirstenali.deepj.tensor">ComputeGraph</a></div>
 <div class="col-last even-row-color class-summary class-summary-tab2">&nbsp;</div>
-<div class="col-first odd-row-color class-summary class-summary-tab4"><a href="CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></div>
-<div class="col-last odd-row-color class-summary class-summary-tab4">&nbsp;</div>
-<div class="col-first even-row-color class-summary class-summary-tab2"><a href="GpuBuffer.html" title="class in io.github.kirstenali.deepj.tensor">GpuBuffer</a></div>
-<div class="col-last even-row-color class-summary class-summary-tab2">&nbsp;</div>
-<div class="col-first odd-row-color class-summary class-summary-tab1"><a href="GpuRuntime.html" title="interface in io.github.kirstenali.deepj.tensor">GpuRuntime</a></div>
-<div class="col-last odd-row-color class-summary class-summary-tab1">&nbsp;</div>
-<div class="col-first even-row-color class-summary class-summary-tab2"><a href="HeadCacheOps.html" title="class in io.github.kirstenali.deepj.tensor">HeadCacheOps</a></div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CpuNdAdamW.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdAdamW</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Logical-layout Adam arithmetic matches the original contiguous FLOAT32 update order.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="CpuNdAssignment.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdAssignment</a></div>
 <div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Assigns logical values with explicit dtype conversion, including overlapping source/destination views.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CpuNdCrossEntropy.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdCrossEntropy</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Stable final-axis loss and FLOAT32 gradient, including strided/compact logits and response masks.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="CpuNdElementwise.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdElementwise</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">CPU logical-layout kernels with real compact storage and FLOAT32 arithmetic.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab1"><a href="CpuNdElementwise.Binary.html" title="interface in io.github.kirstenali.deepj.tensor">CpuNdElementwise.Binary</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab1">&nbsp;</div>
+<div class="col-first even-row-color class-summary class-summary-tab1"><a href="CpuNdElementwise.Unary.html" title="interface in io.github.kirstenali.deepj.tensor">CpuNdElementwise.Unary</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab1">&nbsp;</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CpuNdIndexing.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdIndexing</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Logical ND index selection and deterministic repeated-index accumulation.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="CpuNdMatmul.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdMatmul</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">General strided/broadcast CPU matmul; the existing FLOAT32 matrix fast path remains separate.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CpuNdNormalization.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdNormalization</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Last-axis CPU normalization, with FLOAT32 statistics and no intermediate compact rounding.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="CpuNdPosition.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdPosition</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Typed position operations accumulate in FLOAT32 and round only the final stored activation.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CpuNdReduction.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdReduction</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Axis reductions accumulate in FLOAT32 and round compact output only once per result value.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="CpuNdSoftmax.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdSoftmax</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Stable logical-axis softmax without an intermediate compact-dtype exponential tensor.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CpuNdStatistics.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdStatistics</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Two-pass FLOAT32 statistics without a full-sized FLOAT32 shadow of compact input.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="CpuNdSwiGlu.html" title="class in io.github.kirstenali.deepj.tensor">CpuNdSwiGlu</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Equal-shaped SwiGLU operands decode to FLOAT32 and only round the completed output.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CpuRowAccess.html" title="class in io.github.kirstenali.deepj.tensor">CpuRowAccess</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Checked CPU row kernels; the Tensor facade owns autograd mutation fences as for other backends.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="CrossEntropyChecks.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyChecks</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Class scores occupy the final axis; every leading position has one integer target.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="CrossEntropyDefaults.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyDefaults</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Unfused backend composition preserves the original matrix loss/gradient evaluation order.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab4"><a href="CrossEntropyResult.html" title="class in io.github.kirstenali.deepj.tensor">CrossEntropyResult</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab4">&nbsp;</div>
+<div class="col-first odd-row-color class-summary class-summary-tab3"><a href="DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab3">
+<div class="block">Dense floating-point storage formats.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="GpuAllocations.html" title="class in io.github.kirstenali.deepj.tensor">GpuAllocations</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Validates physical allocations without flattening logical tensor dimensions.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="GpuBuffer.html" title="class in io.github.kirstenali.deepj.tensor">GpuBuffer</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">&nbsp;</div>
+<div class="col-first even-row-color class-summary class-summary-tab1"><a href="GpuRuntime.html" title="interface in io.github.kirstenali.deepj.tensor">GpuRuntime</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab1">&nbsp;</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="HeadCacheOps.html" title="class in io.github.kirstenali.deepj.tensor">HeadCacheOps</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
 <div class="block">Inference-only storage operations for head-major key/value caches.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="HeadLayout.html" title="class in io.github.kirstenali.deepj.tensor">HeadLayout</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Batch and head axes are distinct; packed matrices are temporary native-kernel views only.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="MatrixShapeChecks.html" title="class in io.github.kirstenali.deepj.tensor">MatrixShapeChecks</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Common validation for the existing rank-two CPU and native attention kernels.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="NormalizationChecks.html" title="class in io.github.kirstenali.deepj.tensor">NormalizationChecks</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Final-axis normalization accepts vector gains and the historical 1-by-width parameter layout.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab4"><a href="NormalizationResult.html" title="class in io.github.kirstenali.deepj.tensor">NormalizationResult</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab4">
+<div class="block">The output uses promoted storage; normalized values and denominators retain FLOAT32 accumulation.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="OptimizerChecks.html" title="class in io.github.kirstenali.deepj.tensor">OptimizerChecks</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Adam updates accumulate in independent FLOAT32 parameter/master and moment buffers.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="PackedLayouts.html" title="class in io.github.kirstenali.deepj.tensor">PackedLayouts</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Explicit compatibility for packed matrix APIs,delegating their work to the same ND operators.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab4"><a href="PackedMatmulShape.html" title="class in io.github.kirstenali.deepj.tensor">PackedMatmulShape</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab4">
+<div class="block">Logical dimensions for the compatibility API; never inferred from a GPU allocation's physical rows.</div>
 </div>
 <div class="col-first odd-row-color class-summary class-summary-tab4"><a href="RmsNormResult.html" title="class in io.github.kirstenali.deepj.tensor">RmsNormResult</a></div>
 <div class="col-last odd-row-color class-summary class-summary-tab4">&nbsp;</div>
-<div class="col-first even-row-color class-summary class-summary-tab4"><a href="SwiGluBackwardResult.html" title="class in io.github.kirstenali.deepj.tensor">SwiGluBackwardResult</a></div>
-<div class="col-last even-row-color class-summary class-summary-tab4">&nbsp;</div>
-<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></div>
-<div class="col-last odd-row-color class-summary class-summary-tab2">&nbsp;</div>
-<div class="col-first even-row-color class-summary class-summary-tab2"><a href="TensorAdapters.html" title="class in io.github.kirstenali.deepj.tensor">TensorAdapters</a></div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="SequenceLayout.html" title="class in io.github.kirstenali.deepj.tensor">SequenceLayout</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Model activations use[batch,time,width]; historical single-sequence matrices remain explicit.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab4"><a href="SwiGluBackwardResult.html" title="class in io.github.kirstenali.deepj.tensor">SwiGluBackwardResult</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab4">&nbsp;</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></div>
 <div class="col-last even-row-color class-summary class-summary-tab2">&nbsp;</div>
-<div class="col-first odd-row-color class-summary class-summary-tab1"><a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a></div>
-<div class="col-last odd-row-color class-summary class-summary-tab1">&nbsp;</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="TensorAdapters.html" title="class in io.github.kirstenali.deepj.tensor">TensorAdapters</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">&nbsp;</div>
+<div class="col-first even-row-color class-summary class-summary-tab1"><a href="TensorBackend.html" title="interface in io.github.kirstenali.deepj.tensor">TensorBackend</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab1">&nbsp;</div>
+<div class="col-first odd-row-color class-summary class-summary-tab4"><a href="TensorDescriptor.html" title="class in io.github.kirstenali.deepj.tensor">TensorDescriptor</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab4">
+<div class="block">Validated logical checkpoint metadata; reading it never allocates tensor values.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="TensorEncoding.html" title="class in io.github.kirstenali.deepj.tensor">TensorEncoding</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Raw-bit, logical-order tensor payloads; no FLOAT32 shadow is needed for compact storage.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="TensorManipulations.html" title="class in io.github.kirstenali.deepj.tensor">TensorManipulations</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Shape transformations retain one Tensor system and participate in first-order autograd.</div>
+</div>
+<div class="col-first even-row-color class-summary class-summary-tab2"><a href="TensorScope.html" title="class in io.github.kirstenali.deepj.tensor">TensorScope</a></div>
+<div class="col-last even-row-color class-summary class-summary-tab2">
+<div class="block">Bounds internal view lifetimes, without releasing saved or explicitly retained storage.</div>
+</div>
+<div class="col-first odd-row-color class-summary class-summary-tab2"><a href="TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">TensorStorageAccess</a></div>
+<div class="col-last odd-row-color class-summary class-summary-tab2">
+<div class="block">Shared physical storage plumbing; logical Tensor operations remain on the concrete facade.</div>
+</div>
 </div>
 </div>
 </div>

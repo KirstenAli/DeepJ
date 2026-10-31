@@ -1,9 +1,11 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorScope;
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.models.CausalLM;
+import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -40,6 +42,19 @@ public final class CausalLMTraining {
     }
 
     private static float accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
+        if (!(model instanceof DecoderOnlyModel)) {
+            return TensorScope.external(() -> batchLossAndBackward(model, batch, batchSize));
+        }
+        try (var ignored = TensorScope.open()) {
+            return batchLossAndBackward(model, batch, batchSize);
+        }
+    }
+
+    private static float batchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
+        if (batchSize > 1 && model.supportsBatchedForward()) {
+            BatchedCausalLoss.requireBatch(batch, batchSize);
+            return backwardAndLoss(BatchedCausalLoss.sum(model.forwardBatch(batch.x()), batch, batchSize));
+        }
         float lossSum = 0.0f;
 
         for (int b = 0; b < batchSize; b++) {
@@ -53,7 +68,10 @@ public final class CausalLMTraining {
     }
 
     private static float backwardAndLoss(Tensor logits, int[] targets, boolean[] mask) {
-        Tensor loss = CrossEntropyLoss.forward(logits, targets, mask);
+        return backwardAndLoss(CrossEntropyLoss.forward(logits, targets, mask));
+    }
+
+    private static float backwardAndLoss(Tensor loss) {
         if (loss.requiresGrad()) loss.backward();
         return loss.item();
     }
@@ -91,6 +109,7 @@ public final class CausalLMTraining {
     }
 
     private static void scaleGradients(List<Parameter> params, float scale) {
+        if (scale == 1.0f) return;
         for (Parameter p : params) {
             if (p.grad() != null) {
                 p.grad().multiplyScalarInPlace(scale);

@@ -23,19 +23,19 @@ class LazyTensorStorageTest extends ComputeGraphTestSupport {
 
     @Test
     void publicCpuConstructorsRemainEagerButGpuOutputsDoNotAllocateShadowArrays() {
-        assertArrayEquals(new float[4], new Tensor(1, 4).data);
+        assertArrayEquals(new float[4], new Tensor(1, 4).rawData());
         Tensor output = graph.createOutputTensor(graph.newOutputBuffer(1024, 16384));
-        assertNull(output.data);
+        assertNull(output.rawData());
         assertTrue(runtime.downloads.isEmpty());
-        assertEquals(1024, output.rows);
-        assertEquals(16384, output.cols);
+        assertEquals(1024, output.matrixRows());
+        assertEquals(16384, output.matrixCols());
     }
 
     @Test
     void explicitHostReadsDownloadOnceAndPopulateTheRawField() {
         Tensor output = output();
         assertArrayEquals(new float[]{3, 5}, output.data());
-        assertSame(output.data, output.data());
+        assertSame(output.rawData(), output.data());
         assertArrayEquals(new float[]{3, 5}, output.rowData(0));
         assertEquals(1, runtime.downloads.size());
     }
@@ -69,7 +69,7 @@ class LazyTensorStorageTest extends ComputeGraphTestSupport {
         Tensor output = output();
         var otherRuntime = new RecordingRuntime();
         new ComputeGraph(otherRuntime).materialize(output);
-        assertArrayEquals(new float[]{3, 5}, output.data);
+        assertArrayEquals(new float[]{3, 5}, output.rawData());
         assertEquals(1, runtime.downloads.size());
         assertTrue(otherRuntime.downloads.isEmpty());
     }
@@ -87,7 +87,7 @@ class LazyTensorStorageTest extends ComputeGraphTestSupport {
         Tensor output = output();
         graph.releaseAll();
         assertNull(output.getGpuTag());
-        assertArrayEquals(new float[]{3, 5}, output.data);
+        assertArrayEquals(new float[]{3, 5}, output.rawData());
         assertEquals(1, runtime.downloads.size());
     }
 
@@ -97,14 +97,14 @@ class LazyTensorStorageTest extends ComputeGraphTestSupport {
         float[] first = TensorAdapters.packF32(tensor);
         first[0] = 9;
         assertArrayEquals(new float[4], TensorAdapters.packF32(tensor));
-        assertNull(tensor.data);
+        assertNull(tensor.rawData());
         assertArrayEquals(new float[4], tensor.data());
     }
 
     @Test
     void copyingAndSerializationMaterializeGpuResults() throws IOException {
         Tensor output = output();
-        assertArrayEquals(new float[]{3, 5}, new Tensor(output).data);
+        assertArrayEquals(new float[]{3, 5}, new Tensor(output).rawData());
         Path file = directory.resolve("weights.dj");
         ModelSerializer.save(List.of(new Parameter(output)), file);
         Parameter target = new Parameter(Tensor.deviceOnly(1, 2));

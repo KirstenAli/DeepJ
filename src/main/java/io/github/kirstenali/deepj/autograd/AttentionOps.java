@@ -12,22 +12,25 @@ public final class AttentionOps {
 
     public static Tensor causal(Tensor query, Tensor key, Tensor value,
                                  int queryHeads, int keyValueHeads, float scale) {
+        if (query.rank() == 4 || key.rank() == 4 || value.rank() == 4) {
+            return NdAttentionOps.causal(query, key, value, queryHeads, keyValueHeads, scale);
+        }
         requireLayout(query, key, value, queryHeads, keyValueHeads, scale);
         if (Tensor.backend() instanceof CausalAttentionBackend backend
                 && backend.supportsCausalAttention(query, key, value, queryHeads, keyValueHeads, scale)) {
             return fused(backend, query, key, value, queryHeads, keyValueHeads, scale);
         }
         Tensor scores = LayoutOps.batchedMatmul(query, key, keyValueHeads, false, true);
-        Tensor probabilities = ActivationOps.causalSoftmax(scores, query.rows / queryHeads, scale);
+        Tensor probabilities = ActivationOps.causalSoftmax(scores, query.matrixRows() / queryHeads, scale);
         return LayoutOps.batchedMatmul(probabilities, value, keyValueHeads, false, false);
     }
 
     private static void requireLayout(Tensor query, Tensor key, Tensor value,
                                        int queryHeads, int keyValueHeads, float scale) {
         requireHeads(queryHeads, keyValueHeads);
-        if (query.rows % queryHeads != 0 || key.rows % keyValueHeads != 0
-                || query.rows / queryHeads != key.rows / keyValueHeads
-                || query.cols != key.cols || !Float.isFinite(scale)) {
+        if (query.matrixRows() % queryHeads != 0 || key.matrixRows() % keyValueHeads != 0
+                || query.matrixRows() / queryHeads != key.matrixRows() / keyValueHeads
+                || query.matrixCols() != key.matrixCols() || !Float.isFinite(scale)) {
             throw new IllegalArgumentException("Invalid causal attention heads, shape or scale");
         }
         Tensor.requireSameShape(key, value, "causalAttention");

@@ -8,6 +8,8 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.function.Function;
+import io.github.kirstenali.deepj.autograd.GradMode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,6 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public final class NumericalGradientAssertions {
 
     private NumericalGradientAssertions() {}
+
+    public static void assertTensorGradients(Tensor input, Function<Tensor, Tensor> operation, Tensor upstream,
+                                            float epsilon, float absoluteTolerance, float relativeTolerance) {
+        Tensor variable = new Tensor(input).requiresGrad(true);
+        operation.apply(variable).backward(upstream);
+        Tensor analytic = new Tensor(variable.grad());
+        try (var ignored = GradMode.noGrad()) {
+            assertNumericalGradient(variable, analytic, () -> operation.apply(variable), upstream,
+                    epsilon, absoluteTolerance, relativeTolerance, "ND input");
+        }
+    }
 
     public static void assertLayerGradients(Layer layer, Tensor input, Tensor upstream,
                                             float epsilon, float absoluteTolerance,
@@ -49,32 +62,44 @@ public final class NumericalGradientAssertions {
     private static void assertNumericalGradient(Tensor variable, Tensor analytic, Supplier<Tensor> forward,
                                                 Tensor upstream, float epsilon, float absoluteTolerance,
                                                 float relativeTolerance, String label) {
-        for (int i = 0; i < variable.data.length; i++) {
+        for (int i = 0; i < variable.rawData().length; i++) {
             float numerical = centralDifference(variable, i, forward, upstream, epsilon);
-            assertClose(analytic.data[i], numerical, absoluteTolerance, relativeTolerance,
+            assertClose(analytic.rawData()[i], numerical, absoluteTolerance, relativeTolerance,
                     label + " gradient at flat index " + i);
         }
     }
 
     private static float centralDifference(Tensor variable, int index, Supplier<Tensor> forward,
                                            Tensor upstream, float epsilon) {
-        float original = variable.data[index];
+        int[] coordinates = coordinates(variable, index);
+        float original = variable.get(coordinates);
         float step = epsilon * Math.max(1.0f, Math.abs(original));
-        variable.data[index] = original + step;
-        float plus = objective(forward.get(), upstream);
-        variable.data[index] = original - step;
-        float minus = objective(forward.get(), upstream);
-        variable.data[index] = original;
-        return (plus - minus) / (2.0f * step);
+        try (var ignored = GradMode.noGrad()) {
+            try {
+                variable.setAt(original + step, coordinates);
+                float plus = objective(forward.get(), upstream);
+                variable.setAt(original - step, coordinates);
+                float minus = objective(forward.get(), upstream);
+                return (plus - minus) / (2.0f * step);
+            } finally { variable.setAt(original, coordinates); }
+        }
+    }
+
+    private static int[] coordinates(Tensor input, int index) {
+        int[] coordinates = new int[input.rank()];
+        for (int axis = input.rank() - 1; axis >= 0; axis--) {
+            coordinates[axis] = index % input.size(axis);
+            index /= input.size(axis);
+        }
+        return coordinates;
     }
 
     private static float objective(Tensor output, Tensor upstream) {
         requireSameShape(output, upstream);
-        output.materialize();
-        upstream.materialize();
+        float[] actual = output.toFloatArray(), weights = upstream.toFloatArray();
         float result = 0.0f;
-        for (int i = 0; i < output.data.length; i++) {
-            result += output.data[i] * upstream.data[i];
+        for (int i = 0; i < actual.length; i++) {
+            result += actual[i] * weights[i];
         }
         return result;
     }
@@ -88,8 +113,7 @@ public final class NumericalGradientAssertions {
     }
 
     private static void requireSameShape(Tensor expected, Tensor actual) {
-        assertEquals(expected.rows, actual.rows, "row count");
-        assertEquals(expected.cols, actual.cols, "column count");
+        assertTrue(expected.hasSameShape(actual), "Tensor shapes must match");
     }
 
     private static void assertClose(float analytic, float numerical, float absoluteTolerance,

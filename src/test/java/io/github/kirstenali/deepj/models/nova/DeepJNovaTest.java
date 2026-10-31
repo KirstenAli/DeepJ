@@ -30,10 +30,10 @@ class DeepJNovaTest {
     void parameterCountMatchesUniqueTrainableWeights() {
         var config = new DeepJNovaConfig(11, 6, 8, 4, 2, 2, 12);
         var model = new DeepJNova(config, 42L);
-        long actual = model.parameters().stream().mapToLong(p -> p.value.data.length).sum();
+        long actual = model.parameters().stream().mapToLong(p -> p.value.rawData().length).sum();
         assertEquals(DeepJNovaParameterCount.count(config), actual);
         assertEquals(model.parameters().size(), model.parameters().stream().distinct().count());
-        assertEquals(1, model.parameters().stream().filter(p -> p.value.rows == 11).count());
+        assertEquals(1, model.parameters().stream().filter(p -> p.value.matrixRows() == 11).count());
     }
 
     @Test
@@ -52,8 +52,8 @@ class DeepJNovaTest {
     @Test
     void futureTokensCannotChangeEarlierLogits() {
         var model = new DeepJNova(new DeepJNovaConfig(11, 6, 8, 4, 2, 2, 12), 42L);
-        float[] before = model.forward(new int[]{1, 2, 3}).data.clone();
-        float[] after = model.forward(new int[]{1, 2, 7}).data;
+        float[] before = model.forward(new int[]{1, 2, 3}).rawData().clone();
+        float[] after = model.forward(new int[]{1, 2, 7}).rawData();
         assertArrayEquals(Arrays.copyOf(before, 22), Arrays.copyOf(after, 22), 1e-6f);
     }
 
@@ -82,7 +82,7 @@ class DeepJNovaTest {
         assertEquals(config, loaded.config());
         assertEquals(model.promptFormat(), loaded.promptFormat());
         assertEquals(model.metadata(), loaded.metadata());
-        assertArrayEquals(model.forward(new int[]{1, 2}).data,
-                loaded.forward(new int[]{1, 2}).data, 1e-6f);
+        assertArrayEquals(model.forward(new int[]{1, 2}).rawData(),
+                loaded.forward(new int[]{1, 2}).rawData(), 1e-6f);
     }
 }

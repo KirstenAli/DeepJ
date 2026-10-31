@@ -4,7 +4,10 @@ import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.data.BatchSource;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.models.CausalLM;
+import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorScope;
+import io.github.kirstenali.deepj.tensor.BackwardBuffers;
 import io.github.kirstenali.deepj.autograd.GradMode;
 
 public final class CausalLMEvaluation {
@@ -33,10 +36,20 @@ public final class CausalLMEvaluation {
     private static double batchLoss(CausalLM model, Batch batch) {
         double loss = 0.0;
         for (int row = 0; row < batch.x().length; row++) {
-            Tensor logits = model.forward(batch.x()[row]);
-            loss += sequenceLoss(logits, batch.y()[row], batch.mask(row));
+            loss += ownedSequenceLoss(model, batch.x()[row], batch.y()[row], batch.mask(row));
         }
         return loss;
+    }
+
+    private static float ownedSequenceLoss(CausalLM model, int[] inputs, int[] targets, boolean[] mask) {
+        if (!(model instanceof DecoderOnlyModel)) {
+            return TensorScope.external(() -> sequenceLoss(model.forward(inputs), targets, mask));
+        }
+        try (var buffers = BackwardBuffers.begin()) {
+            float loss = buffers.capture(() -> sequenceLoss(model.forward(inputs), targets, mask));
+            buffers.releaseTemporaryResources();
+            return loss;
+        }
     }
 
     private static long batchTokenCount(Batch batch) {

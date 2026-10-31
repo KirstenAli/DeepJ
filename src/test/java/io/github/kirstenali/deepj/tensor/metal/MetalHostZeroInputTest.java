@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.GpuBuffer;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorTestStorage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,11 +16,10 @@ class MetalHostZeroInputTest {
         assertTrue(MetalHostZeroInput.canSkip(target, source));
         target.setGpuTag(new GpuBuffer(1, 1, 4, false));
         assertFalse(MetalHostZeroInput.canSkip(target, source));
-        target.setGpuTag(null);
-        target.data = null;
-        assertFalse(MetalHostZeroInput.canSkip(target, source));
-        target.data = new float[1];
-        assertFalse(MetalHostZeroInput.canSkip(target, source));
+        Tensor lazy = TensorTestStorage.lazy(1, 4);
+        assertTrue(MetalHostZeroInput.canSkip(lazy, source));
+        lazy.set(0, 0, 1.0f);
+        assertFalse(MetalHostZeroInput.canSkip(lazy, source));
     }
 
     @Test

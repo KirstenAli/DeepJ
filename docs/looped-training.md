@@ -1,6 +1,6 @@
 # Looped 100M training
 
-DeepJ Loop is a new decoder architecture, not a converted Nova checkpoint.
+DeepJ Loop is a looped decoder architecture, not a converted Nova checkpoint.
 The example starts with fresh weights and reuses Frisky's BPE tokenizer,
 FineWeb-Edu corpus, mid-training mixture, and response-only fine-tuning data.
 Existing Frisky and Nova checkpoints are not overwritten.
@@ -107,8 +107,14 @@ default.
 
 ## Resume and evaluation
 
-Exported models continue to use model format 3. The architecture-aware
-training-checkpoint version is a separate format, not the retired model format 2.
+The examples keep FLOAT32 as the default and retain compatibility with existing model
+and training files. Explicit compact-dtype models use dtype-aware formats; their training
+checkpoints also preserve FLOAT32 master weights and optimizer moments. Model exports
+and resumable training checkpoints are separate files; see [tensors and precision](tensors.md).
+
+The ND migration does not require restarting existing FLOAT32 training. Resume from the
+matching training checkpoint, not a model-only export, and keep the original architecture,
+dtype, data and schedule settings. Gradient-buffer allocation fixes do not change those settings.
 
 Rolling training checkpoints include weights, Adam state, data position,
 schedule, architecture, pass count and residual scale. A mismatched configuration
@@ -127,7 +133,7 @@ caffeinate -i "$JAVA_HOME/bin/java" -Xmx8g \
 ```
 
 Exported model files include the complete configuration and prompt format, so
-`ModelLoader`, `DeepJChat`, and the desktop UI load them without manual settings.
+`ModelLoader`, `DeepJChat`, the desktop UI and the CLI load them without manual settings.
 Keep `tokenizer.bpe` alongside the model. Fine-tuned exports automatically use
 the existing `Instruction:\n...\nResponse:\n` prompt format.
 

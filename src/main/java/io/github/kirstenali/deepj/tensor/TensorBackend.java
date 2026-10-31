@@ -4,20 +4,98 @@ import java.util.List;
 
 public interface TensorBackend {
 
+    /** Whether backend copies reside on a device rather than in ordinary host storage. */
+    default boolean usesDeviceStorage() { return false; }
+
     /** Backend-owned positive-zero storage; ordinary Tensor constructors stay CPU-backed. */
     default Tensor zeros(int rows, int columns) { return new Tensor(rows, columns); }
+
+    default Tensor zeros(DType dtype, int... shape) {
+        if (dtype == DType.FLOAT32 && shape.length == 2) return zeros(shape[0], shape[1]);
+        throw new UnsupportedOperationException("This backend does not support the requested zero tensor");
+    }
 
     /** Independent storage with the same float bits, without recording an autograd operation. */
     default Tensor copy(Tensor source) { return new Tensor(source); }
 
+    /** Explicitly assigns logical values, casting to the destination's storage dtype. */
+    default void copyInto(Tensor target, Tensor source) {
+        throw new UnsupportedOperationException("This backend does not support typed assignment");
+    }
+
+    default Tensor view(Tensor input, int... shape) { return TensorViews.view(input, shape); }
+    default Tensor unsqueeze(Tensor input, int axis) { return TensorViews.unsqueeze(input, axis); }
+    default Tensor permute(Tensor input, int... axes) { return TensorViews.permute(input, axes); }
+    default Tensor select(Tensor input, int axis, int index) { return TensorViews.select(input, axis, index); }
+    default Tensor slice(Tensor input, int axis, int start, int stop, int step) {
+        return TensorViews.slice(input, axis, start, stop, step);
+    }
+    default Tensor expand(Tensor input, int... shape) { return TensorViews.expand(input, shape); }
+
+    default Tensor reshape(Tensor input, int... shape) {
+        return view(input.isContiguous() ? input : copy(input), shape);
+    }
+
+    default Tensor cast(Tensor input, DType dtype) {
+        if (input.dtype() == dtype) return input;
+        throw new UnsupportedOperationException("This backend does not support the requested dtype conversion");
+    }
+
+    default Tensor sumAxes(Tensor input, int[] axes, boolean keepDimensions) {
+        throw new UnsupportedOperationException("This backend does not support axis reductions");
+    }
+
+    default Tensor meanAxes(Tensor input, int[] axes, boolean keepDimensions) {
+        throw new UnsupportedOperationException("This backend does not support axis means");
+    }
+
+    default Tensor varianceAxes(Tensor input, int[] axes, boolean keepDimensions, int correction) {
+        throw new UnsupportedOperationException("This backend does not support axis variance");
+    }
+
+    default Tensor maximumAxes(Tensor input, int[] axes, boolean keepDimensions) {
+        throw new UnsupportedOperationException("This backend does not support axis maxima");
+    }
+
+    default Tensor maximumAxesBackward(Tensor input, Tensor maximum, Tensor gradient, int[] axes, boolean keep) {
+        throw new UnsupportedOperationException("This backend does not support axis maximum gradients");
+    }
+
+    default Tensor sumToShape(Tensor input, int... shape) { return GradientShapes.sumTo(this, input, shape); }
+
+    default Tensor sliceGradient(Tensor gradient, int[] shape, int axis, int start, int step) {
+        throw new UnsupportedOperationException("This backend does not support slice gradients");
+    }
+
+    default Tensor indexSelect(Tensor input, int axis, int[] indices) {
+        throw new UnsupportedOperationException("This backend does not support ND index selection");
+    }
+
+    default void indexAdd(Tensor target, int axis, int[] indices, Tensor updates) {
+        throw new UnsupportedOperationException("This backend does not support ND indexed updates");
+    }
+
+    default Tensor indexSelectGradient(Tensor gradient, int[] shape, int axis, int[] indices) {
+        throw new UnsupportedOperationException("This backend does not support ND index selection gradients");
+    }
+
+    default Tensor softmaxAxis(Tensor input, int axis) {
+        throw new UnsupportedOperationException("This backend does not support axis softmax");
+    }
+
+    default Tensor softmaxAxisBackward(Tensor gradient, Tensor output, int axis) {
+        Tensor product = multiply(gradient, output);
+        return multiply(output, subtract(gradient, sumAxes(product, new int[]{axis}, true)));
+    }
+
     Tensor matmul(Tensor a, Tensor b);
 
     default void writeHeadCache(Tensor cache, Tensor update, int heads, int offset) {
-        HeadCacheOps.write(cache, update, heads, offset);
+        HeadCacheOps.write(this, cache, update, heads, offset);
     }
 
     default Tensor headPrefixMatmul(Tensor left, Tensor cache, int heads, int length, boolean transposeCache) {
-        return batchedMatmul(left, HeadCacheOps.prefix(cache, heads, length), heads, false, transposeCache);
+        return batchedMatmul(left, HeadCacheOps.prefix(this, cache, heads, length), heads, false, transposeCache);
     }
 
     default Tensor sliceRows(Tensor input, int[] rows) {
@@ -88,14 +166,7 @@ public interface TensorBackend {
     float sumAbs(Tensor a);
 
     default float l2Norm(List<Tensor> tensors) {
-        float squares = 0.0f;
-        for (Tensor tensor : tensors) {
-            tensor.materialize();
-            for (float value : tensor.data) {
-                squares += value * value;
-            }
-        }
-        return (float) Math.sqrt(squares);
+        return CpuNdNorm.norm(tensors);
     }
 
     Tensor transpose(Tensor a);
@@ -124,18 +195,14 @@ public interface TensorBackend {
     Tensor crossEntropyGradient(Tensor logits, int[] targets);
 
     default CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
-        Tensor loss = new Tensor(1, 1);
-        loss.data[0] = crossEntropyLoss(logits, targets);
-        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets));
+        return CrossEntropyDefaults.apply(this, logits, targets, null);
     }
 
     float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask);
     Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask);
 
     default CrossEntropyResult crossEntropy(Tensor logits, int[] targets, boolean[] mask) {
-        Tensor loss = new Tensor(1, 1);
-        loss.data[0] = crossEntropyLoss(logits, targets, mask);
-        return new CrossEntropyResult(loss, crossEntropyGradient(logits, targets, mask));
+        return CrossEntropyDefaults.apply(this, logits, targets, mask);
     }
 
     void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
@@ -143,6 +210,15 @@ public interface TensorBackend {
                      float weightDecay, float bc1, float bc2);
 
     Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim);
+
+    default NormalizationResult normalize(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
+        throw new UnsupportedOperationException("This backend does not support ND normalization");
+    }
+
+    default Tensor normalizationBackward(Tensor gradient, Tensor normalized, Tensor denominator,
+                                            Tensor gamma, boolean centered) {
+        throw new UnsupportedOperationException("This backend does not support ND normalization gradients");
+    }
 
     default RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
         Tensor meanSquare = meanAlongRows(multiply(input, input));

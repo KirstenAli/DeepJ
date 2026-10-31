@@ -42,7 +42,7 @@ public class MultiHeadSelfAttentionTest {
         assertEquals(4, attention.parameters().size());
         Tensor identity = Tensor.zeros(dModel, dModel);
         for (int index = 0; index < dModel; index++) {
-            identity.data[index * dModel + index] = 1;
+            identity.rawData()[index * dModel + index] = 1;
         }
         for (Parameter parameter : attention.parameters()) {
             AutogradTestSupport.replaceValues(parameter.value, identity);
@@ -53,22 +53,22 @@ public class MultiHeadSelfAttentionTest {
     private static Tensor identityInput(int size) {
         Tensor input = Tensor.zeros(size, size);
         for (int index = 0; index < size; index++) {
-            input.data[index * size + index] = 1;
+            input.rawData()[index * size + index] = 1;
         }
         return input;
     }
 
     private static void overwriteLastRow(Tensor tensor, float value) {
-        int offset = (tensor.rows - 1) * tensor.cols;
-        for (int column = 0; column < tensor.cols; column++) {
-            tensor.data[offset + column] = value;
+        int offset = (tensor.matrixRows() - 1) * tensor.matrixCols();
+        for (int column = 0; column < tensor.matrixCols(); column++) {
+            tensor.rawData()[offset + column] = value;
         }
     }
 
     private static void assertPastRowsEqual(Tensor first, Tensor second, int rows, int columns) {
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < columns; c++) {
-                assertEquals(first.data[r * columns + c], second.data[r * columns + c], 1e-7f,
+                assertEquals(first.rawData()[r * columns + c], second.rawData()[r * columns + c], 1e-7f,
                         "past output changed at [" + r + "," + c + "]");
             }
         }
@@ -142,8 +142,8 @@ public class MultiHeadSelfAttentionTest {
 
     private static void assertInputGradients(MultiHeadSelfAttention attn, Tensor x,
                                              Tensor dX, float eps, float tol) {
-        for (int r = 0; r < x.rows; r++) {
-            for (int c = 0; c < x.cols; c++) {
+        for (int r = 0; r < x.matrixRows(); r++) {
+            for (int c = 0; c < x.matrixCols(); c++) {
                 float orig = x.get(r, c);
                 x.set(r, c, orig + eps);
                 float fPlus = sumAll(attn.forward(x));
@@ -165,7 +165,7 @@ public class MultiHeadSelfAttentionTest {
         attn.forward(x);
         AutogradTestSupport.backward(attn::forward, x, Tensor.ones(seqLen, dModel));
         Parameter Wo = attn.parameters().get(3);
-        float[] dWo = Wo.grad().data.clone();
+        float[] dWo = Wo.grad().rawData().clone();
         assertOutputWeightGradient(attn, x, Wo, dWo, dModel, eps, tol);
     }
 
@@ -188,9 +188,9 @@ public class MultiHeadSelfAttentionTest {
 
     private static float sumAll(Tensor t) {
         float s = 0.0f;
-        for (int r = 0; r < t.rows; r++) {
-            for (int c = 0; c < t.cols; c++) {
-                s += t.data[r * t.cols + c];
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (int c = 0; c < t.matrixCols(); c++) {
+                s += t.rawData()[r * t.matrixCols() + c];
             }
         }
         return s;

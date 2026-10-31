@@ -11,7 +11,7 @@ class GraphZeroBufferTest extends ComputeGraphTestSupport {
     void zeroInitializationUsesMetadataUntilFlushAndPreservesPortableRuntimes() {
         GpuBuffer buffer = graph.newZeroBuffer(3, 5);
         Tensor tensor = graph.createOutputTensor(buffer);
-        assertNull(tensor.data);
+        assertNull(tensor.rawData());
         assertNull(graph.pendingUploadData.get(0));
         assertArrayEquals(new int[]{buffer.id, 15}, graph.pendingUploadIds.get(0));
         graph.flush();
@@ -35,8 +35,8 @@ class GraphZeroBufferTest extends ComputeGraphTestSupport {
         GpuBuffer first = graph.newOutputBuffer(1, 4), second = graph.newOutputBuffer(1, 4);
         graph.recordUnary(ComputeGraph.OP_NEG, zero, first);
         graph.recordUnary(ComputeGraph.OP_NEG, first, second);
-        graph.bufIdToTensor.put(zero.id, new WeakReference<>(null));
-        graph.bufIdToTensor.put(first.id, new WeakReference<>(null));
+        graph.bufIdToMemory.put(zero.id, new WeakReference<>(null));
+        graph.bufIdToMemory.put(first.id, new WeakReference<>(null));
         assertTrue(GraphBufferReuse.prepare(graph).allocations().stream()
                 .anyMatch(allocation -> allocation[0] == zero.id));
     }

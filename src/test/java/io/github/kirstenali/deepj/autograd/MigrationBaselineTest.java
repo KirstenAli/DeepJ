@@ -95,7 +95,7 @@ class MigrationBaselineTest {
 
     private static void checkTensor(DataInputStream expected, Tensor actual) throws IOException {
         actual.materialize();
-        for (float value : actual.data) {
+        for (float value : actual.rawData()) {
             float reference = expected.readFloat();
             assertEquals(reference, value, 2e-5f + Math.abs(reference) * 3e-4f);
         }

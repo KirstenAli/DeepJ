@@ -23,8 +23,8 @@ class RollingRotaryTest {
         var longTable = new RotaryEmbedding(8, offset + 9);
         Tensor input = Tensor.random(6, 8, new Random(53));
         try (var ignored = GradMode.noGrad()) {
-            assertArrayEquals(longTable.apply(input, 2, 3, offset).data,
-                    shortTable.applyInference(input, 2, 3, offset).data);
+            assertArrayEquals(longTable.apply(input, 2, 3, offset).rawData(),
+                    shortTable.applyInference(input, 2, 3, offset).rawData());
         }
     }
 

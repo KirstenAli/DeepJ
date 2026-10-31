@@ -9,6 +9,12 @@ public interface CausalLM extends Trainable {
 
     Tensor forward(int[] inputIds);
 
+    default boolean supportsBatchedForward() { return false; }
+
+    default Tensor forwardBatch(int[][] inputIds) {
+        throw new UnsupportedOperationException("This model does not implement dense batched forward passes");
+    }
+
     default GenerationSession openGeneration() { return this::forward; }
 
     default GenerationSession openGeneration(ContextWindowMode mode) {

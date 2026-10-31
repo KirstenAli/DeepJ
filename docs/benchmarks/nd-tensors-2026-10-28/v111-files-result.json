@@ -1,0 +1,14 @@
+{
+  "stage": "final-files-v111",
+  "state": "COMPLETED 2026-10-31; 18 of 18 typed FILE cases COMPLETED",
+  "candidateCommit": "c9e42914c2a21355728a62c3cb88878c6ca4e923",
+  "candidateJarSha256": "77e1c2f8a02cf9277bbb98620f19b81f5a2462db49a261aaf995e4ed5b4ed9d7",
+  "guardSha256": "8d4a278caadca7e48c638af7e45c0ac4020dc55d5950626a81246dd244429f79 (byte-identical to final-files-v38)",
+  "helperClasses": "final-files-v38 classes used byte-for-byte",
+  "workload": "prism, nova, loop x FLOAT16, BFLOAT16 x write, self, actual FILE resume; full 1,024 context; original bounds (3 GiB heap, 5 GiB native, 4.5 GiB RSS, 1 GiB remaining, any swapout stops, 15 GiB disk floor plus per-mode reserve)",
+  "comparison": "every case reports allStateExact=true; for all six family x dtype groups the saved model.dj and training.dj byte counts and SHA-256 in file-receipts.json and the resaved-model/resaved-training receipts are identical to final-files-v38, which matched the original typed references",
+  "retirement": "each group's write payload was retired by the resume case under retired-payloads.json after byte/SHA checks; no .dj payload remains in references; receipts retained",
+  "swap": "no global swapout change and no guard event in any case",
+  "scope": "Closes the typed write/self/actual-file-restore check for c9e42914."
+}
+

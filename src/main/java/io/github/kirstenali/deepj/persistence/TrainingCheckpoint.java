@@ -1,33 +1,33 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
-import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.models.PromptFormat;
 import io.github.kirstenali.deepj.models.TransformerConfig;
 import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
-import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 import io.github.kirstenali.deepj.training.TrainingProgress;
+import io.github.kirstenali.deepj.tensor.BackwardBuffers;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.List;
 
 public final class TrainingCheckpoint {
 
     private static final int MAGIC = 0x444A5443;
     private static final int VERSION = 2;
+    private static final int TYPED_VERSION = 3;
 
     private TrainingCheckpoint() {}
 
@@ -81,8 +81,29 @@ public final class TrainingCheckpoint {
                                          StatefulBatchSource dataset, CosineLearningRateSchedule schedule,
                                          Path path, TransformerConfig expected) throws IOException {
         ModelSerializer.prepareForLoad();
-        CheckpointData checkpoint = read(params, schedule, path, expected);
-        applyModelValues(params, checkpoint.modelValues());
+        try (var file = new CheckpointInput(path); var buffers = BackwardBuffers.begin()) {
+            try {
+                return buffers.capture(() -> readAndRestore(params, optimizer, dataset, schedule, file, expected));
+            } catch (UncheckedIOException failure) {
+                throw failure.getCause();
+            } finally {
+                buffers.releaseTemporaryResources();
+            }
+        }
+    }
+
+    private static TrainingProgress readAndRestore(List<Parameter> params, AdamW optimizer,
+                                                    StatefulBatchSource dataset, CosineLearningRateSchedule schedule,
+                                                    CheckpointInput file, TransformerConfig expected) {
+        try { return restore(params, optimizer, dataset, file, read(params, schedule, file, expected)); }
+        catch (IOException failure) { throw new UncheckedIOException(failure); }
+    }
+
+    private static TrainingProgress restore(List<Parameter> params, AdamW optimizer,
+                                             StatefulBatchSource dataset, CheckpointInput file,
+                                             CheckpointData checkpoint) throws IOException {
+        optimizer.validateState(params, checkpoint.optimizer());
+        TrainingTensorIO.apply(params, file, checkpoint.modelPositions(), checkpoint.typed());
         optimizer.restoreState(params, checkpoint.optimizer());
         dataset.restoreRandomState(checkpoint.datasetState());
         return checkpoint.progress();
@@ -92,17 +113,19 @@ public final class TrainingCheckpoint {
                               TrainingProgress progress, CosineLearningRateSchedule schedule,
                               Path path, TransformerConfig config) throws IOException {
         try (DataOutputStream output = output(path)) {
-            writeHeader(output, progress, datasetState, config);
+            boolean typed = TrainingTensorIO.requiresTyped(params, optimizer);
+            writeHeader(output, progress, datasetState, config, typed);
             writeSchedule(output, schedule);
             writeOptimizer(output, optimizer);
-            writeTensors(output, params, optimizer);
+            TrainingTensorIO.write(output, params, optimizer, typed);
         }
     }
 
     private static void writeHeader(DataOutputStream output, TrainingProgress progress,
-                                    long datasetState, TransformerConfig config) throws IOException {
+                                    long datasetState, TransformerConfig config, boolean typed) throws IOException {
         output.writeInt(MAGIC);
-        output.writeInt(config == null ? 1 : VERSION);
+        output.writeInt(typed ? TYPED_VERSION : config == null ? 1 : VERSION);
+        if (typed) output.writeBoolean(config != null);
         if (config != null) ModelSettingsIO.write(output, new ModelSettings(config, PromptFormat.PLAIN));
         output.writeInt(progress.completedSteps());
         output.writeFloat(progress.lastLoss());
@@ -128,28 +151,16 @@ public final class TrainingCheckpoint {
         output.writeFloat(optimizer.weightDecay());
     }
 
-    private static void writeTensors(DataOutputStream output, List<Parameter> params,
-                                     AdamW.State optimizer) throws IOException {
-        output.writeInt(params.size());
-        for (int index = 0; index < params.size(); index++) {
-            ModelSerializer.writeTensor(output, params.get(index).value);
-            ModelSerializer.writeTensor(output, optimizer.firstMoments().get(index));
-            ModelSerializer.writeTensor(output, optimizer.secondMoments().get(index));
-        }
-    }
-
     private static CheckpointData read(List<Parameter> params,
                                        CosineLearningRateSchedule schedule,
-                                       Path path, TransformerConfig expected) throws IOException {
-        try (DataInputStream input = input(path)) {
-            Metadata metadata = readMetadata(input, schedule, expected);
-            validateCount(input.readInt(), params.size());
-            TensorLists tensors = readTensors(input, params);
-            if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
-            AdamW.State optimizer = metadata.optimizer(tensors.first(), tensors.second());
-            return new CheckpointData(metadata.progress(), metadata.datasetState(),
-                    optimizer, tensors.model());
-        }
+                                       CheckpointInput file, TransformerConfig expected) throws IOException {
+        DataInputStream input = file.data();
+        Metadata metadata = readMetadata(input, schedule, expected);
+        validateCount(input.readInt(), params.size());
+        TrainingTensorIO.State tensors = TrainingTensorIO.read(file, params, metadata.typed());
+        if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
+        return new CheckpointData(metadata.progress(), metadata.datasetState(),
+                metadata.optimizer(tensors), tensors.modelPositions(), metadata.typed());
     }
 
     private static Metadata readMetadata(DataInputStream input,
@@ -157,29 +168,32 @@ public final class TrainingCheckpoint {
                                          TransformerConfig expected) throws IOException {
         int magic = input.readInt(), version = input.readInt();
         validateFormat(magic, version);
-        validateConfiguration(input, version, expected);
+        boolean configured = version == TYPED_VERSION ? CheckpointTensorIO.readFlag(input) : version == VERSION;
+        validateConfiguration(input, configured, expected);
         TrainingProgress progress = new TrainingProgress(
                 input.readInt(), input.readFloat(), input.readFloat());
         long datasetState = input.readLong();
         validateSchedule(input, schedule);
-        return readOptimizerMetadata(input, progress, datasetState);
+        return readOptimizerMetadata(input, progress, datasetState, version == TYPED_VERSION);
     }
 
     private static Metadata readOptimizerMetadata(DataInputStream input,
                                                   TrainingProgress progress,
-                                                  long datasetState) throws IOException {
+                                                  long datasetState, boolean typed) throws IOException {
         return new Metadata(progress, datasetState, input.readLong(), input.readFloat(),
-                input.readFloat(), input.readFloat(), input.readFloat(), input.readFloat());
+                input.readFloat(), input.readFloat(), input.readFloat(), input.readFloat(), typed);
     }
 
     private static void validateFormat(int magic, int version) throws IOException {
         if (magic != MAGIC) throw new IOException("Not a DeepJ training checkpoint");
-        if (version != 1 && version != VERSION) throw new IOException("Unsupported training checkpoint version");
+        if (version != 1 && version != VERSION && version != TYPED_VERSION) {
+            throw new IOException("Unsupported training checkpoint version");
+        }
     }
 
-    private static void validateConfiguration(DataInputStream input, int version,
+    private static void validateConfiguration(DataInputStream input, boolean configured,
                                               TransformerConfig expected) throws IOException {
-        if (version == 1) {
+        if (!configured) {
             if (expected instanceof DeepJLoopConfig) {
                 throw new IOException("Loop checkpoint lacks architecture settings");
             }
@@ -204,38 +218,6 @@ public final class TrainingCheckpoint {
 
     private static void validateCount(int count, int expected) throws IOException {
         if (count != expected) throw new IOException("Parameter count mismatch");
-    }
-
-    private static TensorLists readTensors(DataInputStream input,
-                                           List<Parameter> params) throws IOException {
-        List<Tensor> model = new ArrayList<>(params.size());
-        List<Tensor> first = new ArrayList<>(params.size());
-        List<Tensor> second = new ArrayList<>(params.size());
-        for (int index = 0; index < params.size(); index++) {
-            Tensor template = params.get(index).value;
-            model.add(readTensor(input, template, index));
-            first.add(readTensor(input, template, index));
-            second.add(readTensor(input, template, index));
-        }
-        return new TensorLists(model, first, second);
-    }
-
-    private static Tensor readTensor(DataInputStream input, Tensor template,
-                                     int index) throws IOException {
-        Tensor tensor = new Tensor(template.rows, template.cols);
-        ModelSerializer.readTensor(input, tensor, index);
-        return tensor;
-    }
-
-    private static void applyModelValues(List<Parameter> params, List<Tensor> values) {
-        try (var ignored = GradMode.noGrad()) {
-            for (int index = 0; index < params.size(); index++) {
-                Tensor target = params.get(index).value;
-                target.gradientState().beforeMutation();
-                System.arraycopy(values.get(index).data, 0, target.data, 0, target.data.length);
-                ModelSerializer.markGpuBufferNeedsUpload(target);
-            }
-        }
     }
 
     private static DataInputStream input(Path path) throws IOException {
@@ -267,16 +249,14 @@ public final class TrainingCheckpoint {
 
     private record Metadata(TrainingProgress progress, long datasetState, long optimizerStep,
                             float learningRate, float beta1, float beta2,
-                            float epsilon, float weightDecay) {
+                            float epsilon, float weightDecay, boolean typed) {
 
-        AdamW.State optimizer(List<Tensor> first, List<Tensor> second) {
+        AdamW.State optimizer(TrainingTensorIO.State tensors) {
             return new AdamW.State(optimizerStep, learningRate, beta1, beta2,
-                    epsilon, weightDecay, first, second);
+                    epsilon, weightDecay, tensors.first(), tensors.second(), tensors.masters());
         }
     }
 
-    private record TensorLists(List<Tensor> model, List<Tensor> first, List<Tensor> second) {}
-
     private record CheckpointData(TrainingProgress progress, long datasetState,
-                                  AdamW.State optimizer, List<Tensor> modelValues) {}
+                                  AdamW.State optimizer, List<Long> modelPositions, boolean typed) {}
 }

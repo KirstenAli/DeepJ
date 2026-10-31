@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.autograd;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.BackwardBuffers;
+import io.github.kirstenali.deepj.tensor.TensorScope;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 
 import java.util.ArrayDeque;
@@ -94,14 +95,16 @@ final class BackwardPass {
 
     private Tensor[] apply(BackwardNode node, Tensor gradient) {
         if (privateBuffers && node.isBuiltin()) return buffers.capture(() -> node.apply(gradient));
+        if (node.isBuiltin()) return node.apply(gradient);
         if (privateBuffers) buffers.expose(gradient);
-        return node.apply(gradient);
+        return TensorScope.external(() -> node.apply(gradient));
     }
 
     private void accumulate(GradientEdge input, Tensor contribution) {
         if (!input.state().required()) return;
         if (contribution == null) throw new IllegalStateException("Missing gradient for a tracked input");
         input.requireShape(contribution);
+        contribution = Tensor.backend().cast(contribution, contribution.dtype().gradientType());
         if (input.state().node() == null) input.state().accumulate(contribution);
         else gradients.merge(input.state(), contribution, this::combine);
     }

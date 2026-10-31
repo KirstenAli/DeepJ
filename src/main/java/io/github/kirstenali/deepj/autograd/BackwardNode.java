@@ -3,7 +3,6 @@ package io.github.kirstenali.deepj.autograd;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 
-import java.util.Arrays;
 import java.util.List;
 
 final class BackwardNode {
@@ -17,14 +16,28 @@ final class BackwardNode {
     BackwardNode(BackwardRule rule, Tensor[] inputs, Tensor[] saved, boolean builtin) {
         this.rule = rule;
         this.builtin = builtin;
-        this.inputs = Arrays.stream(inputs).map(GradientEdge::new).toList();
-        this.inputs.forEach(edge -> edge.state().saveFor(this));
-        this.saved = Arrays.stream(saved).map(tensor -> new SavedTensor(tensor, this)).toList();
+        this.inputs = edges(inputs);
+        for (int index = 0; index < this.inputs.size(); index++) {
+            this.inputs.get(index).state().saveFor(this);
+        }
+        this.saved = saved(saved);
+    }
+
+    private static List<GradientEdge> edges(Tensor[] inputs) {
+        GradientEdge[] result = new GradientEdge[inputs.length];
+        for (int index = 0; index < inputs.length; index++) { result[index] = new GradientEdge(inputs[index]); }
+        return List.of(result);
+    }
+
+    private List<SavedTensor> saved(Tensor[] tensors) {
+        SavedTensor[] result = new SavedTensor[tensors.length];
+        for (int index = 0; index < tensors.length; index++) { result[index] = new SavedTensor(tensors[index], this); }
+        return List.of(result);
     }
 
     List<GradientEdge> inputs() { return inputs; }
     boolean released() { return released; }
-    boolean isBuiltin() { return builtin || rule instanceof GatherBackward; }
+    boolean isBuiltin() { return builtin || rule instanceof GatherBackward || rule instanceof IndexSelectBackward; }
 
     void validate() {
         if (released) throw new IllegalStateException("Backward graph was already released; run forward again");

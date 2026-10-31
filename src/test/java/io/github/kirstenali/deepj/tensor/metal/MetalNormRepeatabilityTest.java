@@ -30,7 +30,7 @@ class MetalNormRepeatabilityTest extends MetalDifferentialTestSupport {
         for (float scale : new float[]{0.0001f, 0.01f, 1.0f, 10.0f, 100.0f}) {
             Tensor tensor = new Tensor(1, count).retainDeviceBuffer();
             for (int index = 0; index < count; index++) {
-                tensor.data[index] = (random.nextFloat() - 0.5f) * scale;
+                tensor.rawData()[index] = (random.nextFloat() - 0.5f) * scale;
             }
             result.add(tensor);
         }
@@ -40,7 +40,7 @@ class MetalNormRepeatabilityTest extends MetalDifferentialTestSupport {
     private static double referenceNorm(List<Tensor> gradients) {
         double squares = 0;
         for (Tensor gradient : gradients) {
-            for (float value : gradient.data) {
+            for (float value : gradient.rawData()) {
                 squares += (double) value * value;
             }
         }

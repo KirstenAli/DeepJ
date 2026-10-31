@@ -7,22 +7,24 @@ public final class TensorAdapters {
     private TensorAdapters() {}
 
     public static float[] packF32(Tensor t) {
-        if (t.data == null && t.getGpuTag() == null) return new float[TensorStorage.checkedSize(t.rows, t.cols)];
+        if (t.rawData() == null && t.getGpuTag() == null) {
+            return new float[TensorStorage.checkedSize(t.matrixRows(), t.matrixCols())];
+        }
         t.materialize();
-        return java.util.Arrays.copyOf(t.data, t.data.length);
+        return java.util.Arrays.copyOf(t.rawData(), t.rawData().length);
     }
 
     public static Tensor fromIntColumn(int[] values) {
         Tensor t = new Tensor(values.length, 1);
         for (int i = 0; i < values.length; i++) {
-            t.data[i] = values[i];
+            t.rawData()[i] = values[i];
         }
         return t;
     }
 
     public static Tensor unpackF32(float[] flat, int rows, int cols) {
         Tensor t = new Tensor(rows, cols);
-        if (flat.length != t.data.length) {
+        if (flat.length != t.rawData().length) {
             throw new IllegalArgumentException(
                     "Flat buffer length " + flat.length +
                             " does not match shape " + rows + "x" + cols);
@@ -32,7 +34,7 @@ public final class TensorAdapters {
     }
 
     public static void unpackF32Into(float[] flat, Tensor t) {
-        int size = TensorStorage.checkedSize(t.rows, t.cols);
+        int size = TensorStorage.checkedSize(t.matrixRows(), t.matrixCols());
         if (flat.length != size) {
             throw new IllegalArgumentException(
                     "Flat buffer length " + flat.length +

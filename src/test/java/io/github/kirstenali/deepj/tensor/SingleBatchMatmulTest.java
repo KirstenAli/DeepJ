@@ -24,9 +24,9 @@ class SingleBatchMatmulTest {
         Tensor actual = observing(cpu, calls).batchedMatmul(a, b, 1, ta, tb);
         Tensor expected = cpu.matmul(ta ? cpu.transpose(a) : a, tb ? cpu.transpose(b) : b);
         assertEquals(1, calls.get());
-        assertEquals(expected.rows, actual.rows);
-        assertEquals(expected.cols, actual.cols);
-        assertArrayEquals(expected.data, actual.data);
+        assertEquals(expected.matrixRows(), actual.matrixRows());
+        assertEquals(expected.matrixCols(), actual.matrixCols());
+        assertArrayEquals(expected.rawData(), actual.rawData());
     }
 
     private static TensorBackend observing(CpuBackend cpu, AtomicInteger calls) {
@@ -58,7 +58,7 @@ class SingleBatchMatmulTest {
                 new Class<?>[]{TensorBackend.class}, (proxy, method, arguments) -> {
                     if (method.getName().equals("materializeTensor")) {
                         Tensor input = (Tensor) arguments[0];
-                        input.data[0] = (float) input.getGpuTag();
+                        input.rawData()[0] = (float) input.getGpuTag();
                         input.setGpuTag(null);
                         return null;
                     }

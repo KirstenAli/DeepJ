@@ -107,7 +107,7 @@ class MetalBackendDifferentialTest extends MetalDifferentialTestSupport {
     @Test
     void fusedCrossEntropyMatchesCpu() {
         Tensor logits = random(17, 769, 15L);
-        int[] targets = randomTargets(logits.rows, logits.cols, 16L);
+        int[] targets = randomTargets(logits.matrixRows(), logits.matrixCols(), 16L);
         float expectedLoss = cpu.crossEntropyLoss(new Tensor(logits), targets);
         Tensor expectedGradient = cpu.crossEntropyGradient(new Tensor(logits), targets);
         CrossEntropyResult actual = metal.crossEntropy(new Tensor(logits), targets);
@@ -118,8 +118,8 @@ class MetalBackendDifferentialTest extends MetalDifferentialTestSupport {
     @Test
     void fusedRmsNormMatchesCpu() {
         Tensor input = random(11, 37, 17L);
-        Tensor gamma = positive(1, input.cols, 18L);
-        Tensor gradient = random(input.rows, input.cols, 19L);
+        Tensor gamma = positive(1, input.matrixCols(), 18L);
+        Tensor gradient = random(input.matrixRows(), input.matrixCols(), 19L);
         RmsNormResult expected = cpu.rmsNorm(input, gamma, 1e-6f);
         RmsNormResult actual = metal.rmsNorm(new Tensor(input), new Tensor(gamma), 1e-6f);
         assertRmsNormClose(expected, actual);

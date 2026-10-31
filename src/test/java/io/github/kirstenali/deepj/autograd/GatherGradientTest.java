@@ -29,7 +29,7 @@ class GatherGradientTest {
         Tensor buffer = table.grad();
         Tensor.sliceRows(table.value, new int[]{1, 1, 2}, 2).sumTensor().backward();
         assertSame(buffer, table.grad());
-        assertArrayEquals(new float[]{0, 0, 2, 2, 1, 1}, buffer.data);
+        assertArrayEquals(new float[]{0, 0, 2, 2, 1, 1}, buffer.rawData());
         assertEquals(1, calls.stream().filter("scatterAddRows"::equals).count());
         assertFalse(calls.contains("addInPlace"));
         assertFalse(calls.contains("addScalar"));
@@ -43,10 +43,10 @@ class GatherGradientTest {
         Tensor buffer = table.grad();
         Tensor.sliceRows(table, new int[]{1, 2}, 2).sumTensor().backward();
         assertSame(buffer, table.grad());
-        assertArrayEquals(new float[]{0, 0, 3, 3, 1, 1}, buffer.data);
+        assertArrayEquals(new float[]{0, 0, 3, 3, 1, 1}, buffer.rawData());
         table.zeroGrad();
         Tensor.sliceRows(table, new int[]{0}, 2).sumTensor().backward();
-        assertArrayEquals(new float[]{1, 1, 0, 0, 0, 0}, table.grad().data);
+        assertArrayEquals(new float[]{1, 1, 0, 0, 0, 0}, table.grad().rawData());
     }
 
     @Test
@@ -54,7 +54,7 @@ class GatherGradientTest {
         Parameter table = new Parameter(Tensor.ones(3, 2));
         Tensor gathered = Tensor.sliceRows(table.value, new int[]{1, 1, 2}, 2);
         table.value.sumTensor().add(gathered.sumTensor()).backward();
-        assertArrayEquals(new float[]{1, 1, 3, 3, 2, 2}, table.grad().data);
+        assertArrayEquals(new float[]{1, 1, 3, 3, 2, 2}, table.grad().rawData());
     }
 
     @Test
@@ -63,7 +63,7 @@ class GatherGradientTest {
         Tensor first = Tensor.sliceRows(table, new int[]{1, 1}, 2);
         Tensor second = Tensor.sliceRows(table, new int[]{1, 2}, 2);
         first.sumTensor().add(second.sumTensor()).backward();
-        assertArrayEquals(new float[]{0, 0, 3, 3, 1, 1}, table.grad().data);
+        assertArrayEquals(new float[]{0, 0, 3, 3, 1, 1}, table.grad().rawData());
     }
 
     @Test
@@ -71,7 +71,7 @@ class GatherGradientTest {
         Tensor table = Tensor.ones(3, 2).requiresGrad(true);
         Tensor intermediate = table.multiplyScalar(2);
         Tensor.sliceRows(intermediate, new int[]{1, 1, 2}, 2).sumTensor().backward();
-        assertArrayEquals(new float[]{0, 0, 4, 4, 2, 2}, table.grad().data);
+        assertArrayEquals(new float[]{0, 0, 4, 4, 2, 2}, table.grad().rawData());
         assertNull(intermediate.grad());
     }
 
@@ -81,7 +81,7 @@ class GatherGradientTest {
         Tensor upstream = Tensor.from2D(new float[][]{{1}, {2}});
         table.gradientState().bindGradient(upstream);
         Tensor.sliceRows(table, new int[]{1, 0}, 1).backward(upstream);
-        assertArrayEquals(new float[]{3, 3}, table.grad().data);
+        assertArrayEquals(new float[]{3, 3}, table.grad().rawData());
     }
 
     @ParameterizedTest

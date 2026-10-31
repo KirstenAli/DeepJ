@@ -41,10 +41,18 @@ export function analyseNativeFile(file, index, flags) {
     ? splitNativeSource(source, file)
     : { host: source, shaders: [] };
   const host = { file, kind: 'host', metrics: hostMetrics(parts.host, file, name, flags) };
-  const shaders = parts.shaders.map((shader, number) => ({
+  const shaders = parts.shaders.flatMap(shaderVariants).map((shader, number) => ({
     file,
     kind: 'shaders',
     metrics: shaderMetrics(shader, name + '_shader_' + number),
   }));
   return [host, ...shaders];
+}
+
+function shaderVariants(shader) {
+  if (!shader.source.includes('#if COMPACT_KIND == 2')) return [shader];
+  return [1, 2, 3].map((kind) => ({
+    ...shader,
+    source: '#define COMPACT_KIND ' + kind + '\n' + shader.source,
+  }));
 }

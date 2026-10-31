@@ -78,17 +78,17 @@ class CachedGenerationTest {
     @EnumSource(Kind.class)
     void closingInferenceDoesNotChangeParametersOrBreakTrainingAutograd(Kind kind) {
         DecoderOnlyModel model = InferenceTestModels.create(kind, 8, 16);
-        float[] weights = model.parameters().get(0).value.data.clone();
+        float[] weights = model.parameters().get(0).value.rawData().clone();
         try (var session = model.openGeneration()) {
             session.apply(new int[]{1, 2});
             assertFalse(session.apply(new int[]{1, 2, 3}).requiresGrad());
         }
         model.forward(new int[]{1, 2, 3}).sumTensor().backward();
         assertNotNull(model.parameters().get(0).grad());
-        assertArrayEquals(weights, model.parameters().get(0).value.data);
+        assertArrayEquals(weights, model.parameters().get(0).value.rawData());
     }
 
     private static void assertLastLogits(Tensor expected, Tensor actual) {
-        assertArrayEquals(expected.rowData(expected.rows - 1), actual.rowData(actual.rows - 1), 2e-5f);
+        assertArrayEquals(expected.rowData(expected.matrixRows() - 1), actual.rowData(actual.matrixRows() - 1), 2e-5f);
     }
 }

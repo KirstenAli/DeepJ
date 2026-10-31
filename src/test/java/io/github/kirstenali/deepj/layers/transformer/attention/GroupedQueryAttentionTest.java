@@ -37,9 +37,9 @@ class GroupedQueryAttentionTest {
         var groups = new GroupedHeads(4, 2);
         Tensor values = Tensor.from2D(new float[][]{{1}, {2}, {3}, {4}}).requiresGrad(true);
         Tensor expanded = groups.expand(values, 2);
-        assertArrayEquals(new float[]{1, 2, 1, 2, 3, 4, 3, 4}, expanded.data);
+        assertArrayEquals(new float[]{1, 2, 1, 2, 3, 4, 3, 4}, expanded.rawData());
         expanded.sumTensor().backward();
-        assertArrayEquals(new float[]{2, 2, 2, 2}, values.grad().data);
+        assertArrayEquals(new float[]{2, 2, 2, 2}, values.grad().rawData());
     }
 
     @Test
@@ -50,13 +50,13 @@ class GroupedQueryAttentionTest {
                 new RotaryEmbedding(2, 4), new Random(32L));
         Tensor input = Tensor.random(3, 8, new Random(33L));
         Tensor gradient = Tensor.random(3, 8, new Random(34L));
-        assertArrayEquals(expected.forward(input).data, actual.forward(input).data, 1e-6f);
+        assertArrayEquals(expected.forward(input).rawData(), actual.forward(input).rawData(), 1e-6f);
         Tensor expectedGradient = AutogradTestSupport.backward(expected::forward, input, gradient);
         Tensor actualGradient = AutogradTestSupport.backward(actual::forward, input, gradient);
-        assertArrayEquals(expectedGradient.data, actualGradient.data, 1e-6f);
+        assertArrayEquals(expectedGradient.rawData(), actualGradient.rawData(), 1e-6f);
         for (int index = 0; index < expected.parameters().size(); index++) {
-            assertArrayEquals(expected.parameters().get(index).grad().data,
-                    actual.parameters().get(index).grad().data, 1e-6f);
+            assertArrayEquals(expected.parameters().get(index).grad().rawData(),
+                    actual.parameters().get(index).grad().rawData(), 1e-6f);
         }
     }
 }

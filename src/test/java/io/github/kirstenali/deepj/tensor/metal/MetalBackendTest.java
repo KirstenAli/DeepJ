@@ -32,7 +32,7 @@ public final class MetalBackendTest extends MetalBackendTestSupport {
         Tensor input = randomTensor(64, 64, 200L + iteration);
         Tensor result = gpu.neg(input);
         result.materialize();
-        assertEquals(-input.data[0], result.data[0], 1e-6f);
+        assertEquals(-input.rawData()[0], result.rawData()[0], 1e-6f);
         gpu.releaseResources();
     }
 
@@ -51,12 +51,12 @@ public final class MetalBackendTest extends MetalBackendTestSupport {
 
         Tensor c = gpu.matmul(a, b);
         c.materialize();
-        assertEquals(2, c.rows);
-        assertEquals(2, c.cols);
-        assertEquals(58.0f,  c.data[0], 1e-6f);
-        assertEquals(64.0f,  c.data[1], 1e-6f);
-        assertEquals(139.0f, c.data[1 * 2 + 0], 1e-6f);
-        assertEquals(154.0f, c.data[1 * 2 + 1], 1e-6f);
+        assertEquals(2, c.matrixRows());
+        assertEquals(2, c.matrixCols());
+        assertEquals(58.0f,  c.rawData()[0], 1e-6f);
+        assertEquals(64.0f,  c.rawData()[1], 1e-6f);
+        assertEquals(139.0f, c.rawData()[1 * 2 + 0], 1e-6f);
+        assertEquals(154.0f, c.rawData()[1 * 2 + 1], 1e-6f);
     }
 
     @Test

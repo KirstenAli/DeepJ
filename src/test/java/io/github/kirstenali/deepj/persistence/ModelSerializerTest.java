@@ -107,7 +107,7 @@ public class ModelSerializerTest {
         Parameter parameter = new Parameter(rowTensor(7, 8));
         IOException error = assertThrows(IOException.class, () -> ModelSerializer.load(List.of(parameter), file));
         assertEquals("Unsupported checkpoint format: missing DeepJ header", error.getMessage());
-        assertArrayEquals(new float[]{7, 8}, parameter.value.data);
+        assertArrayEquals(new float[]{7, 8}, parameter.value.rawData());
         assertThrows(IOException.class, () -> ModelSerializer.settings(file));
         assertThrows(IOException.class, () -> ModelSerializer.inspect(file));
     }
@@ -132,12 +132,13 @@ public class ModelSerializerTest {
     }
 
     private static void assertTensorEquals(Tensor expected, Tensor actual, double tol) {
-        assertEquals(expected.rows, actual.rows, "rows");
-        assertEquals(expected.cols, actual.cols, "cols");
+        assertEquals(expected.matrixRows(), actual.matrixRows(), "rows");
+        assertEquals(expected.matrixCols(), actual.matrixCols(), "cols");
 
-        for (int r = 0; r < expected.rows; r++) {
-            for (int c = 0; c < expected.cols; c++) {
-                assertEquals(expected.data[r * expected.cols + c], actual.data[r * actual.cols + c], tol,
+        for (int r = 0; r < expected.matrixRows(); r++) {
+            for (int c = 0; c < expected.matrixCols(); c++) {
+                assertEquals(expected.rawData()[r * expected.matrixCols() + c],
+                        actual.rawData()[r * actual.matrixCols() + c], tol,
                         "mismatch at [" + r + "," + c + "]");
             }
         }

@@ -29,7 +29,7 @@ final class DecoderTrainingSession {
 
     static void ensureCheckpointSpace(Path output, DecoderOnlyModel model) throws IOException {
         long bytes = model.parameters().stream()
-                .mapToLong(parameter -> (long) parameter.value.data.length * Float.BYTES + 8L).sum();
+                .mapToLong(parameter -> (long) parameter.value.rawData().length * Float.BYTES + 8L).sum();
         long required = bytes * 7L + 16L * 1024L * 1024L;
         if (Files.getFileStore(output).getUsableSpace() < required) {
             throw new IOException("Not enough disk space for rolling checkpoints");

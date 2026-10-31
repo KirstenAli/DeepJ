@@ -16,9 +16,9 @@ public class EmbeddingTest {
         Embedding emb = new Embedding(5, 3, new Random(1));
 
         for (int i = 0; i < 5; i++) {
-            emb.weight().value.data[i * 3 + 0] = i;
-            emb.weight().value.data[i * 3 + 1] = i + 1;
-            emb.weight().value.data[i * 3 + 2] = i + 2;
+            emb.weight().value.rawData()[i * 3 + 0] = i;
+            emb.weight().value.rawData()[i * 3 + 1] = i + 1;
+            emb.weight().value.rawData()[i * 3 + 2] = i + 2;
         }
 
         Tensor out = emb.forward(new int[]{3, 1, 3});
@@ -43,11 +43,11 @@ public class EmbeddingTest {
         });
         emb.forward(new int[]{1, 1, 3}).backward(gradOut);
 
-        assertEquals(1.0f + 3.0f, emb.weight().grad().data[1 * 2 + 0], 1e-12f);
-        assertEquals(2.0f + 4.0f, emb.weight().grad().data[1 * 2 + 1], 1e-12f);
+        assertEquals(1.0f + 3.0f, emb.weight().grad().rawData()[1 * 2 + 0], 1e-12f);
+        assertEquals(2.0f + 4.0f, emb.weight().grad().rawData()[1 * 2 + 1], 1e-12f);
 
-        assertEquals(5.0f, emb.weight().grad().data[3 * 2 + 0], 1e-12f);
-        assertEquals(6.0f, emb.weight().grad().data[3 * 2 + 1], 1e-12f);
+        assertEquals(5.0f, emb.weight().grad().rawData()[3 * 2 + 0], 1e-12f);
+        assertEquals(6.0f, emb.weight().grad().rawData()[3 * 2 + 1], 1e-12f);
     }
 
     @Test
@@ -76,7 +76,7 @@ public class EmbeddingTest {
         emb.weight().zeroGrad();
 
         Tensor y = emb.forward(new int[]{id});
-        TestSupport.assertTensorShape(y, 1, target.cols);
+        TestSupport.assertTensorShape(y, 1, target.matrixCols());
 
         MSELoss mse = new MSELoss();
         double loss = mse.loss(y, target);
@@ -87,8 +87,8 @@ public class EmbeddingTest {
         Tensor W = emb.weight().value;
         Tensor dW = emb.weight().grad();
 
-        for (int c = 0; c < W.cols; c++) {
-            W.data[id * W.cols + c] -= lr * dW.data[id * dW.cols + c];
+        for (int c = 0; c < W.matrixCols(); c++) {
+            W.rawData()[id * W.matrixCols() + c] -= lr * dW.rawData()[id * dW.matrixCols() + c];
         }
 
         return loss;

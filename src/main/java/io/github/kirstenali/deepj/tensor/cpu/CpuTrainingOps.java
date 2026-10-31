@@ -3,6 +3,15 @@ package io.github.kirstenali.deepj.tensor.cpu;
 import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
+import io.github.kirstenali.deepj.tensor.CpuNdIndexing;
+import io.github.kirstenali.deepj.tensor.CpuNdCrossEntropy;
+import io.github.kirstenali.deepj.tensor.CpuNdElementwise;
+import io.github.kirstenali.deepj.tensor.CrossEntropyChecks;
+import io.github.kirstenali.deepj.tensor.CpuNdAdamW;
+import io.github.kirstenali.deepj.tensor.OptimizerChecks;
+import io.github.kirstenali.deepj.tensor.NormalizationChecks;
+import io.github.kirstenali.deepj.tensor.CpuNdNormalization;
+import io.github.kirstenali.deepj.tensor.CpuRowAccess;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -12,46 +21,50 @@ import static io.github.kirstenali.deepj.tensor.Tensor.requireSameShape;
 abstract class CpuTrainingOps extends CpuReductionOps {
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets) {
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.loss(logits, targets, null);
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
 
         float lossSum = 0.0f;
-        for (int i = 0; i < logits.rows; i++) {
-            int base = i * logits.cols;
+        for (int i = 0; i < logits.matrixRows(); i++) {
+            int base = i * logits.matrixCols();
             int target = targets[i];
 
-            float max = rowMax(logits.data, base, logits.cols);
-            float sumExp = rowSumExpShifted(logits.data, base, logits.cols, max);
+            float max = rowMax(logits.rawData(), base, logits.matrixCols());
+            float sumExp = rowSumExpShifted(logits.rawData(), base, logits.matrixCols(), max);
 
-            lossSum += fLog(sumExp) + max - logits.data[base + target];
+            lossSum += fLog(sumExp) + max - logits.rawData()[base + target];
         }
-        return lossSum / logits.rows;
+        return lossSum / logits.matrixRows();
     }
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets) {
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.apply(logits, targets, null).gradient();
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
 
-        Tensor grad = new Tensor(logits.rows, logits.cols);
+        Tensor grad = new Tensor(logits.matrixRows(), logits.matrixCols());
 
-        for (int i = 0; i < logits.rows; i++) {
-            int base = i * logits.cols;
+        for (int i = 0; i < logits.matrixRows(); i++) {
+            int base = i * logits.matrixCols();
 
-            rowWriteSoftmax(logits.data, grad.data, base, logits.cols);
-            grad.data[base + targets[i]] -= 1.0f;
+            rowWriteSoftmax(logits.rawData(), grad.rawData(), base, logits.matrixCols());
+            grad.rawData()[base + targets[i]] -= 1.0f;
         }
 
-        divideScalarInPlace(grad, logits.rows);
+        divideScalarInPlace(grad, logits.matrixRows());
         return grad;
     }
 
     @Override
     public float crossEntropyLoss(Tensor logits, int[] targets, boolean[] mask) {
+        CrossEntropyChecks.included(mask, CrossEntropyChecks.positions(logits));
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.loss(logits, targets, mask);
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
         float sum = 0.0f;
-        for (int row = 0; row < logits.rows; row++) {
+        for (int row = 0; row < logits.matrixRows(); row++) {
             if (mask[row]) sum += crossEntropyRowLoss(logits, targets[row], row);
         }
         return sum / includedRows(mask);
@@ -59,30 +72,32 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     @Override
     public Tensor crossEntropyGradient(Tensor logits, int[] targets, boolean[] mask) {
+        CrossEntropyChecks.included(mask, CrossEntropyChecks.positions(logits));
+        if (!CpuNdElementwise.matrix(logits)) return CpuNdCrossEntropy.apply(logits, targets, mask).gradient();
         prepare(logits);
         Tensor.requireTargetsMatchRows(logits, targets);
-        Tensor gradient = new Tensor(logits.rows, logits.cols);
+        Tensor gradient = new Tensor(logits.matrixRows(), logits.matrixCols());
         int included = includedRows(mask);
-        for (int row = 0; row < logits.rows; row++) {
+        for (int row = 0; row < logits.matrixRows(); row++) {
             if (mask[row]) writeCrossEntropyRow(gradient, logits, targets[row], row, included);
         }
         return gradient;
     }
 
     static float crossEntropyRowLoss(Tensor logits, int target, int row) {
-        int base = row * logits.cols;
-        float max = rowMax(logits.data, base, logits.cols);
-        return fLog(rowSumExpShifted(logits.data, base, logits.cols, max))
-                + max - logits.data[base + target];
+        int base = row * logits.matrixCols();
+        float max = rowMax(logits.rawData(), base, logits.matrixCols());
+        return fLog(rowSumExpShifted(logits.rawData(), base, logits.matrixCols(), max))
+                + max - logits.rawData()[base + target];
     }
 
     static void writeCrossEntropyRow(Tensor gradient, Tensor logits, int target,
                                              int row, int included) {
-        int base = row * logits.cols;
-        rowWriteSoftmax(logits.data, gradient.data, base, logits.cols);
-        gradient.data[base + target] -= 1.0f;
-        for (int col = 0; col < logits.cols; col++) {
-            gradient.data[base + col] /= included;
+        int base = row * logits.matrixCols();
+        rowWriteSoftmax(logits.rawData(), gradient.rawData(), base, logits.matrixCols());
+        gradient.rawData()[base + target] -= 1.0f;
+        for (int col = 0; col < logits.matrixCols(); col++) {
+            gradient.rawData()[base + col] /= included;
         }
     }
 
@@ -98,91 +113,91 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     public void adamWUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
                             float lr, float beta1, float beta2, float eps,
                             float weightDecay, float bc1, float bc2) {
+        OptimizerChecks.requireState(w, g, mt, vt);
+        if (!CpuNdElementwise.sameMatrices(w, g) || !CpuNdElementwise.sameMatrices(mt, vt)) {
+            CpuNdAdamW.update(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+            return;
+        }
+        adamMatrixUpdate(w, g, mt, vt, lr, beta1, beta2, eps, weightDecay, bc1, bc2);
+    }
+
+    private static void adamMatrixUpdate(Tensor w, Tensor g, Tensor mt, Tensor vt,
+                                        float lr, float beta1, float beta2, float eps,
+                                        float weightDecay, float bc1, float bc2) {
         prepare(w, g, mt, vt);
-        int n = w.data.length;
+        int n = w.rawData().length;
         for (int i = 0; i < n; i++) {
-            float grad = g.data[i];
+            float grad = g.rawData()[i];
 
-            float mNew = beta1 * mt.data[i] + (1.0f - beta1) * grad;
-            float vNew = beta2 * vt.data[i] + (1.0f - beta2) * (grad * grad);
+            float mNew = beta1 * mt.rawData()[i] + (1.0f - beta1) * grad;
+            float vNew = beta2 * vt.rawData()[i] + (1.0f - beta2) * (grad * grad);
 
-            mt.data[i] = mNew;
-            vt.data[i] = vNew;
+            mt.rawData()[i] = mNew;
+            vt.rawData()[i] = vNew;
 
             float mHat = mNew / bc1;
             float vHat = vNew / bc2;
 
             float update = (lr * mHat) / (fSqrt(vHat) + eps);
 
-            if (weightDecay != 0.0f) update += lr * weightDecay * w.data[i];
+            if (weightDecay != 0.0f) update += lr * weightDecay * w.rawData()[i];
 
-            w.data[i] -= update;
+            w.rawData()[i] -= update;
         }
     }
 
     @Override
     public Tensor layerNormBackward(Tensor dXHat, Tensor xHat, Tensor std, int dim) {
+        Tensor.requireSameShape(dXHat, xHat, "layerNormBackward");
+        if (dim != NormalizationChecks.width(xHat)) throw new IllegalArgumentException("LayerNorm width mismatch");
+        NormalizationChecks.layerStatistics(xHat, std);
+        if (!CpuNdElementwise.sameMatrices(dXHat, xHat) || !CpuNdElementwise.matrix(std)) {
+            return CpuNdNormalization.backward(dXHat, xHat, std, Tensor.ones(1, dim), true);
+        }
         prepare(dXHat, xHat, std);
-        Tensor dX = new Tensor(dXHat.rows, dXHat.cols);
-        DeepJExecutor.forRange(0, dXHat.rows, row -> layerNormGradientRow(dX, dXHat, xHat, std, row, dim));
+        Tensor dX = new Tensor(dXHat.matrixRows(), dXHat.matrixCols());
+        DeepJExecutor.forRange(0, dXHat.matrixRows(), row -> layerNormGradientRow(dX, dXHat, xHat, std, row, dim));
         return dX;
     }
 
     private static void layerNormGradientRow(Tensor output, Tensor gradient, Tensor normalized,
                                              Tensor std, int row, int width) {
         int base = row * width;
-        float inverse = 1.0f / std.data[row], sum = 0.0f, dot = 0.0f;
+        float inverse = 1.0f / std.rawData()[row], sum = 0.0f, dot = 0.0f;
         for (int column = 0; column < width; column++) {
-            float value = gradient.data[base + column];
+            float value = gradient.rawData()[base + column];
             sum += value;
-            dot += value * normalized.data[base + column];
+            dot += value * normalized.rawData()[base + column];
         }
         for (int column = 0; column < width; column++) {
-            float value = gradient.data[base + column], norm = normalized.data[base + column];
-            output.data[base + column] = inverse * (value - sum / width - norm * (dot / width));
+            float value = gradient.rawData()[base + column], norm = normalized.rawData()[base + column];
+            output.rawData()[base + column] = inverse * (value - sum / width - norm * (dot / width));
         }
     }
 
-    public float get(Tensor t, int r, int c)           { return t.data()[r * t.cols + c]; }
-    public void   set(Tensor t, int r, int c, float v) { t.data()[r * t.cols + c] = v; }
+    public float get(Tensor t, int r, int c)           { return t.get(r, c); }
+    public void   set(Tensor t, int r, int c, float v) { t.set(r, c, v); }
 
     public Tensor getRow(Tensor t, int row) {
-        Tensor result = new Tensor(1, t.cols);
-        System.arraycopy(t.data(), row * t.cols, result.data(), 0, t.cols);
-        return result;
+        return CpuRowAccess.select(t, new int[]{row}, t.matrixCols());
     }
 
     public void setRow(Tensor t, int row, Tensor source, int srcRow) {
-        System.arraycopy(source.data(), srcRow * source.cols, t.data(), row * t.cols, t.cols);
+        CpuRowAccess.assign(t, row, source, srcRow);
     }
 
     public Tensor sliceRows(Tensor t, int[] rowIndices, int cols) {
-        Tensor out = new Tensor(rowIndices.length, cols);
-        for (int i = 0; i < rowIndices.length; i++) {
-            System.arraycopy(t.data(), rowIndices[i] * t.cols, out.data(), i * cols, cols);
-        }
-        return out;
+        return CpuRowAccess.select(t, rowIndices, cols);
     }
 
     @Override
     public void scatterAddRows(Tensor target, int[] indices, Tensor grad) {
-        prepare(target, grad);
-        for (int i = 0; i < indices.length; i++) {
-            int tBase = indices[i] * target.cols;
-            int gBase = i * target.cols;
-            for (int c = 0; c < target.cols; c++) {
-                target.data[tBase + c] += grad.data[gBase + c];
-            }
-        }
+        if (target.rank() != 2 || grad.rank() != 2) throw new IllegalArgumentException("Row scatter requires matrices");
+        CpuNdIndexing.add(target, 0, indices, grad);
     }
 
     public Tensor sampleRows(Tensor t, int n, Random rnd) {
-        Tensor out = new Tensor(n, t.cols);
-        for (int i = 0; i < n; i++) {
-            int r = rnd.nextInt(t.rows);
-            System.arraycopy(t.data(), r * t.cols, out.data(), i * t.cols, t.cols);
-        }
-        return out;
+        return CpuRowAccess.sample(t, n, rnd);
     }
 
     @Override public void addInPlace(Tensor a, Tensor b)           { applyBinary(a, b, a, Float::sum); }
@@ -190,7 +205,10 @@ abstract class CpuTrainingOps extends CpuReductionOps {
     @Override public void multiplyInPlace(Tensor a, Tensor b)      { applyBinary(a, b, a, (x, y) -> x * y); }
     @Override public void divideInPlace(Tensor a, Tensor b)        { applyBinary(a, b, a, (x, y) -> x / y); }
 
-    @Override public void multiplyScalarInPlace(Tensor a, float s) { applyScalar(a, s, a, (x, v) -> x * v); }
+    @Override public void multiplyScalarInPlace(Tensor a, float s) {
+        if (CpuNdElementwise.matrix(a)) CpuMatrixScalar.multiply(a, s);
+        else applyScalar(a, s, a, (x, v) -> x * v);
+    }
     @Override public void addScalarInPlace(Tensor a, float s)      { applyScalar(a, s, a, Float::sum); }
     @Override public void divideScalarInPlace(Tensor a, float s)   { applyScalar(a, s, a, (x, v) -> x / v); }
 
@@ -205,10 +223,14 @@ abstract class CpuTrainingOps extends CpuReductionOps {
 
     public void print(Tensor t, String label) {
         System.out.println(label);
-        for (int r = 0; r < t.rows; r++) {
-            int base = r * t.cols;
-            for (int c = 0; c < t.cols; c++) {
-                System.out.printf("%.4f ", t.data()[base + c]);
+        if (t.rank() != 2) {
+            System.out.println(t.dtype() + " shape=" + java.util.Arrays.toString(t.shape())
+                    + " values=" + java.util.Arrays.toString(t.toFloatArray()));
+            return;
+        }
+        for (int r = 0; r < t.matrixRows(); r++) {
+            for (float value : t.rowData(r)) {
+                System.out.printf("%.4f ", value);
             }
             System.out.println();
         }

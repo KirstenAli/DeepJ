@@ -17,10 +17,10 @@ public class AdamWTest {
         p.setGradient(rowTensor(1.0f));
 
         opt.step(List.of(p));
-        Assertions.assertEquals(0.9f, p.value.data[0], 1e-6f);
+        Assertions.assertEquals(0.9f, p.value.rawData()[0], 1e-6f);
 
         opt.step(List.of(p));
-        Assertions.assertEquals(0.8f, p.value.data[0], 1e-6f);
+        Assertions.assertEquals(0.8f, p.value.rawData()[0], 1e-6f);
     }
 
     @Test
@@ -31,7 +31,7 @@ public class AdamWTest {
         p.setGradient(rowTensor(0.0f));
 
         opt.step(List.of(p));
-        Assertions.assertTrue(p.value.data[0] < 10.0f);
+        Assertions.assertTrue(p.value.rawData()[0] < 10.0f);
     }
 
     @Test

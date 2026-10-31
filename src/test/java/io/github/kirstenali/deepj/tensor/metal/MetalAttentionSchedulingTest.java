@@ -46,7 +46,7 @@ class MetalAttentionSchedulingTest extends MetalDifferentialTestSupport {
         }
         List<Tensor> values = copies(actual);
         for (int index = 0; index < values.size(); index++) {
-            assertArrayEquals(expected.get(index).data, values.get(index).data);
+            assertArrayEquals(expected.get(index).rawData(), values.get(index).rawData());
         }
     }
 

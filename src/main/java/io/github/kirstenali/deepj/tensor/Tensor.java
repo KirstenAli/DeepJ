@@ -5,42 +5,28 @@ import io.github.kirstenali.deepj.autograd.*;
 
 import java.util.Random;
 
-public class Tensor {
+public class Tensor extends TensorManipulations {
 
-    /** Raw CPU storage; call materialize() before access. GPU results allocate it lazily. */
-    public float[] data;
-    public final int rows, cols;
+    @Override protected Tensor tensor() { return this; }
 
-    Object gpuTag;
-    int storageFlags;
-    private final GradientState gradientState = new GradientState();
-
-    public GradientState gradientState() { return gradientState; }
-    public boolean requiresGrad() { return gradientState.required(); }
     public Tensor requiresGrad(boolean required) {
         return TensorMutation.requireGrad(this, required);
     }
-    public Tensor grad() { return gradientState.gradient(); }
-    public void zeroGrad() { gradientState.bindGradient(null); }
+    public Tensor grad() { return gradientState().gradient(); }
+    public void zeroGrad() { gradientState().bindGradient(null); }
     public void backward() { Autograd.backward(this); }
     public void backward(Tensor gradient) { Autograd.backward(this, gradient); }
-    public Tensor detach() { return new Tensor(this); }
-    public Tensor copy() { return UnaryOps.shift(this, 0.0f); }
+    /** Independent detached storage, preserving DeepJ's existing copy-based detach behavior. */
+    public Tensor detach() { return backend().copy(this); }
+    /** Bit-preserving independent storage with an identity autograd edge. */
+    public Tensor copy() { return ViewOps.copy(this); }
     public Tensor sumTensor() { return ReductionOps.sum(this); }
     public float item() { return TensorStorage.item(this); }
 
-    public Object getGpuTag() { return gpuTag; }
-
-    public void setGpuTag(Object tag) { this.gpuTag = tag; }
-
     public Tensor retainDeviceBuffer() {
-        storageFlags |= TensorStorage.RETAIN_DEVICE;
+        retainDevice();
         return this;
     }
-
-    public boolean retainsDeviceBuffer() { return (storageFlags & TensorStorage.RETAIN_DEVICE) != 0; }
-
-    public void releaseDeviceBufferRetention() { storageFlags &= ~TensorStorage.RETAIN_DEVICE; }
 
     private static volatile TensorBackend BACKEND = new CpuBackend();
     public static void setBackend(TensorBackend backend) {
@@ -51,36 +37,39 @@ public class Tensor {
         return BACKEND;
     }
 
-    public Tensor(int rows, int cols) {
-        this(rows, cols, true);
-    }
+    public Tensor(int... shape) { this(DType.FLOAT32, true, shape); }
 
-    private Tensor(int rows, int cols, boolean hostStorage) {
-        this.rows = rows;
-        this.cols = cols;
-        storageFlags = hostStorage ? 0 : TensorStorage.LAZY_HOST;
-        data = TensorStorage.initialStorage(rows, cols, hostStorage);
-    }
+    public Tensor(int rows, int cols) { this(DType.FLOAT32, true, rows, cols); }
 
-    static Tensor deviceOnly(int rows, int cols) { return new Tensor(rows, cols, false); }
+    public Tensor(DType dtype, int... shape) { this(dtype, true, shape); }
+
+    private Tensor(DType dtype, boolean host, int... shape) { super(dtype, host, shape); }
+    private Tensor(DType dtype, boolean host, TensorLayout geometry) { super(dtype, host, geometry); }
+
+    static Tensor deviceOnly(int rows, int cols) { return new Tensor(DType.FLOAT32, false, rows, cols); }
+    static Tensor deviceOnly(DType dtype, int... shape) { return new Tensor(dtype, false, shape); }
+    static Tensor deviceOnly(DType dtype, TensorLayout geometry) { return new Tensor(dtype, false, geometry); }
+
+    private Tensor(TensorStorageAccess source, TensorLayout layout) { super(source, layout); }
+
+    static Tensor aliasStorage(Tensor source) { return aliasStorage(source, source.layout()); }
+
+    static Tensor aliasStorage(Tensor source, TensorLayout layout) { return new Tensor(source, layout); }
 
     float[] hostStorage() { return TensorStorage.hostStorage(this); }
 
-    /** Returns current CPU values, downloading GPU results only when needed. */
+    /** Materializes and returns the backing FLOAT32 array of a full contiguous tensor. */
     public float[] data() { return TensorStorage.hostData(this); }
 
     public Tensor(Tensor source) {
-        TensorStorage.requireSource(source);
-        this.rows = source.rows;
-        this.cols = source.cols;
-        this.data = TensorStorage.copyData(source);
+        super(TensorStorage.copyMemory(source), TensorLayout.dense(source.layout().shape()));
     }
 
     public float[] rowData(int r) {
         return TensorStorage.rowData(this, r);
     }
 
-    public void materialize() {
+    @Override public void materialize() {
         TensorStorage.materialize(this);
     }
 
@@ -120,19 +109,19 @@ public class Tensor {
     public Tensor geluActivation() { return ActivationOps.gelu(this); }
 
     public Tensor addInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().addInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().addInPlace(this, other));
     }
 
     public Tensor subtractInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().subtractInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().subtractInPlace(this, other));
     }
 
     public Tensor multiplyInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().multiplyInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().multiplyInPlace(this, other));
     }
 
     public Tensor divideInPlace(Tensor other) {
-        return TensorMutation.apply(this, () -> backend().divideInPlace(this, other), other);
+        return TensorMutation.binary(this, other, () -> backend().divideInPlace(this, other));
     }
 
     public Tensor multiplyScalarInPlace(float scalar) {
@@ -207,6 +196,16 @@ public class Tensor {
         return TensorStorage.from2D(data);
     }
 
+    public static Tensor from(float[] values, int... shape) { return TensorValues.from(values, DType.FLOAT32, shape); }
+
+    public static Tensor from(float[] values) { return TensorValues.vector(values, DType.FLOAT32); }
+
+    public static Tensor from(float[] values, DType dtype) { return TensorValues.vector(values, dtype); }
+
+    public static Tensor from(float[] values, DType dtype, int... shape) {
+        return TensorValues.from(values, dtype, shape);
+    }
+
     public float sum() {
         return backend().sum(this);
     }
@@ -219,16 +218,8 @@ public class Tensor {
         return backend().crossEntropyLoss(this, targets);
     }
 
-    public float get(int r, int c) {
-        return TensorStorage.get(this, r, c);
-    }
-
-    public void set(int r, int c, float value) {
-        TensorStorage.set(this, r, c, value);
-    }
-
     public Tensor getRow(int row) {
-        return sliceRows(this, new int[]{row}, cols);
+        return sliceRows(this, new int[]{row}, matrixCols());
     }
 
     public void setRow(int row, Tensor source, int srcRow) {

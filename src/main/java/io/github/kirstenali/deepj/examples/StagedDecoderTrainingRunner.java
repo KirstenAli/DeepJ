@@ -104,7 +104,7 @@ final class StagedDecoderTrainingRunner {
     }
 
     private static void printModel(StagedTrainingConfig config, DecoderOnlyModel model) {
-        long count = model.parameters().stream().mapToLong(parameter -> parameter.value.data.length).sum();
+        long count = model.parameters().stream().mapToLong(parameter -> parameter.value.rawData().length).sum();
         System.out.printf("Backend: %s%nModel: %s%nParameters: %,d%nStage: %s%n",
                 Tensor.backend().getClass().getSimpleName(), config.modelName(), count, config.stage().directory);
     }

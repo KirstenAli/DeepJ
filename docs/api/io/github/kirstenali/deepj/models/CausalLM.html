@@ -114,12 +114,21 @@ extends <a href="../training/Trainable.html" title="interface in io.github.kirst
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#forward(int%5B%5D)" class="member-name-link">forward</a><wbr>(int[]&nbsp;inputIds)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>float</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#gradClipNorm()" class="member-name-link">gradClipNorm</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default <a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#forwardBatch(int%5B%5D%5B%5D)" class="member-name-link">forwardBatch</a><wbr>(int[][]&nbsp;inputIds)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>float</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#gradClipNorm()" class="member-name-link">gradClipNorm</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default <a href="GenerationSession.html" title="interface in io.github.kirstenali.deepj.models">GenerationSession</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#openGeneration()" class="member-name-link">openGeneration</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default <a href="GenerationSession.html" title="interface in io.github.kirstenali.deepj.models">GenerationSession</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#openGeneration()" class="member-name-link">openGeneration</a>()</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#openGeneration(io.github.kirstenali.deepj.models.ContextWindowMode)" class="member-name-link">openGeneration</a><wbr>(<a href="ContextWindowMode.html" title="enum class in io.github.kirstenali.deepj.models">ContextWindowMode</a>&nbsp;mode)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default boolean</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#supportsBatchedForward()" class="member-name-link">supportsBatchedForward</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -144,9 +153,27 @@ extends <a href="../training/Trainable.html" title="interface in io.github.kirst
 </section>
 </li>
 <li>
+<section class="detail" id="supportsBatchedForward()">
+<h3>supportsBatchedForward</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">supportsBatchedForward</span>()</div>
+</section>
+</li>
+<li>
+<section class="detail" id="forwardBatch(int[][])">
+<h3>forwardBatch</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type"><a href="../tensor/Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">forwardBatch</span><wbr><span class="parameters">(int[][]&nbsp;inputIds)</span></div>
+</section>
+</li>
+<li>
 <section class="detail" id="openGeneration()">
 <h3>openGeneration</h3>
 <div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type"><a href="GenerationSession.html" title="interface in io.github.kirstenali.deepj.models">GenerationSession</a></span>&nbsp;<span class="element-name">openGeneration</span>()</div>
+</section>
+</li>
+<li>
+<section class="detail" id="openGeneration(io.github.kirstenali.deepj.models.ContextWindowMode)">
+<h3>openGeneration</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type"><a href="GenerationSession.html" title="interface in io.github.kirstenali.deepj.models">GenerationSession</a></span>&nbsp;<span class="element-name">openGeneration</span><wbr><span class="parameters">(<a href="ContextWindowMode.html" title="enum class in io.github.kirstenali.deepj.models">ContextWindowMode</a>&nbsp;mode)</span></div>
 </section>
 </li>
 <li>
