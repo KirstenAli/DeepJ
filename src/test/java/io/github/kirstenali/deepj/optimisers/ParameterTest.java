@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.optimisers;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
+import io.github.kirstenali.deepj.tensor.TensorTestStorage;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -67,6 +68,19 @@ public class ParameterTest {
         Assertions.assertSame(replacement, p.grad());
         Assertions.assertEquals(DType.FLOAT32, requested.get(0));
         Assertions.assertArrayEquals(new int[]{2, 2}, (int[]) requested.get(1));
+    }
+
+    @Test
+    void zeroGrad_hostlessUntaggedGrad_isReplacedNotReused() {
+        Parameter p = new Parameter(Tensor.from2D(new float[][]{{1, 2}, {3, 4}}));
+        Tensor hostless = TensorTestStorage.lazy(2, 2);
+        p.setGradient(hostless);
+
+        p.zeroGrad();
+
+        Assertions.assertNotSame(hostless, p.grad());
+        Assertions.assertNull(hostless.rawData());
+        Assertions.assertArrayEquals(new float[]{0, 0, 0, 0}, p.grad().toFloatArray());
     }
 
     private static TensorBackend zerosSpy(Tensor zeros, List<Object> requested) {

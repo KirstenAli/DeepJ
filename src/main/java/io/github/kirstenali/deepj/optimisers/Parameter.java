@@ -49,11 +49,12 @@ public final class Parameter {
 
     private boolean canReuseCpuGradBuffer() {
         return grad() != null && grad().getGpuTag() == null && grad().isContiguous()
-                && grad().storageOffset() == 0 && grad().storageBytes() == (long) grad().numel() * Float.BYTES;
+                && grad().storageOffset() == 0 && grad().storageBytes() == (long) grad().numel() * Float.BYTES
+                && grad().rawData() != null;
     }
 
     private void clearGradData() {
         grad().gradientState().beforeMutation();
-        if (grad().rawData() != null) Arrays.fill(grad().rawData(), 0.0f);
+        Arrays.fill(grad().rawData(), 0.0f);
     }
 }
