@@ -3,8 +3,7 @@
 DeepJ uses one dense `Tensor` API for scalars, vectors, matrices and higher-rank
 arrays. Existing matrices are rank-two tensors; values default to FLOAT32.
 
-ND and optional-dtype APIs are included in `0.12.0-alpha` and newer. Until that
-version is published on Maven Central, build the GitHub release from source.
+ND and optional-dtype APIs are included in `0.12.0-alpha` and newer.
 
 ```java
 import io.github.kirstenali.deepj.tensor.DType;

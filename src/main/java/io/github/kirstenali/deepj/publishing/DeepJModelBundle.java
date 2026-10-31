@@ -222,7 +222,7 @@ public final class DeepJModelBundle {
 
     private static String releaseDependency() {
         return "Use [DeepJ 0.12.0-alpha](https://github.com/KirstenAli/DeepJ/releases/tag/"
-                + "v0.12.0-alpha) or newer. If it is not yet on Maven Central, build the release from source.\n\n"
+                + "v0.12.0-alpha) or newer:\n\n"
                 + dependency();
     }
 

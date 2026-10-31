@@ -16,8 +16,7 @@ DeepJ is an alpha project. Its compact model families are designed to make diffe
 
 ## Install
 
-DeepJ requires JDK 20 or newer. Version `0.12.0-alpha` is a GitHub prerelease;
-Maven Central publication is pending. Until then, [build from source](#build-and-release).
+DeepJ requires JDK 20 or newer.
 
 ```xml
 <dependency>
