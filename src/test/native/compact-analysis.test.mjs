@@ -19,7 +19,19 @@ test('all three compact matrix shader variants undergo native code-quality analy
     assert.ok(metrics.some(({ name }) => name === 'compact_read'));
   }
   assertPreciseNormalization(scopes);
+  assertCompactAttention(scopes);
 });
+
+function assertCompactAttention(scopes) {
+  const attention = scopes.filter(({ metrics }) =>
+    metrics.some(({ name }) => name === 'kernel_tiled_attention'),
+  );
+  assert.equal(attention.length, 3);
+  for (const { metrics } of attention) {
+    assert.ok(metrics.some(({ name }) => name === 'attention_load'));
+    assert.ok(metrics.some(({ name }) => name === 'kernel_attention_key_value_backward'));
+  }
+}
 
 function assertPreciseNormalization(scopes) {
   const probability = scopes

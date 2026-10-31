@@ -27,6 +27,7 @@ using ulong2 = unsigned long __attribute__((ext_vector_type(2)));
 struct simdgroup_float8x8 {
     simdgroup_float8x8();
     explicit simdgroup_float8x8(float);
+    float* thread_elements();
 };
 template<class T, int Columns, int Rows> using simdgroup_matrix = simdgroup_float8x8;
 template<class T> void simdgroup_load(simdgroup_float8x8&, const T*, uint, ulong2 = ulong2(0), bool = false);

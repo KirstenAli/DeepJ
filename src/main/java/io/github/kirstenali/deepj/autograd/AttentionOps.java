@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.autograd;
 
 import io.github.kirstenali.deepj.tensor.CausalAttentionBackend;
+import io.github.kirstenali.deepj.tensor.CausalAttentionResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 public final class AttentionOps {
@@ -49,6 +50,13 @@ public final class AttentionOps {
             var result = backend.causalAttentionBackward(query, key, value, saved, gradient,
                     queryHeads, keyValueHeads, scale);
             return new Tensor[]{result.query(), result.key(), result.value()};
-        }, new Tensor[]{query, key, value}, query, key, value, saved.output(), saved.normalization());
+        }, new Tensor[]{query, key, value}, savedTensors(query, key, value, saved));
+    }
+
+    private static Tensor[] savedTensors(Tensor query, Tensor key, Tensor value, CausalAttentionResult saved) {
+        if (saved.output() == saved.accumulatedOutput()) {
+            return new Tensor[]{query, key, value, saved.output(), saved.normalization()};
+        }
+        return new Tensor[]{query, key, value, saved.output(), saved.normalization(), saved.accumulatedOutput()};
     }
 }

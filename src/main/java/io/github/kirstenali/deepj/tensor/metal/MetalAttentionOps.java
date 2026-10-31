@@ -11,14 +11,19 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
     @Override
     public boolean supportsCausalAttention(Tensor query, Tensor key, Tensor value,
                                             int queryHeads, int keyValueHeads, float scale) {
-        return MetalNative.TILED_ATTENTION_AVAILABLE && denseInputs(query, key, value)
+        return denseInputs(query, key, value) && MetalNative.supportsAttention(query.dtype())
                 && tiledShape(query, queryHeads, scale)
                 && query.matrixRows() / queryHeads >= 256 && groupedShape(query, key, queryHeads, keyValueHeads)
                 && sameShape(key, value);
     }
 
     private static boolean denseInputs(Tensor query, Tensor key, Tensor value) {
-        return MetalDenseOps.matrix(query) && MetalDenseOps.matrix(key) && MetalDenseOps.matrix(value);
+        return fullMatrix(query) && fullMatrix(key) && fullMatrix(value)
+                && query.dtype() == key.dtype() && query.dtype() == value.dtype();
+    }
+
+    private static boolean fullMatrix(Tensor input) {
+        return input.rank() == 2 && input.numel() > 0 && input.coversStorage();
     }
 
     private static boolean tiledShape(Tensor query, int heads, float scale) {
@@ -47,9 +52,12 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
         requireAttentionShapes(query, key, value, queryHeads, keyValueHeads, scale);
         GpuBuffer output = graph.newOutputBuffer(query.matrixRows(), query.matrixCols());
         GpuBuffer normalization = graph.newOutputBuffer(query.matrixRows(), 2);
-        graph.recordCausalAttention(gpuIn(query), gpuIn(key), gpuIn(value), output, normalization,
+        graph.recordCausalAttention(graph.ensureStorageBuffer(query), graph.ensureStorageBuffer(key),
+                graph.ensureStorageBuffer(value), output, normalization,
                 queryHeads, keyValueHeads, scale);
-        return new CausalAttentionResult(graph.createOutputLike(output, query), gpuOut(normalization));
+        Tensor accumulated = graph.createOutputLike(output, query);
+        return new CausalAttentionResult(graph.castToDevice(accumulated, query.dtype()),
+                gpuOut(normalization), accumulated);
     }
 
     @Override
@@ -66,12 +74,22 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
         requireAttentionShapes(query, key, value, queryHeads, keyValueHeads, scale);
         Tensor.requireSameShape(query, gradient, "causalAttentionBackward");
         Tensor.requireSameShape(query, saved.output(), "causalAttentionBackward");
+        Tensor.requireSameShape(query, saved.accumulatedOutput(), "causalAttentionBackward");
         requireNormalization(saved.normalization(), query.matrixRows());
+        requireBackwardPrecision(saved, gradient);
+        Tensor packed = MetalDenseOps.matrix(gradient) ? gradient : graph.copyToDevice(gradient);
+        return backward(query, key, value, saved, packed, queryHeads, keyValueHeads, scale);
+    }
+
+    private AttentionGradients backward(Tensor query, Tensor key, Tensor value,
+                                         CausalAttentionResult saved, Tensor gradient,
+                                         int queryHeads, int keyValueHeads, float scale) {
         GpuBuffer dq = graph.newOutputBuffer(query.matrixRows(), query.matrixCols());
         GpuBuffer dk = graph.newOutputBuffer(key.matrixRows(), key.matrixCols());
         GpuBuffer dv = graph.newOutputBuffer(value.matrixRows(), value.matrixCols());
         GpuBuffer delta = graph.newOutputBuffer(query.matrixRows(), 1);
-        graph.recordCausalAttentionBackward(gpuIn(query), gpuIn(key), gpuIn(value), gpuIn(saved.output()),
+        graph.recordCausalAttentionBackward(graph.ensureStorageBuffer(query), graph.ensureStorageBuffer(key),
+                graph.ensureStorageBuffer(value), gpuIn(saved.accumulatedOutput()),
                 gpuIn(gradient), gpuIn(saved.normalization()), delta, dq, dk, dv,
                 queryHeads, keyValueHeads, scale);
         return new AttentionGradients(graph.createOutputLike(dq, query), graph.createOutputLike(dk, key),
@@ -84,16 +102,23 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
         }
     }
 
+    private static void requireBackwardPrecision(CausalAttentionResult saved, Tensor gradient) {
+        if (!MetalDenseOps.matrix(saved.accumulatedOutput()) || !MetalDenseOps.matrix(saved.normalization())
+                || gradient.dtype() != DType.FLOAT32) {
+            throw new IllegalArgumentException("Fused attention backward requires dense FP32 saved state and gradient");
+        }
+    }
+
     private static void requireAttentionShapes(Tensor query, Tensor key, Tensor value,
                                                 int queryHeads, int keyValueHeads, float scale) {
         Tensor.requireSameShape(key, value, "causalAttention");
         if (!denseInputs(query, key, value)) {
-            throw new UnsupportedOperationException("Fused attention requires full contiguous FLOAT32 matrices");
+            throw new UnsupportedOperationException("Fused attention requires same-dtype full contiguous matrices");
         }
         if (!tiledShape(query, queryHeads, scale) || !groupedShape(query, key, queryHeads, keyValueHeads)) {
             throw new IllegalArgumentException("Tiled attention needs complete 32-row tiles and 64-column heads");
         }
-        if (!MetalNative.TILED_ATTENTION_AVAILABLE) {
+        if (!MetalNative.supportsAttention(query.dtype())) {
             throw new UnsupportedOperationException("Block attention is not available on this Metal device");
         }
     }

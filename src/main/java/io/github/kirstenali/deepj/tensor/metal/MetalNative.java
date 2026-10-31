@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
+import io.github.kirstenali.deepj.tensor.DType;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,6 +41,20 @@ final class MetalNative {
     private static native boolean nativeIsAvailable();
 
     private static native boolean nativeSupportsTiledAttention();
+
+    static boolean supportsAttention(DType dtype) {
+        if (dtype == DType.FLOAT32) return TILED_ATTENTION_AVAILABLE;
+        return dtype == DType.FLOAT16 ? CompactAttention.HALF : CompactAttention.BFLOAT;
+    }
+
+    private static final class CompactAttention {
+        private static final boolean HALF = AVAILABLE && nativeSupportsTypedAttention(2);
+        private static final boolean BFLOAT = AVAILABLE && nativeSupportsTypedAttention(3);
+
+        private CompactAttention() {}
+    }
+
+    private static native boolean nativeSupportsTypedAttention(int dtype);
 
     static native boolean nativeSupportsCompactMatmul(int dtype);
 

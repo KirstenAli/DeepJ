@@ -95,7 +95,9 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor matmul(Tensor a, Tensor b) {
-        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(b)) return graph.layoutMatmul(a, b);
+        if (!MetalDenseOps.matrix(a) || !MetalDenseOps.matrix(b)) {
+            return MetalMixedMatmul.product(graph, a, b);
+        }
         if (a.matrixCols() != b.matrixRows()) throw new IllegalArgumentException(
                 "Shape mismatch for matmul: " + a.matrixRows() + "x" + a.matrixCols()
                         + " vs " + b.matrixRows() + "x" + b.matrixCols());

@@ -53,6 +53,10 @@ loadScripts(document, 'script');</script>
 <a href="#I:A">A</a>&nbsp;<a href="#I:B">B</a>&nbsp;<a href="#I:C">C</a>&nbsp;<a href="#I:D">D</a>&nbsp;<a href="#I:E">E</a>&nbsp;<a href="#I:F">F</a>&nbsp;<a href="#I:G">G</a>&nbsp;<a href="#I:H">H</a>&nbsp;<a href="#I:I">I</a>&nbsp;<a href="#I:K">K</a>&nbsp;<a href="#I:L">L</a>&nbsp;<a href="#I:M">M</a>&nbsp;<a href="#I:N">N</a>&nbsp;<a href="#I:O">O</a>&nbsp;<a href="#I:P">P</a>&nbsp;<a href="#I:Q">Q</a>&nbsp;<a href="#I:R">R</a>&nbsp;<a href="#I:S">S</a>&nbsp;<a href="#I:T">T</a>&nbsp;<a href="#I:U">U</a>&nbsp;<a href="#I:V">V</a>&nbsp;<a href="#I:W">W</a>&nbsp;<a href="#I:X">X</a>&nbsp;<a href="#I:Y">Y</a>&nbsp;<a href="#I:Z">Z</a>&nbsp;<br><a href="allclasses-index.html">All&nbsp;Classes&nbsp;and&nbsp;Interfaces</a><span class="vertical-separator">|</span><a href="allpackages-index.html">All&nbsp;Packages</a><span class="vertical-separator">|</span><a href="constant-values.html">Constant&nbsp;Field&nbsp;Values</a>
 <h2 class="title" id="I:A">A</h2>
 <dl class="index">
+<dt><a href="io/github/kirstenali/deepj/tensor/CausalAttentionResult.html#accumulatedOutput()" class="member-name-link">accumulatedOutput()</a> - Method in record class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/CausalAttentionResult.html" title="class in io.github.kirstenali.deepj.tensor">CausalAttentionResult</a></dt>
+<dd>
+<div class="block">Returns the value of the <code>accumulatedOutput</code> record component.</div>
+</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/DType.html#accumulationType()" class="member-name-link">accumulationType()</a> - Method in enum class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/activations/ActivationFunction.html" class="type-name-link" title="interface in io.github.kirstenali.deepj.activations">ActivationFunction</a> - Interface in <a href="io/github/kirstenali/deepj/activations/package-summary.html">io.github.kirstenali.deepj.activations</a></dt>
@@ -413,9 +417,11 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/CausalAttentionResult.html" class="type-name-link" title="class in io.github.kirstenali.deepj.tensor">CausalAttentionResult</a> - Record Class in <a href="io/github/kirstenali/deepj/tensor/package-summary.html">io.github.kirstenali.deepj.tensor</a></dt>
 <dd>
-<div class="block">Forward output and row maximum/denominator pairs saved for tiled backward.</div>
+<div class="block">Output, row statistics and unrounded FP32 output needed by tiled backward.</div>
 </dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/CausalAttentionResult.html#%3Cinit%3E(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">CausalAttentionResult(Tensor, Tensor)</a> - Constructor for record class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/CausalAttentionResult.html" title="class in io.github.kirstenali.deepj.tensor">CausalAttentionResult</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/CausalAttentionResult.html#%3Cinit%3E(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">CausalAttentionResult(Tensor, Tensor, Tensor)</a> - Constructor for record class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/CausalAttentionResult.html" title="class in io.github.kirstenali.deepj.tensor">CausalAttentionResult</a></dt>
 <dd>
 <div class="block">Creates an instance of a <code>CausalAttentionResult</code> record class.</div>
 </dd>
@@ -595,6 +601,10 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/models/prism/DeepJPrismParameterCount.html#count(io.github.kirstenali.deepj.models.prism.DeepJPrismConfig)" class="member-name-link">count(DeepJPrismConfig)</a> - Static method in class io.github.kirstenali.deepj.models.prism.<a href="io/github/kirstenali/deepj/models/prism/DeepJPrismParameterCount.html" title="class in io.github.kirstenali.deepj.models.prism">DeepJPrismParameterCount</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html#coversStorage()" class="member-name-link">coversStorage()</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">TensorStorageAccess</a></dt>
+<dd>
+<div class="block">Whether immutable logical geometry covers the whole allocation contiguously from offset zero.</div>
+</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/cpu/CpuBackend.html" class="type-name-link" title="class in io.github.kirstenali.deepj.tensor.cpu">CpuBackend</a> - Class in <a href="io/github/kirstenali/deepj/tensor/cpu/package-summary.html">io.github.kirstenali.deepj.tensor.cpu</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/cpu/CpuBackend.html#%3Cinit%3E()" class="member-name-link">CpuBackend()</a> - Constructor for class io.github.kirstenali.deepj.tensor.cpu.<a href="io/github/kirstenali/deepj/tensor/cpu/CpuBackend.html" title="class in io.github.kirstenali.deepj.tensor.cpu">CpuBackend</a></dt>
@@ -1936,6 +1946,10 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Returns a hash code value for this object.</div>
 </dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html#hasHostStorage()" class="member-name-link">hasHostStorage()</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">TensorStorageAccess</a></dt>
+<dd>
+<div class="block">False for lazy storage that has never been touched on the host; such storage reads as zeros.</div>
+</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html#hasSameShape(io.github.kirstenali.deepj.tensor.TensorStorageAccess)" class="member-name-link">hasSameShape(TensorStorageAccess)</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">TensorStorageAccess</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html#hasShape(int...)" class="member-name-link">hasShape(int...)</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorStorageAccess.html" title="class in io.github.kirstenali.deepj.tensor">TensorStorageAccess</a></dt>
@@ -2245,6 +2259,10 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/ComputeGraph.html#layoutUnaryInto(io.github.kirstenali.deepj.tensor.Tensor,int,float)" class="member-name-link">layoutUnaryInto(Tensor, int, float)</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/ComputeGraph.html" title="class in io.github.kirstenali.deepj.tensor">ComputeGraph</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/github/kirstenali/deepj/tensor/ComputeGraph.html#lazyZeros(io.github.kirstenali.deepj.tensor.DType,int...)" class="member-name-link">lazyZeros(DType, int...)</a> - Method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/ComputeGraph.html" title="class in io.github.kirstenali.deepj.tensor">ComputeGraph</a></dt>
+<dd>
+<div class="block">Zeros that stay unallocated until first use; a device zero-fill is queued only when a kernel consumes them.</div>
+</dd>
 <dt><a href="io/github/kirstenali/deepj/optimisers/AdamW.State.html#learningRate()" class="member-name-link">learningRate()</a> - Method in record class io.github.kirstenali.deepj.optimisers.<a href="io/github/kirstenali/deepj/optimisers/AdamW.State.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW.State</a></dt>
 <dd>
 <div class="block">Returns the value of the <code>learningRate</code> record component.</div>

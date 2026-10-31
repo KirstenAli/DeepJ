@@ -12,6 +12,10 @@
 #include <type_traits>
 #include <vector>
 
+struct CompactAttentionPipelines {
+    id<MTLComputePipelineState> forward, query, keyValue;
+};
+
 struct MetalContext {
     id<MTLDevice>       device;
     id<MTLCommandQueue> queue;
@@ -102,11 +106,21 @@ struct MetalContext {
     id<MTLComputePipelineState> attentionDeltaPSO;
     id<MTLComputePipelineState> attentionQueryBackwardPSO;
     id<MTLComputePipelineState> attentionKeyValueBackwardPSO;
+    std::once_flag compactAttentionOnce;
+    CompactAttentionPipelines halfAttention, bfloatAttention;
 };
 static NSString* tiledAttentionShaderSource = @R"(
 #include <metal_stdlib>
 #include <metal_simdgroup_matrix>
 using namespace metal;
+
+#if COMPACT_KIND == 2
+using AttentionValue = half;
+#elif COMPACT_KIND == 3
+using AttentionValue = bfloat;
+#else
+using AttentionValue = float;
+#endif
 
 struct AttentionParams {
     uint length;
@@ -115,9 +129,9 @@ struct AttentionParams {
 };
 
 struct AttentionInputs {
-    device const float* query;
-    device const float* key;
-    device const float* value;
+    device const AttentionValue* query;
+    device const AttentionValue* key;
+    device const AttentionValue* value;
 };
 
 struct AttentionBackwardInputs {
@@ -133,24 +147,39 @@ struct AttentionTile {
     uint key;
 };
 
-// All matrix operands, accumulators and normalization statistics remain FP32.
-template<uint Keys>
-inline void attention_scores(device const float* query, device const float* key,
+inline void attention_load(thread simdgroup_float8x8& result, device const float* source,
+                            uint stride, bool transpose = false) {
+    simdgroup_load(result, source, stride, ulong2(0), transpose);
+}
+
+// Widen register tiles, not entire tensors; no FP32 gradient is narrowed.
+template<typename T>
+inline void attention_load(thread simdgroup_float8x8& result, device const T* source,
+                            uint stride, bool transpose = false) {
+    simdgroup_matrix<T, 8, 8> compact;
+    simdgroup_load(compact, source, stride, ulong2(0), transpose);
+    result.thread_elements()[0] = float(compact.thread_elements()[0]);
+    result.thread_elements()[1] = float(compact.thread_elements()[1]);
+}
+
+// Arithmetic, accumulators and normalization statistics remain FP32.
+template<uint Keys, typename Q, typename K>
+inline void attention_scores(device const Q* query, device const K* key,
                               threadgroup float* scores, uint group) {
     for (uint column = 0; column < Keys; column += 8) {
         simdgroup_float8x8 result(0.0f);
         for (uint inner = 0; inner < 64; inner += 8) {
             simdgroup_float8x8 left, right;
-            simdgroup_load(left, query + group * 8 * 64 + inner, 64);
-            simdgroup_load(right, key + column * 64 + inner, 64, ulong2(0), true);
+            attention_load(left, query + group * 8 * 64 + inner, 64);
+            attention_load(right, key + column * 64 + inner, 64, true);
             simdgroup_multiply_accumulate(result, left, right, result);
         }
         simdgroup_store(result, scores + group * 8 * Keys + column, Keys);
     }
 }
 
-template<uint Keys>
-inline void attention_values(threadgroup float* probabilities, device const float* values,
+template<uint Keys, typename T>
+inline void attention_values(threadgroup float* probabilities, device const T* values,
                               threadgroup float* output, uint group) {
     for (uint column = 0; column < 64; column += 8) {
         simdgroup_float8x8 result;
@@ -158,7 +187,7 @@ inline void attention_values(threadgroup float* probabilities, device const floa
         for (uint inner = 0; inner < Keys; inner += 8) {
             simdgroup_float8x8 left, right;
             simdgroup_load(left, probabilities + group * 8 * Keys + inner, Keys);
-            simdgroup_load(right, values + inner * 64 + column, 64);
+            attention_load(right, values + inner * 64 + column, 64);
             simdgroup_multiply_accumulate(result, left, right, result);
         }
         simdgroup_store(result, output + group * 8 * 64 + column, 64);
@@ -256,9 +285,9 @@ inline void attention_forward(AttentionInputs inputs, AttentionParams params, ui
     }
 }
 
-kernel void kernel_tiled_attention(device const float* query [[buffer(0)]],
-                                   device const float* key [[buffer(1)]],
-                                   device const float* value [[buffer(2)]],
+kernel void kernel_tiled_attention(device const AttentionValue* query [[buffer(0)]],
+                                   device const AttentionValue* key [[buffer(1)]],
+                                   device const AttentionValue* value [[buffer(2)]],
                                    device float* output [[buffer(3)]],
                                    constant AttentionParams& params [[buffer(4)]],
                                    device float* normalization [[buffer(5)]],
@@ -311,7 +340,8 @@ inline void attention_backward_tile(AttentionBackwardInputs inputs, AttentionPar
     threadgroup_barrier(mem_flags::mem_threadgroup);
 }
 
-inline void attention_transposed_values(threadgroup float* left, device const float* right,
+template<typename T>
+inline void attention_transposed_values(threadgroup float* left, device const T* right,
                                          threadgroup float* output, uint group) {
     for (uint column = 0; column < 64; column += 8) {
         simdgroup_float8x8 result;
@@ -319,7 +349,7 @@ inline void attention_transposed_values(threadgroup float* left, device const fl
         for (uint inner = 0; inner < 16; inner += 8) {
             simdgroup_float8x8 a, b;
             simdgroup_load(a, left + inner * 16 + group * 8, 16, ulong2(0), true);
-            simdgroup_load(b, right + inner * 64 + column, 64);
+            attention_load(b, right + inner * 64 + column, 64);
             simdgroup_multiply_accumulate(result, a, b, result);
         }
         simdgroup_store(result, output + group * 8 * 64 + column, 64);
@@ -348,9 +378,9 @@ inline void attention_write_gradient(device float* output, threadgroup float* va
     }
 }
 
-kernel void kernel_attention_query_backward(device const float* query [[buffer(0)]],
-                                            device const float* key [[buffer(1)]],
-                                            device const float* value [[buffer(2)]],
+kernel void kernel_attention_query_backward(device const AttentionValue* query [[buffer(0)]],
+                                            device const AttentionValue* key [[buffer(1)]],
+                                            device const AttentionValue* value [[buffer(2)]],
                                             device const float* gradient [[buffer(3)]],
                                             device const float* normalization [[buffer(4)]],
                                             device const float* delta [[buffer(5)]],
@@ -392,9 +422,9 @@ inline void attention_key_value_gradients(AttentionBackwardInputs inputs, Attent
     }
 }
 
-kernel void kernel_attention_key_value_backward(device const float* query [[buffer(0)]],
-                                                device const float* key [[buffer(1)]],
-                                                device const float* value [[buffer(2)]],
+kernel void kernel_attention_key_value_backward(device const AttentionValue* query [[buffer(0)]],
+                                                device const AttentionValue* key [[buffer(1)]],
+                                                device const AttentionValue* value [[buffer(2)]],
                                                 device const float* gradient [[buffer(3)]],
                                                 device const float* normalization [[buffer(4)]],
                                                 device const float* delta [[buffer(5)]],
@@ -2380,6 +2410,44 @@ static void ensureCompactMatmul(MetalContext* ctx) {
     });
 }
 
+static bool supportsAttentionThreads(id<MTLComputePipelineState> pipeline, NSUInteger threads) {
+    return pipeline != nil && pipeline.threadExecutionWidth == 32
+        && pipeline.maxTotalThreadsPerThreadgroup >= threads;
+}
+
+static CompactAttentionPipelines compiledAttentionPipelines(id<MTLLibrary> library) {
+    CompactAttentionPipelines result{makePSO(library, @"kernel_tiled_attention"),
+        makePSO(library, @"kernel_attention_query_backward"), makePSO(library, @"kernel_attention_key_value_backward")};
+    if (!supportsAttentionThreads(result.forward, 128) || !supportsAttentionThreads(result.query, 64)
+        || !supportsAttentionThreads(result.keyValue, 64)) return {};
+    return result;
+}
+
+static CompactAttentionPipelines compileCompactAttention(MetalContext* ctx, int dtype) {
+    if (ctx->attentionPSO == nil) return {};
+    if (dtype == 3) {
+        if (@available(macOS 14.0, *)) {} else return {};
+    }
+    NSError* error = nil;
+    auto library = [ctx->device newLibraryWithSource:tiledAttentionShaderSource
+        options:compactCompileOptions(dtype) error:&error];
+    if (library == nil && ![ctx->device supportsFamily:MTLGPUFamilyApple7]) return {};
+    if (library == nil) throw std::runtime_error(std::string("Compact attention shader compilation failed: ")
+        + [(error.localizedDescription ?: @"Unknown error") UTF8String]);
+    return compiledAttentionPipelines(library);
+}
+
+static CompactAttentionPipelines attentionPipelines(MetalContext* ctx, int dtype) {
+    if (dtype == 1) return {ctx->attentionPSO, ctx->attentionQueryBackwardPSO, ctx->attentionKeyValueBackwardPSO};
+    std::call_once(ctx->compactAttentionOnce, [ctx] {
+        ctx->halfAttention = compileCompactAttention(ctx, 2);
+        ctx->bfloatAttention = compileCompactAttention(ctx, 3);
+    });
+    if (dtype == 2) return ctx->halfAttention;
+    if (dtype == 3) return ctx->bfloatAttention;
+    throw std::runtime_error("Invalid attention dtype");
+}
+
 static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutCausalMaskPSO = makePSO(library, @"kernel_layout_causal_mask");
     ctx->layoutCausalSoftmaxPSO = makePSO(library, @"kernel_layout_causal_softmax");
@@ -2530,6 +2598,18 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTiledAtte
         JNIEnv* env, jclass) {
     try {
         return getContext()->attentionPSO != nil ? JNI_TRUE : JNI_FALSE;
+    } catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTypedAttention(
+        JNIEnv* env, jclass, jint dtype) {
+    try {
+        if (dtype != 2 && dtype != 3) return JNI_FALSE;
+        return attentionPipelines(getContext(), dtype).forward != nil ? JNI_TRUE : JNI_FALSE;
     } catch (const std::exception& error) {
         throwJavaRuntimeException(env, error.what());
         return JNI_FALSE;
@@ -4418,7 +4498,6 @@ static bool supportsLayoutMpsMatmul(MetalContext* ctx, const LayoutMatmulSpec& s
     return (spec.leftType == 1 && spec.rightType == 1)
         || ((spec.leftType == 1 || spec.leftType == 2) && spec.rightType == 2
             && spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64
-            && (spec.leftType == 2 || (spec.columns >= 256 && spec.inner >= 256))
             && [ctx->device supportsFamily:MTLGPUFamilyApple7]);
 }
 
@@ -4600,9 +4679,9 @@ static TiledAttentionShape tiledAttentionShape(GraphState& state, const jint* fi
     return {rows, heads, keyValueHeads, {length, heads / keyValueHeads, scale}};
 }
 
-static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count) {
-    id<MTLBuffer> buffer = requireBuffer(bufferId, "tiled attention");
-    if (buffer.length != count * sizeof(float)) {
+static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count, int dtype = 1) {
+    id<MTLBuffer> buffer = requireStorageBuffer(bufferId, "tiled attention");
+    if (bufferDType(bufferId) != dtype || buffer.length != count * (dtype == 1 ? 4 : 2)) {
         throw std::runtime_error("Tiled attention buffer size mismatch");
     }
     return buffer;
@@ -4611,9 +4690,10 @@ static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count) {
 static void bindAttentionValues(id<MTLComputeCommandEncoder> encoder, const jint* ids,
                                  TiledAttentionShape shape) {
     NSUInteger keyValueRows = (NSUInteger)shape.keyValueHeads * shape.params.length;
-    [encoder setBuffer:attentionBuffer(ids[0], (NSUInteger)shape.rows * 64) offset:0 atIndex:0];
-    [encoder setBuffer:attentionBuffer(ids[1], keyValueRows * 64) offset:0 atIndex:1];
-    [encoder setBuffer:attentionBuffer(ids[2], keyValueRows * 64) offset:0 atIndex:2];
+    int dtype = bufferDType(ids[0]);
+    [encoder setBuffer:attentionBuffer(ids[0], (NSUInteger)shape.rows * 64, dtype) offset:0 atIndex:0];
+    [encoder setBuffer:attentionBuffer(ids[1], keyValueRows * 64, dtype) offset:0 atIndex:1];
+    [encoder setBuffer:attentionBuffer(ids[2], keyValueRows * 64, dtype) offset:0 atIndex:2];
 }
 
 static void dispatchAttention(id<MTLComputeCommandEncoder> encoder, TiledAttentionShape shape,
@@ -4625,7 +4705,9 @@ static void dispatchAttention(id<MTLComputeCommandEncoder> encoder, TiledAttenti
 static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
     TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    [encoder setComputePipelineState:state.ctx->attentionPSO];
+    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]));
+    if (pipelines.forward == nil) throw std::runtime_error("Attention dtype unavailable on this GPU");
+    [encoder setComputePipelineState:pipelines.forward];
     bindAttentionValues(encoder, cmd + pos + 1, shape);
     [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64) offset:0 atIndex:3];
     bindValue(encoder, shape.params, 4);
@@ -4656,11 +4738,13 @@ static void encodeTiledAttentionBackward(GraphState& state, const jint* cmd, int
     encodeAttentionDelta(state, cmd, pos, shape);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     bindAttentionBackward(encoder, cmd + pos, shape);
-    [encoder setComputePipelineState:state.ctx->attentionQueryBackwardPSO];
+    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]));
+    if (pipelines.query == nil) throw std::runtime_error("Attention dtype unavailable on this GPU");
+    [encoder setComputePipelineState:pipelines.query];
     [encoder setBuffer:attentionBuffer(cmd[pos + 8], (NSUInteger)shape.rows * 64) offset:0 atIndex:6];
     bindValue(encoder, shape.params, 7);
     dispatchAttention(encoder, shape, 16, 64, shape.heads);
-    [encoder setComputePipelineState:state.ctx->attentionKeyValueBackwardPSO];
+    [encoder setComputePipelineState:pipelines.keyValue];
     NSUInteger keyValueRows = (NSUInteger)shape.keyValueHeads * shape.params.length;
     [encoder setBuffer:attentionBuffer(cmd[pos + 9], keyValueRows * 64) offset:0 atIndex:6];
     [encoder setBuffer:attentionBuffer(cmd[pos + 10], keyValueRows * 64) offset:0 atIndex:7];

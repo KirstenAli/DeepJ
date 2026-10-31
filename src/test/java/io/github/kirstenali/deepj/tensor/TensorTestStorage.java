@@ -5,6 +5,7 @@ public final class TensorTestStorage {
     private TensorTestStorage() {}
 
     public static Tensor lazy(int rows, int columns) { return Tensor.deviceOnly(rows, columns); }
+    public static Tensor lazy(DType dtype, int... shape) { return Tensor.deviceOnly(dtype, shape); }
     public static boolean hasHostStorage(Tensor tensor) { return tensor.memory().hasHostStorage(); }
 
     public static Tensor from16Bits(short[] bits, DType dtype, int... shape) {

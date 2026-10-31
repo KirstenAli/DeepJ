@@ -92,9 +92,9 @@ loadScripts(document, 'script');</script>
 </div>
 <section class="class-description" id="class-description">
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">CausalAttentionResult</span>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;output, <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;normalization)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">CausalAttentionResult</span>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;output, <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;normalization, <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;accumulatedOutput)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
-<div class="block">Forward output and row maximum/denominator pairs saved for tiled backward.</div>
+<div class="block">Output, row statistics and unrounded FP32 output needed by tiled backward.</div>
 </section>
 <section class="summary">
 <ul class="summary-list">
@@ -108,7 +108,11 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-last">Description</div>
 <div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">CausalAttentionResult</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;output,
  <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;normalization)</code></div>
-<div class="col-last even-row-color">
+<div class="col-last even-row-color">&nbsp;</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">CausalAttentionResult</a><wbr>(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;output,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;normalization,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;accumulatedOutput)</code></div>
+<div class="col-last odd-row-color">
 <div class="block">Creates an instance of a <code>CausalAttentionResult</code> record class.</div>
 </div>
 </div>
@@ -125,29 +129,34 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#accumulatedOutput()" class="member-name-link">accumulatedOutput</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <code>accumulatedOutput</code> record component.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Indicates whether some other object is "equal to" this one.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a hash code value for this object.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#normalization()" class="member-name-link">normalization</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#normalization()" class="member-name-link">normalization</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <code>normalization</code> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#output()" class="member-name-link">output</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#output()" class="member-name-link">output</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <code>output</code> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
 </div>
 </div>
@@ -172,11 +181,20 @@ loadScripts(document, 'script');</script>
 <h3>CausalAttentionResult</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">CausalAttentionResult</span><wbr><span class="parameters">(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;output,
  <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;normalization)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="&lt;init&gt;(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor)">
+<h3>CausalAttentionResult</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">CausalAttentionResult</span><wbr><span class="parameters">(<a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;output,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;normalization,
+ <a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a>&nbsp;accumulatedOutput)</span></div>
 <div class="block">Creates an instance of a <code>CausalAttentionResult</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>output</code> - the value for the <code>output</code> record component</dd>
 <dd><code>normalization</code> - the value for the <code>normalization</code> record component</dd>
+<dd><code>accumulatedOutput</code> - the value for the <code>accumulatedOutput</code> record component</dd>
 </dl>
 </section>
 </li>
@@ -248,6 +266,17 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>the value of the <code>normalization</code> record component</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="accumulatedOutput()">
+<h3>accumulatedOutput</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="Tensor.html" title="class in io.github.kirstenali.deepj.tensor">Tensor</a></span>&nbsp;<span class="element-name">accumulatedOutput</span>()</div>
+<div class="block">Returns the value of the <code>accumulatedOutput</code> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <code>accumulatedOutput</code> record component</dd>
 </dl>
 </section>
 </li>

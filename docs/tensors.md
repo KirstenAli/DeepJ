@@ -52,7 +52,11 @@ including FLOAT16 mixed with BFLOAT16. A FLOAT32 operand is never silently narro
 Supported Metal compact-matrix paths use native compact operands with FLOAT32
 accumulation. Eligible larger FLOAT16 products use Apple MPS on supported Apple GPUs;
 smaller, strided and other dtype/device combinations retain their appropriate GPU
-paths. Selection preserves mixed-input precision without full-matrix conversion copies.
+paths. Mixed FLOAT32/FLOAT16 products never narrow the FLOAT32 operand. Selected large,
+narrow FLOAT32/BFLOAT16 backward products widen the BFLOAT16 operand into a tracked,
+temporary GPU buffer before an FP32 MPS product. This is a per-product conversion,
+not a persistent FP32 copy of compact model parameters; other mixed products retain
+their existing GPU paths.
 Other operations and unsupported native compact-matrix paths may use
 FLOAT32 arithmetic on the selected backend. This is not automatic mixed precision:
 there is no implicit autocast or loss scaling, and no hidden CPU fallback from Metal.
@@ -61,6 +65,23 @@ weights do not halve total training memory or guarantee faster training.
 
 `MetalBackend.supportsNative16Matmul(dtype)` reports native compact-matrix support
 on the active device. It does not promise that every operation uses compact arithmetic.
+
+### Fused attention
+
+Supported Metal devices can use fused causal attention with same-dtype FLOAT32,
+FLOAT16 or BFLOAT16 inputs, 64-wide heads and complete 32-token tiles. Automatic
+selection starts at 256 tokens; other shapes retain the separate GPU operations.
+Compact inputs are widened only in SIMD register tiles. Fused-attention arithmetic,
+normalization, accumulation and gradients are FP32; the returned output is rounded to its input dtype.
+An unrounded FP32 output is saved for backward, avoiding gradient errors from using
+the rounded compact output. Saved storage grows linearly with sequence length rather
+than storing the complete attention-score and probability matrices.
+
+Unlike separate compact operations, fused attention does not round scores and
+probabilities into 16-bit storage between operations. Compact results and training
+trajectories can therefore differ from the separate path; this does not change the
+default FLOAT32 computation or enable automatic mixed precision. Actual speed and
+memory gains depend on the workload and device.
 
 `storageBytes()` reports the shared allocation, not just the portion addressed by a
 view. Explicit host reads may allocate converted copies. Use the actual measured

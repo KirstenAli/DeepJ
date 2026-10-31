@@ -23,13 +23,17 @@ class MetalPackedLayoutTest extends MetalDifferentialTestSupport {
 
     @ParameterizedTest
     @EnumSource(DType.class)
-    void fusedCapabilityNeverPromisesUnsupportedCompactStorage(DType dtype) {
+    void fusedCapabilityRequiresAvailableTypedPipelinesAndCompleteMatrices(DType dtype) {
         Tensor query = new Tensor(dtype, 256, 64);
-        assertEquals(dtype == DType.FLOAT32 && MetalNative.TILED_ATTENTION_AVAILABLE,
+        assertEquals(MetalNative.supportsAttention(dtype),
                 metal.supportsCausalAttention(query, query, query, 1, 0.125f));
-        if (dtype != DType.FLOAT32) {
+        if (!MetalNative.supportsAttention(dtype)) {
             assertThrows(UnsupportedOperationException.class,
                     () -> metal.causalAttention(query, query, query, 1, 0.125f));
         }
+        Tensor strided = new Tensor(dtype, 256, 128).slice(1, 0, 128, 2);
+        assertFalse(metal.supportsCausalAttention(strided, strided, strided, 1, 0.125f));
+        assertThrows(UnsupportedOperationException.class,
+                () -> metal.causalAttention(strided, strided, strided, 1, 0.125f));
     }
 }
