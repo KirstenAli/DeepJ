@@ -47,10 +47,28 @@ The exact-commit hosted CI run and the local integrated full-coverage build both
 passed on the pushed head: 2,345 tests, zero failures/errors, 12 explicit skips
 (11 disabled manual timing tests and one optional user-checkpoint smoke test).
 
-Outstanding before approval: rerun the typed FLOAT16/BFLOAT16 real-data, complete
-FILE write/resume and full-state suites against this exact head rather than the
-older frozen candidate, and complete the human performance-acceptance sign-off.
-No merge or release is approved.
+The remaining final-matrix suites were then rerun against this exact candidate
+with the frozen V38 guards and helper bytes:
+
+- Typed FLOAT16/BFLOAT16 real data, all three families: six of six cases, 110 of
+  110 recorded lines each identical to the typed references, `storageExact=true`.
+- Typed write/self/actual-FILE-resume, all three families and both dtypes: 18 of
+  18 cases `allStateExact=true`; saved and resaved `model.dj`/`training.dj` byte
+  counts and SHA-256 identical to the V38 receipts; payloads retired under receipts.
+- Complete FLOAT32 1,024-token state and FILE restore, all three families: 18 of
+  18 cases; 60 of 60 comparisons report zero mismatches across all gradients,
+  weights, first and second moments and all 16,777,216 logits; all saved-byte
+  controls exact; regenerated raw streams matched their pinned SHA/size and were
+  retired with audits. One Loop saved-byte attempt was refused at preflight for
+  memory headroom before any JVM started and was rerun unchanged.
+
+No swap increase or swapout occurred in any case of any suite. Receipts:
+[host CPU](v111-host-cpu-result.json), [endurance](v111-endurance-result.json),
+[typed real data](v111-realdata-result.json), [typed FILE](v111-files-result.json),
+[full state](v111-full-state-result.json).
+
+Outstanding before approval: human performance-acceptance sign-off for this exact
+head. No merge or release is approved.
 
 ## Historical review status on 30 October
 
