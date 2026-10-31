@@ -4492,13 +4492,18 @@ static void encodeLayoutMpsBatch(GraphState& state, const jint* cmd, int pos, co
         encodeToCommandBuffer:state.commandBuffer leftMatrix:left rightMatrix:right resultMatrix:output];
 }
 
+static bool mpsOperandPair(uint32_t leftType, uint32_t rightType) {
+    // MPS only mixes inputs as A=FLOAT32, B=FLOAT16 (C=FLOAT32); a FLOAT16 left operand aborts.
+    return rightType == 2 && (leftType == 1 || leftType == 2);
+}
+
 static bool supportsLayoutMpsMatmul(MetalContext* ctx, const LayoutMatmulSpec& spec) {
     // Preserve small-matrix accumulation order and avoid MPS setup on tiny products.
-    // Other devices keep the existing compact/generic GPU capability dispatch.
-    return (spec.leftType == 1 && spec.rightType == 1)
-        || ((spec.leftType == 1 || spec.leftType == 2) && spec.rightType == 2
-            && spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64
-            && [ctx->device supportsFamily:MTLGPUFamilyApple7]);
+    // FLOAT32 always; MPS-supported FLOAT16 pairs once every dimension reaches the tile floor.
+    if (spec.leftType == 1 && spec.rightType == 1) return true;
+    return mpsOperandPair(spec.leftType, spec.rightType)
+        && spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64
+        && [ctx->device supportsFamily:MTLGPUFamilyApple7];
 }
 
 static bool encodeLayoutMpsMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
