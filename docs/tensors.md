@@ -67,6 +67,18 @@ view. Explicit host reads may allocate converted copies. Use the actual measured
 backend/device capability and dtype-specific tests, not the dtype name alone, to
 assess precision and performance.
 
+## Lazy Metal storage
+
+Metal operation results do not allocate a matching Java array until a host read needs it.
+The dtype-aware `Tensor.backend().zeros(dtype, shape)` path also defers its device allocation:
+it represents zeros without either backing buffer until values are consumed. A device operation
+can initialize zeros on the GPU; accumulating a device gradient into a fresh zero can avoid that
+initial allocation entirely. Ordinary CPU tensor constructors still allocate host storage.
+
+Do not infer a tensor's values or validity from a missing GPU tag or a `null` `rawData()`.
+Use managed operations or `get(...)`/`toFloatArray()` for values; those reads may materialize storage.
+These are allocation optimizations, not changes to FLOAT32 defaults or gradient precision.
+
 ## Migrating matrix-only code
 
 - Existing `new Tensor(rows, cols)` and `from2D(...)` helpers remain available.

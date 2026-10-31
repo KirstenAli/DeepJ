@@ -59,6 +59,21 @@ matched multi-seed training experiments before accepting an attention replacemen
 The [October 2026 Flash attention qualification](benchmarks/flash-attention-2026-10-24/REPORT.md)
 records the acceptance bounds, measurements and reproducible evidence.
 
+## ND, dtype and checkpoint qualification
+
+The [ND qualification report](benchmarks/nd-tensors-2026-10-28/REPORT.md) records the
+final FLOAT32 state and 200-update real-data comparisons, optional FLOAT16/BFLOAT16
+storage and training checks, and actual checkpoint write/restore byte comparisons.
+It separates the current results from earlier failed or superseded attempts and
+scopes the resolved host-CPU finding to its measured workload.
+
+Permanent gradient regressions check all three parameter dtypes, non-null FLOAT32
+zeros, cleanup followed by accumulation, lazy Metal storage and unchanged weight
+decay. When comparing allocation or timing, match temporary-resource cleanup policy:
+`Trainer.train(...)` defaults to cleanup every 25 updates; `Trainer.trainStep(...)`
+alone does not schedule that cleanup. A no-cleanup allocation probe and an every-step
+cleanup benchmark are not interchangeable evidence.
+
 ## Coverage gates
 
 | Scope | Lines | Branches | Other minimums |

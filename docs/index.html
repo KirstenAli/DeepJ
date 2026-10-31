@@ -27,7 +27,8 @@
             <a href="#install">Install</a>
             <a href="#features">Features</a>
             <a href="#models">Models</a>
-            <a href="https://github.com/KirstenAli/DeepJ/blob/master/docs/cli.md">CLI</a>
+            <a href="#desktop-chat">Desktop</a>
+            <a href="#cli">CLI</a>
             <a href="api/">API docs</a>
             <a class="nav-github" href="https://github.com/KirstenAli/DeepJ">GitHub</a>
         </nav>
@@ -160,7 +161,7 @@ String answer = chat.generate(
                 <article class="model-card">
                     <p class="model-name">DeepJ Nova</p>
                     <h3>Grouped-query attention</h3>
-                    <p>Shared input/output embeddings, optional QK normalization, RoPE, RMSNorm, and bias-free SwiGLU.</p>
+                    <p>RoPE, RMSNorm and bias-free SwiGLU, with optional QK normalization and tied input/output embeddings.</p>
                 </article>
                 <article class="model-card">
                     <p class="model-name">DeepJ Loop</p>
@@ -172,12 +173,33 @@ String answer = chat.generate(
         </div>
     </section>
 
+    <section class="section" id="desktop-chat">
+        <div class="shell">
+            <p class="section-label">Desktop chat</p>
+            <h2>Try a checkpoint in the JavaFX app</h2>
+            <p class="section-intro">Stream responses, choose a theme, adjust generation settings or use the See alternative responses button for the same prompt. Saved prompt formatting is applied automatically.</p>
+            <img class="app-screenshot" src="chat-ui.png" alt="DeepJ desktop chat interface" loading="lazy">
+            <a class="text-link" href="https://github.com/KirstenAli/DeepJ#desktop-chat">Build and start the desktop app <span aria-hidden="true">→</span></a>
+        </div>
+    </section>
+
+    <section class="section section-muted" id="cli">
+        <div class="shell">
+            <p class="section-label">Command line</p>
+            <h2>The same models, in your terminal</h2>
+            <p class="section-intro">Streaming chat, themes, one-prompt generation, checkpoint inspection and backend diagnostics. Frisky uses the same saved instruction format as the desktop app; choose CPU-only execution with <code>--backend cpu</code>.</p>
+            <img class="app-screenshot" src="cli.png" alt="DeepJ terminal chat with its coloured wordmark and streamed responses" loading="lazy">
+            <a class="text-link" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/cli.md">Build and use the CLI <span aria-hidden="true">→</span></a>
+        </div>
+    </section>
+
     <section class="section">
         <div class="shell release-card">
             <div>
                 <p class="section-label">Published model</p>
                 <h2>Frisky 90M</h2>
                 <p>A 90M-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning, published with its BPE tokenizer and self-describing DeepJ checkpoint.</p>
+                <p>Although Frisky can produce coherent responses, it is a small experimental model and can repeat itself or make factual, reasoning, maths and coding errors.</p>
             </div>
             <dl class="metrics">
                 <div><dt>Parameters</dt><dd>90M</dd></div>
@@ -213,6 +235,7 @@ String answer = chat.generate(
         <nav aria-label="Footer navigation">
             <a href="https://github.com/KirstenAli/DeepJ">GitHub</a>
             <a href="api/">Javadocs</a>
+            <a href="https://github.com/KirstenAli/DeepJ/blob/master/docs/quality-and-regression.md">Coding and regression standards</a>
             <a href="https://central.sonatype.com/artifact/io.github.kirstenali/deepj/0.11.0-alpha">Maven Central</a>
             <a href="https://github.com/KirstenAli/DeepJ/blob/master/LICENSE">MIT License</a>
         </nav>

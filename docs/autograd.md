@@ -36,6 +36,12 @@ last-forward caches. Each parameter's `value` is a tracked leaf tensor; `paramet
 Transformer stacks and decoder models list shared parameters once, preserving first-use order so
 gradient scaling and optimizer updates are not repeated for a reused layer.
 
+For trainable parameters, `zeroGrad()` keeps a non-null FLOAT32 zero gradient for every parameter
+dtype. CPU gradients reuse existing host storage when possible. Metal gradients use lazy zeros
+and avoid disposable host arrays and device-zero buffers before accumulation. Explicitly reading
+a gradient can materialize its storage. Zeroing a gradient is not the same as removing it:
+optimizer step and weight-decay semantics are preserved.
+
 ```java
 model.zeroGrad();
 Tensor prediction = model.forward(input);
@@ -113,6 +119,8 @@ The autograd engine does not save runtime operation graphs. Existing FLOAT32 che
 retain their parameter ordering, tied weights, optimizer moments and resume counters.
 ND/compact tensors use shape- and dtype-aware formats; compact training checkpoints also
 preserve FLOAT32 master weights. Precision conversion is explicit, not an implicit resume step.
+Transient lazy-zero buffers and operation graphs are not checkpoint payloads; restoration preserves
+values and optimizer state rather than depending on old device-buffer identities.
 
 ## Verification
 

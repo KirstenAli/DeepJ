@@ -309,6 +309,15 @@ h3 {
     font-size: 1.04rem;
 }
 
+.app-screenshot {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 32px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
 .install-grid,
 .example-grid,
 .limitation-grid {

@@ -6,9 +6,11 @@ claim about the published `0.11.0-alpha` artifact or a universal speedup.
 
 ## Current review status on 31 October
 
-PR #177 remains **draft and unmerged**. The residual host CPU finding below has
-now been causally explained and removed; the sections dated 30 and 29 October are
-retained as history and do not describe the current candidate.
+The author confirmed on 31 October that the previously raised issues are resolved.
+The residual host CPU finding below has been causally explained and removed, and
+the final reruns are complete. PR #177 remains **draft and unmerged** while the
+author performs the requested local UI smoke check. The sections dated 30 and
+29 October are retained as history and do not describe the current candidate.
 
 Three stacked causes were found by tracing the cleanup, `zeroGrad` and gradient
 accumulation lifecycle, each fixed with permanent tests:
@@ -43,9 +45,12 @@ updates, five validations, four gradient norms each) was rerun for the current
 candidate: all 209 recorded loss, validation and gradient lines per family match
 the pre-ND reference exactly and native peaks are byte-identical.
 
-The exact-commit hosted CI run and the local integrated full-coverage build both
-passed on the pushed head: 2,345 tests, zero failures/errors, 12 explicit skips
+The [hosted CI run for `8f844bf1`](https://github.com/KirstenAli/DeepJ/actions/runs/41161597376)
+and the local integrated full-coverage build both passed: 2,345 tests, zero failures/errors, 12 explicit skips
 (11 disabled manual timing tests and one optional user-checkpoint smoke test).
+The latest production fix is `c9e42914`; the subsequent commits through `8f844bf1`
+add only this report and its receipts. Optional hosted diagnostics and performance
+jobs were skipped; the local comparisons below are separate qualification evidence.
 
 The remaining final-matrix suites were then rerun against this exact candidate
 with the frozen V38 guards and helper bytes:
@@ -67,8 +72,9 @@ No swap increase or swapout occurred in any case of any suite. Receipts:
 [typed real data](v111-realdata-result.json), [typed FILE](v111-files-result.json),
 [full state](v111-full-state-result.json).
 
-Outstanding before approval: human performance-acceptance sign-off for this exact
-head. No merge or release is approved.
+The previous request for human performance acceptance is closed by the author's
+31 October confirmation. This records acceptance of the scoped evidence above,
+not a universal performance guarantee. No merge or release is approved.
 
 ## Historical review status on 30 October
 
