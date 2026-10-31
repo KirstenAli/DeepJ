@@ -78,12 +78,23 @@ General compact, strided and broadcast CPU matrix products stage their operands 
 temporary contiguous FLOAT32 arrays before the parallel product, then round the result
 to its output dtype. This avoids repeated address calculations and compact-value decoding
 inside every multiply, at the cost of temporary host memory, including expanded batches.
-The existing dense FLOAT32 matrix fast path remains separate.
+The dtype-converting contiguous copy also runs in parallel. These CPU products use
+FLOAT32 arithmetic, so compact storage adds decoding/encoding work rather than native
+16-bit arithmetic. The existing dense FLOAT32 matrix fast path remains separate.
 
 Relative dtype speed depends on the operation, shape, backend and device. Short manual
 timing probes are exploratory, not a guarantee that compact training matches or exceeds
 FLOAT32 speed. The earlier [compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md)
 retain their original runtime and workload scope.
+
+A historical short CPU probe on an Apple M4 MacBook Air reported roughly 300-330 ms
+per FLOAT32 step and 350-370 ms for FLOAT16/BFLOAT16; compact steps before staging
+were reported near 20 seconds. It used a two-layer Origin model, width 384,
+256 tokens and a 4,096-token vocabulary. That probe used two warm-up steps, four
+measured steps, fixed dtype order and explicit GC inside the timed interval. These
+figures are exploratory, not performance qualification or proof of a consistent
+15% dtype gap. Compact weights use less storage; total memory and speed need
+matched measurements for the actual workload.
 
 `MetalBackend.supportsNative16Matmul(dtype)` reports native compact-matrix support
 on the active device. It does not promise that every operation uses compact arithmetic.
