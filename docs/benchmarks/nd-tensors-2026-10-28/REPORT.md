@@ -6,11 +6,10 @@ claim about the published `0.11.0-alpha` artifact or a universal speedup.
 
 ## Current review status on 31 October
 
-The author confirmed on 31 October that the previously raised issues are resolved.
+The ND migration was merged in PR #177 on 31 October 2026, as commit `4cbb2529`.
 The residual host CPU finding below has been causally explained and removed, and
-the final reruns are complete. PR #177 remains **draft and unmerged** while the
-author performs the requested local UI smoke check. The sections dated 30 and
-29 October are retained as history and do not describe the current candidate.
+the final reruns are complete. The sections dated 30 and 29 October are retained
+as history and do not describe the current candidate.
 
 Three stacked causes were found by tracing the cleanup, `zeroGrad` and gradient
 accumulation lifecycle, each fixed with permanent tests:
@@ -72,9 +71,9 @@ No swap increase or swapout occurred in any case of any suite. Receipts:
 [typed real data](v111-realdata-result.json), [typed FILE](v111-files-result.json),
 [full state](v111-full-state-result.json).
 
-The previous request for human performance acceptance is closed by the author's
-31 October confirmation. This records acceptance of the scoped evidence above,
-not a universal performance guarantee. No merge or release is approved.
+These results are scoped to the recorded hardware and workloads, not a universal
+performance guarantee. The ND migration is merged, but no new Maven release has
+been published; the APIs still require a source build.
 
 ## Historical review status on 30 October
 
