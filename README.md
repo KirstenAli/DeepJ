@@ -17,7 +17,7 @@ DeepJ is an alpha project. Its compact model families are designed to make diffe
 ## Install
 
 DeepJ requires JDK 20 or newer. The dependency below is the published release.
-The N-dimensional tensor and optional FLOAT16/BFLOAT16 APIs in this branch currently
+The current N-dimensional tensor and optional FLOAT16/BFLOAT16 APIs
 require a [source build](#build-and-release); they are not in `0.11.0-alpha`.
 
 ```xml
@@ -33,7 +33,7 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 ## What is included
 
 - An [N-dimensional `Tensor` API](docs/tensors.md) with first-order [autograd](docs/autograd.md) on CPU and Metal.
-- FLOAT32 by default, with optional FLOAT16 and BFLOAT16 storage.
+- FLOAT32 by default, with optional FLOAT16 and BFLOAT16 [storage and precision](docs/tensors.md#storage-is-not-the-same-as-calculation-precision).
 - CPU execution and an optional Metal backend with fused training operations and custom FlashAttention kernels with FP32 accumulation for supported devices and shapes.
 - Trainable decoder-only Transformer architectures, described in [Model architectures](#model-architectures).
 - Byte and BPE tokenizers, including BPE training and persistence.
