@@ -54,9 +54,10 @@ MPS accepts FLOAT16 on both sides or FLOAT32 on the left and FLOAT16 on the righ
 it does not directly accept the reverse mixed order or BFLOAT16 operands.
 For eligible products, DeepJ losslessly widens BFLOAT16 operands, or a FLOAT16 left
 operand paired with FLOAT32, into scoped GPU buffers. Staging is used only when all
-matrix dimensions are at least 64 and the widened element count is no more than twice
-the output count. Products that would widen a dominant operand retain the compact
-kernel. Two BFLOAT16 inputs produce a result rounded back to BFLOAT16.
+matrix dimensions are at least 64 and the widened element count times 128 is no more
+than rows x inner x columns, so the cast stays small next to the arithmetic. Products
+whose cast would dominate retain the compact kernel. Two BFLOAT16 inputs produce a
+result rounded back to BFLOAT16.
 These are per-product conversions, not persistent FLOAT32 parameter copies.
 FLOAT32 operands are never narrowed, and FLOAT32-only routing is unchanged.
 Other shapes, layouts and device capabilities retain their appropriate GPU paths.
@@ -66,10 +67,17 @@ there is no implicit autocast or loss scaling, and no hidden CPU fallback from M
 Optimizer master weights, gradients and moments remain FLOAT32. Consequently, two-byte
 weights do not halve total training memory or guarantee faster training.
 
-Full-size Prism, Nova and Loop tests on an Apple M4 MacBook Air with 16 GB unified
-memory found the optimized compact paths faster than their previous implementations,
-but FLOAT32 training remained faster than either compact dtype. This is a measured
-workload/device result, not a universal dtype ranking. See the
+`ParameterFactory(dtype)` applies the requested compact dtype to weight matrices only.
+Row vectors such as norm gains and biases stay FLOAT32, and embedding lookups widen to
+FLOAT32, so activations run through the fused FLOAT32 and MPS kernels while the large
+weights keep two-byte storage. Loaded checkpoints keep whatever dtypes they store.
+
+On an Apple M4 MacBook Air with 16 GB unified memory, a 12-layer Origin step over
+1,024 tokens measured FLOAT16 at roughly 460-480 ms against FLOAT32 at 460-625 ms,
+with BFLOAT16 close to FLOAT16 but paying an extra widening pass because MPS has no
+native BFLOAT16 route. Apple GPUs run MPS FLOAT16 and FLOAT32 matrix products at
+similar speed, so compact dtypes mainly save memory; they are no longer slower than
+FLOAT32 but should not be expected to be dramatically faster. Earlier results are in the
 [compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md).
 
 `MetalBackend.supportsNative16Matmul(dtype)` reports native compact-matrix support

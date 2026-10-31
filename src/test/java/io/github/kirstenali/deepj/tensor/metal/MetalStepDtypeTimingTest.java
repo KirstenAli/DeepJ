@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Locale;
 import java.util.Random;
 
-/** Manual: Origin step timing. DEEPJ_TIMING_DTYPE=ALL alternates FLOAT32/FLOAT16 rounds in one JVM. */
+/** Manual: Origin step timing. DEEPJ_TIMING_DTYPE=ALL alternates every dtype in one JVM. */
 @Disabled("manual timing")
 class MetalStepDtypeTimingTest extends MetalDifferentialTestSupport {
     private static final int SEQUENCE = 1024, WARMUP = 2, STEPS = 4, ROUNDS = 3;
@@ -22,8 +22,7 @@ class MetalStepDtypeTimingTest extends MetalDifferentialTestSupport {
     @Test
     void stepTimingForConfiguredDtype() {
         String selected = System.getenv().getOrDefault("DEEPJ_TIMING_DTYPE", "FLOAT32");
-        DType[] dtypes = selected.equals("ALL")
-                ? new DType[]{DType.FLOAT32, DType.FLOAT16} : new DType[]{DType.valueOf(selected)};
+        DType[] dtypes = selected.equals("ALL") ? DType.values() : new DType[]{DType.valueOf(selected)};
         int rounds = dtypes.length == 1 ? 1 : ROUNDS;
         for (int round = 0; round < rounds; round++) {
             for (DType dtype : dtypes) {
