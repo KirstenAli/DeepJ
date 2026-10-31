@@ -37,8 +37,9 @@ final class MetalParameterGradientTest {
     void zeroGradAfterDeviceAccumulationStaysOnDevice() {
         Parameter parameter = new Parameter(Tensor.from2D(new float[][]{{1, 2}, {3, 4}}));
         accumulate(parameter, 0.5f);
+        assertInstanceOf(GpuBuffer.class, parameter.grad().getGpuTag());
         parameter.zeroGrad();
-        assertDeviceZeros(parameter);
+        assertLazyZeros(parameter);
     }
 
     @Test
@@ -54,10 +55,10 @@ final class MetalParameterGradientTest {
     @EnumSource(DType.class)
     void compactAndFloatParametersKeepLazyFloat32GradientsAndAccumulateTwice(DType dtype) {
         Parameter parameter = new Parameter(Tensor.from(new float[]{1, 2, 3, 4}, dtype, 2, 1, 2));
-        assertDeviceZeros(parameter);
+        assertLazyZeros(parameter);
         for (int step = 0; step < 3; step++) {
             parameter.zeroGrad();
-            assertNull(parameter.grad().rawData());
+            assertNull(parameter.grad().getGpuTag());
             accumulate(parameter, 0.5f);
             accumulate(parameter, -1.25f);
             assertEquals(DType.FLOAT32, parameter.grad().dtype());
@@ -76,9 +77,9 @@ final class MetalParameterGradientTest {
         assertEquals(1, optimizer.stepCount());
     }
 
-    private static void assertDeviceZeros(Parameter parameter) {
-        assertInstanceOf(GpuBuffer.class, parameter.grad().getGpuTag());
-        assertNull(parameter.grad().rawData());
+    private static void assertLazyZeros(Parameter parameter) {
+        assertNull(parameter.grad().getGpuTag());
+        assertFalse(parameter.grad().hasHostStorage());
         assertEquals(DType.FLOAT32, parameter.grad().dtype());
         assertArrayEquals(parameter.value.shape(), parameter.grad().shape());
         assertArrayEquals(new float[parameter.value.numel()], parameter.grad().toFloatArray());

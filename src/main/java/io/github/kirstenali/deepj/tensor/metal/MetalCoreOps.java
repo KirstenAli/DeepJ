@@ -55,7 +55,7 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override
     public Tensor zeros(DType dtype, int... shape) {
-        return graph.zeroToDevice(dtype, shape);
+        return graph.lazyZeros(dtype, shape);
     }
 
     @Override

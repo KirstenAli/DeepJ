@@ -48,6 +48,13 @@ abstract class GraphLayoutRecordingOps extends GraphCore {
         return createOutputTensor(newZeroBuffer(rows, count / rows, dtype), shape);
     }
 
+    /** Zeros that stay unallocated until first use; a device zero-fill is queued only when a kernel consumes them. */
+    public Tensor lazyZeros(DType dtype, int... shape) {
+        Objects.requireNonNull(dtype, "dtype");
+        new TensorShape(shape);
+        return Tensor.deviceOnly(dtype, shape);
+    }
+
     public Tensor castToDevice(Tensor input, DType dtype) {
         TensorStorage.requireSource(input);
         Objects.requireNonNull(dtype, "dtype");

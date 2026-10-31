@@ -83,6 +83,9 @@ public abstract class TensorStorageAccess {
 
     public final DType dtype() { return memory.dtype(); }
 
+    /** False for lazy storage that has never been touched on the host; such storage reads as zeros. */
+    public final boolean hasHostStorage() { return memory.hasHostStorage(); }
+
     /** Unsafe backing access bypasses mutation tracking; use managed Tensor get/set for application code. */
     public final float[] rawData() {
         if (!flatStorage) throw new IllegalStateException("Raw storage requires a full contiguous tensor");

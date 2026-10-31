@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.optimisers;
 
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.GpuBuffer;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -55,6 +56,33 @@ final class MetalGradientCleanupTest {
 
         assertTrue(allocated() - before < (long) SIDE * SIDE, "accumulate must not copy the gradient on the host");
         assertEquals(1.0f, parameter.grad().toFloatArray()[0]);
+    }
+
+    @Test
+    void zeroGradAllocatesNothingOnEitherSide() {
+        Parameter parameter = new Parameter(Tensor.zeros(SIDE, SIDE));
+        update(parameter);
+
+        long before = allocated();
+        parameter.zeroGrad();
+
+        assertTrue(allocated() - before < 4096, "zeroGrad must not allocate a host or staged array");
+        assertNull(parameter.grad().getGpuTag());
+        assertFalse(parameter.grad().hasHostStorage());
+    }
+
+    @Test
+    void lazyZerosUploadAsDeviceZeroFill() {
+        Tensor lazy = Tensor.backend().zeros(DType.FLOAT32, SIDE, SIDE);
+        Tensor ones = Tensor.zeros(SIDE, SIDE).addScalar(1.0f);
+
+        long before = allocated();
+        Tensor product = lazy.matmul(ones);
+
+        long hostCopy = (long) SIDE * SIDE * Float.BYTES;
+        assertTrue(allocated() - before < hostCopy / 2, "lazy upload must not materialise a host array");
+        assertFalse(lazy.hasHostStorage());
+        assertEquals(0.0f, product.toFloatArray()[SIDE * SIDE - 1]);
     }
 
     private static void update(Parameter parameter) {

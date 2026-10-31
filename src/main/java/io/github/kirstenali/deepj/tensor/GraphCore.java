@@ -85,14 +85,32 @@ abstract class GraphCore extends GraphOpMetadata {
     GpuBuffer createAndUploadInputBuffer(Tensor t) {
         if (t.memory().length() == 0) throw new IllegalArgumentException("Empty tensors need no GPU allocation");
         int rows = t.rank() == 2 && t.coversStorage() ? t.matrixRows() : 1;
-        GpuBuffer buf = newBuffer(rows, t.memory().length() / rows, t.dtype(), true);
-        scheduleUpload(buf.id, GraphTransfers.snapshot(t));
-        buf.needsUpload = false;
+        int cols = t.memory().length() / rows;
+        GpuBuffer buf = t.hasHostStorage() ? uploadedBuffer(t, rows, cols) : zeroInputBuffer(rows, cols, t.dtype());
         buf.cpuStale = false;
-
         t.setGpuTag(buf);
         trackTensorBinding(buf.id, t);
         return buf;
+    }
+
+    private GpuBuffer uploadedBuffer(Tensor t, int rows, int cols) {
+        GpuBuffer buf = newBuffer(rows, cols, t.dtype(), true);
+        scheduleUpload(buf.id, GraphTransfers.snapshot(t));
+        buf.needsUpload = false;
+        return buf;
+    }
+
+    private GpuBuffer zeroInputBuffer(int rows, int cols, DType dtype) {
+        GpuBuffer buf = newBuffer(rows, cols, dtype, true);
+        pendingUploadIds.add(zeroInitialization(buf));
+        pendingUploadData.add(null);
+        buf.needsUpload = false;
+        return buf;
+    }
+
+    private static int[] zeroInitialization(GpuBuffer buffer) {
+        return buffer.dtype == DType.FLOAT32 ? new int[]{buffer.id, buffer.elementCount()}
+                : new int[]{buffer.id, buffer.elementCount(), buffer.dtype.storageCode()};
     }
 
     void trackTensorBinding(int id, Tensor t) {
@@ -119,9 +137,7 @@ abstract class GraphCore extends GraphOpMetadata {
 
     public GpuBuffer newZeroBuffer(int rows, int cols, DType dtype) {
         GpuBuffer buffer = newOutputBuffer(rows, cols, dtype);
-        int[] initialization = dtype == DType.FLOAT32 ? new int[]{buffer.id, buffer.elementCount()}
-                : new int[]{buffer.id, buffer.elementCount(), dtype.storageCode()};
-        pendingUploadIds.add(initialization);
+        pendingUploadIds.add(zeroInitialization(buffer));
         pendingUploadData.add(null);
         return buffer;
     }

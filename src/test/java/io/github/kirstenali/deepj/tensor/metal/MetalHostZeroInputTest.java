@@ -17,6 +17,8 @@ class MetalHostZeroInputTest {
         target.setGpuTag(new GpuBuffer(1, 1, 4, false));
         assertFalse(MetalHostZeroInput.canSkip(target, source));
         Tensor lazy = TensorTestStorage.lazy(1, 4);
+        assertTrue(MetalHostZeroInput.canSkip(lazy, source));
+        lazy.set(0, 0, 1.0f);
         assertFalse(MetalHostZeroInput.canSkip(lazy, source));
     }
 
