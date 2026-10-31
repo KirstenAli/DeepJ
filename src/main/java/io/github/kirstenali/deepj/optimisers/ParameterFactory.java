@@ -9,7 +9,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 
-/** Explicit, immutable parameter storage policy. Names do not depend on allocation order. */
+/**
+ * Explicit parameter storage policy: a requested dtype applies to multi-row parameters;
+ * one-row parameters remain FLOAT32. Descriptor-based loading preserves each stored dtype.
+ * Names do not depend on allocation order.
+ */
 public final class ParameterFactory {
     private final String prefix;
     private final DType defaultType;

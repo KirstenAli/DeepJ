@@ -12,10 +12,11 @@ import org.junit.jupiter.api.Test;
 import java.util.Locale;
 import java.util.Random;
 
-/** Manual: Origin step timing. DEEPJ_TIMING_DTYPE=ALL alternates every dtype; DEEPJ_TIMING_BACKEND=cpu uses the CPU. */
+/** Exploratory Origin timing, not qualification. ALL rotates dtype order; BACKEND=cpu selects CPU. */
 @Disabled("manual timing")
 class MetalStepDtypeTimingTest extends MetalDifferentialTestSupport {
-    private static final int WARMUP = 2, STEPS = 4, ROUNDS = 3;
+    private static final int WARMUP = setting("DEEPJ_TIMING_WARMUP", 10);
+    private static final int STEPS = setting("DEEPJ_TIMING_STEPS", 30), ROUNDS = 3;
     private static final int SEQUENCE = setting("DEEPJ_TIMING_SEQUENCE", 1024);
     private static final int WIDTH = setting("DEEPJ_TIMING_WIDTH", 768);
     private static final DeepJOriginConfig CONFIG = new DeepJOriginConfig(setting("DEEPJ_TIMING_VOCAB", 16384),
@@ -28,7 +29,8 @@ class MetalStepDtypeTimingTest extends MetalDifferentialTestSupport {
         DType[] dtypes = selected.equals("ALL") ? DType.values() : new DType[]{DType.valueOf(selected)};
         int rounds = dtypes.length == 1 ? 1 : ROUNDS;
         for (int round = 0; round < rounds; round++) {
-            for (DType dtype : dtypes) {
+            for (int index = 0; index < dtypes.length; index++) {
+                DType dtype = dtypes[(index + round) % dtypes.length];
                 System.out.printf(Locale.ROOT, "round %d %-9s %s layers=%d width=%d seq=%d vocab=%d %8.1f ms/step%n",
                         round, dtype, Tensor.backend().getClass().getSimpleName(), CONFIG.nLayers(), WIDTH, SEQUENCE,
                         CONFIG.vocabSize(), time(dtype));
@@ -47,8 +49,9 @@ class MetalStepDtypeTimingTest extends MetalDifferentialTestSupport {
         for (int i = 0; i < STEPS; i++) {
             step(model, optimizer, tokens);
         }
+        long elapsed = System.nanoTime() - start;
         System.gc();
-        return (System.nanoTime() - start) / 1e6 / STEPS;
+        return elapsed / 1e6 / STEPS;
     }
 
     private static void step(DeepJOrigin model, AdamW optimizer, int[] tokens) {

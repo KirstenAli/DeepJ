@@ -67,18 +67,23 @@ there is no implicit autocast or loss scaling, and no hidden CPU fallback from M
 Optimizer master weights, gradients and moments remain FLOAT32. Consequently, two-byte
 weights do not halve total training memory or guarantee faster training.
 
-`ParameterFactory(dtype)` applies the requested compact dtype to weight matrices only.
-Row vectors such as norm gains and biases stay FLOAT32, and embedding lookups widen to
-FLOAT32, so activations run through the fused FLOAT32 and MPS kernels while the large
-weights keep two-byte storage. Loaded checkpoints keep whatever dtypes they store.
+`ParameterFactory(dtype)` applies the requested compact dtype to parameters with more
+than one row. One-row parameters, including norm gains and biases, stay FLOAT32.
+Embedding lookups widen to FLOAT32, keeping the activation stream eligible for fused
+FLOAT32 kernels while larger weight matrices retain two-byte storage. This is an explicit
+parameter policy, not automatic autocast. A descriptor-based factory and loaded
+checkpoints preserve their individual stored dtypes.
 
-On an Apple M4 MacBook Air with 16 GB unified memory, a 12-layer Origin step over
-1,024 tokens measured FLOAT16 at roughly 460-480 ms against FLOAT32 at 460-625 ms,
-with BFLOAT16 close to FLOAT16 but paying an extra widening pass because MPS has no
-native BFLOAT16 route. Apple GPUs run MPS FLOAT16 and FLOAT32 matrix products at
-similar speed, so compact dtypes mainly save memory; they are no longer slower than
-FLOAT32 but should not be expected to be dramatically faster. Earlier results are in the
-[compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md).
+General compact, strided and broadcast CPU matrix products stage their operands in
+temporary contiguous FLOAT32 arrays before the parallel product, then round the result
+to its output dtype. This avoids repeated address calculations and compact-value decoding
+inside every multiply, at the cost of temporary host memory, including expanded batches.
+The existing dense FLOAT32 matrix fast path remains separate.
+
+Relative dtype speed depends on the operation, shape, backend and device. Short manual
+timing probes are exploratory, not a guarantee that compact training matches or exceeds
+FLOAT32 speed. The earlier [compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md)
+retain their original runtime and workload scope.
 
 `MetalBackend.supportsNative16Matmul(dtype)` reports native compact-matrix support
 on the active device. It does not promise that every operation uses compact arithmetic.
