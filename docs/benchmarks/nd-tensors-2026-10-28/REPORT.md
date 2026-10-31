@@ -397,7 +397,8 @@ FLOAT32 remains the default. Compact native matrix operands use FP32 accumulatio
 other operations can use FP32 arithmetic on the selected backend. No implicit autocast,
 loss scaling or hidden CPU fallback is enabled. Compact storage neither halves total
 training memory nor guarantees faster training; the measured compact full-model paths
-remain slower than the optimized FLOAT32 path on this Mac.
+remain slower than the optimized FLOAT32 path on the tested Apple M4 MacBook Air
+with 16 GB unified memory.
 
 Public APIs and checkpoint formats remain alpha. See [tensors and precision](../../tensors.md),
 [generation modes](../../inference.md) and [coding/regression requirements](../../quality-and-regression.md).
