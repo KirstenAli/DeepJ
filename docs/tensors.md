@@ -63,6 +63,12 @@ there is no implicit autocast or loss scaling, and no hidden CPU fallback from M
 Optimizer master weights, gradients and moments remain FLOAT32. Consequently, two-byte
 weights do not halve total training memory or guarantee faster training.
 
+Full-size Prism, Nova and Loop tests on an Apple M4 MacBook Air with 16 GB unified
+memory found the optimized compact paths faster than their previous implementations,
+but FLOAT32 training remained faster than either compact dtype. This is a measured
+workload/device result, not a universal dtype ranking. See the
+[compact-precision measurements](benchmarks/compact-attention-2026-10-31/REPORT.md).
+
 `MetalBackend.supportsNative16Matmul(dtype)` reports native compact-matrix support
 on the active device. It does not promise that every operation uses compact arithmetic.
 

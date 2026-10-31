@@ -55,6 +55,10 @@ regressions check FLOAT32 range and mantissa preservation, narrow products,
 transposes and batches. These checks do not require different attention algorithms
 or storage dtypes to produce identical bits.
 
+The [compact-precision qualification](benchmarks/compact-attention-2026-10-31/REPORT.md)
+records full-context FP64 oracles, full-size real-data and typed file-restore checks,
+CPU controls, individual timing results and the investigated precision differences.
+
 Repeated execution of the same implementation must remain bit-identical, including
 three training updates for Origin, Orbit, Prism, Nova and Loop. Comparisons between
 different attention algorithms use explicit accuracy and whole-model error bounds,

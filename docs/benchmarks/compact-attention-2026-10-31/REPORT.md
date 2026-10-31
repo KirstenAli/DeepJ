@@ -112,12 +112,12 @@ old/new order. These are individual paired median changes, not a pooled speed cl
 | Nova | +0.265% | -0.415% | +0.352% |
 | Loop | +0.199% | -0.272% | -0.106% |
 
-Positive means slower. These small positive observations remain subject to attribution;
+Positive means slower. These observations prompted the attribution controls below;
 being close to zero or reversing order is not by itself proof of no code-induced regression.
 Total timed real-data updates also differed: Prism 80.913 → 82.565 seconds, Nova
 130.459 → 117.327 seconds and Loop 208.525 → 211.826 seconds. Those different-workload
-totals are retained rather than cancelled against the warmed results. No full-model
-performance sign-off is claimed. [float32-results.json](float32-results.json) preserves
+totals are retained rather than cancelled against the warmed results. No FLOAT32 speedup
+or universal timing-equivalence claim is made. [float32-results.json](float32-results.json) preserves
 every process, individual step timing, native observation, GC and sampled-memory summary.
 
 The original runner stopped before the first Loop timing JVM when its earlier training
@@ -125,10 +125,10 @@ confirmation expired. A separately authorized continuation completed only those 
 unfinished processes, with identical binaries, helpers, workloads and resource guards.
 The parent's stopped outcome remains preserved; it was not relabelled a complete suite.
 
-A further permanent test now covers compact FP64-reference comparisons at 1,024 tokens
-with production 9/3 and 12/12 head configurations. It has compiled but has not yet been
-executed physically; it is not included in the 85 completed Metal tests above.
-The handoff build passed `mvn verify`: 2,341 total tests, 1,522 executed, 819 explicit
+A further permanent test covers compact FP64-reference comparisons at 1,024 tokens
+with production 9/3 and 12/12 head configurations. It was initially compiled but unrun
+at the handoff; the later physical execution is recorded below, separately from the
+85 earlier Metal tests. The handoff build passed `mvn verify`: 2,341 total tests, 1,522 executed, 819 explicit
 hardware/desktop/opt-in skips, zero failures/errors, with all portable quality/coverage
 gates passing. Its production JAR SHA remains identical to the full-size tested runtime.
 
@@ -164,10 +164,13 @@ baseline ran second and was slower by +0.417%/+0.272% in Nova/Loop. Within-proce
 between the first and last ten measured updates ranged from -0.35% to +0.66%, larger than
 any version difference. GC counts differed by at most one collection per process.
 
-Source review of the FLOAT32 path found no added per-step work: `castToDevice` returns the
-same tensor for an identical dtype, `ensureStorageBuffer` is `ensureGpuBuffer` minus one
-check, and the native `bufferDType`/`requireStorageBuffer` calls are the same O(1) pool
-lookups the previous `requireBuffer` performed.
+The FLOAT32 path preserves shader arithmetic and does not add a tensor cast or a second
+saved-output allocation: `castToDevice` returns the same tensor for an identical dtype.
+Host dispatch is not instruction-identical, however. The new `attentionBuffer` uses
+`requireStorageBuffer` plus a separate `bufferDType` lookup where the previous
+`requireBuffer` checked both in one lookup; dtype-aware pipeline selection also adds
+host checks. Constant-time lookups are not zero work. Source inspection alone cannot
+prove these checks have no cost or uniquely explain the measured sub-percent differences.
 
 This supports a slot-position explanation but does not prove it. The falsifiable control is
 a same-binary pair per family (old/old and new/new) under the identical helper and guards:
@@ -188,15 +191,16 @@ Slot 2 minus slot 1 medians, identical binary each pair:
 | Loop | +0.625% | +0.012% |
 
 The simple "second slot is slower" hypothesis is **not confirmed**: the sign is positive in
-only 4 of 6 pairs. What the control does establish is the same-code repeatability floor
+only 4 of 6 pairs. The control records observed same-code variation
 under these conditions: identical binaries, back to back, differ by -1.4% to +3.1%, about
 ten times the largest earlier new-minus-old observation (+0.352%). Same-slot new-versus-old
 comparisons within this control were +2.549%/-0.824% (Prism), -1.716%/+1.218% (Nova) and
 +0.168%/-0.443% (Loop), again straddling zero with magnitudes above the earlier gaps.
-Combined with the source review above, the earlier positive FLOAT32 observations are
-smaller than the measured same-code variation and have no identified code cause. This is
-recorded as the attribution outcome, not as an accepted tolerance; the IDE was open during
-this control, so its absolute medians are not compared with the earlier IDE-closed runs.
+The earlier positive FLOAT32 observations are smaller than this observed same-code
+variation, but that does not uniquely attribute each difference or prove that host
+dispatch is cost-free. This is measured uncertainty, not an accepted percentage tolerance.
+The IDE was open during this control; its conditions differ from the earlier IDE-closed
+runs, so neither its absolute medians nor its variation define a bound for those runs.
 
 ## Full-size compact real-data checks
 
@@ -223,9 +227,12 @@ Prism BFLOAT16 breaches it once, at step 25, with the candidate 0.033 nat *lower
 per-step training losses agree with the baseline to within 0.002 nat through step 19 and
 then diverge chaotically from step 20 (individual steps ±0.06 to ±0.10 nat in both
 directions) while every later held-out point favours the candidate by 0.004 to 0.008 nat.
-This is trajectory divergence from the changed intermediate rounding in the most sensitive
-configuration (BF16 has 8 mantissa bits; Prism has the widest attention), not instability
-or degradation. It is recorded as an investigated finding rather than hidden or waived.
+The divergence is consistent with the changed intermediate rounding and a different
+optimization trajectory: BF16 has seven explicit fraction bits, and Prism has the widest
+attention of these configurations. Independent full-context output/derivative oracles
+passed and this run showed no nonfinite losses or worsening final held-out loss. A single
+seed does not establish general quality improvement or rule out every possible quality
+issue. The threshold breach remains an explicit investigated finding, not a pass of that bound.
 
 ## Full-size compact typed FILE checks
 
@@ -235,7 +242,7 @@ heap, 5 GiB native, 4.5 GiB RSS, any-swapout and 15 GiB plus per-mode disk reser
 18 completed with `allStateExact=true`; resume and self receipts match the write receipts
 byte-for-byte and SHA-256. Saved file sizes are identical to the V111 baseline files
 (180,265,869 / 199,437,994 / 200,767,792 model bytes and 1,261,818,635 / 1,395,987,650 /
-1,405,285,753 training bytes); their SHA-256 values differ because the five pre-save updates
+1,405,285,753 training bytes); their SHA-256 values differ because the three pre-save updates
 now run through compact fused attention. Peak RSS was 2.41 to 3.57 GB. Write payloads were
 retired by the resume cases after verification, with receipts kept. Disk headroom for the
 write reserve was obtained by clearing regenerable pip, Homebrew-download and application
@@ -261,9 +268,11 @@ runtime; FLOAT32 reference medians come from the same-session position control a
 The candidate is faster than the previous compact path in all twelve pairs in both orders,
 by 15% to 26%, with native peak 15% to 25% lower; peak RSS stayed 1.64 to 1.94 GB. These
 are same-session full-model measurements, not an operator extrapolation. Compact training
-remains substantially slower than FLOAT32 on this device (FP16 about 1.6 to 1.9×, BF16
-about 2.3 to 3.3× the FLOAT32 step), because the remaining compact matmul routes are not
-MPS-accelerated; no claim is made that compact dtypes are a speed option. Their purpose is
+remains substantially slower than FLOAT32 on the tested Apple M4 configuration (FP16
+about 1.6 to 1.9×, BF16 about 2.3 to 3.3× the FLOAT32 step). Remaining compact and mixed
+products still include custom GPU routes rather than all using MPS; the aggregate timing
+alone does not assign the entire gap to one route. No claim is made that compact dtypes
+are universally a speed option. Their purpose includes
 the two-byte weight storage confirmed above.
 
 The IDE was open throughout; the comparison is within-session and within-pair only.
@@ -287,12 +296,13 @@ alternating AB/BA/AB 10 warm-up + 30 measured pairs.
 | Nova | +0.502% | -5.343% | +0.156% |
 | Loop | -0.068% | -1.438% | +0.153% |
 
-Positive means the candidate was slower. The CPU path is untouched by this change (the
-diff is Metal-only plus one shared result record), and the data are consistent with that:
-every pair's sign follows slot order (second slot slower), not version, with the
-first-slot process in round 1 of Prism/Nova running on a warmer machine after round 0.
-No CPU result, speed or memory regression is identified. The two-process smoke gate is
-the correctness check; the timing rounds are reported individually, not pooled.
+Positive means the candidate was slower. CPU operator and optimizer implementations are
+unchanged; the shared attention entry point retains its ordinary CPU fallback. All CPU
+loss comparisons passed exactly. The second process was slower in eight of nine timing
+pairs, regardless of which binary ran second; Loop round 0 is the exception. This suggests
+an order-related effect but does not by itself identify a thermal cause or prove identical
+speed. No consistent version-specific CPU slowdown was established by these controls.
+RSS and each individual timing result remain disclosed rather than pooled away.
 
 After all suites, `mvn verify` on this head with the Metal device present executed 2,347 of
 2,371 tests (24 explicit opt-in skips), zero failures or errors, with every Java,
