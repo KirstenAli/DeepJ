@@ -574,5 +574,113 @@
       "newPeakRss": 1835089920
     }
   ],
-  "performanceSignoff": "NOT AUTOMATIC. Review every case; the Prism BFLOAT16 step-25 held-out breach is an investigated finding, not waived."
+  "performanceSignoff": "NOT AUTOMATIC. Review every case; the Prism BFLOAT16 step-25 held-out breach is an investigated finding, not waived.",
+  "cpuOnlyControl": {
+    "timing": [
+      {
+        "family": "loop",
+        "round": 0,
+        "order": "old-first",
+        "oldMs": 3266.5735834999996,
+        "newMs": 3264.36775,
+        "newVsOldPercent": -0.06752743949016704,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3219570688,
+        "newPeakRss": 3205152768
+      },
+      {
+        "family": "loop",
+        "round": 1,
+        "order": "new-first",
+        "oldMs": 3348.4529585,
+        "newMs": 3300.2897915,
+        "newVsOldPercent": -1.4383707221491293,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3208560640,
+        "newPeakRss": 3196567552
+      },
+      {
+        "family": "loop",
+        "round": 2,
+        "order": "old-first",
+        "oldMs": 3359.8387085,
+        "newMs": 3364.9782705,
+        "newVsOldPercent": 0.15297049786935357,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3234496512,
+        "newPeakRss": 3199172608
+      },
+      {
+        "family": "nova",
+        "round": 0,
+        "order": "old-first",
+        "oldMs": 2135.7132495,
+        "newMs": 2146.425625,
+        "newVsOldPercent": 0.5015830426911227,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3207905280,
+        "newPeakRss": 3228680192
+      },
+      {
+        "family": "nova",
+        "round": 1,
+        "order": "new-first",
+        "oldMs": 2290.5545835000003,
+        "newMs": 2168.1642915,
+        "newVsOldPercent": -5.343260225346214,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3183640576,
+        "newPeakRss": 3196747776
+      },
+      {
+        "family": "nova",
+        "round": 2,
+        "order": "old-first",
+        "oldMs": 2306.8351665,
+        "newMs": 2310.442562,
+        "newVsOldPercent": 0.15637855501715592,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3208036352,
+        "newPeakRss": 3179855872
+      },
+      {
+        "family": "prism",
+        "round": 0,
+        "order": "old-first",
+        "oldMs": 1360.783396,
+        "newMs": 1391.0776660000001,
+        "newVsOldPercent": 2.226237481222193,
+        "warmedLossesExact": true,
+        "oldPeakRss": 2949840896,
+        "newPeakRss": 3116613632
+      },
+      {
+        "family": "prism",
+        "round": 1,
+        "order": "new-first",
+        "oldMs": 1695.0332709999998,
+        "newMs": 1568.4171039999999,
+        "newVsOldPercent": -7.469833729299102,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3113500672,
+        "newPeakRss": 3105390592
+      },
+      {
+        "family": "prism",
+        "round": 2,
+        "order": "old-first",
+        "oldMs": 1647.8750209999998,
+        "newMs": 1653.8417705,
+        "newVsOldPercent": 0.362087502023023,
+        "warmedLossesExact": true,
+        "oldPeakRss": 3071819776,
+        "newPeakRss": 3122413568
+      }
+    ],
+    "smokeGates": {
+      "prism-smoke-gate": 4,
+      "nova-smoke-gate": 4,
+      "loop-smoke-gate": 4
+    }
+  }
 }

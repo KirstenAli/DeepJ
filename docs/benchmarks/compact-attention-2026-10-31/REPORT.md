@@ -268,7 +268,31 @@ the two-byte weight storage confirmed above.
 
 The IDE was open throughout; the comparison is within-session and within-pair only.
 
-## Final-head local build
+## CPU-only old-versus-new control
+
+Twenty-four processes with Metal unused (the frozen `NdCpuTiming` helper selects the CPU
+backend; helper classes compiled against both JARs are byte-identical), full Prism/Nova/
+Loop parameter counts, sequence 64, seed 100, pinned data, FLOAT32, original CPU guards
+(3 GiB heap, 7 GiB RSS, 64 MiB swap, any swapout, 10 min). Per family: an old/new
+2 warm-up + 2 measured smoke pair whose four losses must be bitwise equal, then three
+alternating AB/BA/AB 10 warm-up + 30 measured pairs.
+
+- Smoke gates: all three families exact (4/4 losses each).
+- Warmed pairs: all 40 losses bitwise identical between old and new in all nine pairs.
+- Peak RSS: 2.95–3.23 GB old versus 3.11–3.23 GB new; no guard event.
+
+| Family | Round 0 (old first) | Round 1 (new first) | Round 2 (old first) |
+|---|---:|---:|---:|
+| Prism | +2.226% | -7.470% | +0.362% |
+| Nova | +0.502% | -5.343% | +0.156% |
+| Loop | -0.068% | -1.438% | +0.153% |
+
+Positive means the candidate was slower. The CPU path is untouched by this change (the
+diff is Metal-only plus one shared result record), and the data are consistent with that:
+every pair's sign follows slot order (second slot slower), not version, with the
+first-slot process in round 1 of Prism/Nova running on a warmer machine after round 0.
+No CPU result, speed or memory regression is identified. The two-process smoke gate is
+the correctness check; the timing rounds are reported individually, not pooled.
 
 After all suites, `mvn verify` on this head with the Metal device present executed 2,347 of
 2,371 tests (24 explicit opt-in skips), zero failures or errors, with every Java,
