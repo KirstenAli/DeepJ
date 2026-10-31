@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.*;
+import io.github.kirstenali.deepj.testing.TypedParameterPolicy;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +30,7 @@ class MetalTypedModelConstructionTest extends MetalDifferentialTestSupport {
         assertEquals(0, downloads.get());
         assertFalse(TensorTestStorage.hasHostStorage(result.output()));
         Tensor.setBackend(metal);
-        assertEquals(dtype, result.output().dtype());
+        assertEquals(DType.FLOAT32, result.output().dtype());
         assertTensorClose(expected.output(), result.output(), 2e-3f, 3e-2f);
         assertGradientListsClose(expected.gradients(), result.gradients(), 3e-3f, 5e-2f);
         assertParameters(actual, dtype);
@@ -44,9 +45,7 @@ class MetalTypedModelConstructionTest extends MetalDifferentialTestSupport {
 
     private static void assertParameters(DecoderOnlyModel model, DType dtype) {
         for (var parameter : model.parameters()) {
-            assertEquals(dtype, parameter.value.dtype());
-            assertEquals(dtype.storageBytes(parameter.value.numel()), parameter.value.storageBytes());
-            assertEquals(DType.FLOAT32, parameter.grad().dtype());
+            TypedParameterPolicy.assertStorage(dtype, parameter);
         }
     }
 
@@ -67,7 +66,7 @@ class MetalTypedModelConstructionTest extends MetalDifferentialTestSupport {
         List<Tensor> actual = prefixes(model(family, 99, new ParameterFactory(dtype)));
         try {
             for (int index = 0; index < expected.size(); index++) {
-                assertEquals(dtype, actual.get(index).dtype());
+                assertEquals(DType.FLOAT32, actual.get(index).dtype());
                 assertTensorClose(expected.get(index), actual.get(index), 2e-3f, 3e-2f);
             }
         } finally {

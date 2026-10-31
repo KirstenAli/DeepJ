@@ -61,7 +61,7 @@ public final class ParameterFactory {
 
     private DType dtype(String name, int rows, int columns) {
         if (rows < 1 || columns < 1) throw new IllegalArgumentException("Parameter dimensions must be positive");
-        if (defaultType != null) return defaultType;
+        if (defaultType != null) return rows == 1 ? DType.FLOAT32 : defaultType;
         TensorDescriptor descriptor = descriptors.get(path(name));
         if (descriptor == null) throw new IllegalArgumentException("Missing parameter: " + path(name));
         if (!Arrays.equals(descriptor.shape(), new int[]{rows, columns})) {

@@ -27,7 +27,7 @@ class TypedLayerConstructionTest {
         RMSNorm1D rmsNorm = new RMSNorm1D(4, factory.scope("rmsNorm"));
         Tensor input = tokens.forward(new int[]{1, 3}).add(positions.forward(2));
         Tensor output = projection.forward(rmsNorm.forward(layerNorm.forward(linear.forward(input))));
-        assertEquals(dtype, output.dtype());
+        assertEquals(DType.FLOAT32, output.dtype());
         output.sumTensor().backward();
         assertParameters(dtype, List.of(tokens, positions, linear, projection, layerNorm, rmsNorm));
     }
@@ -35,9 +35,7 @@ class TypedLayerConstructionTest {
     private static void assertParameters(DType dtype, List<io.github.kirstenali.deepj.training.Trainable> layers) {
         for (var layer : layers) {
             for (var parameter : layer.parameters()) {
-                assertEquals(dtype, parameter.value.dtype());
-                assertEquals(dtype.storageBytes(parameter.value.numel()), parameter.value.storageBytes());
-                assertEquals(DType.FLOAT32, parameter.grad().dtype());
+                io.github.kirstenali.deepj.testing.TypedParameterPolicy.assertStorage(dtype, parameter);
                 assertTrue(parameter.name().contains("."));
                 assertFinite(parameter.grad());
             }
