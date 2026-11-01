@@ -2,12 +2,12 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.layers.transformer.attention.MultiHeadSelfAttention;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.loop.*;
-import io.github.kirstenali.deepj.models.nova.*;
-import io.github.kirstenali.deepj.models.orbit.*;
-import io.github.kirstenali.deepj.models.origin.*;
-import io.github.kirstenali.deepj.models.prism.*;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.loop.*;
+import io.github.kirstenali.deepj.nn.transformer.nova.*;
+import io.github.kirstenali.deepj.nn.transformer.orbit.*;
+import io.github.kirstenali.deepj.nn.transformer.origin.*;
+import io.github.kirstenali.deepj.nn.transformer.prism.*;
 import io.github.kirstenali.deepj.tensor.*;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
 import org.junit.jupiter.api.BeforeEach;

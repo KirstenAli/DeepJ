@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.prism.DeepJPrismParameterCount;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismParameterCount;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;

@@ -1,10 +1,10 @@
 package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.chatui.DeepJChatService;
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.TextGenerator;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrism;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;

@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.ModelLoader;
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.loop.DeepJLoop;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.ModelLoader;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoop;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
@@ -74,7 +74,7 @@ class DeepJLoopTrainingTest {
 
     @Test
     void anExistingNovaCannotBeUsedAsTheMidTrainingInput() throws Exception {
-        var nova = new io.github.kirstenali.deepj.models.nova.DeepJNova(configuration().backbone(), 11L);
+        var nova = new io.github.kirstenali.deepj.nn.transformer.nova.DeepJNova(configuration().backbone(), 11L);
         nova.save(base.resolve("model-final.dj"));
         assertThrows(java.io.IOException.class, () -> StagedDecoderTrainingRunner.run(
                 settings(DeepJ100MStage.MIDTRAIN, base, directory.resolve("wrong"), null)));

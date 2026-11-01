@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.data.TextDataset;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;

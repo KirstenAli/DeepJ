@@ -1,10 +1,10 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.TransformerConfig;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;

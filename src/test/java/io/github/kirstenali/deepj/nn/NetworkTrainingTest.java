@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn;
 
+import io.github.kirstenali.deepj.activations.ReLU;
 import io.github.kirstenali.deepj.layers.Linear;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.optimisers.AdamW;
@@ -24,8 +25,8 @@ class NetworkTrainingTest extends NeuralTest {
     }
 
     @Test void denseAutoencoderAndEncoderTrainThroughTheSameSupervisedPath() {
-        Module autoencoder = new Autoencoder(new MLP(2, new int[0], 1, new Random(1)),
-                new MLP(1, new int[0], 2, new Random(2)));
+        Module autoencoder = new Autoencoder(new FNN(2, new int[0], 1, ReLU::new, new Random(1)),
+                new FNN(1, new int[0], 2, ReLU::new, new Random(2)));
         train(autoencoder, values(3, 2), values(3, 2));
         TransformerEncoder encoder = new TransformerEncoder(new TransformerEncoderConfig(2, 1, 3, 1, 0), new Random(1));
         train(encoder, values(3, 2, 2), Tensor.ones(6, 2).reshape(3, 2, 2).multiplyScalar(0.1f));

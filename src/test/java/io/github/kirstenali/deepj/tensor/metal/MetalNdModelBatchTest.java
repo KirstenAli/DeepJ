@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
 import io.github.kirstenali.deepj.tensor.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;

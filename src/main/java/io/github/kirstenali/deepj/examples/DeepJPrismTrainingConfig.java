@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.training.CosineLearningRateSchedule;
 
 import java.nio.file.Path;

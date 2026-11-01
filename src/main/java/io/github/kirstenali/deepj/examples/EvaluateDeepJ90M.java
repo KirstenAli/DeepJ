@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.ResponseOnlyTextDataset;
-import io.github.kirstenali.deepj.models.TextGenerator;
+import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.training.CausalLMEvaluation;
 

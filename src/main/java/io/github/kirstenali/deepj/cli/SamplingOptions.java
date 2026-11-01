@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
 import picocli.CommandLine.Option;
-import io.github.kirstenali.deepj.models.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 final class SamplingOptions {
     @Option(names = "--max-tokens", description = "Maximum generated tokens (default: ${DEFAULT-VALUE}).")

@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.chatui;
 
-import io.github.kirstenali.deepj.models.ModelLoader;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.ModelLoader;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrism;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 

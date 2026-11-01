@@ -1,12 +1,12 @@
 package io.github.kirstenali.deepj.persistence;
 
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.TransformerConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.nn.transformer.orbit.DeepJOrbitConfig;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

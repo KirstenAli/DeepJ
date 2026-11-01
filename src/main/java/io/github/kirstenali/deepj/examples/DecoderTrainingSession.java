@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.StatefulBatchSource;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.persistence.TrainingCheckpoint;
 import io.github.kirstenali.deepj.training.CausalLMTraining;

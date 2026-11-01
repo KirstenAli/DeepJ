@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.TextDataset;
-import io.github.kirstenali.deepj.models.CausalLM;
-import io.github.kirstenali.deepj.models.TextGenerator;
-import io.github.kirstenali.deepj.models.TransformerConfig;
+import io.github.kirstenali.deepj.nn.transformer.CausalLM;
+import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
+import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
 import io.github.kirstenali.deepj.persistence.Persistable;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;

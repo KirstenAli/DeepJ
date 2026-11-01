@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
 import io.github.kirstenali.deepj.persistence.ModelSettings;
 import org.jline.reader.EndOfFileException;

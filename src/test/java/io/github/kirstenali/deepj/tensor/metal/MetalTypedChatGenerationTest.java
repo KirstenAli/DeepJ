@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.chatui.DeepJChatService;
-import io.github.kirstenali.deepj.models.*;
+import io.github.kirstenali.deepj.nn.transformer.*;
 import io.github.kirstenali.deepj.tensor.*;
 import io.github.kirstenali.deepj.testing.TypedChatFixtures;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;

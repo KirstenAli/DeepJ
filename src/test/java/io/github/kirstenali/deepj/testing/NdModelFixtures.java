@@ -1,11 +1,11 @@
 package io.github.kirstenali.deepj.testing;
 
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.origin.*;
-import io.github.kirstenali.deepj.models.orbit.*;
-import io.github.kirstenali.deepj.models.prism.*;
-import io.github.kirstenali.deepj.models.nova.*;
-import io.github.kirstenali.deepj.models.loop.*;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.origin.*;
+import io.github.kirstenali.deepj.nn.transformer.orbit.*;
+import io.github.kirstenali.deepj.nn.transformer.prism.*;
+import io.github.kirstenali.deepj.nn.transformer.nova.*;
+import io.github.kirstenali.deepj.nn.transformer.loop.*;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.DType;
 import org.junit.jupiter.params.provider.Arguments;

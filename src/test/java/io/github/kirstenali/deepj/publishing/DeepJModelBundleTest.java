@@ -1,12 +1,12 @@
 package io.github.kirstenali.deepj.publishing;
 
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
-import io.github.kirstenali.deepj.models.ModelLoader;
-import io.github.kirstenali.deepj.models.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.nn.transformer.ModelLoader;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrism;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModel;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETrainer;

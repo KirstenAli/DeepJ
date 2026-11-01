@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.optimisers.Parameter;
-import io.github.kirstenali.deepj.models.TransformerConfig;
+import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
 import java.io.BufferedInputStream;

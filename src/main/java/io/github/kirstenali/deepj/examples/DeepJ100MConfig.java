@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
-import io.github.kirstenali.deepj.models.nova.DeepJNova;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNova;
 
 import java.nio.file.Path;
 

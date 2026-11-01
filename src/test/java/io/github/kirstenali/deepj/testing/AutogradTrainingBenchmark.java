@@ -1,11 +1,11 @@
 package io.github.kirstenali.deepj.testing;
 
 import io.github.kirstenali.deepj.data.Batch;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.nova.DeepJNova;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNova;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrism;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import io.github.kirstenali.deepj.training.CausalLMTraining;

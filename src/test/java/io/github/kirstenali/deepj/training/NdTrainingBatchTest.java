@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.data.Batch;
-import io.github.kirstenali.deepj.models.CausalLM;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.CausalLM;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;

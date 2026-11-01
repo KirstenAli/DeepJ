@@ -20,7 +20,7 @@ Build feed-forward networks, convolutional networks, recurrent networks, autoenc
 
 | Family | Implementations |
 |---|---|
-| Feed-forward networks | `MLP`, backed by `FNN`, with configurable hidden and output activations |
+| Feed-forward networks | `FNN`, with configurable hidden and output activations |
 | Convolutional networks | `Conv1D`, `Conv2D`, max/average pooling, and global average pooling |
 | Recurrent networks | `RNN`, `GRU`, `LSTM`, individual cells, explicit state, and per-sample sequence lengths |
 | Autoencoders | Composable `Autoencoder` with separate encoder and decoder access |

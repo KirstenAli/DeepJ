@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
-import io.github.kirstenali.deepj.models.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import java.util.Collections;
 
 import io.github.kirstenali.deepj.chatui.ChatWindowTestSupport.AlternativeService;

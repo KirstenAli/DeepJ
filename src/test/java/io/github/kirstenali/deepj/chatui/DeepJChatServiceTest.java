@@ -1,12 +1,12 @@
 package io.github.kirstenali.deepj.chatui;
 
-import io.github.kirstenali.deepj.models.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
-import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.nova.DeepJNova;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
-import io.github.kirstenali.deepj.models.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNova;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETrainer;

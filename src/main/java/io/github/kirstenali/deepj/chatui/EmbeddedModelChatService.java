@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.chatui;
 
-import io.github.kirstenali.deepj.models.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.ModelLoader;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.ModelLoader;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;

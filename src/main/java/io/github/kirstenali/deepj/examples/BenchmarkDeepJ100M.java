@@ -1,12 +1,12 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.Batch;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaParameterCount;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.TransformerConfig;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopParameterCount;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaParameterCount;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopParameterCount;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import io.github.kirstenali.deepj.training.CausalLMTraining;

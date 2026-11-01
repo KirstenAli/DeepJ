@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrism;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.layers.transformer.attention;
 
 import io.github.kirstenali.deepj.testing.AutogradTestSupport;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.transformer.embeddings.RotaryEmbedding;

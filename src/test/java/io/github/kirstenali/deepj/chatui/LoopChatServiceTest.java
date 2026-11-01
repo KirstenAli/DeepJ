@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.chatui;
 
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.loop.DeepJLoop;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoop;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;

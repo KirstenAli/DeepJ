@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
-import io.github.kirstenali.deepj.models.*;
+import io.github.kirstenali.deepj.nn.transformer.*;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.tensor.*;

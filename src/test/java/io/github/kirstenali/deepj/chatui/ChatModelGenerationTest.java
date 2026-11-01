@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.chatui;
 
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import org.junit.jupiter.api.Test;
 

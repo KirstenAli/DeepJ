@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
 import io.github.kirstenali.deepj.data.TextFileRange;
-import io.github.kirstenali.deepj.models.CausalLM;
+import io.github.kirstenali.deepj.nn.transformer.CausalLM;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.io.IOException;

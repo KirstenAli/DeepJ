@@ -29,13 +29,15 @@ differentiation, composable layers, and shared CPU/Metal execution.
 ## Availability
 
 These guides and the generated API reference document DeepJ `0.13.0-alpha`, including
-`io.github.kirstenali.deepj.nn`. Match your dependency version to the API reference.
+`io.github.kirstenali.deepj.nn.FNN` and the decoder families in `nn.transformer`. See the
+[package migration](neural-networks.md#network-implementations) when updating imports.
 
 The `nn` APIs were introduced in `0.13.0-alpha`. For the older `0.12.0-alpha` artifact,
 use its [release notes](releases/0.12.0-alpha.md) and
 [tagged source](https://github.com/KirstenAli/DeepJ/tree/v0.12.0-alpha).
 The [0.13.0-alpha release notes](releases/0.13.0-alpha.md) cover the network additions
-and compatibility details.
+and package changes; its [tagged source](https://github.com/KirstenAli/DeepJ/tree/v0.13.0-alpha)
+matches this API reference.
 
 ## Development and verification
 

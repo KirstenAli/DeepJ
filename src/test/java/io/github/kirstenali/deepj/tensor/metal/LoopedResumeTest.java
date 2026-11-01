@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
-import io.github.kirstenali.deepj.models.loop.DeepJLoop;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoop;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.persistence.TrainingCheckpoint;
 import io.github.kirstenali.deepj.tensor.Tensor;

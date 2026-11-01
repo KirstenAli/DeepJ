@@ -88,7 +88,7 @@ class NetworkWeightsTest extends NeuralTest {
     }
 
     private static Sequential model(DType dtype, long seed) {
-        return new Sequential(new MLP(3, new int[]{4}, 2, Tanh::new, null, new Random(seed),
+        return new Sequential(new FNN(3, new int[]{4}, 2, Tanh::new, null, new Random(seed),
                 new ParameterFactory(dtype)), new BatchNorm(2), Activation.tanh());
     }
 }

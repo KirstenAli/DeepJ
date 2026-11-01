@@ -36,7 +36,7 @@ DeepJChat chat = DeepJChat.load(Path.of("downloaded-model"))
 String answer = chat.generate("What is a computer?");
 ```
 
-Import `io.github.kirstenali.deepj.models.ContextWindowMode`. For explicit sessions, use
+Import `io.github.kirstenali.deepj.nn.transformer.ContextWindowMode`. For explicit sessions, use
 `model.openGeneration(ContextWindowMode.ROLLING)` with the same complete-context calling convention.
 
 Until the first token is evicted, rolling mode follows the same cached calculation as the default

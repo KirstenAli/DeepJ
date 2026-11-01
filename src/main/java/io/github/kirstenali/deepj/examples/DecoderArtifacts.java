@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.ModelLoader;
-import io.github.kirstenali.deepj.models.TransformerConfig;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.ModelLoader;
+import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 

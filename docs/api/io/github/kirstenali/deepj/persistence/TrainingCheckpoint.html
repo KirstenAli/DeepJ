@@ -107,7 +107,7 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../training/TrainingProgress.html" title="class in io.github.kirstenali.deepj.training">TrainingProgress</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#load(io.github.kirstenali.deepj.models.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)" class="member-name-link">load</a><wbr>(<a href="../models/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.models">DecoderOnlyModel</a>&nbsp;model,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#load(io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)" class="member-name-link">load</a><wbr>(<a href="../nn/transformer/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.nn.transformer">DecoderOnlyModel</a>&nbsp;model,
  <a href="../optimisers/AdamW.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW</a>&nbsp;optimizer,
  <a href="../data/StatefulBatchSource.html" title="interface in io.github.kirstenali.deepj.data">StatefulBatchSource</a>&nbsp;dataset,
  <a href="../training/CosineLearningRateSchedule.html" title="class in io.github.kirstenali.deepj.training">CosineLearningRateSchedule</a>&nbsp;schedule,
@@ -124,7 +124,7 @@ loadScripts(document, 'script');</script>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#matches(java.nio.file.Path)" class="member-name-link">matches</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;path)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#save(io.github.kirstenali.deepj.models.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.TrainingProgress,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)" class="member-name-link">save</a><wbr>(<a href="../models/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.models">DecoderOnlyModel</a>&nbsp;model,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#save(io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.TrainingProgress,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)" class="member-name-link">save</a><wbr>(<a href="../nn/transformer/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.nn.transformer">DecoderOnlyModel</a>&nbsp;model,
  <a href="../optimisers/AdamW.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW</a>&nbsp;optimizer,
  <a href="../data/StatefulBatchSource.html" title="interface in io.github.kirstenali.deepj.data">StatefulBatchSource</a>&nbsp;dataset,
  <a href="../training/TrainingProgress.html" title="class in io.github.kirstenali.deepj.training">TrainingProgress</a>&nbsp;progress,
@@ -184,9 +184,9 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="save(io.github.kirstenali.deepj.models.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.TrainingProgress,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)">
+<section class="detail" id="save(io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.TrainingProgress,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)">
 <h3>save</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">save</span><wbr><span class="parameters">(<a href="../models/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.models">DecoderOnlyModel</a>&nbsp;model,
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">save</span><wbr><span class="parameters">(<a href="../nn/transformer/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.nn.transformer">DecoderOnlyModel</a>&nbsp;model,
  <a href="../optimisers/AdamW.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW</a>&nbsp;optimizer,
  <a href="../data/StatefulBatchSource.html" title="interface in io.github.kirstenali.deepj.data">StatefulBatchSource</a>&nbsp;dataset,
  <a href="../training/TrainingProgress.html" title="class in io.github.kirstenali.deepj.training">TrainingProgress</a>&nbsp;progress,
@@ -215,9 +215,9 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="load(io.github.kirstenali.deepj.models.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)">
+<section class="detail" id="load(io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel,io.github.kirstenali.deepj.optimisers.AdamW,io.github.kirstenali.deepj.data.StatefulBatchSource,io.github.kirstenali.deepj.training.CosineLearningRateSchedule,java.nio.file.Path)">
 <h3>load</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="../training/TrainingProgress.html" title="class in io.github.kirstenali.deepj.training">TrainingProgress</a></span>&nbsp;<span class="element-name">load</span><wbr><span class="parameters">(<a href="../models/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.models">DecoderOnlyModel</a>&nbsp;model,
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="../training/TrainingProgress.html" title="class in io.github.kirstenali.deepj.training">TrainingProgress</a></span>&nbsp;<span class="element-name">load</span><wbr><span class="parameters">(<a href="../nn/transformer/DecoderOnlyModel.html" title="class in io.github.kirstenali.deepj.nn.transformer">DecoderOnlyModel</a>&nbsp;model,
  <a href="../optimisers/AdamW.html" title="class in io.github.kirstenali.deepj.optimisers">AdamW</a>&nbsp;optimizer,
  <a href="../data/StatefulBatchSource.html" title="interface in io.github.kirstenali.deepj.data">StatefulBatchSource</a>&nbsp;dataset,
  <a href="../training/CosineLearningRateSchedule.html" title="class in io.github.kirstenali.deepj.training">CosineLearningRateSchedule</a>&nbsp;schedule,

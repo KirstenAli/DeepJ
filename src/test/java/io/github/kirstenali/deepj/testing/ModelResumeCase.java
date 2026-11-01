@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.testing;
 
 import io.github.kirstenali.deepj.data.*;
-import io.github.kirstenali.deepj.models.*;
+import io.github.kirstenali.deepj.nn.transformer.*;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.persistence.TrainingCheckpoint;
 import io.github.kirstenali.deepj.tensor.Tensor;
