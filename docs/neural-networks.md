@@ -25,7 +25,7 @@ activation and pooling layers to construct CNNs; compose recurrent layers to sta
 
 `FNN` lives in `io.github.kirstenali.deepj.nn`. It replaces `layers.FNN` and the
 `nn.MLP` wrapper; the FNN constructors, parameter names, and calculations are unchanged.
-Update the import when migrating from `0.13.0-alpha`. For former `MLP` calls, pass
+Update the import when migrating from earlier builds. For former `MLP` calls, pass
 `ReLU::new` as the hidden activation factory to retain its default activation.
 
 ## Tensor execution and gradients

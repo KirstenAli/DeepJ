@@ -25,10 +25,10 @@ precision conversion or a network-architecture reconstruction step.
 Persistent buffers are separate from trainable parameters. `Module.buffers()` exposes
 those buffers in traversal order; BatchNorm's running mean and variance are included.
 
-Archives saved with a top-level `layers.FNN` or `nn.MLP` in `0.13.0-alpha` record
-that class name. To migrate one, load it with `0.13.0-alpha`, wrap the restored model
-in `Sequential`, and save again. Load that archive into a matching `Sequential`
-containing `nn.FNN` with the same activations and parameter dtypes. Parameter names
+Archives saved with a top-level `layers.FNN` or `nn.MLP` in earlier builds record
+that class name. To migrate one, load it with the source revision that wrote it,
+wrap the restored model in `Sequential`, and save again. Load that archive into a
+matching `Sequential` containing `nn.FNN` with the same activations and parameter dtypes. Parameter names
 and ordering are unchanged. Archives already rooted in `Sequential` remain compatible;
 the package move does not alter language-model checkpoints.
 
