@@ -90,15 +90,6 @@ The optional JavaFX app loads local language-model checkpoints and streams gener
 
 The optional CLI supports streaming chat, text generation, checkpoint inspection, and backend diagnostics. See the [CLI guide](docs/cli.md).
 
-## Current limitations
-
-- The public API and persistence formats may change before a stable release.
-- Metal acceleration requires supported Apple Silicon macOS; other platforms use CPU execution.
-- Autograd supports first-order differentiation; backward releases the operation graph.
-- Network weight archives contain parameters and persistent buffers, with architecture and training state managed separately.
-- Language-model context-window and bundle-format details are documented in the [language-model guide](docs/language-models.md#language-model-limitations).
-- The library has not been validated for safety-critical or production inference workloads.
-
 ## Build and release
 
 Build and check the current source with JDK 20 or newer:
