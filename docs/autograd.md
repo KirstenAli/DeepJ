@@ -33,8 +33,8 @@ A layer implements `forward(...)` and supplies its parameters. It no longer impl
 Repeated uses of one layer and shared parameters are handled by the operation graph, not mutable
 last-forward caches. Each parameter's `value` is a tracked leaf tensor; `parameter.grad()` and
 `parameter.value.grad()` access the same gradient buffer.
-Transformer stacks and decoder models list shared parameters once, preserving first-use order so
-gradient scaling and optimizer updates are not repeated for a reused layer.
+`Sequential`, Transformer stacks, and decoder models list shared parameter tensors once.
+This avoids repeated optimizer updates when a layer or weight tensor is reused.
 
 For trainable parameters, `zeroGrad()` keeps a non-null FLOAT32 zero gradient for every parameter
 dtype. CPU gradients reuse existing host storage when possible. Metal gradients use lazy zeros
@@ -50,8 +50,9 @@ loss.backward();
 optimizer.step(model.parameters());
 ```
 
-The existing trainers perform these steps automatically, including causal cross entropy,
-response-only masks, gradient accumulation, clipping and AdamW updates. Differentiable losses return
+The supervised trainers perform the forward/loss/backward/update cycle automatically.
+The [training guide](training.md) distinguishes matrix and ND batching from the causal
+language-model utilities for response-only masks, accumulation, and clipping. Differentiable losses return
 tensors through `forward(...)`. `item()`, `sum()` and other methods returning Java numbers extract
 values for logging or evaluation; use `sumTensor()` when a total must remain differentiable.
 
@@ -63,12 +64,13 @@ Use a thread-local, nestable scope when calling model forward directly for infer
 import io.github.kirstenali.deepj.autograd.GradMode;
 
 try (var ignored = GradMode.noGrad()) {
-    Tensor logits = model.forward(tokens);
+    Tensor prediction = model.forward(input);
 }
 ```
 
-`TextGenerator`, the chat API, evaluation, initialization and AdamW already use the appropriate
-no-grad paths. To freeze a parameter, call `parameter.value.requiresGrad(false)` between passes.
+Module evaluation mode and gradient recording are independent; see
+[training and evaluation](training.md#training-and-evaluation-mode). `TextGenerator`,
+the chat API, language-model evaluation, initialization, and AdamW manage their no-grad paths. To freeze a parameter, call `parameter.value.requiresGrad(false)` between passes.
 To update values manually, use `set(...)`, `setRow(...)` or in-place operations inside `noGrad()`.
 Changing a tensor needed by an outstanding backward pass causes an error rather than using stale values.
 
@@ -95,7 +97,7 @@ For custom repeated evaluation, consume each batch's output inside a `TensorScop
 call `Tensor.backend().releaseTemporaryResources()` after the scope closes. Keep only scalar
 metrics outside that scope. This gives temporary views a deterministic lifetime without
 waiting for garbage collection; `noGrad()` alone does not define their ownership.
-Use `CausalLMEvaluation.evaluate(...)` for ordinary held-out evaluation. Do not keep scoped
+For causal language models, `CausalLMEvaluation.evaluate(...)` manages held-out evaluation. Do not keep scoped
 outputs for later use unless explicitly escaped or retained.
 
 GPU buffer IDs are opaque and may be reused after release. Raw handles must not be retained across

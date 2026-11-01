@@ -1,7 +1,8 @@
 # Neural networks
 
-The additive `io.github.kirstenali.deepj.nn` package implements neural networks using
-DeepJ's existing `Layer`, `Parameter`, `Tensor`, autograd and optimizer APIs.
+The `io.github.kirstenali.deepj.nn` package provides neural-network implementations
+and composable layers on DeepJ's shared `Layer`, `Parameter`, `Tensor`, autograd, and
+optimizer APIs. See [availability](README.md#availability) for source/release details.
 
 ## Network implementations
 
@@ -37,7 +38,7 @@ for forward or backward calculations. File I/O and explicit scalar loss reportin
 separate host transfers.
 
 Selecting `MetalBackend` therefore uses the existing Metal operations for these layers.
-There are no new native kernels or automatic backend switches. Convolution materializes
+Layers use the selected backend without switching it automatically. Convolution materializes
 window tensors; its memory use grows with batch, output positions, channels and kernel
 area. This implementation does not claim the speed of a dedicated fused convolution kernel.
 
@@ -47,9 +48,9 @@ DeepJ's existing promotion and FLOAT32-gradient policies.
 
 ## Composition and training mode
 
-`Module` extends the existing `Layer` interface. New modules start in training mode;
-`train()`, `eval()` and `setTraining(boolean)` propagate through their new-module children.
-Existing stateless layers compose through the same interface.
+`Module` extends the existing `Layer` interface. Modules start in training mode;
+`train()`, `eval()` and `setTraining(boolean)` propagate through their `Module` children.
+Stateless layers compose through the same `Layer` interface.
 
 `Activation` adapts existing activation functions; `Flatten` merges an inclusive range
 of axes and preserves the batch axis by default. `Reshape` changes the complete shape
@@ -66,8 +67,7 @@ mean and variance; affine parameters and both running buffers are persisted by `
 
 `NdSupervisedTraining.trainer` provides first-axis minibatching for matrices, images and
 sequences using the existing `Trainer`, losses and optimizers. Sampling uses backend
-`indexSelect` operations. It does not modify the existing matrix trainer or language-model
-training utilities.
+`indexSelect` operations. See [training](training.md) for the matrix, ND, and language-model training contracts.
 
 ## Recurrent state and masks
 
@@ -108,8 +108,11 @@ Existing language-model `.dj` and training-checkpoint formats are independent.
 
 ## Validation
 
-The new package has independent convolution and recurrent-equation references,
+Validation includes independent convolution and recurrent-equation references,
 finite-difference input/parameter/state gradient checks, mask and shape validation,
 training-convergence checks and exact weight/buffer round trips. Metal parity tests exercise
 forward results, input and parameter gradients, and running buffers across all three dtypes
 when an actual Metal device is available. Skipped Metal cases do not establish GPU correctness.
+
+See [training](training.md), [saving and loading](persistence.md), and
+[CPU and Metal execution](backends.md) for shared workflows.
