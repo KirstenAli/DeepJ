@@ -45,23 +45,6 @@ Add DeepJ to your project:
 
 See the [0.13.0-alpha release notes](docs/releases/0.13.0-alpha.md) for the network APIs and compatibility details.
 
-## Tensors, gradients, and execution
-
-- One [N-dimensional `Tensor` API](docs/tensors.md) for scalars, vectors, matrices, images, and sequences.
-- First-order [automatic differentiation](docs/autograd.md) through tensor operations, including views, broadcasting, and repeated indices.
-- FLOAT32 defaults, with optional FLOAT16/BFLOAT16 storage and FLOAT32 gradients.
-- A Java CPU backend and optional [Metal execution on Apple Silicon](docs/backends.md). Network arithmetic uses the selected tensor backend.
-
-Convolution, recurrence, and attention all use these shared tensor operations and gradients. See [network implementations and shapes](docs/neural-networks.md) for the API contracts.
-
-## Quick start
-
-Choose a network family from the table above, then compose its layers with `Sequential`. Existing DeepJ layers implement the same `Layer` interface. Activation adapters, flattening, reshaping, dropout, and batch normalization are available alongside the network implementations.
-
-A model's `forward(...)` returns a tensor. Compute a differentiable loss, call `backward()` on that loss, and update `model.parameters()` with an optimizer. [Training](docs/training.md) explains supervised batching, losses, train/evaluation mode, and explicit recurrent state.
-
-Use [network weight archives](docs/persistence.md) to save parameters and persistent buffers, then restore them into the same constructed architecture. Language-model checkpoints and resumable training state have their own documented formats.
-
 ## Documentation
 
 Start with the [documentation index](docs/README.md), or go directly to:
@@ -74,21 +57,9 @@ Start with the [documentation index](docs/README.md), or go directly to:
 | [Training](docs/training.md) | Batching, losses, optimizers, and train/evaluation mode |
 | [Saving and loading](docs/persistence.md) | Network weights, persistent buffers, and model checkpoints |
 | [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
-| [Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
+| <a id="desktop-chat"></a>[Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
 
 The [Javadocs](https://kirstenali.github.io/DeepJ/api/) document the DeepJ `0.13.0-alpha` API, including `io.github.kirstenali.deepj.nn`.
-
-## Language-model tools
-
-DeepJ also provides trainable decoder Transformers, byte and BPE tokenizers, KV-cached generation, text dataset loaders, and model bundles. See the [language-model guide](docs/language-models.md) for architecture details and the Frisky 90M checkpoint.
-
-### Desktop chat
-
-The optional JavaFX app loads local language-model checkpoints and streams generated text. See [desktop chat and generation settings](docs/language-models.md#desktop-chat).
-
-### Command line
-
-The optional CLI supports streaming chat, text generation, checkpoint inspection, and backend diagnostics. See the [CLI guide](docs/cli.md).
 
 ## Build and release
 
