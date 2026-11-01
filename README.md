@@ -10,138 +10,109 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration with a custom implementation of FlashAttention.
+DeepJ is a Java neural network library for building, training, and running models. It provides N-dimensional tensors, automatic differentiation, composable layers, and CPU execution with optional Apple Metal acceleration.
 
-DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
+Build feed-forward networks, convolutional networks, recurrent networks, autoencoders, and Transformers on the same tensor and autograd foundation.
+
+[Website](https://kirstenali.github.io/DeepJ/) · [Documentation](docs/README.md) · [API reference](https://kirstenali.github.io/DeepJ/api/)
+
+## Supported networks
+
+| Family | Implementations |
+|---|---|
+| Feed-forward networks | `MLP`, backed by `FNN`, with configurable hidden and output activations |
+| Convolutional networks | `Conv1D`, `Conv2D`, max/average pooling, and global average pooling |
+| Recurrent networks | `RNN`, `GRU`, `LSTM`, individual cells, explicit state, and per-sample sequence lengths |
+| Autoencoders | Composable `Autoencoder` with separate encoder and decoder access |
+| Transformer encoders | Bidirectional attention, padding masks, and masked mean pooling |
+| Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, and Loop for causal language modeling |
+
+The network APIs share DeepJ tensors, autograd, parameters, and CPU/Metal execution.
 
 ## Install
 
 DeepJ requires JDK 20 or newer.
 
+Add DeepJ to your project:
+
 ```xml
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.12.0-alpha</version>
+    <version>0.13.0-alpha</version>
 </dependency>
 ```
 
-API documentation is available in the [Javadoc](https://kirstenali.github.io/DeepJ/api/).
+See the [0.13.0-alpha release notes](docs/releases/0.13.0-alpha.md) for the network APIs and compatibility details.
 
-## What is included
+## Tensors, gradients, and execution
 
-- An [N-dimensional `Tensor` API](docs/tensors.md) with first-order [autograd](docs/autograd.md) on CPU and Metal.
-- FLOAT32 by default, with optional FLOAT16 and BFLOAT16 storage.
-- CPU execution and an optional Metal backend with fused training operations and custom FlashAttention kernels with FP32 accumulation for supported devices and shapes.
-- Trainable decoder-only Transformer architectures, described in [Model architectures](#model-architectures).
-- Byte and BPE tokenizers, including BPE training and persistence.
-- Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
-- [KV-cached text generation](docs/inference.md) on CPU and Metal.
-- File-backed dataset loaders for sequential reading, random sampling and response-only fine-tuning.
-- Export model bundles with weights, configuration, tokenizer files, and a model card for sharing on Hugging Face.
-- An optional JavaFX desktop chat UI and streaming CLI.
+- One [N-dimensional `Tensor` API](docs/tensors.md) for scalars, vectors, matrices, images, and sequences.
+- First-order [automatic differentiation](docs/autograd.md) through tensor operations, including views, broadcasting, and repeated indices.
+- FLOAT32 defaults, with optional FLOAT16/BFLOAT16 storage and FLOAT32 gradients.
+- A Java CPU backend and optional [Metal execution on Apple Silicon](docs/backends.md). Network arithmetic uses the selected tensor backend.
 
-## Desktop chat
-
-![DeepJ Chat desktop interface](docs/chat-ui.png)
-
-The optional desktop UI loads a local DeepJ checkpoint and streams generated text as it arrives. It includes selectable themes and a **See alternative responses** button for the same prompt.
-It automatically uses Metal on supported Apple GPUs and falls back to the CPU elsewhere.
-
-Under Settings → Generation settings:
-
-| Setting | What it changes |
-|---|---|
-| Temperature | Lower values favor likely next tokens; higher values give other choices a better chance. |
-| Top-k | Samples from the top `k` token choices; `0` considers all. |
-| Max tokens | Limits how many new tokens are generated; they are not words. |
-| Seed | Controls sampling randomness; changing it can change the response. |
-| Repetition penalty | Makes the model less likely to repeat itself. `1.0` turns it off; try `1.1` if responses loop. |
-| Rolling KV cache | Keeps decoding incremental after the window fills for RoPE models. Off by default; long responses may change. |
-
-Run it from this repository with JDK 20 or newer:
-
-```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 20) \
-  mvn compile org.openjfx:javafx-maven-plugin:0.0.8:run
-```
-
-Choose a `.dj` model file in the app. The screenshot shows the initial screen before a model is loaded.
-
-## Command line
-
-![DeepJ CLI with its coloured wordmark and streaming terminal chat](docs/cli.png)
-
-Build the optional terminal app with JDK 20 or newer:
-
-```bash
-mvn package -Pcli
-java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./frisky-90m
-```
-
-Chat with streaming responses, inspect checkpoints, or check backend availability.
-Choose from several themes to customise the interface. Add `--backend cpu` for CPU-only execution.
-See the [CLI guide](docs/cli.md) for commands and controls.
+Convolution, recurrence, and attention all use these shared tensor operations and gradients. See [network implementations and shapes](docs/neural-networks.md) for the API contracts.
 
 ## Quick start
 
-Download a DeepJ model bundle containing `model.dj` and `tokenizer.bpe`, then load it from one directory:
+Choose a network family from the table above, then compose its layers with `Sequential`. Existing DeepJ layers implement the same `Layer` interface. Activation adapters, flattening, reshaping, dropout, and batch normalization are available alongside the network implementations.
 
-```java
-import io.github.kirstenali.deepj.models.DeepJChat;
+A model's `forward(...)` returns a tensor. Compute a differentiable loss, call `backward()` on that loss, and update `model.parameters()` with an optimizer. [Training](docs/training.md) explains supervised batching, losses, train/evaluation mode, and explicit recurrent state.
 
-import java.nio.file.Path;
+Use [network weight archives](docs/persistence.md) to save parameters and persistent buffers, then restore them into the same constructed architecture. Language-model checkpoints and resumable training state have their own documented formats.
 
-DeepJChat chat = DeepJChat.load(Path.of("downloaded-model"));
-String answer = chat.generate("What is a computer?");
-```
+## Documentation
 
-The loader reads the tokenizer and checkpoint settings, applies the saved prompt format,
-and returns only the generated answer. `chat.stream(prompt, listener)` delivers partial
-answers as they are generated. Each call is independent; conversation history is not
-retained. `ModelLoader` and `TextGenerator` APIs remain available for advanced use.
+Start with the [documentation index](docs/README.md), or go directly to:
 
-## Model architectures
-
-DeepJ provides the following decoder-only Transformer architectures:
-
-| Model | Main components |
+| Guide | Covers |
 |---|---|
-| `DeepJOrigin` | Causal multi-head attention, learned positional embeddings, LayerNorm, GELU MLP |
-| `DeepJOrbit` | Causal multi-head attention, RoPE, RMSNorm, SwiGLU MLP |
-| `DeepJPrism` | Low-rank Q/KV attention, RoPE, RMSNorm, SwiGLU MLP |
-| `DeepJNova` | Grouped-query attention, RoPE, RMSNorm, bias-free SwiGLU MLP; optional QK normalization and tied input/output embeddings |
-| `DeepJLoop` | Grouped-query attention, RoPE, RMSNorm, bias-free SwiGLU MLP; repeated shared core, context reinjection and loop-aware residual scaling |
+| [Tensors and precision](docs/tensors.md) | Shapes, views, broadcasting, dtypes, and storage |
+| [Automatic differentiation](docs/autograd.md) | Gradients, mutation checks, graph lifetime, and custom operations |
+| [Networks and layers](docs/neural-networks.md) | Composition, CNNs, recurrence, autoencoders, and encoder Transformers |
+| [Training](docs/training.md) | Batching, losses, optimizers, and train/evaluation mode |
+| [Saving and loading](docs/persistence.md) | Network weights, persistent buffers, and model checkpoints |
+| [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
+| [Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
 
-## Frisky 90M
+The [Javadocs](https://kirstenali.github.io/DeepJ/api/) document the DeepJ `0.13.0-alpha` API, including `io.github.kirstenali.deepj.nn`.
 
-Meet [Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning.
+## Language-model tools
 
-Download its `model.dj` and `tokenizer.bpe` files to try the quick start above or chat in the desktop UI or CLI. Although Frisky can produce coherent responses, it is a small experimental model and can repeat itself or make factual, reasoning, maths and coding errors. The [training examples](src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
+DeepJ also provides trainable decoder Transformers, byte and BPE tokenizers, KV-cached generation, text dataset loaders, and model bundles. See the [language-model guide](docs/language-models.md) for architecture details and the Frisky 90M checkpoint.
+
+### Desktop chat
+
+The optional JavaFX app loads local language-model checkpoints and streams generated text. See [desktop chat and generation settings](docs/language-models.md#desktop-chat).
+
+### Command line
+
+The optional CLI supports streaming chat, text generation, checkpoint inspection, and backend diagnostics. See the [CLI guide](docs/cli.md).
 
 ## Current limitations
 
-- The public API and checkpoint format may change before a stable release.
-- Metal support is limited to Apple Silicon macOS; other platforms use CPU execution.
-- Default generation rebuilds the KV cache after each context-window shift. Optional [rolling generation](docs/inference.md#rolling-generation) avoids this for RoPE models, with different behaviour after eviction.
-- Hugging Face bundles require DeepJ and cannot be loaded directly by Python Transformers.
+- The public API and persistence formats may change before a stable release.
+- Metal acceleration requires supported Apple Silicon macOS; other platforms use CPU execution.
+- Autograd supports first-order differentiation; backward releases the operation graph.
+- Network weight archives contain parameters and persistent buffers, with architecture and training state managed separately.
+- Language-model context-window and bundle-format details are documented in the [language-model guide](docs/language-models.md#language-model-limitations).
 - The library has not been validated for safety-critical or production inference workloads.
 
 ## Build and release
 
-Build the library locally:
+Build and check the current source with JDK 20 or newer:
 
 ```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 20) mvn clean verify
+mvn clean verify
 ```
 
-See [coding standards and regression testing](docs/quality-and-regression.md) for the enforced checks and validation requirements.
+On supported Apple Silicon macOS with a working Metal device and desktop session, run `mvn clean verify -Pfull-coverage` for the hardware-dependent checks. See [coding standards and regression testing](docs/quality-and-regression.md) for the validation requirements.
 
 Maintainers can create signed source, Javadoc, and binary artifacts and publish them through the Central Portal with:
 
 ```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 20) \
-  mvn clean deploy -Pcentral-release
+mvn clean deploy -Pcentral-release
 ```
 
 Maven Central releases are immutable; update the project version before publishing another release.

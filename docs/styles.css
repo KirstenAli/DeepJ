@@ -570,7 +570,7 @@ footer nav {
 }
 
 @media (max-width: 900px) {
-    .site-header nav a:not(.nav-github) {
+    .site-header nav a:not(.nav-github):not(.nav-docs) {
         display: none;
     }
 
@@ -673,5 +673,66 @@ footer nav {
     .button,
     .text-link span {
         transition: none;
+    }
+}
+
+[id] {
+    scroll-margin-top: 96px;
+}
+
+.availability-note {
+    max-width: 760px;
+    margin-top: 28px;
+    padding: 16px 20px;
+    border-left: 2px solid var(--blue);
+    background: rgba(56, 189, 248, 0.05);
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.availability-note a,
+.model-note a,
+.limitations a {
+    color: var(--blue);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.guide-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.guide-card:hover {
+    border-color: var(--border-bright);
+}
+
+.guide-action {
+    margin-top: auto;
+    padding-top: 12px;
+    color: var(--blue);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.feature-card code {
+    overflow-wrap: anywhere;
+    color: #c4e8fa;
+    font-size: 0.9em;
+}
+
+.docs-hero h1 {
+    max-width: 880px;
+}
+
+@media (max-width: 900px) {
+    .site-header nav {
+        gap: 14px;
+    }
+
+    .nav-shell {
+        gap: 12px;
     }
 }

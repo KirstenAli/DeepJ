@@ -18,6 +18,7 @@ io.github.kirstenali.deepj.models.nova
 io.github.kirstenali.deepj.models.orbit
 io.github.kirstenali.deepj.models.origin
 io.github.kirstenali.deepj.models.prism
+io.github.kirstenali.deepj.nn
 io.github.kirstenali.deepj.optimisers
 io.github.kirstenali.deepj.persistence
 io.github.kirstenali.deepj.publishing

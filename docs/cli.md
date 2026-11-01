@@ -36,7 +36,7 @@ The screenshot illustrates the interface, not a guarantee of response accuracy.
 | `inspect MODEL` | Read embedded settings, parameter count and file size without loading weights. |
 | `doctor` | Report Java and CPU/Metal availability without loading a model. |
 
-Use `--help` after any command for its options. Generation options match the [desktop settings](../README.md#desktop-chat): `--max-tokens`, `--temperature`, `--top-k`, `--seed` and `--repetition-penalty`.
+Use `--help` after any command for its options. Generation options match the [desktop settings](language-models.md#desktop-chat): `--max-tokens`, `--temperature`, `--top-k`, `--seed` and `--repetition-penalty`.
 
 For Orbit, Prism, Nova and Loop, `--rolling-cache` keeps incremental decoding after the context
 window fills. It is opt-in: responses may change after the first token is evicted. See
