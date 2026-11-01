@@ -45,6 +45,20 @@ Add DeepJ to your project:
 
 See the [0.13.0-alpha release notes](docs/releases/0.13.0-alpha.md) for the network APIs and compatibility details.
 
+## Try Frisky 90M
+
+[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Download it and chat locally with the DeepJ CLI.
+
+Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into a folder named `frisky-90m`. Place the [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v0.13.0-alpha/deepj-cli.jar) alongside that folder, then run:
+
+```bash
+java --enable-native-access=ALL-UNNAMED -jar deepj-cli.jar chat ./frisky-90m
+```
+
+The CLI streams responses, supports selectable themes, and uses Metal when available with CPU fallback. See the [CLI guide](docs/cli.md) for commands and controls, and the [model card](https://huggingface.co/netsrik/frisky-90m) for training details.
+
+![DeepJ CLI streaming a response from Frisky 90M](docs/cli.png)
+
 ## Documentation
 
 Start with the [documentation index](docs/README.md), or go directly to:
