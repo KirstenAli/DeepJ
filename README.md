@@ -27,8 +27,6 @@ Build feed-forward networks, convolutional networks, recurrent networks, autoenc
 | Transformer encoders | Bidirectional attention, padding masks, and masked mean pooling |
 | Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, and Loop for causal language modeling |
 
-The network APIs share DeepJ tensors, autograd, parameters, and CPU/Metal execution.
-
 ## Install
 
 DeepJ requires JDK 20 or newer.
@@ -72,8 +70,6 @@ Start with the [documentation index](docs/README.md), or go directly to:
 | [Saving and loading](docs/persistence.md) | Network weights, persistent buffers, and model checkpoints |
 | [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
 | <a id="desktop-chat"></a>[Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
-
-The [Javadocs](https://kirstenali.github.io/DeepJ/api/) document the DeepJ `0.13.0-alpha` API, including `io.github.kirstenali.deepj.nn`.
 
 ## Build and release
 
