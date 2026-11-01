@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a Java neural network library for building, training, and running models. It provides N-dimensional tensors, automatic differentiation, composable layers, and CPU execution with optional Apple Metal acceleration.
+DeepJ is a Java library for building, training, and running neural networks. It provides N-dimensional tensors, automatic differentiation, composable layers, and CPU execution with optional Apple Metal acceleration.
 
 Build feed-forward networks, convolutional networks, recurrent networks, autoencoders, and Transformers on the same tensor and autograd foundation.
 
@@ -40,8 +40,6 @@ Add DeepJ to your project:
     <version>0.13.0-alpha</version>
 </dependency>
 ```
-
-See the [0.13.0-alpha release notes](docs/releases/0.13.0-alpha.md) for the network APIs and compatibility details.
 
 ## Try Frisky 90M
 
