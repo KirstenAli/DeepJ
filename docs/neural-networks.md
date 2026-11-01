@@ -17,11 +17,16 @@ See [availability](README.md#availability) for source/release details.
 | `RNN`, `GRU`, `LSTM` | `[batch, time, features]` | Return every time step; explicit initial/final states and optional per-sample lengths. |
 | `RNNCell`, `GRUCell`, `LSTMCell` | `[batch, features]` | Execute one time step with caller-owned state. |
 | `TransformerEncoder` | `[batch, time, width]` | Stacked bidirectional attention, pre-normalization, GELU feed-forward blocks and final LayerNorm. |
+| `DeepJOrigin`, `DeepJOrbit`, `DeepJPrism`, `DeepJNova`, `DeepJLoop` | Token IDs: `[time]` or `[batch, time]` | Causal decoder-only Transformers returning logits shaped `[time, vocab]` or `[batch, time, vocab]`. See [decoder architectures](language-models.md#model-architectures). |
 
-`Sequential` composes these implementations with any existing DeepJ `Layer`, including
+`Sequential` composes implementations of DeepJ's `Layer` interface, including
 `Linear`, `FNN` and normalization layers. It deduplicates shared parameter tensors by
 identity so existing optimizers update tied parameters once. Stack convolution,
 activation and pooling layers to construct CNNs; compose recurrent layers to stack them.
+
+Decoder language models implement `CausalLM`. Pass token IDs to `forward(int[])` or
+`forwardBatch(int[][])`; use the [language-model APIs](language-models.md) for loading,
+training, and text generation.
 
 ## Tensor execution and gradients
 
