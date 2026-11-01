@@ -28,15 +28,14 @@ differentiation, composable layers, and shared CPU/Metal execution.
 
 ## Availability
 
-These guides and the generated API reference describe the prepared `0.13.0-alpha`
-release, including `io.github.kirstenali.deepj.nn`. Maven Central publication is pending;
-build this source checkout to use those APIs until the release is published.
+These guides and the generated API reference document DeepJ `0.13.0-alpha`, including
+`io.github.kirstenali.deepj.nn`. Match your dependency version to the API reference.
 
-The currently published `0.12.0-alpha` artifact predates `nn`. Use its
-[release notes](releases/0.12.0-alpha.md) and
-[tagged source](https://github.com/KirstenAli/DeepJ/tree/v0.12.0-alpha) when working with
-that version. The [0.13.0-alpha release notes](releases/0.13.0-alpha.md) describe the
-new network APIs and the release preparation status.
+The `nn` APIs were introduced in `0.13.0-alpha`. For the older `0.12.0-alpha` artifact,
+use its [release notes](releases/0.12.0-alpha.md) and
+[tagged source](https://github.com/KirstenAli/DeepJ/tree/v0.12.0-alpha).
+The [0.13.0-alpha release notes](releases/0.13.0-alpha.md) cover the network additions
+and compatibility details.
 
 ## Development and verification
 

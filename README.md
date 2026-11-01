@@ -27,13 +27,13 @@ Build feed-forward networks, convolutional networks, recurrent networks, autoenc
 | Transformer encoders | Bidirectional attention, padding masks, and masked mean pooling |
 | Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, and Loop for causal language modeling |
 
-The `nn` package APIs are included in the prepared `0.13.0-alpha` release. Maven Central publication is pending; see [installation and availability](#install).
+The network APIs share DeepJ tensors, autograd, parameters, and CPU/Metal execution.
 
 ## Install
 
 DeepJ requires JDK 20 or newer.
 
-The prepared release uses these Maven coordinates:
+Add DeepJ to your project:
 
 ```xml
 <dependency>
@@ -43,7 +43,7 @@ The prepared release uses these Maven coordinates:
 </dependency>
 ```
 
-`0.13.0-alpha` is prepared for release and is not yet published to Maven Central. Until publication, build this source checkout for the `nn` APIs. The currently published `0.12.0-alpha` artifact provides tensors, autograd, `FNN`, and decoder Transformers. See the [0.13.0-alpha release notes](docs/releases/0.13.0-alpha.md) and [availability details](docs/README.md#availability).
+See the [0.13.0-alpha release notes](docs/releases/0.13.0-alpha.md) for the network APIs and compatibility details.
 
 ## Tensors, gradients, and execution
 
@@ -76,7 +76,7 @@ Start with the [documentation index](docs/README.md), or go directly to:
 | [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
 | [Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
 
-The [Javadocs](https://kirstenali.github.io/DeepJ/api/) describe the source used to build them; the package list includes `io.github.kirstenali.deepj.nn` for current-source builds.
+The [Javadocs](https://kirstenali.github.io/DeepJ/api/) document the DeepJ `0.13.0-alpha` API, including `io.github.kirstenali.deepj.nn`.
 
 ## Language-model tools
 

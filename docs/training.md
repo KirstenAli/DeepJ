@@ -4,8 +4,8 @@ DeepJ networks train through the same tensor operations, autograd engine, parame
 objects, and optimizers. MLPs, CNNs, recurrent networks, autoencoders, and Transformer
 encoders use this shared training path.
 
-See [availability](README.md#availability) before using the `nn` package with a published
-artifact. This guide describes the current-source APIs.
+This guide describes the DeepJ `0.13.0-alpha` training APIs. See
+[version compatibility](README.md#availability) when using an older dependency.
 
 ## Training cycle
 

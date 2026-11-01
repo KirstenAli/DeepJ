@@ -2,7 +2,7 @@
 
 DeepJ provides persistence for network weights, language models, and resumable
 language-model training. Choose the format that contains the state your application
-needs. See [availability](README.md#availability) for the current-source `nn` APIs.
+needs. See [version compatibility](README.md#availability) when using an older dependency.
 
 | Format/API | Contains | Restore contract |
 |---|---|---|
