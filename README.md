@@ -10,9 +10,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-DeepJ is a small Java library for learning, testing, and experimenting with tensors and decoder-only Transformers. It includes automatic differentiation (autograd), five trainable model families, BPE tokenization, model persistence, training utilities, and optional Apple Metal acceleration with a custom implementation of FlashAttention.
+DeepJ is a Java deep learning library for building, training, and running neural networks. It provides N-dimensional tensors, automatic differentiation, reusable neural-network layers, decoder-only Transformers, and optional Apple Metal acceleration.
 
-DeepJ is an alpha project. Its compact model families are designed to make different Transformer architectures easier to inspect and understand.
+The library includes feed-forward networks, convolutional and recurrent layers, autoencoders, Transformer encoders, training utilities, model persistence, tokenization, and text generation, with optional desktop and command-line interfaces.
 
 ## Install
 
@@ -33,6 +33,8 @@ API documentation is available in the [Javadoc](https://kirstenali.github.io/Dee
 - An [N-dimensional `Tensor` API](docs/tensors.md) with first-order [autograd](docs/autograd.md) on CPU and Metal.
 - FLOAT32 by default, with optional FLOAT16 and BFLOAT16 storage.
 - CPU execution and an optional Metal backend with fused training operations and custom FlashAttention kernels with FP32 accumulation for supported devices and shapes.
+- [Neural-network implementations](docs/neural-networks.md): MLPs, autoencoders, 1D/2D convolution and pooling, RNNs, GRUs, LSTMs, and Transformer encoders.
+- Composable layers, dropout, batch normalization, multidimensional supervised batching, and network weight archives.
 - Trainable decoder-only Transformer architectures, described in [Model architectures](#model-architectures).
 - Byte and BPE tokenizers, including BPE training and persistence.
 - Causal language-model training, AdamW, gradient clipping, and complete resumable checkpoints.
