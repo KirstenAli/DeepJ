@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn;
 
+import io.github.kirstenali.deepj.activations.ReLU;
 import io.github.kirstenali.deepj.activations.Tanh;
 import io.github.kirstenali.deepj.layers.Linear;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
@@ -39,9 +40,9 @@ class CompositionTest extends NeuralTest {
         }
     }
 
-    @Test void mlpAndAutoencoderReuseFnnAndParameterFactories() {
-        MLP encoder = new MLP(3, new int[]{4}, 2, new Random(2));
-        MLP decoder = new MLP(2, new int[0], 3, Tanh::new, null, new Random(3), ParameterFactory.float32());
+    @Test void fnnAndAutoencoderUseParameterFactories() {
+        FNN encoder = new FNN(3, new int[]{4}, 2, ReLU::new, new Random(2));
+        FNN decoder = new FNN(2, new int[0], 3, Tanh::new, null, new Random(3), ParameterFactory.float32());
         Autoencoder network = new Autoencoder(encoder, decoder);
         initialize(network);
         assertArrayEquals(new int[]{2, 2}, network.encode(values(2, 3)).shape());
@@ -63,7 +64,7 @@ class CompositionTest extends NeuralTest {
         assertEquals(1, new Reshape().forward(values(1)).numel());
     }
 
-    @Test void modeChangesPropagateToNestedNetworksAndCompactMlpWorks() {
+    @Test void modeChangesPropagateToNestedNetworksAndCompactFnnWorks() {
         Dropout dropout = new Dropout(0, 1);
         Sequential network = new Sequential(new Autoencoder(dropout, new Sequential(Activation.relu())));
         network.eval();
@@ -72,8 +73,8 @@ class CompositionTest extends NeuralTest {
         assertTrue(dropout.isTraining());
         valuesIdentity(dropout);
         for (DType dtype : DType.values()) {
-            MLP mlp = new MLP(2, new int[]{3}, 1, Tanh::new, null, new Random(2), new ParameterFactory(dtype));
-            assertArrayEquals(new int[]{2, 1}, mlp.forward(values(2, 2).to(dtype)).shape());
+            FNN fnn = new FNN(2, new int[]{3}, 1, Tanh::new, null, new Random(2), new ParameterFactory(dtype));
+            assertArrayEquals(new int[]{2, 1}, fnn.forward(values(2, 2).to(dtype)).shape());
         }
     }
 

@@ -3,7 +3,7 @@ package io.github.kirstenali.deepj.autograd;
 import io.github.kirstenali.deepj.activations.Tanh;
 import io.github.kirstenali.deepj.data.Batch;
 import io.github.kirstenali.deepj.data.BatchSource;
-import io.github.kirstenali.deepj.layers.FNN;
+import io.github.kirstenali.deepj.nn.FNN;
 import io.github.kirstenali.deepj.loss.MSELoss;
 import io.github.kirstenali.deepj.models.DecoderOnlyModel;
 import io.github.kirstenali.deepj.models.origin.DeepJOrigin;

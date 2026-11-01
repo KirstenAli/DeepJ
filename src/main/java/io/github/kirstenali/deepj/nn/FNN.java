@@ -1,5 +1,7 @@
-package io.github.kirstenali.deepj.layers;
+package io.github.kirstenali.deepj.nn;
 
+import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.Linear;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.activations.ActivationFunction;
 import io.github.kirstenali.deepj.optimisers.Parameter;

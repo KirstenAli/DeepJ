@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.layers;
+package io.github.kirstenali.deepj.nn;
 
 import io.github.kirstenali.deepj.testing.AutogradTestSupport;
 import io.github.kirstenali.deepj.TestSupport;

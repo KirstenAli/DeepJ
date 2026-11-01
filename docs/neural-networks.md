@@ -8,7 +8,7 @@ optimizer APIs. See [availability](README.md#availability) for source/release de
 
 | API | Input layout | Behavior |
 |---|---|---|
-| `MLP` | `[..., features]` | Delegates to the existing `FNN`; configurable hidden and output activations. |
+| `FNN` | `[..., features]` | Fully connected feed-forward network with configurable hidden and output activations. |
 | `Autoencoder` | Defined by its encoder | Composes encoder and decoder layers; exposes `encode` and `decode`. |
 | `Conv1D` | `[batch, channels, length]` | Trainable cross-correlation with stride, symmetric zero padding, dilation and optional bias. |
 | `Conv2D` | `[batch, channels, height, width]` | Spatial cross-correlation; `Window2D` configures each spatial dimension. |
@@ -22,6 +22,11 @@ optimizer APIs. See [availability](README.md#availability) for source/release de
 `Linear`, `FNN` and normalization layers. It deduplicates shared parameter tensors by
 identity so existing optimizers update tied parameters once. Stack convolution,
 activation and pooling layers to construct CNNs; compose recurrent layers to stack them.
+
+`FNN` lives in `io.github.kirstenali.deepj.nn`. It replaces `layers.FNN` and the
+`nn.MLP` wrapper; the FNN constructors, parameter names, and calculations are unchanged.
+Update the import when migrating from `0.13.0-alpha`. For former `MLP` calls, pass
+`ReLU::new` as the hidden activation factory to retain its default activation.
 
 ## Tensor execution and gradients
 
