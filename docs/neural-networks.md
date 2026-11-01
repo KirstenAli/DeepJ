@@ -1,8 +1,8 @@
 # Neural networks
 
-The `io.github.kirstenali.deepj.nn` package provides neural-network implementations
-and composable layers on DeepJ's shared `Layer`, `Parameter`, `Tensor`, autograd, and
-optimizer APIs. See [availability](README.md#availability) for source/release details.
+DeepJ provides neural-network implementations and composable layers built on its
+`Layer`, `Parameter`, `Tensor`, autograd, and optimizer APIs.
+See [availability](README.md#availability) for source/release details.
 
 ## Network implementations
 
@@ -22,15 +22,6 @@ optimizer APIs. See [availability](README.md#availability) for source/release de
 `Linear`, `FNN` and normalization layers. It deduplicates shared parameter tensors by
 identity so existing optimizers update tied parameters once. Stack convolution,
 activation and pooling layers to construct CNNs; compose recurrent layers to stack them.
-
-`FNN` lives in `io.github.kirstenali.deepj.nn`. It replaces `layers.FNN` and the
-`nn.MLP` wrapper; the FNN constructors, parameter names, and calculations are unchanged.
-Update the import when migrating from earlier builds. For former `MLP` calls, pass
-`ReLU::new` as the hidden activation factory to retain its default activation.
-
-`TransformerEncoder` is directly under `nn`. Complete decoder model families and
-their loading/generation APIs are under `nn.transformer`; see
-[language models](language-models.md#model-architectures) for their packages and migration.
 
 ## Tensor execution and gradients
 

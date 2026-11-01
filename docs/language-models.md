@@ -11,15 +11,6 @@ autoencoder, and encoder-Transformer APIs.
 
 DeepJ provides the following decoder-only Transformer architectures:
 
-Complete decoder models, configurations, loading, and generation APIs live under
-`io.github.kirstenali.deepj.nn.transformer`. Each family has its own subpackage:
-`origin`, `orbit`, `prism`, `nova`, or `loop`. Attention, normalization, and block
-implementations remain under `io.github.kirstenali.deepj.layers.transformer`.
-
-When upgrading from earlier builds, replace the `io.github.kirstenali.deepj.models`
-package prefix with `io.github.kirstenali.deepj.nn.transformer` and recompile.
-The model constructors, calculations, checkpoint formats, and CLI commands are unchanged.
-
 | Model | Main components |
 |---|---|
 | `DeepJOrigin` | Causal multi-head attention, learned positional embeddings, LayerNorm, GELU MLP |
