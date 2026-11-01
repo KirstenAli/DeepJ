@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.loop.DeepJLoop;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoop;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
 
 import java.nio.file.Path;
 

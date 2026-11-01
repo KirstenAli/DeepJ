@@ -1,10 +1,10 @@
 package io.github.kirstenali.deepj.cli;
 
-import io.github.kirstenali.deepj.models.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
-import io.github.kirstenali.deepj.models.DeepJChat;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.DeepJChat;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrism;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;

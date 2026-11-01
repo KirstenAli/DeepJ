@@ -28,6 +28,10 @@ activation and pooling layers to construct CNNs; compose recurrent layers to sta
 Update the import when migrating from earlier builds. For former `MLP` calls, pass
 `ReLU::new` as the hidden activation factory to retain its default activation.
 
+`TransformerEncoder` is directly under `nn`. Complete decoder model families and
+their loading/generation APIs are under `nn.transformer`; see
+[language models](language-models.md#model-architectures) for their packages and migration.
+
 ## Tensor execution and gradients
 
 All model arithmetic uses DeepJ tensor operations on the selected backend. Convolution

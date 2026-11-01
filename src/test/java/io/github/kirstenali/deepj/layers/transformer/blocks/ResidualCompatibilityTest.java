@@ -4,7 +4,7 @@ import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.layers.transformer.SwiGLULayer;
 import io.github.kirstenali.deepj.layers.transformer.attention.GroupedQueryAttention;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;

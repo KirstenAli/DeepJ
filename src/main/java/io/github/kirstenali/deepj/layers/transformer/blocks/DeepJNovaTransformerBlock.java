@@ -3,7 +3,7 @@ package io.github.kirstenali.deepj.layers.transformer.blocks;
 import io.github.kirstenali.deepj.layers.transformer.SwiGLULayer;
 import io.github.kirstenali.deepj.layers.transformer.attention.GroupedQueryAttention;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 
 import java.util.Random;

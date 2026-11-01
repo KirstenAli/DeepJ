@@ -4,7 +4,7 @@ import io.github.kirstenali.deepj.autograd.AttentionOps;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.layers.BiasFreeLinear;
 import io.github.kirstenali.deepj.layers.Layer;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.Tensor;

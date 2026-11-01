@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.persistence;
 
 import io.github.kirstenali.deepj.data.RandomAccessTextDataset;
-import io.github.kirstenali.deepj.models.loop.DeepJLoop;
-import io.github.kirstenali.deepj.models.loop.DeepJLoopConfig;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoop;
+import io.github.kirstenali.deepj.nn.transformer.loop.DeepJLoopConfig;
 import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
@@ -93,7 +93,7 @@ class LoopTrainingCheckpointTest {
 
     @Test
     void legacyNovaTrainingCheckpointsStillLoad() throws Exception {
-        var nova = new io.github.kirstenali.deepj.models.nova.DeepJNova(model(2, 37L).config().backbone(), 79L);
+        var nova = new io.github.kirstenali.deepj.nn.transformer.nova.DeepJNova(model(2, 37L).config().backbone(), 79L);
         var optimizer = AdamW.defaultAdamW(0.001f);
         try (var data = dataset(41L)) {
             TrainingCheckpoint.save(nova.parameters(), optimizer, data,

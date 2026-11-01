@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.testing.InferenceTestModels;
 import io.github.kirstenali.deepj.testing.InferenceTestModels.Kind;

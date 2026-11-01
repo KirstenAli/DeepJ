@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.publishing;
 
-import io.github.kirstenali.deepj.models.*;
-import io.github.kirstenali.deepj.models.origin.*;
-import io.github.kirstenali.deepj.models.prism.*;
+import io.github.kirstenali.deepj.nn.transformer.*;
+import io.github.kirstenali.deepj.nn.transformer.origin.*;
+import io.github.kirstenali.deepj.nn.transformer.prism.*;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.tensor.*;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;

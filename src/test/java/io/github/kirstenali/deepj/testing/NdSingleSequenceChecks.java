@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.testing;
 
 import io.github.kirstenali.deepj.loss.CrossEntropyLoss;
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;

@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.chatui;
 
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.ContextWindowMode;
-import io.github.kirstenali.deepj.models.TextGenerator;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.util.function.Consumer;

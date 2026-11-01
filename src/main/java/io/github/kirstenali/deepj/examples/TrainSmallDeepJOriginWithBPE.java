@@ -1,8 +1,8 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.data.TextDataset;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPETrainer;

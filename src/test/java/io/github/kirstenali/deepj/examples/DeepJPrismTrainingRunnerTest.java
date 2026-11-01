@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
-import io.github.kirstenali.deepj.models.ModelLoader;
+import io.github.kirstenali.deepj.nn.transformer.ModelLoader;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.training.TrainingResult;
 import org.junit.jupiter.api.BeforeEach;

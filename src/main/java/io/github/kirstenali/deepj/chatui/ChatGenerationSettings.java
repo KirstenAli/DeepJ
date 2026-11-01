@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.chatui;
 
 import java.util.Objects;
 
-import io.github.kirstenali.deepj.models.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 record ChatGenerationSettings(int maxTokens, double temperature, int topK, long seed,
                               double repetitionPenalty, ContextWindowMode contextWindow) {

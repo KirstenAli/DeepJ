@@ -1,13 +1,13 @@
 package io.github.kirstenali.deepj.training;
 
 import io.github.kirstenali.deepj.data.TextDataset;
-import io.github.kirstenali.deepj.models.CausalLM;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
-import io.github.kirstenali.deepj.models.prism.DeepJPrism;
-import io.github.kirstenali.deepj.models.origin.DeepJOriginConfig;
-import io.github.kirstenali.deepj.models.origin.DeepJOrigin;
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
+import io.github.kirstenali.deepj.nn.transformer.CausalLM;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrism;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
+import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOrigin;
+import io.github.kirstenali.deepj.nn.transformer.orbit.DeepJOrbitConfig;
+import io.github.kirstenali.deepj.nn.transformer.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.optimisers.ParameterOptimizer;
 import io.github.kirstenali.deepj.tensor.Tensor;

@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbitConfig;
-import io.github.kirstenali.deepj.models.orbit.DeepJOrbit;
+import io.github.kirstenali.deepj.nn.transformer.orbit.DeepJOrbitConfig;
+import io.github.kirstenali.deepj.nn.transformer.orbit.DeepJOrbit;
 import io.github.kirstenali.deepj.data.TextDataset;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;

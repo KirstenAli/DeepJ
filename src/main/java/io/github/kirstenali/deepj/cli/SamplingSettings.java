@@ -3,7 +3,7 @@ package io.github.kirstenali.deepj.cli;
 import java.util.Locale;
 import java.util.Objects;
 
-import io.github.kirstenali.deepj.models.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 record SamplingSettings(int maxTokens, float temperature, int topK, long seed,
                          float repetitionPenalty, ContextWindowMode contextWindow) {

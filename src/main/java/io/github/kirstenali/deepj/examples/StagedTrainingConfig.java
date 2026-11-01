@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.DecoderOnlyModel;
-import io.github.kirstenali.deepj.models.TransformerConfig;
+import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
+import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
 
 import java.nio.file.Path;
 

@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.persistence;
 
-import io.github.kirstenali.deepj.models.*;
-import io.github.kirstenali.deepj.models.prism.DeepJPrismConfig;
+import io.github.kirstenali.deepj.nn.transformer.*;
+import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.*;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;

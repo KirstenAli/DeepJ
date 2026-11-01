@@ -1,9 +1,9 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.ModelLoader;
-import io.github.kirstenali.deepj.models.PromptFormat;
-import io.github.kirstenali.deepj.models.nova.DeepJNova;
-import io.github.kirstenali.deepj.models.nova.DeepJNovaConfig;
+import io.github.kirstenali.deepj.nn.transformer.ModelLoader;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNova;
+import io.github.kirstenali.deepj.nn.transformer.nova.DeepJNovaConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;

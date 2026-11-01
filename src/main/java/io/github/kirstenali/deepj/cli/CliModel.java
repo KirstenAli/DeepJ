@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.cli;
 
-import io.github.kirstenali.deepj.models.DeepJChat;
+import io.github.kirstenali.deepj.nn.transformer.DeepJChat;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.tensor.Tensor;

@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.examples;
 
-import io.github.kirstenali.deepj.models.PromptFormat;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
 import io.github.kirstenali.deepj.publishing.DeepJModelBundle;
 import io.github.kirstenali.deepj.publishing.ModelCard;
 import io.github.kirstenali.deepj.tokenizers.bpe.BPEModelIO;

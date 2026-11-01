@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.autograd.Autograd;
-import io.github.kirstenali.deepj.models.TextGenerator;
+import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
 import io.github.kirstenali.deepj.tokenizers.ByteTokenizer;
 import org.junit.jupiter.api.Test;
 
