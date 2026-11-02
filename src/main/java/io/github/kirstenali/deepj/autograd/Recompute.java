@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.autograd;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorScope;
 
 import java.util.function.UnaryOperator;
 
@@ -17,10 +18,9 @@ public final class Recompute {
 
     private static Tensor[] replay(UnaryOperator<Tensor> block, Tensor input, Tensor gradient) {
         Tensor leaf = input.detach().requiresGrad(true);
-        try (var ignored = GradMode.enabled()) {
+        try (var scope = TensorScope.open(); var ignored = GradMode.enabled()) {
             block.apply(leaf).backward(gradient);
+            return new Tensor[]{scope.escape(leaf.grad())};
         }
-        return new Tensor[]{leaf.grad()};
     }
 }
-
