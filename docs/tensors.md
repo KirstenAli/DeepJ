@@ -72,7 +72,9 @@ than one row. One-row parameters, including norm gains and biases, stay FLOAT32.
 Embedding lookups widen to FLOAT32, keeping the activation stream eligible for fused
 FLOAT32 kernels while larger weight matrices retain two-byte storage. This is an explicit
 parameter policy, not automatic autocast. A descriptor-based factory and loaded
-checkpoints preserve their individual stored dtypes.
+checkpoints preserve their individual stored dtypes, so a checkpoint whose one-row
+vectors are two-byte will keep them two-byte on load and run those ops on the generic
+rather than the fused kernels. Checkpoints saved by this policy already store them FLOAT32.
 
 General compact, strided and broadcast CPU matrix products stage their operands in
 temporary contiguous FLOAT32 arrays before the parallel product, then round the result

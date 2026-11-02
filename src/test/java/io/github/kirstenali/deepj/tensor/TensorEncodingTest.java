@@ -112,6 +112,41 @@ class TensorEncodingTest {
                 () -> TensorEncoding.restore(new Tensor(DType.BFLOAT16, 3), source));
     }
 
+    @Test
+    void bulkDensePayloadsMatchPerElementBigEndianBitsAcrossChunkBoundaries() throws IOException {
+        for (DType dtype : DType.values()) {
+            Tensor parent = Tensor.from(randomFloats((1 << 18) + 7), dtype, (1 << 18) + 7);
+            Tensor source = parent.slice(0, 3, parent.numel());
+            byte[] bytes = encode(source);
+            assertArrayEquals(perElement(source), bytes);
+            Tensor target = new Tensor(dtype, parent.shape()).slice(0, 3, parent.numel());
+            TensorEncoding.readInto(input(bytes), target);
+            assertArrayEquals(source.toFloatArray(), target.toFloatArray());
+        }
+    }
+
+    private static float[] randomFloats(int count) {
+        var random = new java.util.Random(11);
+        float[] values = new float[count];
+        for (int index = 0; index < count; index++) { values[index] = random.nextFloat() * 8 - 4; }
+        return values;
+    }
+
+    private static byte[] perElement(Tensor tensor) throws IOException {
+        var bytes = new ByteArrayOutputStream();
+        try (var output = new DataOutputStream(bytes)) {
+            new TensorDescriptor(tensor.dtype(), tensor.shape()).write(output);
+            for (int index = 0; index < tensor.numel(); index++) { writeElement(output, tensor, index); }
+        }
+        return bytes.toByteArray();
+    }
+
+    private static void writeElement(DataOutputStream output, Tensor tensor, int index) throws IOException {
+        int address = tensor.layout().addressAt(index);
+        if (tensor.dtype() == DType.FLOAT32) output.writeInt(Float.floatToRawIntBits(tensor.memory().get(address)));
+        else output.writeShort(tensor.memory().shorts()[address]);
+    }
+
     private static byte[] encode(Tensor tensor) throws IOException {
         var bytes = new ByteArrayOutputStream();
         try (var output = new DataOutputStream(bytes)) { TensorEncoding.write(output, tensor); }

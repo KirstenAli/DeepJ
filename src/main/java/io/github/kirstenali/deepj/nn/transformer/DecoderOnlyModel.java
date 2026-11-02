@@ -29,6 +29,7 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     protected final Projection       lmHead;
     private PromptFormat promptFormat = PromptFormat.PLAIN;
     private Map<String, String> metadata = Map.of();
+    private boolean activationCheckpointing;
 
     protected DecoderOnlyModel(Embedding tokEmb, TransformerStack stack, NormLayer normF, Projection lmHead) {
         this.tokEmb = tokEmb;
@@ -143,8 +144,14 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     }
 
     private Tensor forwardEmbedded(Tensor input) {
-        return lmHead.forward(normF.forward(stack.forward(input)));
+        Tensor hidden = activationCheckpointing ? stack.forwardCheckpointed(input) : stack.forward(input);
+        return lmHead.forward(normF.forward(hidden));
     }
+
+    /** Trades roughly one extra block forward per step for not storing per-block activations. */
+    public final void setActivationCheckpointing(boolean enabled) { activationCheckpointing = enabled; }
+
+    public final boolean activationCheckpointing() { return activationCheckpointing; }
 
     private void requireLength(int length) {
         if (length < 1 || length > config().maxSeqLen()) {

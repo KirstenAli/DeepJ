@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.transformer;
 
+import io.github.kirstenali.deepj.autograd.Recompute;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.layers.Layer;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -21,6 +22,15 @@ public record TransformerStack(List<Layer> blocks) implements Layer {
         Tensor h = x;
         for (Layer b : blocks) {
             h = b.forward(h);
+        }
+        return h;
+    }
+
+    /** Each block is recomputed during backward instead of keeping its activations. */
+    public Tensor forwardCheckpointed(Tensor x) {
+        Tensor h = x;
+        for (Layer b : blocks) {
+            h = Recompute.forward(b::forward, h);
         }
         return h;
     }

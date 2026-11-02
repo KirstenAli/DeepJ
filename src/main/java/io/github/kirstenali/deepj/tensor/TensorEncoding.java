@@ -4,9 +4,12 @@ import io.github.kirstenali.deepj.autograd.GradMode;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /** Raw-bit, logical-order tensor payloads; no FLOAT32 shadow is needed for compact storage. */
 public final class TensorEncoding {
+    private static final int CHUNK = 1 << 18;
     private TensorEncoding() {}
 
     public static void write(DataOutput output, Tensor tensor) throws IOException {
@@ -28,18 +31,18 @@ public final class TensorEncoding {
     }
 
     private static void writeDense(DataOutput output, Tensor tensor) throws IOException {
-        int start = tensor.storageOffset(), end = start + tensor.numel();
-        if (tensor.dtype() == DType.FLOAT32) {
-            float[] values = tensor.memory().floats();
-            for (int index = start; index < end; index++) {
-                output.writeInt(Float.floatToRawIntBits(values[index]));
-            }
-        } else {
-            short[] values = tensor.memory().shorts();
-            for (int index = start; index < end; index++) {
-                output.writeShort(values[index]);
-            }
+        int start = tensor.storageOffset(), count = tensor.numel();
+        for (int done = 0; done < count; done += CHUNK) {
+            int length = Math.min(CHUNK, count - done);
+            output.write(denseChunk(tensor, start + done, length), 0, length * tensor.dtype().bytes());
         }
+    }
+
+    private static byte[] denseChunk(Tensor tensor, int start, int length) {
+        ByteBuffer bytes = ByteBuffer.allocate(length * tensor.dtype().bytes()).order(ByteOrder.BIG_ENDIAN);
+        if (tensor.dtype() == DType.FLOAT32) bytes.asFloatBuffer().put(tensor.memory().floats(), start, length);
+        else bytes.asShortBuffer().put(tensor.memory().shorts(), start, length);
+        return bytes.array();
     }
 
     public static void readInto(DataInput input, Tensor tensor) throws IOException {
