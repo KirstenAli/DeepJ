@@ -14,6 +14,14 @@ public final class GradMode implements AutoCloseable {
 
     public static boolean isEnabled() { return CURRENT.get() == null; }
     public static GradMode noGrad() { return new GradMode(); }
+    public static Enabled enabled() { return new Enabled(); }
+
+    /** Temporarily re-enables graph building, e.g. to recompute a block inside a backward rule. */
+    public static final class Enabled implements AutoCloseable {
+        private final GradMode previous = CURRENT.get();
+        private Enabled() { CURRENT.remove(); }
+        @Override public void close() { if (previous != null) CURRENT.set(previous); }
+    }
 
     @Override
     public void close() {
