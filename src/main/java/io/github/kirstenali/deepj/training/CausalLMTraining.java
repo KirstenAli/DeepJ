@@ -41,6 +41,26 @@ public final class CausalLMTraining {
         return loss;
     }
 
+    static float accumulatedStep(CausalLM model, BatchSource dataset,
+                                 ParameterOptimizer optimizer, int microBatch, int steps) {
+        model.zeroGrad();
+        float lossSum = 0.0f;
+        for (int index = 0; index < steps; index++) {
+            lossSum += accumulateBatchLossAndBackward(model, dataset.nextBatch(microBatch), microBatch);
+        }
+        return finishStep(model, optimizer, lossSum, microBatch * steps);
+    }
+
+    private static float finishStep(CausalLM model, ParameterOptimizer optimizer, float lossSum, int samples) {
+        List<Parameter> params = model.parameters();
+        float loss = computeAverageLoss(lossSum, samples);
+        validateFiniteLoss(loss);
+        averageGradients(params, samples);
+        clipGradientsGlobally(params, model.gradClipNorm());
+        optimizer.step(params);
+        return loss;
+    }
+
     private static float accumulateBatchLossAndBackward(CausalLM model, Batch batch, int batchSize) {
         if (!(model instanceof DecoderOnlyModel)) {
             return TensorScope.external(() -> batchLossAndBackward(model, batch, batchSize));
