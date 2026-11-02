@@ -1,0 +1,61 @@
+name: Distributed training
+
+on:
+  pull_request:
+    paths: ['distributed/**', '.github/workflows/distributed.yml']
+  push:
+    branches: [codex/distributed-training-exploration]
+    paths: ['distributed/**', '.github/workflows/distributed.yml']
+  workflow_dispatch:
+    inputs:
+      require_metal:
+        description: Require a physical Metal GPU on a self-hosted Apple Silicon runner
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  tcp:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '20'
+          cache: maven
+      - name: Install and verify the unchanged DeepJ library
+        run: mvn --batch-mode clean install -Pfull-coverage
+      - name: Verify the optional artifact using separate JVMs and real TCP
+        run: mvn --batch-mode -f distributed/pom.xml verify -Ddeepj.distributed.tcp=true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: distributed-tcp-reports
+          path: distributed/target/surefire-reports/
+
+  metal:
+    if: github.event_name == 'workflow_dispatch' && inputs.require_metal
+    runs-on: [self-hosted, macOS, ARM64, deepj-metal]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '20'
+          cache: maven
+      - name: Install and verify the unchanged DeepJ library
+        run: mvn --batch-mode clean install -Pfull-coverage
+      - name: Require TCP and physical Metal training and checkpoint checks
+        run: >-
+          mvn --batch-mode -f distributed/pom.xml verify
+          -Ddeepj.distributed.tcp=true -Ddeepj.distributed.requireMetal=true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: distributed-metal-reports
+          path: distributed/target/surefire-reports/
