@@ -6,6 +6,14 @@ differentiation, composable layers, and shared CPU/Metal execution.
 [Project overview](../README.md) · [Website](https://kirstenali.github.io/DeepJ/) ·
 [API reference](https://kirstenali.github.io/DeepJ/api/)
 
+## Training
+
+| Guide | Start here for |
+|---|---|
+| [Network training](training.md) | Training APIs by network family, minibatches, losses, AdamW, and training/evaluation mode |
+| [Language-model training](training.md#causal-language-model-training) | Token batches, response masks, gradient clipping, and accumulation |
+| [Distributed training](../distributed/README.md) | Optional data-parallel training across CPU or Apple Silicon workers, data shards, and checkpoints |
+
 ## Core library
 
 | Guide | Start here for |
@@ -13,7 +21,6 @@ differentiation, composable layers, and shared CPU/Metal execution.
 | [Tensors and precision](tensors.md) | Shapes, views, broadcasting, dtypes, and storage |
 | [Automatic differentiation](autograd.md) | Gradient recording, backward, mutation checks, and graph lifetime |
 | [Networks and layers](neural-networks.md) | MLPs, CNNs, recurrent networks, autoencoders, Transformer encoders, and composition |
-| [Training](training.md) | Supervised batching, losses, optimizers, and training/evaluation mode |
 | [Saving and loading](persistence.md) | Parameters, persistent buffers, model files, and resumable state |
 | [CPU and Metal](backends.md) | Backend selection, GPU execution, precision, and temporary tensors |
 
