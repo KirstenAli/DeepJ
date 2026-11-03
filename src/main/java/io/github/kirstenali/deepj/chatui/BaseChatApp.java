@@ -2,8 +2,11 @@ package io.github.kirstenali.deepj.chatui;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
+
+import java.util.Objects;
 
 public abstract class BaseChatApp extends Application {
 
@@ -21,6 +24,8 @@ public abstract class BaseChatApp extends Application {
 
     private void showStage(Stage stage) {
         stage.setTitle(getAppTitle());
+        var icon = Objects.requireNonNull(getClass().getResource("/deepj_logo.png"));
+        stage.getIcons().add(new Image(icon.toExternalForm()));
         stage.setMinWidth(760);
         stage.setMinHeight(560);
         stage.show();

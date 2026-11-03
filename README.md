@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./deepj_logo.svg" alt="DeepJ logo" width="170">
+  <img src="./deepj_logo.svg" alt="DeepJ neural DJ logo" width="170" height="170">
 </p>
 
 # DeepJ
