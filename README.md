@@ -59,14 +59,13 @@ The CLI streams responses, supports selectable themes, and uses Metal when avail
 
 [Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) is a pretrained 1.7-billion-parameter language model you can run locally with DeepJ on CPU or Apple Metal. Chat through the CLI or load it in the desktop app.
 
-Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`. Build the CLI from the current source, then start chatting:
+Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`. Build the CLI from the current source and start chatting on Apple Silicon.
 
 ```bash
 mvn package -Pcli
-java -Xmx8g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./qwen3-1.7b
+java -Xmx12g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
+  --backend metal chat ./qwen3-1.7b --dtype float32
 ```
-
-For FP32 weights on Apple Silicon, use `-Xmx12g` and add `--backend metal --dtype float32`. This can speed up Qwen3 chat on Metal and uses more memory than loading the checkpoint's BF16 weights.
 
 For desktop chat, select `config.json` from the same folder in the model picker. See the [Qwen3 guide](docs/qwen3.md) for model details, pretrained loading, and training support.
 
