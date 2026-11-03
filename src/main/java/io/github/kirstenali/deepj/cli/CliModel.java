@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.nn.transformer.DeepJChat;
+import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained;
+import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -28,6 +30,7 @@ interface CliModel extends AutoCloseable {
     }
 
     static CliModel load(Path path, BackendChoice backend) throws IOException {
+        if (Qwen3Snapshot.matches(path)) return Qwen3CliModel.load(path, backend);
         Path file = modelFile(path).toAbsolutePath();
         ModelInspection info = ModelSerializer.inspect(file);
         backend.activate();
@@ -38,6 +41,11 @@ interface CliModel extends AutoCloseable {
             Tensor.backend().releaseResources();
             throw failure;
         }
+    }
+
+    static ModelInspection inspect(Path path) throws IOException {
+        return Qwen3Snapshot.matches(path) ? Qwen3Pretrained.inspect(Qwen3Snapshot.directory(path))
+                : ModelSerializer.inspect(modelFile(path));
     }
 
     record Loaded(DeepJChat chat, ModelInspection inspection, String name,

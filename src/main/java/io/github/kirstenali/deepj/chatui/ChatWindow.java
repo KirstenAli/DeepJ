@@ -78,8 +78,9 @@ public final class ChatWindow {
 
     private File modelFile() {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("Choose a DeepJ checkpoint");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("DeepJ models", "*.dj", "*.bin"));
+        chooser.setTitle("Choose a DeepJ or Qwen3 model");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("DeepJ and Qwen3 models",
+                "*.dj", "*.bin", "config.json", "*.safetensors", "*.safetensors.index.json"));
         return chooser.showOpenDialog(stage);
     }
 

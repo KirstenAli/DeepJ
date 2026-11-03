@@ -1,0 +1,212 @@
+{
+  "cases": [
+    {
+      "messages": [{ "role": "user", "content": "Hello" }],
+      "thinking": true,
+      "generation": true,
+      "expected": "<|im_start|>user\nHello<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "messages": [{ "role": "user", "content": "Hello" }],
+      "thinking": true,
+      "generation": false,
+      "expected": "<|im_start|>user\nHello<|im_end|>\n"
+    },
+    {
+      "messages": [{ "role": "user", "content": "Hello" }],
+      "thinking": false,
+      "generation": true,
+      "expected": "<|im_start|>user\nHello<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    },
+    {
+      "messages": [{ "role": "user", "content": "Hello" }],
+      "thinking": false,
+      "generation": false,
+      "expected": "<|im_start|>user\nHello<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "system", "content": "Be concise." },
+        { "role": "user", "content": "Why?" }
+      ],
+      "thinking": true,
+      "generation": true,
+      "expected": "<|im_start|>system\nBe concise.<|im_end|>\n<|im_start|>user\nWhy?<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "messages": [
+        { "role": "system", "content": "Be concise." },
+        { "role": "user", "content": "Why?" }
+      ],
+      "thinking": true,
+      "generation": false,
+      "expected": "<|im_start|>system\nBe concise.<|im_end|>\n<|im_start|>user\nWhy?<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "system", "content": "Be concise." },
+        { "role": "user", "content": "Why?" }
+      ],
+      "thinking": false,
+      "generation": true,
+      "expected": "<|im_start|>system\nBe concise.<|im_end|>\n<|im_start|>user\nWhy?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    },
+    {
+      "messages": [
+        { "role": "system", "content": "Be concise." },
+        { "role": "user", "content": "Why?" }
+      ],
+      "thinking": false,
+      "generation": false,
+      "expected": "<|im_start|>system\nBe concise.<|im_end|>\n<|im_start|>user\nWhy?<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "One" },
+        { "role": "assistant", "content": "<think>old</think>\nAnswer" },
+        { "role": "user", "content": "Two" }
+      ],
+      "thinking": true,
+      "generation": true,
+      "expected": "<|im_start|>user\nOne<|im_end|>\n<|im_start|>assistant\nAnswer<|im_end|>\n<|im_start|>user\nTwo<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "One" },
+        { "role": "assistant", "content": "<think>old</think>\nAnswer" },
+        { "role": "user", "content": "Two" }
+      ],
+      "thinking": true,
+      "generation": false,
+      "expected": "<|im_start|>user\nOne<|im_end|>\n<|im_start|>assistant\nAnswer<|im_end|>\n<|im_start|>user\nTwo<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "One" },
+        { "role": "assistant", "content": "<think>old</think>\nAnswer" },
+        { "role": "user", "content": "Two" }
+      ],
+      "thinking": false,
+      "generation": true,
+      "expected": "<|im_start|>user\nOne<|im_end|>\n<|im_start|>assistant\nAnswer<|im_end|>\n<|im_start|>user\nTwo<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "One" },
+        { "role": "assistant", "content": "<think>old</think>\nAnswer" },
+        { "role": "user", "content": "Two" }
+      ],
+      "thinking": false,
+      "generation": false,
+      "expected": "<|im_start|>user\nOne<|im_end|>\n<|im_start|>assistant\nAnswer<|im_end|>\n<|im_start|>user\nTwo<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "A", "reasoning_content": "\nReason\n" }
+      ],
+      "thinking": true,
+      "generation": true,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\nReason\n</think>\n\nA<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "A", "reasoning_content": "\nReason\n" }
+      ],
+      "thinking": true,
+      "generation": false,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\nReason\n</think>\n\nA<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "A", "reasoning_content": "\nReason\n" }
+      ],
+      "thinking": false,
+      "generation": true,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\nReason\n</think>\n\nA<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "A", "reasoning_content": "\nReason\n" }
+      ],
+      "thinking": false,
+      "generation": false,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\nReason\n</think>\n\nA<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "\nA" }
+      ],
+      "thinking": true,
+      "generation": true,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "\nA" }
+      ],
+      "thinking": true,
+      "generation": false,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "\nA" }
+      ],
+      "thinking": false,
+      "generation": true,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Q" },
+        { "role": "assistant", "content": "\nA" }
+      ],
+      "thinking": false,
+      "generation": false,
+      "expected": "<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "assistant", "content": "A" },
+        { "role": "system", "content": "System" }
+      ],
+      "thinking": true,
+      "generation": true,
+      "expected": "<|im_start|>assistant\nA<|im_end|>\n<|im_start|>system\nSystem<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "messages": [
+        { "role": "assistant", "content": "A" },
+        { "role": "system", "content": "System" }
+      ],
+      "thinking": true,
+      "generation": false,
+      "expected": "<|im_start|>assistant\nA<|im_end|>\n<|im_start|>system\nSystem<|im_end|>\n"
+    },
+    {
+      "messages": [
+        { "role": "assistant", "content": "A" },
+        { "role": "system", "content": "System" }
+      ],
+      "thinking": false,
+      "generation": true,
+      "expected": "<|im_start|>assistant\nA<|im_end|>\n<|im_start|>system\nSystem<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    },
+    {
+      "messages": [
+        { "role": "assistant", "content": "A" },
+        { "role": "system", "content": "System" }
+      ],
+      "thinking": false,
+      "generation": false,
+      "expected": "<|im_start|>assistant\nA<|im_end|>\n<|im_start|>system\nSystem<|im_end|>\n"
+    }
+  ]
+}
