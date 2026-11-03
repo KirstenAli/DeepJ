@@ -1,4 +1,4 @@
-# Training neural networks
+# Training a model
 
 DeepJ networks train through the same tensor operations, autograd engine, parameter
 objects, and optimizers. This guide covers feed-forward networks, CNNs, recurrent
@@ -9,14 +9,13 @@ This guide describes the DeepJ `0.13.0-alpha` training APIs. See
 
 ## Choose a training API
 
-| Network or objective | Training entry point |
+| Model type or objective | Training entry point |
 |---|---|
 | `FNN`, CNNs, and other `Layer` networks with tensor inputs and targets | `io.github.kirstenali.deepj.nn.NdSupervisedTraining.trainer(...)` for first-axis minibatches |
 | Autoencoders | `NdSupervisedTraining.trainer(...)` with a reconstruction loss such as `MSELoss`; use the input as the target |
 | RNN, GRU, LSTM, or Transformer encoder with an ordinary `forward(input)` objective | `NdSupervisedTraining.trainer(...)`, preserving each sample's sequence axes |
 | Recurrent state, padding masks, multiple inputs, or a custom loss | `new Trainer(stepFunction)` with explicit model calls, backward, and optimizer updates |
 | Causal decoder models, including Qwen3 | `io.github.kirstenali.deepj.training.CausalLMTraining.trainer(...)` with token batches and optional response masks |
-| Data-parallel training across worker JVMs | The optional module's `DistributedTrainer`, with `TensorObjective`, `CausalObjective`, or a custom `TrainingObjective` |
 
 For a single machine, select the [CPU or Metal backend](backends.md) before
 constructing tensors and models. Batching, forward operations, and gradients use
@@ -112,11 +111,14 @@ for the corresponding model and dataset contracts.
 
 ## Distributed training
 
-The optional [distributed module](../distributed/README.md) provides synchronous
-data-parallel training across CPU workers or Apple Silicon Macs using Metal.
+The optional [distributed module](../distributed/README.md) lets multiple machines
+train a model together using synchronous data parallelism. It supports CPU workers
+or Apple Silicon Macs using Metal. The model type determines the architecture;
+distributed training determines how the training work is shared between workers.
 Run one JVM per worker, with the same model architecture and optimizer settings,
 and give each worker a different data shard. Every worker holds a full model
-replica; gradients are averaged across workers before the optimizer update.
+replica; gradients are averaged across workers before the optimizer update. See
+[how it works](../distributed/README.md#how-it-works) for the update sequence.
 
 Use `TensorObjective` for ordinary `Layer` networks, `CausalObjective` for causal
 language models, or `TrainingObjective` for a custom differentiable objective.

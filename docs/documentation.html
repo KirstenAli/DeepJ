@@ -3,10 +3,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Guides for DeepJ network and distributed training, tensors, autograd, persistence, CPU/Metal execution, and language-model tools.">
+    <meta name="description" content="DeepJ guides for training a model, distributed training across machines, tensors, autograd, persistence, and CPU/Metal execution.">
     <meta name="theme-color" content="#07111f">
     <meta property="og:title" content="DeepJ documentation — neural networks in Java">
-    <meta property="og:description" content="Guides for DeepJ network and distributed training, tensors, autograd, persistence, CPU/Metal execution, and language-model tools.">
+    <meta property="og:description" content="DeepJ guides for training a model, distributed training across machines, tensors, autograd, persistence, and CPU/Metal execution.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://kirstenali.github.io/DeepJ/documentation.html">
     <link rel="canonical" href="https://kirstenali.github.io/DeepJ/documentation.html">
@@ -36,24 +36,20 @@
     <section class="section hero docs-hero">
         <div class="shell">
             <p class="eyebrow">DeepJ documentation</p><h1>From tensors <span>to neural networks.</span></h1>
-            <p class="hero-lede">Understand the shared APIs, choose a network family, and follow its training and persistence contracts.</p>
+            <p class="hero-lede">Understand the shared APIs, choose a model type, and follow its training and persistence contracts.</p>
             <p class="availability-note">These guides document DeepJ 0.13.0-alpha.</p>
         </div>
     </section>
     <section class="section" id="training-guides">
-        <div class="shell"><p class="section-label">Training guides</p><h2>Choose your training path.</h2>
-            <p class="section-intro">Train on one CPU or Metal device, or use the optional data-parallel module across worker JVMs.</p>
-            <div class="feature-grid">
+        <div class="shell"><p class="section-label">Training guides</p><h2>Train your model.</h2>
+            <p class="section-intro">Start with the model training guide. To share training work across multiple machines, use the optional distributed module.</p>
+            <div class="model-grid">
                 <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/training.md">
-                    <h3>Network training</h3><p>Choose a training API for your network family, then configure batching, losses, optimizers, and evaluation mode.</p>
-                    <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
-                </a>
-                <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/training.md#causal-language-model-training">
-                    <h3>Language-model training</h3><p>Token datasets, response masks, gradient clipping, accumulation, and links to decoder-specific training.</p>
+                    <h3>Training a model</h3><p>Training APIs by model type, batching, losses, optimizers, and evaluation mode, including language-model training.</p>
                     <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
                 </a>
                 <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/distributed/README.md">
-                    <h3>Distributed training</h3><p>CPU and Metal workers, TCP setup, disjoint data shards, gradient synchronization, and checkpoint continuation.</p>
+                    <h3>Distributed training</h3><p>Train across multiple machines with CPU or Metal workers. Learn to set up workers, divide the data, synchronize gradients, and restore checkpoints.</p>
                     <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
                 </a>
             </div>
@@ -75,7 +71,7 @@
                     <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
                 </a>
                 <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/training.md">
-                    <h3>Training</h3><p>Batching, differentiable losses, optimizers, and training/evaluation mode.</p>
+                    <h3>Training a model</h3><p>Batching, differentiable losses, optimizers, and training/evaluation mode.</p>
                     <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
                 </a>
                 <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/persistence.md">

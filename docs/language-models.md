@@ -1,7 +1,7 @@
 # Language models and tools
 
 DeepJ's language-model APIs build on the same tensors, autograd, layers, and CPU/Metal
-backends as the other network families. This guide covers decoder Transformers,
+backends as the other model types. This guide covers decoder Transformers,
 pretrained checkpoints, text generation, and the optional chat interfaces.
 
 See the [documentation index](README.md) for feed-forward, convolutional, recurrent,

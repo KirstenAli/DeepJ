@@ -11,6 +11,27 @@ project remains unchanged. Active distributed training adds network traffic and
 CPU/GPU transfers. Speedup and useful model/batch sizes need measurements on the
 target machines.
 
+## How it works
+
+Distributed training lets multiple machines train a model together. DeepJ uses
+data parallelism: every worker runs a complete copy of the same model and optimizer,
+and processes a different portion of the training data. A worker is one JVM using
+DeepJ's CPU or Metal backend.
+
+Each training update follows these steps:
+
+1. Every worker computes a loss for its local data using DeepJ tensors.
+2. DeepJ autograd calculates the local parameter gradients.
+3. Workers exchange gradients over TCP. The coordinator combines them into an
+   average weighted by each worker's contribution count.
+4. Every worker applies the same averaged gradients through its optimizer, then
+   they proceed to the next update together.
+
+For example, two workers processing 16 samples each contribute to one update
+using 32 samples. The coordinator also trains. Every worker needs memory for a
+complete model, gradients, and optimizer state. Update speed depends on worker
+computation and communication time.
+
 ## API
 
 All classes are in `io.github.kirstenali.deepj.distributed`.
@@ -87,7 +108,7 @@ including ranks that exhaust earlier. With different local batch sizes, agree on
 the maximum local step count across ranks. A step where all shards are exhausted
 ends the group with an error.
 
-The family-independent parameter protocol applies to feed-forward networks,
+The parameter protocol applies to feed-forward networks,
 convolutions, recurrent networks, autoencoders, encoders and complete decoder
 models. It does not make every operation equivalent to processing one combined
 batch: batch-dependent normalization and worker-local randomness retain their
@@ -150,7 +171,7 @@ mvn --batch-mode -f distributed/pom.xml verify
 ```
 
 The portable suite runs real worker JVMs over process pipes using the production
-coordinator, framing, reductions and deadlines. It compares 15 network families
+coordinator, framing, reductions and deadlines. It compares 15 model types
 and three storage dtypes against the existing single-worker training APIs,
 including unequal batches, an exhausted rank, clipping and AdamW state. It also
 checks checkpoint continuation, disjoint shards, persistent-buffer policies,
