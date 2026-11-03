@@ -61,6 +61,16 @@ The normal `deepj chat`, `deepj generate`, and `deepj inspect` commands accept a
 its `config.json`, or a safetensors weight/index file inside that directory. Existing backend and sampling flags
 apply. Inspection reads configuration and tensor metadata without constructing the model or selecting a backend.
 
+The chat command uses the checkpoint's weight format by default. For FP32 weights on Metal, run:
+
+```bash
+java -Xmx12g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
+  --backend metal chat ./qwen3-1.7b --dtype float32
+```
+
+The option converts weights in memory at load time. FP32 uses twice the weight storage of BF16 and
+can decode faster on Metal. The `--dtype` option also accepts `float16` and `bfloat16`.
+
 In the desktop chat app, choose `config.json` or a safetensors file through the model picker. Keep the configuration,
 tokenizer, index, and shards together in the snapshot directory. The CLI and desktop use the non-thinking Qwen3
 chat template, recognize both end-of-sequence IDs, and display the generated continuation. Tokenizer IDs may occupy

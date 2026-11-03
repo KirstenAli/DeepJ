@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.persistence.ModelInspection;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 
 import java.io.InputStream;
@@ -20,7 +21,7 @@ record CliServices(InputStream input, PrintWriter out, PrintWriter err, boolean 
     }
 
     @FunctionalInterface
-    interface Models { CliModel load(Path path, BackendChoice backend) throws IOException; }
+    interface Models { CliModel load(Path path, BackendChoice backend, DType dtype) throws IOException; }
 
     @FunctionalInterface
     interface Consoles { CliConsole open(CliServices services) throws IOException; }

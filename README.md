@@ -66,6 +66,8 @@ mvn package -Pcli
 java -Xmx8g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./qwen3-1.7b
 ```
 
+For FP32 weights on Apple Silicon, use `-Xmx12g` and add `--backend metal --dtype float32`. This can speed up Qwen3 chat on Metal and uses more memory than loading the checkpoint's BF16 weights.
+
 For desktop chat, select `config.json` from the same folder in the model picker. See the [Qwen3 guide](docs/qwen3.md) for model details, pretrained loading, and training support.
 
 ## Documentation

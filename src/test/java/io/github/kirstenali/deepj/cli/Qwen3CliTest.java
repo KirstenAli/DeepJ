@@ -1,12 +1,16 @@
 package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatFixture;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import java.io.ByteArrayInputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,6 +46,34 @@ class Qwen3CliTest {
         assertEquals(0, result, errors.toString());
         assertEquals("xxxx" + System.lineSeparator(), output.toString());
         assertEquals("", errors.toString());
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void chatPreservesBfloat16WeightsUnlessFloat32IsRequested(boolean useFloat32) throws Exception {
+        Tensor.setBackend(new CpuBackend());
+        Path snapshot = Qwen3ChatFixture.create(directory.resolve("model"), DType.BFLOAT16);
+        StringWriter output = new StringWriter(), errors = new StringWriter();
+        DType expected = useFloat32 ? DType.FLOAT32 : DType.BFLOAT16;
+        var args = new ArrayList<>(List.of("chat", snapshot.toString(), "--backend", "cpu",
+                "--max-tokens", "4", "--top-k", "1"));
+        if (useFloat32) args.addAll(List.of("--dtype", "float32"));
+        var cli = chatServices(output, errors, expected);
+        assertEquals(0, DeepJCli.execute(cli, args.toArray(String[]::new)), errors.toString());
+        assertTrue(output.toString().contains("xxxx"));
+        assertEquals("", errors.toString());
+    }
+
+    private static CliServices chatServices(StringWriter output, StringWriter errors, DType expected) {
+        var defaults = services(output, errors);
+        var input = new ByteArrayInputStream("hello\n/exit\n".getBytes(StandardCharsets.UTF_8));
+        return new CliServices(input, defaults.out(), defaults.err(), false, Map.of(), (path, backend, dtype) -> {
+            var loaded = (Qwen3CliModel) defaults.models().load(path, backend, dtype);
+            for (var parameter : loaded.chat().model().parameters()) {
+                assertEquals(parameter.value.matrixRows() == 1 ? DType.FLOAT32 : expected,
+                        parameter.value.dtype(), parameter.name());
+            }
+            return loaded;
+        }, defaults.consoles(), defaults.inspector(), defaults.metalAvailable());
     }
 
     @Test void inspectReadsQwenMetadataWithoutChangingTheBackend() throws Exception {

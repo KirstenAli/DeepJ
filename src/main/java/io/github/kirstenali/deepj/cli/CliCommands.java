@@ -1,8 +1,10 @@
 package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.persistence.ModelInspection;
+import io.github.kirstenali.deepj.tensor.DType;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.io.IOException;
@@ -16,6 +18,9 @@ final class CliCommands {
     static final class Chat implements Callable<Integer> {
         @Parameters(index = "0", paramLabel = "MODEL", description = "Model directory or .dj checkpoint.")
         private Path path;
+        @Option(names = "--dtype",
+                description = "Qwen3 weight storage: ${COMPLETION-CANDIDATES} (default: checkpoint).")
+        private DType dtype;
         @Mixin private SamplingOptions sampling = new SamplingOptions();
         private final CliOptions options;
         private final CliServices services;
@@ -28,7 +33,7 @@ final class CliCommands {
         @Override public Integer call() throws IOException {
             SamplingSettings settings = sampling.settings();
             try (CliConsole console = services.consoles().open(services);
-                 CliModel model = services.models().load(path, options.backend)) {
+                 CliModel model = services.models().load(path, options.backend, dtype)) {
                 new ChatSession(console, model, options, services, settings).run();
             }
             return 0;
@@ -53,7 +58,7 @@ final class CliCommands {
         @Override public Integer call() throws IOException {
             SamplingSettings settings = sampling.settings();
             String prompt = input.read(services);
-            try (CliModel model = services.models().load(path, options.backend)) {
+            try (CliModel model = services.models().load(path, options.backend, null)) {
                 StreamedText output = new StreamedText(services.out());
                 output.complete(model.stream(prompt, settings, output::update));
                 if (!output.endsWithNewline()) services.out().println();

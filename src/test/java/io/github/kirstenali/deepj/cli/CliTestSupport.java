@@ -26,7 +26,7 @@ abstract class CliTestSupport {
     CliServices services(String input, boolean interactive) {
         return new CliServices(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)),
                 new PrintWriter(output, true), new PrintWriter(errors, true), interactive, Map.of(),
-                (path, backend) -> {
+                (path, backend, dtype) -> {
                     selected = backend;
                     loads++;
                     return model;

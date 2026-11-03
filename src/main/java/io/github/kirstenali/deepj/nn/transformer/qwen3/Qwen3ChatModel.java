@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.nn.transformer.qwen3;
 
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Chat;
 import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Tokenizer;
 import java.io.IOException;
@@ -21,9 +22,14 @@ public record Qwen3ChatModel(Qwen3 model, Qwen3Tokenizer tokenizer) {
     }
 
     public static Qwen3ChatModel load(Path selection) throws IOException {
+        return load(selection, null);
+    }
+
+    /** Loads chat weights in the requested storage format, or keeps the checkpoint format when null. */
+    public static Qwen3ChatModel load(Path selection, DType dtype) throws IOException {
         Path directory = Qwen3Snapshot.directory(selection);
         Qwen3Tokenizer tokenizer = Qwen3Tokenizer.load(directory);
-        return new Qwen3ChatModel(Qwen3Pretrained.load(directory), tokenizer);
+        return new Qwen3ChatModel(Qwen3Pretrained.load(directory, dtype), tokenizer);
     }
 
     public String stream(String prompt, int maxTokens, float temperature, int topK, long seed,

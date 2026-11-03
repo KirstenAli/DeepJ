@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
@@ -30,7 +31,12 @@ interface CliModel extends AutoCloseable {
     }
 
     static CliModel load(Path path, BackendChoice backend) throws IOException {
-        if (Qwen3Snapshot.matches(path)) return Qwen3CliModel.load(path, backend);
+        return load(path, backend, null);
+    }
+
+    static CliModel load(Path path, BackendChoice backend, DType dtype) throws IOException {
+        if (Qwen3Snapshot.matches(path)) return Qwen3CliModel.load(path, backend, dtype);
+        if (dtype != null) throw new IllegalArgumentException("--dtype is available for Qwen3 chat.");
         Path file = modelFile(path).toAbsolutePath();
         ModelInspection info = ModelSerializer.inspect(file);
         backend.activate();
