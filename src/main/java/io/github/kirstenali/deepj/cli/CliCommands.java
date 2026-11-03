@@ -80,7 +80,8 @@ final class CliCommands {
             out.printf("Vocabulary      %,d%nTensors         %,d%n",
                     info.settings().config().vocabSize(), info.tensors());
             out.printf("Checkpoint      %,.2f MiB%n", info.bytes() / (1024.0 * 1024.0));
-            out.printf("Prompt format   %s%n", info.settings().promptFormat());
+            out.printf("Prompt format   %s%n", info.settings().metadata()
+                    .getOrDefault("prompt_format", info.settings().promptFormat().toString()));
             return 0;
         }
     }

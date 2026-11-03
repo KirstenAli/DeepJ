@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.persistence.ModelInspection;
-import io.github.kirstenali.deepj.persistence.ModelSerializer;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 
 import java.io.InputStream;
@@ -17,7 +16,7 @@ record CliServices(InputStream input, PrintWriter out, PrintWriter err, boolean 
     static CliServices system() {
         return new CliServices(System.in, new PrintWriter(System.out, true), new PrintWriter(System.err, true),
                 System.console() != null, System.getenv(), CliModel::load, CliConsole::system,
-                path -> ModelSerializer.inspect(CliModel.modelFile(path)), MetalBackend::isAvailable);
+                CliModel::inspect, MetalBackend::isAvailable);
     }
 
     @FunctionalInterface

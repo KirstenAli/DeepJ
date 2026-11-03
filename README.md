@@ -55,6 +55,19 @@ The CLI streams responses, supports selectable themes, and uses Metal when avail
 
 ![DeepJ CLI streaming a response from Frisky 90M](docs/cli.png)
 
+## Try Qwen3-1.7B
+
+[Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) is a pretrained 1.7-billion-parameter language model you can run locally with DeepJ on CPU or Apple Metal. Chat through the CLI or load it in the desktop app.
+
+Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`. Build the CLI from the current source, then start chatting:
+
+```bash
+mvn package -Pcli
+java -Xmx8g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar chat ./qwen3-1.7b
+```
+
+For desktop chat, select `config.json` from the same folder in the model picker. See the [Qwen3 guide](docs/qwen3.md) for model details, pretrained loading, and training support.
+
 ## Documentation
 
 Start with the [documentation index](docs/README.md), or go directly to:

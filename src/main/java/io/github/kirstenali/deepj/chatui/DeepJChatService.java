@@ -1,7 +1,9 @@
 package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
@@ -23,7 +25,8 @@ public final class DeepJChatService implements ChatService {
         model = candidate;
     }
 
-    private static ChatService serviceFor(Path path) {
+    private static ChatService serviceFor(Path path) throws IOException {
+        if (Qwen3Snapshot.matches(path)) return new Qwen3ChatService();
         return path.toString().endsWith(".dj")
                 ? new EmbeddedModelChatService() : new DeepJOriginChatService();
     }
