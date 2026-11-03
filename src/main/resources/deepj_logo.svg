@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">DeepJ logo</title>
+  <desc id="description">A cyan D interlocked with a swept mint J, with three neural connections converging on an amber node.</desc>
+  <defs>
+    <linearGradient id="depth" x1="94" y1="88" x2="426" y2="424" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#24ADEB"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="270" y1="186" x2="194" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#20BFA5"/>
+    </linearGradient>
+    <path id="java-mark" d="M282 182L342 164L325 310C316 390 272 440 206 440C161 440 126 416 106 378L165 338C178 365 198 380 224 370C250 358 260 337 265 302L282 182Z"/>
+    <mask id="interlock" x="0" y="0" width="512" height="512" maskUnits="userSpaceOnUse">
+      <path d="M0 0H512V512H0Z" fill="white"/>
+      <use href="#java-mark" fill="black" stroke="black" stroke-width="16" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <g transform="translate(-4 -8)">
+    <path d="M122 88H250C350 88 426 163 426 256C426 349 350 424 250 424H122L94 396V116L122 88ZM158 152V360H246C310 360 362 314 362 256C362 198 310 152 246 152H158Z" fill="url(#depth)" fill-rule="evenodd" mask="url(#interlock)"/>
+    <use href="#java-mark" fill="url(#signal)"/>
+    <g stroke="#38BDF8" stroke-width="10" stroke-linecap="round">
+      <path d="M158 199H182C218 199 208 256 244 256"/>
+      <path d="M158 256H244"/>
+      <path d="M158 313H182C218 313 208 256 244 256"/>
+    </g>
+    <path d="M244 256H282" stroke="url(#signal)" stroke-width="10" stroke-linecap="round"/>
+    <g fill="#38BDF8">
+      <circle cx="182" cy="199" r="13"/>
+      <circle cx="182" cy="256" r="13"/>
+      <circle cx="182" cy="313" r="13"/>
+    </g>
+    <circle cx="244" cy="256" r="18" fill="#FBBF24"/>
+  </g>
+</svg>

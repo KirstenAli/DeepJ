@@ -134,6 +134,9 @@ svg {
   white-space: nowrap;
 }
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.4px;
@@ -301,6 +304,10 @@ svg {
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.7px;
+}
+.welcome-logo {
+  display: block;
+  margin: 0 auto 18px;
 }
 #welcome p {
   margin: 13px 0 28px;

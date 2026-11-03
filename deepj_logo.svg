@@ -1,48 +1,35 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">DeepJ logo mathematically centered</title>
-  <desc id="desc">DeepJ logo with mathematically centered artwork, including background card and border.</desc>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">DeepJ logo</title>
+  <desc id="description">A cyan D interlocked with a swept mint J, with three neural connections converging on an amber node.</desc>
   <defs>
-    <linearGradient id="bg" x1="84" y1="72" x2="428" y2="440" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F172A"/>
-      <stop offset="1" stop-color="#111827"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="120" y1="120" x2="392" y2="392" gradientUnits="userSpaceOnUse">
+    <linearGradient id="depth" x1="94" y1="88" x2="426" y2="424" gradientUnits="userSpaceOnUse">
       <stop stop-color="#38BDF8"/>
-      <stop offset="0.5" stop-color="#22C55E"/>
-      <stop offset="1" stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#24ADEB"/>
     </linearGradient>
-    <linearGradient id="soft" x1="156" y1="156" x2="360" y2="360" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7DD3FC" stop-opacity="0.95"/>
-      <stop offset="1" stop-color="#34D399" stop-opacity="0.95"/>
+    <linearGradient id="signal" x1="270" y1="186" x2="194" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#20BFA5"/>
     </linearGradient>
-    <filter id="shadow" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#020617" flood-opacity="0.35"/>
-    </filter>
+    <path id="java-mark" d="M282 182L342 164L325 310C316 390 272 440 206 440C161 440 126 416 106 378L165 338C178 365 198 380 224 370C250 358 260 337 265 302L282 182Z"/>
+    <mask id="interlock" x="0" y="0" width="512" height="512" maskUnits="userSpaceOnUse">
+      <path d="M0 0H512V512H0Z" fill="white"/>
+      <use href="#java-mark" fill="black" stroke="black" stroke-width="16" stroke-linejoin="round"/>
+    </mask>
   </defs>
-
-  <rect x="48" y="48" width="416" height="416" rx="108" fill="url(#bg)"/>
-  <rect x="56" y="56" width="400" height="400" rx="100" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
-
-  <g transform="translate(5,-10)" filter="url(#shadow)">
-    <path d="M150 144H228C292.065 144 344 195.935 344 260C344 324.065 292.065 376 228 376H150V144Z"
-          fill="none" stroke="url(#accent)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
-
-    <path d="M196 184H228C269.421 184 303 217.579 303 259C303 300.421 269.421 334 228 334H196"
-          fill="none" stroke="#E2E8F0" stroke-opacity="0.9" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-
-    <path d="M354 164V310C354 354.183 318.183 390 274 390C238.654 390 210 361.346 210 326"
-          fill="none" stroke="url(#soft)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
-
-    <path d="M238 210L318 188M240 260L348 258M236 310L312 334"
-          stroke="#E2E8F0" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"/>
-
-    <circle cx="238" cy="210" r="10" fill="#38BDF8"/>
-    <circle cx="240" cy="260" r="10" fill="#22C55E"/>
-    <circle cx="236" cy="310" r="10" fill="#F59E0B"/>
-
-    <circle cx="318" cy="188" r="12" fill="#E2E8F0"/>
-    <circle cx="348" cy="258" r="12" fill="#E2E8F0"/>
-    <circle cx="312" cy="334" r="12" fill="#E2E8F0"/>
+  <g transform="translate(-4 -8)">
+    <path d="M122 88H250C350 88 426 163 426 256C426 349 350 424 250 424H122L94 396V116L122 88ZM158 152V360H246C310 360 362 314 362 256C362 198 310 152 246 152H158Z" fill="url(#depth)" fill-rule="evenodd" mask="url(#interlock)"/>
+    <use href="#java-mark" fill="url(#signal)"/>
+    <g stroke="#38BDF8" stroke-width="10" stroke-linecap="round">
+      <path d="M158 199H182C218 199 208 256 244 256"/>
+      <path d="M158 256H244"/>
+      <path d="M158 313H182C218 313 208 256 244 256"/>
+    </g>
+    <path d="M244 256H282" stroke="url(#signal)" stroke-width="10" stroke-linecap="round"/>
+    <g fill="#38BDF8">
+      <circle cx="182" cy="199" r="13"/>
+      <circle cx="182" cy="256" r="13"/>
+      <circle cx="182" cy="313" r="13"/>
+    </g>
+    <circle cx="244" cy="256" r="18" fill="#FBBF24"/>
   </g>
 </svg>
