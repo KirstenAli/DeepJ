@@ -10,9 +10,8 @@ differentiation, composable layers, and shared CPU/Metal execution.
 
 | Guide | Start here for |
 |---|---|
-| [Network training](training.md) | Training APIs by network family, minibatches, losses, AdamW, and training/evaluation mode |
-| [Language-model training](training.md#causal-language-model-training) | Token batches, response masks, gradient clipping, and accumulation |
-| [Distributed training](../distributed/README.md) | Optional data-parallel training across CPU or Apple Silicon workers, data shards, and checkpoints |
+| [Training a model](training.md) | Training APIs by model type, minibatches, losses, AdamW, and evaluation mode, including language-model training |
+| [Distributed training](../distributed/README.md) | Train across multiple machines with CPU or Metal workers, data shards, and synchronized updates |
 
 ## Core library
 

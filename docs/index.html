@@ -54,7 +54,7 @@
         <div class="shell">
             <p class="section-label">Supported networks</p>
             <h2>Choose a network. Keep the same foundation.</h2>
-            <p class="section-intro">Compose layers, calculate gradients, and train across network families with DeepJ tensors, parameters, and optimizers.</p>
+            <p class="section-intro">Compose layers, calculate gradients, and train different model types with DeepJ tensors, parameters, and optimizers.</p>
             <div class="feature-grid">
                 <article class="feature-card">
                     <span class="feature-number">01</span><h3>Feed-forward networks</h3>
@@ -81,7 +81,7 @@
                     <p>DeepJ Origin, Orbit, Prism, Nova, and Loop, with causal language-model training and text generation.</p>
                 </article>
             </div>
-            <p class="model-note">These network families use DeepJ layers, parameters, tensors, and autograd.</p>
+            <p class="model-note">These model types use DeepJ layers, parameters, tensors, and autograd.</p>
         </div>
     </section>
     <section class="section section-muted" id="features">
@@ -119,19 +119,15 @@
     </section>
     <section class="section" id="training">
         <div class="shell">
-            <p class="section-label">Training</p><h2>Train locally or across workers.</h2>
-            <p class="section-intro">Train neural networks on CPU or Apple Metal. Use the optional distributed module for synchronous data-parallel training across multiple Apple Silicon Macs or CPU machines.</p>
-            <div class="feature-grid">
+            <p class="section-label">Training</p><h2>Train locally or across machines.</h2>
+            <p class="section-intro">Train DeepJ models on CPU or Apple Metal. To share training work across multiple Apple Silicon Macs or CPU machines, use the optional distributed module.</p>
+            <div class="model-grid">
                 <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/training.md">
-                    <h3>Network training</h3><p>Train feed-forward networks, CNNs, recurrent networks, autoencoders, and Transformer encoders with minibatches, differentiable losses, and AdamW.</p>
-                    <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
-                </a>
-                <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/training.md#causal-language-model-training">
-                    <h3>Language-model training</h3><p>Train causal decoders with token batches, response masks, gradient clipping, and gradient accumulation.</p>
+                    <h3>Training a model</h3><p>Choose a training API for your model type, then configure minibatches, losses, optimizers, and evaluation mode. The guide also covers language models.</p>
                     <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
                 </a>
                 <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/distributed/README.md">
-                    <h3>Distributed training</h3><p>Train a full model replica on each worker's data shard, synchronize gradients over TCP, and continue from per-worker checkpoints.</p>
+                    <h3>Distributed training</h3><p>Train across multiple machines. Each worker trains a full model copy on different data, then synchronizes gradients before every update.</p>
                     <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
                 </a>
             </div>
@@ -179,7 +175,7 @@
             <p class="section-intro">Find the shape, gradient, training, and persistence contracts before exploring specialist model tools.</p>
             <div class="feature-grid">
                 <a class="feature-card guide-card" href="documentation.html#core-guides">
-                    <h3>Core guides</h3><p>Tensors, autograd, network families, training, saving/loading, and backend execution.</p>
+                    <h3>Core guides</h3><p>Tensors, autograd, model types, training, saving/loading, and backend execution.</p>
                     <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
                 </a>
                 <a class="feature-card guide-card" href="api/">
