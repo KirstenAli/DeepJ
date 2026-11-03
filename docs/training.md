@@ -1,11 +1,26 @@
 # Training neural networks
 
 DeepJ networks train through the same tensor operations, autograd engine, parameter
-objects, and optimizers. MLPs, CNNs, recurrent networks, autoencoders, and Transformer
-encoders use this shared training path.
+objects, and optimizers. This guide covers feed-forward networks, CNNs, recurrent
+networks, autoencoders, Transformer encoders, and causal language models.
 
 This guide describes the DeepJ `0.13.0-alpha` training APIs. See
 [version compatibility](README.md#availability) when using an older dependency.
+
+## Choose a training API
+
+| Network or objective | Training entry point |
+|---|---|
+| `FNN`, CNNs, and other `Layer` networks with tensor inputs and targets | `io.github.kirstenali.deepj.nn.NdSupervisedTraining.trainer(...)` for first-axis minibatches |
+| Autoencoders | `NdSupervisedTraining.trainer(...)` with a reconstruction loss such as `MSELoss`; use the input as the target |
+| RNN, GRU, LSTM, or Transformer encoder with an ordinary `forward(input)` objective | `NdSupervisedTraining.trainer(...)`, preserving each sample's sequence axes |
+| Recurrent state, padding masks, multiple inputs, or a custom loss | `new Trainer(stepFunction)` with explicit model calls, backward, and optimizer updates |
+| Causal decoder models, including Qwen3 | `io.github.kirstenali.deepj.training.CausalLMTraining.trainer(...)` with token batches and optional response masks |
+| Data-parallel training across worker JVMs | The optional module's `DistributedTrainer`, with `TensorObjective`, `CausalObjective`, or a custom `TrainingObjective` |
+
+For a single machine, select the [CPU or Metal backend](backends.md) before
+constructing tensors and models. Batching, forward operations, and gradients use
+that backend. For multiple workers, follow the [distributed training guide](../distributed/README.md).
 
 ## Training cycle
 
@@ -54,8 +69,8 @@ apply a learning-rate schedule or gradient clipping.
 
 ## Training and evaluation mode
 
-New `Module` instances start in training mode. `train()`, `eval()`, and
-`setTraining(boolean)` propagate through new-module children. Dropout is active in
+`Module` instances start in training mode. `train()`, `eval()`, and
+`setTraining(boolean)` propagate through child modules. Dropout is active in
 training and disabled during evaluation. BatchNorm uses batch statistics during
 training and persistent running statistics during evaluation.
 
@@ -75,12 +90,51 @@ Transformer encoder masks identify valid tokens for attention and pooling. The g
 ND trainer calls `forward(input)`; training that needs explicit masks, recurrent state,
 or custom sequence losses should use a custom step with those APIs.
 
-## Saving state and language-model training
+## Causal language-model training
+
+`CausalLMTraining.trainer(model, dataset, optimizer)` trains a `CausalLM` from a
+`BatchSource`. Each `Batch` contains token inputs, next-token targets, and optional
+per-sequence loss masks. A response mask selects the tokens that contribute to
+the loss, such as the assistant response during instruction fine-tuning.
+
+The trainer computes cross entropy, averages sequence losses and gradients over
+the batch, clips the global gradient norm using `model.gradClipNorm()`, and updates
+the parameters. It uses batched forward when the model supports it. The overload
+accepting a learning rate creates an AdamW optimizer.
+
+`GradientAccumulation.trainer(model, dataset, optimizer, steps)` combines several
+microbatches into one optimizer update. Calling `trainStep(microBatchSize)` produces
+an effective batch of `microBatchSize * steps` sequences.
+
+See [language-model data and persistence](language-models.md#text-data-and-persistence),
+[looped decoder training](looped-training.md), and [Qwen3 model and training](qwen3.md#model-and-training)
+for the corresponding model and dataset contracts.
+
+## Distributed training
+
+The optional [distributed module](../distributed/README.md) provides synchronous
+data-parallel training across CPU workers or Apple Silicon Macs using Metal.
+Run one JVM per worker, with the same model architecture and optimizer settings,
+and give each worker a different data shard. Every worker holds a full model
+replica; gradients are averaged across workers before the optimizer update.
+
+Use `TensorObjective` for ordinary `Layer` networks, `CausalObjective` for causal
+language models, or `TrainingObjective` for a custom differentiable objective.
+`DistributedTrainer` manages initialization, weighted gradient synchronization,
+clipping, and updates; `trainer()` exposes the usual `Trainer` interface.
+
+The [worker setup](../distributed/README.md#workers-and-synchronization),
+[data sharding](../distributed/README.md#losses-gradients-and-data), and
+[distributed checkpoints](../distributed/README.md#checkpoints) sections cover TCP
+connections, rank assignment, uneven batches, and continuation on every worker.
+Build the module separately using its [build instructions](../distributed/README.md#build-and-verification).
+
+## Saving training state
 
 [Network weight archives](persistence.md) store parameters and persistent buffers for
 an already constructed network. Architecture, optimizer state, training counters,
 recurrent state, and dropout RNG state are managed separately.
 
-Causal language-model training has its own dataset, masking, clipping, evaluation,
-and resumable-checkpoint utilities. See [language models](language-models.md) for
-those APIs rather than assuming they apply to every network family.
+Causal language models have [resumable training checkpoints](persistence.md),
+while distributed jobs use `DistributedCheckpoint` on every rank. Restore the
+matching model, optimizer, and data-source state when continuing a training run.

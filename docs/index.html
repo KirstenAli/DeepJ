@@ -3,10 +3,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="A Java neural network library for building, training, and running models with tensors, autograd, composable layers, and optional Apple Metal acceleration.">
+    <meta name="description" content="Build, train, and run neural networks in Java with tensors, autograd, CPU/Metal execution, and optional distributed training.">
     <meta name="theme-color" content="#07111f">
     <meta property="og:title" content="DeepJ — neural networks in Java">
-    <meta property="og:description" content="A Java neural network library for building, training, and running models with tensors, autograd, composable layers, and optional Apple Metal acceleration.">
+    <meta property="og:description" content="Build, train, and run neural networks in Java with tensors, autograd, CPU/Metal execution, and optional distributed training.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://kirstenali.github.io/DeepJ/">
     <link rel="canonical" href="https://kirstenali.github.io/DeepJ/">
@@ -24,6 +24,7 @@
         <nav aria-label="Primary navigation">
             <a href="#networks">Networks</a>
             <a href="#features">Core</a>
+            <a href="#training">Training</a>
             <a href="#install">Install</a>
             <a class="nav-docs" href="documentation.html">Docs</a>
             <a href="api/">API</a>
@@ -114,6 +115,26 @@
                 </article>
             </div>
             <a class="text-link" href="documentation.html#core-guides">Explore the core guides <span aria-hidden="true">→</span></a>
+        </div>
+    </section>
+    <section class="section" id="training">
+        <div class="shell">
+            <p class="section-label">Training</p><h2>Train locally or across workers.</h2>
+            <p class="section-intro">Train neural networks on CPU or Apple Metal. Use the optional distributed module for synchronous data-parallel training across multiple Apple Silicon Macs or CPU machines.</p>
+            <div class="feature-grid">
+                <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/training.md">
+                    <h3>Network training</h3><p>Train feed-forward networks, CNNs, recurrent networks, autoencoders, and Transformer encoders with minibatches, differentiable losses, and AdamW.</p>
+                    <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
+                </a>
+                <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/docs/training.md#causal-language-model-training">
+                    <h3>Language-model training</h3><p>Train causal decoders with token batches, response masks, gradient clipping, and gradient accumulation.</p>
+                    <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
+                </a>
+                <a class="feature-card guide-card" href="https://github.com/KirstenAli/DeepJ/blob/master/distributed/README.md">
+                    <h3>Distributed training</h3><p>Train a full model replica on each worker's data shard, synchronize gradients over TCP, and continue from per-worker checkpoints.</p>
+                    <span class="guide-action">Read guide <span aria-hidden="true">→</span></span>
+                </a>
+            </div>
         </div>
     </section>
     <section class="section" id="install">

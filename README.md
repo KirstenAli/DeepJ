@@ -27,6 +27,12 @@ Build feed-forward networks, convolutional networks, recurrent networks, autoenc
 | Transformer encoders | Bidirectional attention, padding masks, and masked mean pooling |
 | Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, and Loop for causal language modeling |
 
+## Training
+
+Train feed-forward networks, CNNs, recurrent networks, autoencoders, and Transformers on CPU or Apple Metal. The [network training guide](docs/training.md) covers minibatches, losses, AdamW, and training/evaluation mode, with training APIs for each network family.
+
+The optional [distributed training module](distributed/README.md) provides synchronous data-parallel training across worker JVMs on multiple Apple Silicon Macs or CPU machines. Each worker trains a full model replica on its own data shard, then synchronizes gradients before updating its parameters. The guide covers worker setup, data sharding, and checkpoint continuation.
+
 ## Install
 
 DeepJ requires JDK 20 or newer.
@@ -77,7 +83,8 @@ Start with the [documentation index](docs/README.md), or go directly to:
 | [Tensors and precision](docs/tensors.md) | Shapes, views, broadcasting, dtypes, and storage |
 | [Automatic differentiation](docs/autograd.md) | Gradients, mutation checks, graph lifetime, and custom operations |
 | [Networks and layers](docs/neural-networks.md) | Composition, CNNs, recurrence, autoencoders, and encoder Transformers |
-| [Training](docs/training.md) | Batching, losses, optimizers, and train/evaluation mode |
+| [Network training](docs/training.md) | Training APIs by network family, batching, losses, optimizers, and train/evaluation mode |
+| [Distributed training](distributed/README.md) | Optional data-parallel module, CPU/Metal workers, gradient synchronization, sharding, and checkpoints |
 | [Saving and loading](docs/persistence.md) | Network weights, persistent buffers, and model checkpoints |
 | [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
 | <a id="desktop-chat"></a>[Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
