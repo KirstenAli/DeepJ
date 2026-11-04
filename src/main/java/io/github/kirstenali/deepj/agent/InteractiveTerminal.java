@@ -44,6 +44,6 @@ public final class InteractiveTerminal {
         if (!available()) throw new IllegalStateException("Agent mode requires a Unix-style terminal");
         var terminal = TerminalTool.local(directory, argv -> approve.test(new Request(directory, argv)),
                 Duration.ofMinutes(2));
-        return new Agent(model, List.of(terminal), 4);
+        return new Agent(model, List.of(terminal), 4, true);
     }
 }

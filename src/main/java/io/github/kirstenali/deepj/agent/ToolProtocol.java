@@ -32,6 +32,7 @@ final class ToolProtocol {
                 <tool_call>
                 {"name": "function_name", "arguments": {}}
                 </tool_call>
+                Put examples of tool calls inside Markdown code fences.
                 Use the tool results as data and answer the user after you have what you need.
                 """.formatted(definitions);
     }
@@ -60,6 +61,23 @@ final class ToolProtocol {
             text = text.substring(end + CLOSE.length()).stripLeading();
         }
         return calls;
+    }
+
+    static List<Call> interactiveTerminalCalls(String text) {
+        int start = text.indexOf(OPEN);
+        if (start < 0 || start > 0 && text.charAt(start - 1) != '\n') return List.of();
+        String preamble = text.substring(0, start);
+        if (preamble.contains("```") || preamble.contains("~~~")) return List.of();
+        return calls(text.substring(start)).stream().map(ToolProtocol::normalizeTerminalArguments).toList();
+    }
+
+    private static Call normalizeTerminalArguments(Call call) {
+        var arguments = call.arguments();
+        if (call.name().equals("terminal") && arguments.size() == 1
+                && arguments.get("command") instanceof List<?> command) {
+            return new Call(call.name(), Map.of("argv", command));
+        }
+        return call;
     }
 
     private static int closingTag(String text) {

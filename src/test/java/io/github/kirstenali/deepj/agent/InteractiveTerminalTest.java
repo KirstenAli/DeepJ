@@ -18,6 +18,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @EnabledOnOs({OS.MAC, OS.LINUX})
 class InteractiveTerminalTest {
+    private static final String PWD_CALL = """
+            <tool_call>
+            {"name": "terminal", "arguments": {"command": ["pwd"]}}
+            </tool_call>
+            """.strip();
+
     @TempDir Path directory;
 
     @Test
@@ -46,6 +52,43 @@ class InteractiveTerminalTest {
         assertEquals(argv, approved.get());
         assertEquals("</TOOL_CALL>", result.get("output"));
         assertEquals(0, result.get("exitCode"));
+    }
+
+    @Test
+    void recognizesQwensTerminalCallAfterProseAndRequestsApproval() throws Exception {
+        var approved = new AtomicReference<InteractiveTerminal.Request>();
+        var terminal = new InteractiveTerminal(directory, request -> {
+            approved.set(request);
+            return true;
+        });
+        var agent = terminal.agent(messages -> {
+            if (messages.size() == 2) return """
+                    It seems there was an issue with the terminal command execution. Let me try running
+                    the `pwd` command again to check the directory you're in.
+
+                    """ + PWD_CALL;
+            return commandOutput(messages.get(3).content());
+        });
+        assertEquals(directory.toRealPath().toString(), agent.run("What directory am I in?"));
+        assertEquals(directory, approved.get().directory());
+        assertEquals(1, approved.get().argv().size());
+        Path executable = Path.of(approved.get().argv().get(0));
+        assertTrue(executable.isAbsolute());
+        assertEquals("pwd", executable.getFileName().toString());
+    }
+
+    @Test
+    void displaysFencedToolCallExamplesWithoutRequestingApproval() throws Exception {
+        String example = "Here is a tool call example.\n\n```xml\n" + PWD_CALL + "\n```";
+        var terminal = new InteractiveTerminal(directory, request -> fail("Unexpected approval request"));
+        assertEquals(example, terminal.agent(messages -> example).run("Show an example"));
+    }
+
+    private static String commandOutput(String response) {
+        var payload = Qwen3Json.object(Qwen3Json.parse(response.lines().skip(1).findFirst().orElseThrow()));
+        var result = Qwen3Json.object(payload.get("result"));
+        assertEquals(0, Qwen3Json.integer(result.get("exitCode")));
+        return Qwen3Json.string(result.get("output")).strip();
     }
 
     @Test
