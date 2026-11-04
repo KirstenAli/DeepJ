@@ -192,7 +192,7 @@
     </div>
     <div id="settingsBackdrop" class="modal-backdrop" hidden>
       <section
-        class="settings-dialog"
+        class="chat-dialog settings-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settingsTitle"
@@ -270,6 +270,37 @@
           </label>
         </details>
         <button type="button" id="doneSettings" class="done-button">Done</button>
+      </section>
+    </div>
+    <div id="approvalBackdrop" class="modal-backdrop" hidden>
+      <section
+        class="chat-dialog approval-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="approvalTitle"
+        aria-describedby="approvalDescription"
+      >
+        <div class="approval-heading">
+          <span class="approval-icon"
+            ><svg aria-hidden="true"><use href="#icon-terminal" /></svg
+          ></span>
+          <div>
+            <h2 id="approvalTitle">Run terminal command?</h2>
+            <p id="approvalDescription">The agent is asking to run this command once.</p>
+          </div>
+        </div>
+        <div class="approval-details">
+          <h3 id="approvalCommandLabel">Command and arguments</h3>
+          <pre id="approvalCommand" tabindex="0" aria-labelledby="approvalCommandLabel"></pre>
+          <h3 id="approvalDirectoryLabel">Working directory</h3>
+          <pre id="approvalDirectory" tabindex="0" aria-labelledby="approvalDirectoryLabel"></pre>
+        </div>
+        <div class="approval-actions">
+          <button type="button" id="denyCommand" class="done-button">Deny</button>
+          <button type="button" id="allowCommand" class="done-button primary-action">
+            Run once
+          </button>
+        </div>
       </section>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>

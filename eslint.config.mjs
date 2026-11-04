@@ -4,6 +4,8 @@ import sonarjs from 'eslint-plugin-sonarjs';
 const bridgeCallbacks = [
   'setModel',
   'setAgentWorkspace',
+  'openApproval',
+  'closeApproval',
   'setBusy',
   'setGenerating',
   'startResponse',

@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.concurrent.CancellationException;
+import java.util.function.Consumer;
 
 /** Runs a single user request, returning tool results to the model until it answers. */
 public final class Agent {
@@ -28,12 +29,17 @@ public final class Agent {
     }
 
     public String run(String prompt) throws InterruptedException {
+        return run(prompt, null);
+    }
+
+    /** Streams cumulative answer text while keeping structured tool calls internal. */
+    public String run(String prompt, Consumer<String> listener) throws InterruptedException {
         var messages = new ArrayList<>(List.of(new Message(Role.SYSTEM, instructions),
                 new Message(Role.USER, Objects.requireNonNull(prompt, "prompt"))));
         int remaining = maxToolCalls;
         while (true) {
             checkInterrupted();
-            String reply = ToolProtocol.withoutThinking(model.generate(List.copyOf(messages)));
+            String reply = ToolProtocol.withoutThinking(generate(List.copyOf(messages), listener));
             var calls = ToolProtocol.calls(reply);
             if (calls.isEmpty()) return reply;
             if (calls.size() > remaining) throw new IllegalStateException("Agent tool call limit exceeded");
@@ -41,6 +47,14 @@ public final class Agent {
             messages.add(new Message(Role.ASSISTANT, reply));
             messages.add(new Message(Role.TOOL, execute(calls)));
         }
+    }
+
+    private String generate(List<Message> messages, Consumer<String> listener) {
+        if (listener == null) return model.generate(messages);
+        return model.stream(messages, partial -> {
+            String answer = ToolProtocol.partialAnswer(partial);
+            if (!answer.isEmpty()) listener.accept(answer);
+        });
     }
 
     private void register(Tool tool) {

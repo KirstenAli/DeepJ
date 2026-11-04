@@ -26,9 +26,12 @@ public final class InteractiveTerminal {
         }
 
         public String preview() {
-            return "Command and arguments: " + displayJson(argv)
-                    + "\nWorking directory: " + displayJson(directory.toString());
+            return "Command and arguments: " + commandPreview()
+                    + "\nWorking directory: " + directoryPreview();
         }
+
+        public String commandPreview() { return displayJson(argv); }
+        public String directoryPreview() { return displayJson(directory.toString()); }
 
         private static String displayJson(Object value) {
             return Qwen3Json.stringify(value).chars().mapToObj(character -> character >= 32 && character <= 126

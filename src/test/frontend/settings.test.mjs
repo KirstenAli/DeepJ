@@ -94,6 +94,33 @@ test('theme buttons select exactly one theme', (context) => {
   assert.equal(ui.window.document.querySelector('.theme-choice.selected').dataset.theme, 'dark');
 });
 
+test('terminal approval shows literal command details and restores focus after a decision', (context) => {
+  const ui = fixture(context);
+  ui.window.approvalBridge = {
+    decide: (allow) => {
+      ui.calls.push(allow);
+      ui.window.closeApproval();
+    },
+  };
+  ui.element('prompt').focus();
+  ui.window.openApproval('["/bin/echo", "<tag>"]', '"/tmp/project"');
+  assert.equal(ui.element('approvalCommand').textContent, '["/bin/echo", "<tag>"]');
+  assert.equal(ui.element('approvalDirectory').textContent, '"/tmp/project"');
+  assert.equal(ui.window.document.activeElement, ui.element('denyCommand'));
+  ui.click('allowCommand');
+  assert.equal(ui.element('approvalBackdrop').hidden, true);
+  assert.equal(ui.window.document.activeElement, ui.element('prompt'));
+  assert.deepEqual(ui.calls, [true]);
+});
+
+test('Escape denies a pending terminal command', (context) => {
+  const ui = fixture(context);
+  ui.window.approvalBridge = { decide: (allow) => ui.calls.push(allow) };
+  ui.window.openApproval('["/bin/pwd"]', '"/tmp"');
+  keyboard(ui, ui.element('denyCommand'), 'Escape');
+  assert.deepEqual(ui.calls, [false]);
+});
+
 for (const value of ['', '0', '-1']) {
   test(`invalid token limit ${JSON.stringify(value)} blocks submission and opens settings`, (context) => {
     const ui = fixture(context);

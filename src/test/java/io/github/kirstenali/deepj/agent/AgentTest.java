@@ -3,9 +3,11 @@ package io.github.kirstenali.deepj.agent;
 import io.github.kirstenali.deepj.agent.AgentModel.Role;
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,7 +45,8 @@ class AgentTest {
     void aMalformedBatchNeverExecutesEarlierCalls() {
         var tool = new Echo();
         var agent = new Agent(messages -> call("echo", "first") + "\n<tool_call>{", List.of(tool), 3);
-        assertThrows(IllegalArgumentException.class, () -> agent.run("Echo"));
+        var failure = assertThrows(IllegalArgumentException.class, () -> agent.run("Echo"));
+        assertTrue(failure.getMessage().contains("before finishing a tool request"));
         assertEquals(0, tool.calls);
     }
 
@@ -82,6 +85,27 @@ class AgentTest {
     void duplicateToolNamesAreRejected() {
         var tools = List.of(new Echo(), new Echo());
         assertThrows(IllegalArgumentException.class, () -> new Agent(messages -> "", tools, 1));
+    }
+
+    @Test
+    void streamsTheAnswerWithoutLeakingThinkingOrToolRequests() throws InterruptedException {
+        var tool = new Echo();
+        var partials = new ArrayList<String>();
+        var model = new AgentModel() {
+            @Override public String generate(List<Message> messages) { return fail("Expected streaming"); }
+
+            @Override
+            public String stream(List<Message> messages, Consumer<String> listener) {
+                var chunks = messages.size() == 2
+                        ? List.of("<th", "<think>Private", "<think>Private</think>\n<tool", call("echo", "ok"))
+                        : List.of("Do", "Done 👋");
+                chunks.forEach(listener);
+                return chunks.get(chunks.size() - 1);
+            }
+        };
+        assertEquals("Done 👋", new Agent(model, List.of(tool), 1).run("Echo", partials::add));
+        assertEquals(List.of("Do", "Done 👋"), partials);
+        assertEquals(1, tool.calls);
     }
 
     private static String call(String name, String text) {

@@ -7,6 +7,7 @@ import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Chat;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /** Adapts DeepJ's Qwen3 model and tokenizer to the agent's conversation format. */
 public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperature, int topK,
@@ -34,6 +35,11 @@ public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperat
 
     @Override
     public String generate(List<Message> messages) {
+        return stream(messages, null);
+    }
+
+    @Override
+    public String stream(List<Message> messages, Consumer<String> listener) {
         String prompt = Qwen3Chat.format(messages.stream().map(Qwen3AgentModel::format).toList(), true, false);
         var tokenizer = chat.tokenizer();
         int window = chat.model().config().maxSeqLen();
@@ -42,11 +48,19 @@ public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperat
         if (tokens < 1) throw new IllegalStateException("Agent conversation fills the model context window");
         String prefix = tokenizer.decode(input);
         try (var session = chat.model().openGeneration(mode)) {
-            String text = TextGenerator.generate(session, window, tokenizer, prompt,
-                    tokens, temperature, topK, seed, repetitionPenalty);
-            if (!text.startsWith(prefix)) throw new IllegalStateException("Generated text lost its prompt prefix");
-            return text.substring(prefix.length());
+            String text = listener == null
+                    ? TextGenerator.generate(session, window, tokenizer, prompt,
+                            tokens, temperature, topK, seed, repetitionPenalty)
+                    : TextGenerator.stream(session, window, tokenizer, prompt,
+                            tokens, temperature, topK, seed, repetitionPenalty,
+                            generated -> listener.accept(continuation(prefix, generated)));
+            return continuation(prefix, text);
         }
+    }
+
+    private static String continuation(String prefix, String text) {
+        if (!text.startsWith(prefix)) throw new IllegalStateException("Generated text lost its prompt prefix");
+        return text.substring(prefix.length());
     }
 
     private static Qwen3Chat.Message format(Message message) {

@@ -190,7 +190,7 @@ public final class ChatWindow {
     private void failed(Task<String> task, int response) {
         if (task != activeGeneration) return;
         requests.remove(response);
-        call("failResponse", response, "Generation failed: " + message(task.getException()));
+        call("failResponse", response, message(task.getException()));
         finishGeneration();
     }
 
@@ -231,7 +231,7 @@ public final class ChatWindow {
 
     private void failAlternative(Task<String> task, int response, int option, Request request) {
         if (task != activeGeneration) return;
-        call("failAlternative", response, option, "Generation failed: " + message(task.getException()));
+        call("failAlternative", response, option, message(task.getException()));
         nextAlternative(response, option, request);
     }
 

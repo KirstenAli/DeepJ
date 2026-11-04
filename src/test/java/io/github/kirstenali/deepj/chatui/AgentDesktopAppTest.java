@@ -4,12 +4,8 @@ import io.github.kirstenali.deepj.agent.InteractiveTerminal;
 import io.github.kirstenali.deepj.agent.InteractiveTerminal.Request;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatFixture;
 import javafx.application.Platform;
-import javafx.scene.control.Button;
-import javafx.scene.control.DialogPane;
-import javafx.scene.control.TextArea;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
-import javafx.stage.Window;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
@@ -63,8 +59,8 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
     void displaysTheExactCommandAndReturnsTheSelectedDecision() throws Exception {
         Stage owner = onFx(AgentDesktopAppTest::openAgent);
         try {
-            assertFalse(approve(owner, "Deny"));
-            assertTrue(approve(owner, "Run once"));
+            assertFalse(approve(owner, "denyCommand"));
+            assertTrue(approve(owner, "allowCommand"));
         } finally {
             onFx(() -> {
                 owner.close();
@@ -75,23 +71,19 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
 
     private boolean approve(Stage owner, String action) throws Exception {
         var request = new Request(directory, List.of("/bin/sh", "-c", "printf 'one two'"));
+        WebView view = onFx(() -> (WebView) owner.getScene().getRoot());
+        awaitCondition(view, "typeof openApproval === 'function'");
         var pending = CompletableFuture.supplyAsync(() -> new DesktopCommandApproval(owner).approve(request));
-        DialogPane dialog = awaitDialog();
+        awaitCondition(view, "!element('approvalBackdrop').hidden");
         onFx(() -> {
-            var preview = assertInstanceOf(TextArea.class, dialog.getContent());
-            assertFalse(preview.isEditable());
-            assertEquals(request.preview(), preview.getText());
-            assertTrue(button(dialog, "Deny").isDefaultButton());
-            assertFalse(button(dialog, "Run once").isDefaultButton());
-            button(dialog, action).fire();
+            assertEquals(request.commandPreview(), script(view, "element('approvalCommand').textContent"));
+            assertEquals(request.directoryPreview(), script(view, "element('approvalDirectory').textContent"));
+            assertEquals("denyCommand", script(view, "document.activeElement.id"));
+            script(view, "element('" + action + "').click()");
+            assertEquals(true, script(view, "element('approvalBackdrop').hidden"));
             return null;
         });
         return pending.get(5, TimeUnit.SECONDS);
-    }
-
-    private static Button button(DialogPane dialog, String label) {
-        var type = dialog.getButtonTypes().stream().filter(item -> item.getText().equals(label)).findFirst();
-        return (Button) dialog.lookupButton(type.orElseThrow());
     }
 
     private static Stage openAgent() {
@@ -100,20 +92,13 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
         return stage;
     }
 
-    private static DialogPane awaitDialog() throws Exception {
+    private static void awaitCondition(WebView view, String condition) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (System.nanoTime() < deadline) {
-            DialogPane dialog = onFx(AgentDesktopAppTest::findDialog);
-            if (dialog != null) return dialog;
+            if (onFx(() -> Boolean.TRUE.equals(script(view, condition)))) return;
             Thread.sleep(20);
         }
-        throw new AssertionError("Terminal approval dialog did not appear");
-    }
-
-    private static DialogPane findDialog() {
-        return Window.getWindows().stream().filter(Window::isShowing)
-                .map(window -> window.getScene().getRoot()).filter(DialogPane.class::isInstance)
-                .map(DialogPane.class::cast).findFirst().orElse(null);
+        throw new AssertionError("Timed out waiting for " + condition);
     }
 
     private static <T> T onFx(Callable<T> action) throws Exception {

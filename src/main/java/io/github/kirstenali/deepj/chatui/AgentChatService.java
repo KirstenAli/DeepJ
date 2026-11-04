@@ -71,13 +71,13 @@ final class AgentChatService implements ChatService {
             return loaded.plain().generate(prompt, maxTokens, temperature, topK, seed, penalty, mode, listener);
         }
         if (!enabled) return loaded.qwen().stream(prompt, maxTokens, temperature, topK, seed, penalty, mode, listener);
-        return runAgent(prompt,
-                new Qwen3AgentModel(loaded.qwen(), maxTokens, temperature, topK, seed, penalty, mode));
+        var qwen = new Qwen3AgentModel(loaded.qwen(), maxTokens, temperature, topK, seed, penalty, mode);
+        return runAgent(prompt, qwen, listener);
     }
 
-    private String runAgent(String prompt, Qwen3AgentModel qwen) {
+    private String runAgent(String prompt, Qwen3AgentModel qwen, Consumer<String> listener) {
         try {
-            return new InteractiveTerminal(directory, approve).agent(qwen).run(prompt);
+            return new InteractiveTerminal(directory, approve).agent(qwen).run(prompt, listener);
         } catch (InterruptedException stopped) {
             Thread.currentThread().interrupt();
             throw new CancellationException("Agent stopped");

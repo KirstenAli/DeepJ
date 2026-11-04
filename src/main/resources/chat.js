@@ -5,10 +5,12 @@ const messages = document.getElementById('messages');
 const modelMenu = document.getElementById('modelMenu');
 const agentMenu = document.getElementById('agentMenu');
 const settings = document.getElementById('settingsBackdrop');
+const approval = document.getElementById('approvalBackdrop');
 let modelLoaded = false;
 let busy = false;
 let generating = false;
 let toastTimer;
+let approvalFocus;
 
 function element(id) {
   return document.getElementById(id);
@@ -222,6 +224,10 @@ function showFailure(response, message) {
   if (!response) return;
   response.classList.remove('pending');
   response.classList.add('error');
+  const title = document.createElement('strong');
+  title.className = 'error-title';
+  title.textContent = 'Couldn’t generate a response';
+  response.prepend(title);
   response.querySelector('.message-content').textContent = message;
   response.querySelector('.message-actions')?.remove();
   followLatest();
@@ -348,11 +354,29 @@ function closeSettings() {
   element('openSettings').focus();
 }
 
-function trapSettingsTab(event) {
+function openApproval(command, directory) {
+  approvalFocus = document.activeElement;
+  element('approvalCommand').textContent = command;
+  element('approvalDirectory').textContent = directory;
+  approval.hidden = false;
+  element('denyCommand').focus();
+}
+
+function closeApproval() {
+  approval.hidden = true;
+  approvalFocus?.focus();
+  approvalFocus = null;
+}
+
+function decideCommand(allow) {
+  window.approvalBridge.decide(allow);
+}
+
+function trapModalTab(event) {
   if (event.key !== 'Tab') return;
-  const controls = [...settings.querySelectorAll('button, input, summary')].filter(
-    (control) => control.offsetParent !== null,
-  );
+  const controls = [
+    ...event.currentTarget.querySelectorAll('button, input, summary, [tabindex="0"]'),
+  ].filter((control) => control.offsetParent !== null);
   const last = controls[controls.length - 1];
   const target = event.shiftKey ? last : controls[0];
   const boundary = event.shiftKey ? controls[0] : last;
@@ -377,6 +401,8 @@ element('chooseAgentDirectory').onclick = () =>
 element('openSettings').onclick = openSettings;
 element('closeSettings').onclick = closeSettings;
 element('doneSettings').onclick = closeSettings;
+element('denyCommand').onclick = () => decideCommand(false);
+element('allowCommand').onclick = () => decideCommand(true);
 element('send').onclick = submitOrStop;
 promptBox.oninput = resizePrompt;
 window.addEventListener('resize', resizePrompt);
@@ -388,12 +414,14 @@ promptBox.onkeydown = (event) => {
 settings.onclick = (event) => {
   if (event.target === settings) closeSettings();
 };
-settings.addEventListener('keydown', trapSettingsTab);
+settings.addEventListener('keydown', trapModalTab);
+approval.addEventListener('keydown', trapModalTab);
 document
   .querySelectorAll('.theme-choice')
   .forEach((button) => (button.onclick = () => setTheme(button.dataset.theme)));
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  if (!approval.hidden) return decideCommand(false);
   closeSettings();
   closeModelMenu();
   if (!agentMenu.hidden) {

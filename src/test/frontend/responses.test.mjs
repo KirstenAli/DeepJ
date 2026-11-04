@@ -45,6 +45,7 @@ test('failure removes copy actions and displays an error safely', (context) => {
   const ui = fixture(context);
   const response = finish(ui);
   ui.window.failResponse(1, 'Generation failed');
+  assert.equal(response.querySelector('.error-title').textContent, 'Couldn’t generate a response');
   assert.ok(response.classList.contains('error'));
   assert.equal(response.querySelector('.message-content').textContent, 'Generation failed');
   assert.equal(response.querySelector('.message-actions'), null);

@@ -1,5 +1,20 @@
+@font-face {
+  font-family: 'DeepJ Emoji';
+  src: url('fonts/NotoEmoji.ttf') format('truetype');
+  font-weight: 300 700;
+  font-display: swap;
+  unicode-range:
+    U+200D, U+20E3, U+2194-21FF, U+2300-27FF, U+2900-2BFF, U+FE0F, U+1F000-1FAFF, U+E0020-E007F;
+}
+
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    'DeepJ Emoji',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
   font-size: 14px;
 }
 * {
@@ -77,6 +92,7 @@ button:disabled {
 button:focus-visible,
 textarea:focus-visible,
 input:focus-visible,
+pre:focus-visible,
 summary:focus-visible {
   outline: 2px solid #4a9ddd;
   outline-offset: 2px;
@@ -414,11 +430,22 @@ svg {
 .alternative.pending .message-content {
   color: var(--muted);
 }
-.message.error .message-content {
-  color: #b84646;
+.message.error,
+.alternative.error {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid #c57171;
+  border-radius: 10px;
+  background: var(--field);
 }
-.alternative.error .message-content {
-  color: #b84646;
+.error-title {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 13px;
+}
+.error .message-content {
+  color: var(--muted);
 }
 ::selection {
   background: #b9d9f4;
@@ -606,7 +633,7 @@ svg {
   padding: 20px;
   background: rgba(0, 0, 0, 0.42);
 }
-.settings-dialog {
+.chat-dialog {
   width: min(100%, 480px);
   max-height: 100%;
   overflow-y: auto;
@@ -616,10 +643,10 @@ svg {
   color: var(--text);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
 }
-.settings-dialog::-webkit-scrollbar {
+.chat-dialog::-webkit-scrollbar {
   width: 8px;
 }
-.settings-dialog::-webkit-scrollbar-thumb {
+.chat-dialog::-webkit-scrollbar-thumb {
   border: 2px solid var(--menu);
   border-radius: 8px;
   background: var(--muted);
@@ -802,6 +829,74 @@ svg {
 .done-button:hover {
   background: var(--hover);
 }
+.approval-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.approval-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bubble);
+}
+.approval-heading h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.approval-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.approval-details {
+  margin-top: 20px;
+}
+.approval-details h3 {
+  margin: 12px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.approval-details pre {
+  max-height: 150px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  font:
+    12px/1.5 ui-monospace,
+    Menlo,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.approval-actions .done-button {
+  margin: 0;
+}
+.primary-action {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--surface);
+}
+.primary-action:hover {
+  background: var(--muted);
+}
 #toast {
   position: fixed;
   z-index: 30;
@@ -836,7 +931,7 @@ svg {
   .modal-backdrop {
     padding: 12px;
   }
-  .settings-dialog {
+  .chat-dialog {
     padding: 16px;
   }
   .settings-dialog h3 {
