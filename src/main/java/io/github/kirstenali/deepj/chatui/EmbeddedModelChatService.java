@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 import io.github.kirstenali.deepj.nn.transformer.DecoderOnlyModel;
@@ -12,9 +13,17 @@ import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Consumer;
 
-final class EmbeddedModelChatService implements ChatService {
+final class EmbeddedModelChatService implements ConversationChatService {
+
+    @Override
+    public Agent.Turn generateTurn(String prompt, List<Agent.Turn> history, ChatGenerationSettings settings,
+                                   Consumer<String> listener) {
+        if (model == null) throw new IllegalStateException("Load a model first");
+        return ChatModelGeneration.streamTurn(model, tokenizer, prompt, history, settings, listener);
+    }
 
     @Override
     public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,

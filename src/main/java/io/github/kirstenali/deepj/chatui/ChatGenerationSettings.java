@@ -1,8 +1,10 @@
 package io.github.kirstenali.deepj.chatui;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 record ChatGenerationSettings(int maxTokens, double temperature, int topK, long seed,
@@ -36,5 +38,12 @@ record ChatGenerationSettings(int maxTokens, double temperature, int topK, long 
     String generate(ChatService service, String prompt, Consumer<String> listener) {
         return service.generate(prompt, maxTokens, (float) temperature, topK, seed, (float) repetitionPenalty,
                 contextWindow, listener);
+    }
+
+    Agent.Turn generateTurn(ChatService service, String prompt, List<Agent.Turn> history, Consumer<String> listener) {
+        if (service instanceof ConversationChatService conversation) {
+            return conversation.generateTurn(prompt, history, this, listener);
+        }
+        return Agent.Turn.answered(prompt, generate(service, prompt, listener));
     }
 }

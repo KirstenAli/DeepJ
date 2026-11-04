@@ -26,7 +26,7 @@ final class ChatRequests {
 
     void complete(int response, Agent.Turn turn) {
         if (turn.reply() == null || turn.reply().isBlank()) remove(response);
-        else if (service instanceof AgentChatService) history.remember(turn);
+        else if (service instanceof ConversationChatService) history.remember(turn);
     }
 
     void clear() {
@@ -38,10 +38,7 @@ final class ChatRequests {
         return new Task<>() {
             @Override protected Agent.Turn call() {
                 String prompt = request.prompt();
-                if (service instanceof AgentChatService agent) {
-                    return agent.generateTurn(prompt, request.history(), settings, this::updateMessage);
-                }
-                return Agent.Turn.answered(prompt, settings.generate(service, prompt, this::updateMessage));
+                return settings.generateTurn(service, prompt, request.history(), this::updateMessage);
             }
         };
     }

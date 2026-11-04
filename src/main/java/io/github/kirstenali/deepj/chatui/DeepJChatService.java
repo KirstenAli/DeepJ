@@ -1,13 +1,22 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Consumer;
 
-public final class DeepJChatService implements ChatService {
+public final class DeepJChatService implements ConversationChatService {
+
+    @Override
+    public Agent.Turn generateTurn(String prompt, List<Agent.Turn> history, ChatGenerationSettings settings,
+                                   Consumer<String> listener) {
+        if (model == null) throw new IllegalStateException("Load a model first");
+        return settings.generateTurn(model, prompt, history, listener);
+    }
 
     @Override
     public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,

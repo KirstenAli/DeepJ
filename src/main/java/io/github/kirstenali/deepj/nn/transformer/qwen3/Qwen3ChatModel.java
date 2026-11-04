@@ -35,6 +35,35 @@ public record Qwen3ChatModel(Qwen3 model, Qwen3Tokenizer tokenizer) {
     public String stream(String prompt, int maxTokens, float temperature, int topK, long seed,
                          float penalty, ContextWindowMode mode, Consumer<String> listener) {
         String formatted = Qwen3Chat.format(List.of(new Qwen3Chat.Message(Qwen3Chat.Role.USER, prompt)), true, false);
+        return streamFormatted(formatted, maxTokens, temperature, topK, seed, penalty, mode, listener);
+    }
+
+    /** Streams a conversation of user and assistant messages ending with the current user request. */
+    public String streamConversation(List<Qwen3Chat.Message> messages, int maxTokens, float temperature, int topK,
+                                     long seed, float penalty, ContextWindowMode mode, Consumer<String> listener) {
+        String formatted = fitConversation(messages, maxTokens);
+        return streamFormatted(formatted, maxTokens, temperature, topK, seed, penalty, mode, listener);
+    }
+
+    private String fitConversation(List<Qwen3Chat.Message> messages, int maxTokens) {
+        int window = model.config().maxSeqLen();
+        int budget = window - Math.min(maxTokens, window / 2);
+        int end = messages.size();
+        if (end == 0 || messages.get(end - 1).role() != Qwen3Chat.Role.USER) {
+            throw new IllegalArgumentException("A chat conversation must end with a user request");
+        }
+        String fitted = Qwen3Chat.format(messages.subList(end - 1, end), true, false);
+        for (int index = end - 2; index >= 0; index--) {
+            if (messages.get(index).role() != Qwen3Chat.Role.USER) continue;
+            String candidate = Qwen3Chat.format(messages.subList(index, end), true, false);
+            if (tokenizer.encode(candidate).length > budget) break;
+            fitted = candidate;
+        }
+        return fitted;
+    }
+
+    private String streamFormatted(String formatted, int maxTokens, float temperature, int topK, long seed,
+                                   float penalty, ContextWindowMode mode, Consumer<String> listener) {
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
         try (var session = model.openGeneration(mode)) {
             String text = TextGenerator.stream(session, model.config().maxSeqLen(), tokenizer, formatted,

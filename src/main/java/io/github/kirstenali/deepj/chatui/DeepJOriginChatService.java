@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.agent.Agent;
+import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
 import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOriginConfig;
 import io.github.kirstenali.deepj.nn.transformer.origin.DeepJOrigin;
 import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
@@ -8,9 +10,18 @@ import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Consumer;
 
-public final class DeepJOriginChatService implements ChatService {
+public final class DeepJOriginChatService implements ConversationChatService {
+
+    @Override
+    public Agent.Turn generateTurn(String prompt, List<Agent.Turn> history, ChatGenerationSettings settings,
+                                   Consumer<String> listener) {
+        String formatted = ChatModelGeneration.conversationPrompt(PromptFormat.PLAIN, tokenizer, prompt, history,
+                config.maxSeqLen(), settings.maxTokens());
+        return Agent.Turn.answered(prompt, settings.generate(this, formatted, listener));
+    }
 
     private final Tokenizer tokenizer;
     private final DeepJOriginConfig config;

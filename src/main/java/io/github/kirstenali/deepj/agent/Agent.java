@@ -60,6 +60,8 @@ public final class Agent {
     public record Turn(String reply, List<Message> messages) {
         public Turn { messages = List.copyOf(messages); }
 
+        public String prompt() { return messages.get(0).content(); }
+
         public static Turn answered(String prompt, String reply) {
             return new Turn(reply, List.of(new Message(Role.USER, prompt), new Message(Role.ASSISTANT, reply)));
         }

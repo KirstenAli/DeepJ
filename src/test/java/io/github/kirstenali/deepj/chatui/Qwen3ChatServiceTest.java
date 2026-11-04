@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatFixture;
 import io.github.kirstenali.deepj.tensor.DType;
@@ -8,6 +9,7 @@ import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,6 +41,17 @@ class Qwen3ChatServiceTest {
         Files.writeString(snapshot.resolve("tokenizer.json"), "invalid");
         assertThrows(java.io.IOException.class, () -> service.loadModel(snapshot));
         assertEquals("xx", service.generate("hello", 2, 0.8f, 1, 5));
+    }
+
+    @Test void aLongCurrentRequestCanStillGenerateWhenOlderTurnsDoNotFit() throws Exception {
+        Tensor.setBackend(new CpuBackend());
+        var service = new DeepJChatService();
+        service.loadModel(Qwen3ChatFixture.create(directory.resolve("model")));
+        String prompt = "x".repeat(300);
+        var history = List.of(Agent.Turn.answered("Remember a name", "Okay"));
+        var settings = new ChatGenerationSettings(4, 0.8, 1, 5, 1);
+        String expected = service.generate(prompt, 4, 0.8f, 1, 5);
+        assertEquals(expected, service.generateTurn(prompt, history, settings, text -> {}).reply());
     }
 
     @Test void loadsQwenWeightsInTheRequestedDesktopFormat() throws Exception {

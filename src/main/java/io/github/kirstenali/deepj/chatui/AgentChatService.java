@@ -14,7 +14,7 @@ import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-final class AgentChatService implements ChatService {
+final class AgentChatService implements ConversationChatService {
     private final Function<InteractiveTerminal.Request, Optional<InteractiveTerminal.Request>> review;
     private volatile Path directory = Path.of(".").toAbsolutePath().normalize();
     private volatile boolean enabled;
@@ -72,18 +72,16 @@ final class AgentChatService implements ChatService {
         return generateTurn(prompt, List.of(), settings, listener).reply();
     }
 
-    Agent.Turn generateTurn(String prompt, List<Agent.Turn> history, ChatGenerationSettings settings,
-                            Consumer<String> listener) {
+    @Override
+    public Agent.Turn generateTurn(String prompt, List<Agent.Turn> history, ChatGenerationSettings settings,
+                                   Consumer<String> listener) {
         Loaded loaded = model;
         if (loaded == null) throw new IllegalStateException("Load a model first");
         if (loaded.qwen() == null) {
-            return Agent.Turn.answered(prompt, settings.generate(loaded.plain(), prompt, listener));
+            return settings.generateTurn(loaded.plain(), prompt, history, listener);
         }
         if (!enabled) {
-            String reply = loaded.qwen().stream(prompt, settings.maxTokens(), (float) settings.temperature(),
-                    settings.topK(), settings.seed(), (float) settings.repetitionPenalty(),
-                    settings.contextWindow(), listener);
-            return Agent.Turn.answered(prompt, reply);
+            return Qwen3ChatService.plainTurn(loaded.qwen(), prompt, history, settings, listener);
         }
         var qwen = new Qwen3AgentModel(loaded.qwen(), settings.maxTokens(), (float) settings.temperature(),
                 settings.topK(), settings.seed(), (float) settings.repetitionPenalty(), settings.contextWindow());

@@ -1,7 +1,8 @@
 package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.agent.Agent;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Optional;
@@ -10,9 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ChatRequestsTest {
-    @Test
-    void alternativesUseTheOriginalSnapshotAndNewChatClearsIt() {
-        var requests = new ChatRequests(new AgentChatService(command -> Optional.empty()));
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void alternativesUseTheOriginalSnapshotAndNewChatClearsIt(boolean agent) {
+        var service = agent ? new AgentChatService(command -> Optional.empty()) : new DeepJChatService();
+        var requests = new ChatRequests(service);
         var settings = new ChatGenerationSettings(32, 0.8, 10, 123L, 1);
         var first = Agent.Turn.answered("file.txt", "I found it");
         var second = Agent.Turn.answered("Where is it?", "docs/file.txt");
