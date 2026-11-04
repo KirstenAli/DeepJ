@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,6 +32,18 @@ class Qwen3TokenizerTest {
         Qwen3Json.object(root.get("model")).put("unk_token", "unknown");
         Files.writeString(directory.resolve("tokenizer.json"), Qwen3Json.stringify(root));
         assertThrows(IOException.class, () -> Qwen3Tokenizer.load(directory));
+    }
+
+    @Test void partialDecodeWaitsForEveryByteOfAnEmoji() throws IOException {
+        var tokenizer = tokenizer();
+        int[] ids = tokenizer.encode("Hi 😀");
+        int firstEmojiByte = tokenizer.encode("Hi ").length;
+        for (int length = firstEmojiByte + 1; length < ids.length; length++) {
+            assertEquals("Hi ", tokenizer.decodePartial(Arrays.copyOf(ids, length)));
+        }
+        assertEquals("Hi 😀", tokenizer.decodePartial(ids));
+        assertEquals("Hi �", tokenizer.decode(Arrays.copyOf(ids, ids.length - 1)));
+        assertEquals("Hi �", tokenizer.decodePartial(tokenizer.encode("Hi �")));
     }
 
     private Qwen3Tokenizer tokenizer() throws IOException {

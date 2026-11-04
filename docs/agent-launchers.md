@@ -6,7 +6,7 @@ Other supported checkpoints open in regular chat.
 ## Desktop
 
 ```bash
-MAVEN_OPTS="-Xmx12g --enable-native-access=ALL-UNNAMED" \
+MAVEN_OPTS="-Xmx12g --enable-native-access=ALL-UNNAMED -Ddeepj.chat.qwen3.dtype=float32" \
   mvn compile exec:java -Dexec.mainClass=io.github.kirstenali.deepj.chatui.AgentDesktopApp
 ```
 
@@ -17,8 +17,7 @@ each argument and the working directory. Choose **Run once** or **Deny**. To rev
 choose **Edit command**, update the executable or arguments, then choose **Review command**
 to preview what will run. DeepJ includes the edited command with the output it sends back to the model.
 
-To load Qwen3 weights in FP32 as in the Metal CLI example below, add
-`-Ddeepj.chat.qwen3.dtype=float32` to `MAVEN_OPTS`. FP32 uses more memory than the BF16 checkpoint.
+This command loads Qwen3 weights in FP32, which uses more memory than the BF16 checkpoint.
 
 ## CLI
 

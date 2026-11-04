@@ -2,7 +2,7 @@
   font-family: 'DeepJ Emoji';
   src: url('fonts/NotoEmoji.ttf') format('truetype');
   font-weight: 300 700;
-  font-display: swap;
+  font-display: block;
   unicode-range:
     U+200D, U+20E3, U+2194-21FF, U+2300-27FF, U+2900-2BFF, U+FE0F, U+1F000-1FAFF, U+E0020-E007F;
 }

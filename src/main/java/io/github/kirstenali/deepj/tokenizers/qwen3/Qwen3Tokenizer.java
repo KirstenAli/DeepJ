@@ -4,6 +4,9 @@ import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -67,7 +70,13 @@ public final class Qwen3Tokenizer implements Tokenizer {
 
     @Override public String decode(int[] ids) { return decode(ids, false); }
 
+    @Override public String decodePartial(int[] ids) { return decode(ids, false, true); }
+
     public String decode(int[] ids, boolean skipSpecialTokens) {
+        return decode(ids, skipSpecialTokens, false);
+    }
+
+    private String decode(int[] ids, boolean skipSpecialTokens, boolean partial) {
         StringBuilder result = new StringBuilder();
         var bytes = new ByteArrayOutputStream();
         for (int id : ids) {
@@ -78,8 +87,18 @@ public final class Qwen3Tokenizer implements Tokenizer {
                 if (!skipSpecialTokens || !vocabulary.special.contains(id)) result.append(piece);
             } else alphabet.append(piece, bytes);
         }
-        flush(bytes, result);
+        if (partial) appendCompleteCharacters(bytes, result);
+        else flush(bytes, result);
         return result.toString();
+    }
+
+    private static void appendCompleteCharacters(ByteArrayOutputStream bytes, StringBuilder result) {
+        var input = ByteBuffer.wrap(bytes.toByteArray());
+        var output = CharBuffer.allocate(input.remaining());
+        var decoder = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPLACE);
+        // More tokens can finish a character whose bytes are still incomplete.
+        decoder.decode(input, output, false);
+        result.append(output.flip());
     }
 
     private static void flush(ByteArrayOutputStream bytes, StringBuilder result) {
