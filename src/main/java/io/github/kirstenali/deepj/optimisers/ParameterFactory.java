@@ -38,7 +38,7 @@ public final class ParameterFactory {
 
     public static ParameterFactory float32() { return new ParameterFactory(DType.FLOAT32); }
 
-    /** Zero-filled random-weight slots for a complete checkpoint replacement, without device initialization. */
+    /** Zero-filled slots for weights that will be restored from a complete checkpoint. */
     public ParameterFactory forLoading() {
         return new ParameterFactory(prefix, defaultType, descriptors, false);
     }
@@ -49,7 +49,7 @@ public final class ParameterFactory {
 
     public Parameter random(String name, int rows, int columns, Random random) {
         DType dtype = dtype(name, rows, columns);
-        if (!randomInitialization) return new Parameter(path(name), new Tensor(dtype, rows, columns));
+        if (!randomInitialization) return new Parameter(path(name), Tensor.backend().zeros(dtype, rows, columns));
         Tensor value = dtype == DType.FLOAT32 ? Tensor.random(rows, columns, random)
                 : Tensor.random(dtype, random, rows, columns);
         return new Parameter(path(name), value);

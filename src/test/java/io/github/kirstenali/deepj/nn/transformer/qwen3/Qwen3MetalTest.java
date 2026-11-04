@@ -42,6 +42,9 @@ class Qwen3MetalTest {
     @ParameterizedTest @ValueSource(strings = {"float32", "float16", "bfloat16"})
     void officialReferenceLogitsGradientsAndCachedDecodingRunOnMetal(String dtype) throws IOException {
         Qwen3 model = Qwen3Pretrained.load(Qwen3Fixtures.path(dtype));
+        assertFalse(model.parameters().stream().anyMatch(parameter ->
+                parameter.value.matrixRows() > 1 && parameter.value.hasHostStorage()),
+                "Loading weight matrices on Metal should not retain host arrays");
         var expected = Qwen3Fixtures.expected(dtype);
         Tensor logits = model.forwardBatch(Qwen3Fixtures.tokens(expected));
         assertNotNull(logits.getGpuTag(), "Logits must be computed on Metal");
