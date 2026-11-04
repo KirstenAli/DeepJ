@@ -889,6 +889,58 @@ svg {
 .approval-actions .done-button {
   margin: 0;
 }
+#editCommand {
+  margin-right: auto;
+}
+#commandEditor {
+  margin-top: 16px;
+}
+.command-field {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.command-input {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 5px;
+  padding: 8px 10px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  font:
+    12px/1.5 ui-monospace,
+    Menlo,
+    Consolas,
+    monospace;
+}
+.command-argument {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.command-argument label {
+  flex: 1;
+}
+.command-argument .done-button,
+#addCommandArgument {
+  margin: 0;
+  font-size: 12px;
+}
+#addCommandArgument {
+  margin-top: 12px;
+}
+#commandEditError {
+  padding-left: 10px;
+  border-left: 2px solid #c57171;
+  color: var(--text);
+  font-size: 12px;
+}
 .primary-action {
   border-color: var(--text);
   background: var(--text);

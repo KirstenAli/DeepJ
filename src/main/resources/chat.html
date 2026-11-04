@@ -290,12 +290,33 @@
           </div>
         </div>
         <div class="approval-details">
-          <h3 id="approvalCommandLabel">Command and arguments</h3>
-          <pre id="approvalCommand" tabindex="0" aria-labelledby="approvalCommandLabel"></pre>
+          <div id="approvalPreview">
+            <h3 id="approvalCommandLabel">Command and arguments</h3>
+            <pre id="approvalCommand" tabindex="0" aria-labelledby="approvalCommandLabel"></pre>
+          </div>
           <h3 id="approvalDirectoryLabel">Working directory</h3>
           <pre id="approvalDirectory" tabindex="0" aria-labelledby="approvalDirectoryLabel"></pre>
         </div>
-        <div class="approval-actions">
+        <form id="commandEditor" hidden>
+          <label class="command-field" for="commandExecutable">Executable</label>
+          <textarea
+            id="commandExecutable"
+            class="command-input"
+            rows="1"
+            spellcheck="false"
+          ></textarea>
+          <div id="commandArguments"></div>
+          <button type="button" id="addCommandArgument" class="done-button">Add argument</button>
+          <p id="commandEditError" role="alert" hidden></p>
+          <div class="approval-actions">
+            <button type="button" id="cancelCommandEdit" class="done-button">Cancel edit</button>
+            <button type="submit" id="reviewCommandEdit" class="done-button primary-action">
+              Review command
+            </button>
+          </div>
+        </form>
+        <div id="approvalActions" class="approval-actions">
+          <button type="button" id="editCommand" class="done-button">Edit command</button>
           <button type="button" id="denyCommand" class="done-button">Deny</button>
           <button type="button" id="allowCommand" class="done-button primary-action">
             Run once
@@ -303,6 +324,15 @@
         </div>
       </section>
     </div>
+    <template id="commandArgumentTemplate">
+      <div class="command-argument">
+        <label class="command-field">
+          Argument
+          <textarea class="command-input" rows="1" spellcheck="false"></textarea>
+        </label>
+        <button type="button" class="done-button">Remove</button>
+      </div>
+    </template>
     <div id="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

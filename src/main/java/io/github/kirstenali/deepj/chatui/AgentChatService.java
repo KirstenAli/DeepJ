@@ -7,18 +7,19 @@ import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.function.Function;
 
 final class AgentChatService implements ChatService {
-    private final Predicate<InteractiveTerminal.Request> approve;
+    private final Function<InteractiveTerminal.Request, Optional<InteractiveTerminal.Request>> review;
     private volatile Path directory = Path.of(".").toAbsolutePath().normalize();
     private volatile boolean enabled;
     private volatile Loaded model;
 
-    AgentChatService(Predicate<InteractiveTerminal.Request> approve) {
-        this.approve = approve;
+    AgentChatService(Function<InteractiveTerminal.Request, Optional<InteractiveTerminal.Request>> review) {
+        this.review = review;
     }
 
     @Override
@@ -77,7 +78,7 @@ final class AgentChatService implements ChatService {
 
     private String runAgent(String prompt, Qwen3AgentModel qwen, Consumer<String> listener) {
         try {
-            return new InteractiveTerminal(directory, approve).agent(qwen).run(prompt, listener);
+            return InteractiveTerminal.withCommandReview(directory, review).agent(qwen).run(prompt, listener);
         } catch (InterruptedException stopped) {
             Thread.currentThread().interrupt();
             throw new CancellationException("Agent stopped");

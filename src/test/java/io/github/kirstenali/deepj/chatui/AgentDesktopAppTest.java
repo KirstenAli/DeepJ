@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.chatui;
 import io.github.kirstenali.deepj.agent.InteractiveTerminal;
 import io.github.kirstenali.deepj.agent.InteractiveTerminal.Request;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatFixture;
+import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import javafx.application.Platform;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
@@ -18,6 +19,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @EnabledIfSystemProperty(named = "deepj.uiTests", matches = "true")
 class AgentDesktopAppTest extends ChatDesktopTestSupport {
@@ -62,10 +64,7 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
             assertFalse(approve(owner, "denyCommand"));
             assertTrue(approve(owner, "allowCommand"));
         } finally {
-            onFx(() -> {
-                owner.close();
-                return null;
-            });
+            close(owner);
         }
     }
 
@@ -73,7 +72,7 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
         var request = new Request(directory, List.of("/bin/sh", "-c", "printf 'one two'"));
         WebView view = onFx(() -> (WebView) owner.getScene().getRoot());
         awaitCondition(view, "typeof openApproval === 'function'");
-        var pending = CompletableFuture.supplyAsync(() -> new DesktopCommandApproval(owner).approve(request));
+        var pending = CompletableFuture.supplyAsync(() -> new DesktopCommandApproval(owner).review(request));
         awaitCondition(view, "!element('approvalBackdrop').hidden");
         onFx(() -> {
             assertEquals(request.commandPreview(), script(view, "element('approvalCommand').textContent"));
@@ -83,13 +82,80 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
             assertEquals(true, script(view, "element('approvalBackdrop').hidden"));
             return null;
         });
-        return pending.get(5, TimeUnit.SECONDS);
+        return pending.get(5, TimeUnit.SECONDS).isPresent();
+    }
+
+    @Test
+    void runsTheReviewedEditAndReturnsItsArgumentsAndOutputToTheModel() throws Exception {
+        assumeTrue(InteractiveTerminal.available());
+        Stage owner = onFx(AgentDesktopAppTest::openAgent);
+        try {
+            WebView view = onFx(() -> (WebView) owner.getScene().getRoot());
+            awaitCondition(view, "typeof openApproval === 'function'");
+            var pending = startTestCommand(owner);
+            try {
+                awaitCondition(view, "!element('approvalBackdrop').hidden");
+                onFx(() -> editAndRun(view));
+                assertEquals("two words|", pending.get(5, TimeUnit.SECONDS));
+            } finally {
+                pending.cancel(true);
+            }
+        } finally {
+            close(owner);
+        }
+    }
+
+    private FutureTask<String> startTestCommand(Stage owner) {
+        var pending = new FutureTask<>(() -> runEditedCommand(owner));
+        var worker = new Thread(pending);
+        worker.setDaemon(true);
+        worker.start();
+        return pending;
+    }
+
+    private String runEditedCommand(Stage owner) throws InterruptedException {
+        var terminal = InteractiveTerminal.withCommandReview(directory, new DesktopCommandApproval(owner)::review);
+        return terminal.agent(messages -> {
+            if (messages.size() == 2) return """
+                    <tool_call>
+                    {"name":"terminal","arguments":{"argv":["/bin/pwd"]}}
+                    </tool_call>
+                    """;
+            String response = messages.get(3).content();
+            String json = response.lines().skip(1).findFirst().orElseThrow();
+            var result = Qwen3Json.object(Qwen3Json.object(Qwen3Json.parse(json)).get("result"));
+            assertEquals(List.of("/usr/bin/printf", "%s|%s", "two words", ""), result.get("argv"));
+            return Qwen3Json.string(result.get("output"));
+        }).run("Check the working directory");
+    }
+
+    private static Void editAndRun(WebView view) {
+        script(view, """
+                element('editCommand').click();
+                element('commandExecutable').value = '/usr/bin/printf';
+                addCommandArgument('%s|%s');
+                addCommandArgument('two words');
+                addCommandArgument('');
+                element('reviewCommandEdit').click();
+                """);
+        assertEquals("[\"/usr/bin/printf\", \"%s|%s\", \"two words\", \"\"]",
+                script(view, "element('approvalCommand').textContent"));
+        assertEquals("denyCommand", script(view, "document.activeElement.id"));
+        script(view, "element('allowCommand').click()");
+        return null;
     }
 
     private static Stage openAgent() {
         var stage = new Stage();
         new AgentDesktopApp().start(stage);
         return stage;
+    }
+
+    private static void close(Stage owner) throws Exception {
+        onFx(() -> {
+            owner.close();
+            return null;
+        });
     }
 
     private static void awaitCondition(WebView view, String condition) throws Exception {

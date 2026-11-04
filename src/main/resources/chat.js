@@ -358,6 +358,8 @@ function openApproval(command, directory) {
   approvalFocus = document.activeElement;
   element('approvalCommand').textContent = command;
   element('approvalDirectory').textContent = directory;
+  element('approvalDescription').textContent = 'The agent is asking to run this command once.';
+  setCommandEditing(false);
   approval.hidden = false;
   element('denyCommand').focus();
 }
@@ -372,10 +374,66 @@ function decideCommand(allow) {
   window.approvalBridge.decide(allow);
 }
 
+function setCommandEditing(editing) {
+  element('approvalPreview').hidden = editing;
+  element('approvalActions').hidden = editing;
+  element('commandEditor').hidden = !editing;
+}
+
+function editCommand() {
+  const [executable, ...args] = JSON.parse(element('approvalCommand').textContent);
+  const field = element('commandExecutable');
+  fillCommandField(field, executable);
+  element('commandArguments').replaceChildren();
+  args.forEach(addCommandArgument);
+  element('commandEditError').hidden = true;
+  setCommandEditing(true);
+  field.focus();
+}
+
+function fillCommandField(field, value) {
+  field.value = value;
+  field.dataset.original = value;
+  field.dataset.initial = field.value;
+}
+
+function commandFieldValue(field) {
+  return field.value === field.dataset.initial ? field.dataset.original : field.value;
+}
+
+function addCommandArgument(value) {
+  const row = element('commandArgumentTemplate').content.firstElementChild.cloneNode(true);
+  const field = row.querySelector('textarea');
+  fillCommandField(field, value);
+  row.querySelector('button').onclick = () => {
+    row.remove();
+    element('addCommandArgument').focus();
+  };
+  element('commandArguments').append(row);
+  return field;
+}
+
+function reviewCommandEdit(event) {
+  event.preventDefault();
+  const fields = [...element('commandEditor').querySelectorAll('textarea')];
+  const argv = fields.map(commandFieldValue);
+  const result = JSON.parse(window.approvalBridge.reviewEdit(JSON.stringify(argv)));
+  if (result.error) {
+    const error = element('commandEditError');
+    error.textContent = result.error;
+    error.hidden = false;
+    return;
+  }
+  element('approvalCommand').textContent = result.preview;
+  element('approvalDescription').textContent = 'Review your edited command before running it.';
+  setCommandEditing(false);
+  element('denyCommand').focus();
+}
+
 function trapModalTab(event) {
   if (event.key !== 'Tab') return;
   const controls = [
-    ...event.currentTarget.querySelectorAll('button, input, summary, [tabindex="0"]'),
+    ...event.currentTarget.querySelectorAll('button, input, textarea, summary, [tabindex="0"]'),
   ].filter((control) => control.offsetParent !== null);
   const last = controls[controls.length - 1];
   const target = event.shiftKey ? last : controls[0];
@@ -403,6 +461,13 @@ element('closeSettings').onclick = closeSettings;
 element('doneSettings').onclick = closeSettings;
 element('denyCommand').onclick = () => decideCommand(false);
 element('allowCommand').onclick = () => decideCommand(true);
+element('editCommand').onclick = editCommand;
+element('addCommandArgument').onclick = () => addCommandArgument('').focus();
+element('cancelCommandEdit').onclick = () => {
+  setCommandEditing(false);
+  element('editCommand').focus();
+};
+element('commandEditor').onsubmit = reviewCommandEdit;
 element('send').onclick = submitOrStop;
 promptBox.oninput = resizePrompt;
 window.addEventListener('resize', resizePrompt);

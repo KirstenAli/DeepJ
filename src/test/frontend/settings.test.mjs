@@ -121,6 +121,41 @@ test('Escape denies a pending terminal command', (context) => {
   assert.deepEqual(ui.calls, [false]);
 });
 
+test('reviewing an edit preserves untouched argument contents and the directory', (context) => {
+  const ui = fixture(context);
+  ui.window.approvalBridge = {
+    reviewEdit: (argv) => {
+      ui.calls.push(JSON.parse(argv));
+      return JSON.stringify({ preview: argv });
+    },
+  };
+  ui.window.openApproval(JSON.stringify(['/bin/echo', 'first\rsecond', 'remove me']), '"/tmp"');
+  ui.click('editCommand');
+  assert.equal(ui.element('approvalActions').hidden, true);
+  ui.element('commandArguments').lastElementChild.querySelector('button').click();
+  ui.click('addCommandArgument');
+  ui.click('reviewCommandEdit');
+  assert.deepEqual(ui.calls, [['/bin/echo', 'first\rsecond', '']]);
+  assert.equal(ui.element('approvalDirectory').textContent, '"/tmp"');
+  assert.equal(ui.element('approvalActions').hidden, false);
+});
+
+test('an invalid edit stays in the editor and can be cancelled', (context) => {
+  const ui = fixture(context);
+  ui.window.approvalBridge = {
+    reviewEdit: () => JSON.stringify({ error: 'The executable could not be found.' }),
+  };
+  ui.window.openApproval('["/bin/pwd"]', '"/tmp"');
+  ui.click('editCommand');
+  ui.element('commandExecutable').value = 'missing';
+  ui.click('reviewCommandEdit');
+  assert.equal(ui.element('commandEditError').hidden, false);
+  assert.equal(ui.element('approvalActions').hidden, true);
+  ui.click('cancelCommandEdit');
+  assert.equal(ui.element('approvalCommand').textContent, '["/bin/pwd"]');
+  assert.equal(ui.element('approvalActions').hidden, false);
+});
+
 for (const value of ['', '0', '-1']) {
   test(`invalid token limit ${JSON.stringify(value)} blocks submission and opens settings`, (context) => {
     const ui = fixture(context);

@@ -16,7 +16,7 @@ public final class AgentDesktopApp extends BaseChatApp {
 
     @Override
     protected ChatService createChatService() {
-        return new AgentChatService(new DesktopCommandApproval(stage)::approve);
+        return new AgentChatService(new DesktopCommandApproval(stage)::review);
     }
 
     @Override
