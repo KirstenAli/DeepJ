@@ -69,7 +69,7 @@ java -Xmx12g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
 
 For desktop chat, select `config.json` from the same folder in the model picker. See the [Qwen3 guide](docs/qwen3.md) for model details, pretrained loading, and training support.
 
-Qwen3 also supports **Agent mode** in DeepJ’s desktop and CLI agent launchers. It can find the current directory or list its files, with your approval for each command. [Try Agent mode](docs/agent-launchers.md).
+Qwen3 also supports **Agent mode** in DeepJ’s desktop and CLI agent launchers. [Try Agent mode](docs/agent-launchers.md).
 
 ## Documentation
 
