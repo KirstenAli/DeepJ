@@ -30,7 +30,7 @@ final class AgentChatService implements ChatService {
     }
 
     private static Loaded load(Path path) throws Exception {
-        if (Qwen3Snapshot.matches(path)) return new Loaded(null, Qwen3ChatModel.load(path));
+        if (Qwen3Snapshot.matches(path)) return new Loaded(null, Qwen3ChatService.loadSnapshot(path));
         ChatService plain = new DeepJChatService();
         plain.loadModel(path);
         return new Loaded(plain, null);
