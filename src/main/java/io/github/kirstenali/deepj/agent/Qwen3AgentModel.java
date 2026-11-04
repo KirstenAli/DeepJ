@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.agent;
 
+import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
 import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Chat;
@@ -8,18 +9,27 @@ import java.util.List;
 import java.util.Objects;
 
 /** Adapts DeepJ's Qwen3 model and tokenizer to the agent's conversation format. */
-public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperature, int topK, long seed)
+public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperature, int topK,
+                              long seed, float repetitionPenalty, ContextWindowMode mode)
         implements AgentModel {
 
     public Qwen3AgentModel(Qwen3ChatModel chat) {
         this(chat, 256, 0.7f, 20, 1234L);
     }
 
+    public Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperature, int topK, long seed) {
+        this(chat, maxTokens, temperature, topK, seed, 1.0f, ContextWindowMode.REBUILD);
+    }
+
     public Qwen3AgentModel {
         Objects.requireNonNull(chat, "chat");
+        Objects.requireNonNull(mode, "mode");
         if (maxTokens < 1) throw new IllegalArgumentException("maxTokens must be positive");
         if (!Float.isFinite(temperature) || temperature <= 0) throw new IllegalArgumentException("Invalid temperature");
         if (topK < 0) throw new IllegalArgumentException("topK must be nonnegative");
+        if (!Float.isFinite(repetitionPenalty) || repetitionPenalty < 1) {
+            throw new IllegalArgumentException("Repetition penalty must be at least 1");
+        }
     }
 
     @Override
@@ -31,8 +41,9 @@ public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperat
         int tokens = Math.min(maxTokens, window - input.length);
         if (tokens < 1) throw new IllegalStateException("Agent conversation fills the model context window");
         String prefix = tokenizer.decode(input);
-        try (var session = chat.model().openGeneration()) {
-            String text = TextGenerator.generate(session, window, tokenizer, prompt, tokens, temperature, topK, seed);
+        try (var session = chat.model().openGeneration(mode)) {
+            String text = TextGenerator.generate(session, window, tokenizer, prompt,
+                    tokens, temperature, topK, seed, repetitionPenalty);
             if (!text.startsWith(prefix)) throw new IllegalStateException("Generated text lost its prompt prefix");
             return text.substring(prefix.length());
         }
