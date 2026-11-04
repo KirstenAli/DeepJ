@@ -18,17 +18,11 @@ public final class Agent {
     private final Map<String, Tool> tools = new LinkedHashMap<>();
     private final String instructions;
     private final int maxToolCalls;
-    private final boolean interactiveTerminal;
 
     public Agent(AgentModel model, List<? extends Tool> tools, int maxToolCalls) {
-        this(model, tools, maxToolCalls, false);
-    }
-
-    Agent(AgentModel model, List<? extends Tool> tools, int maxToolCalls, boolean interactiveTerminal) {
         this.model = Objects.requireNonNull(model, "model");
         if (maxToolCalls < 0) throw new IllegalArgumentException("maxToolCalls must be nonnegative");
         this.maxToolCalls = maxToolCalls;
-        this.interactiveTerminal = interactiveTerminal;
         tools.forEach(this::register);
         instructions = ToolProtocol.instructions(this.tools);
     }
@@ -40,7 +34,7 @@ public final class Agent {
         while (true) {
             checkInterrupted();
             String reply = ToolProtocol.withoutThinking(model.generate(List.copyOf(messages)));
-            var calls = interactiveTerminal ? ToolProtocol.interactiveTerminalCalls(reply) : ToolProtocol.calls(reply);
+            var calls = ToolProtocol.calls(reply);
             if (calls.isEmpty()) return reply;
             if (calls.size() > remaining) throw new IllegalStateException("Agent tool call limit exceeded");
             remaining -= calls.size();
