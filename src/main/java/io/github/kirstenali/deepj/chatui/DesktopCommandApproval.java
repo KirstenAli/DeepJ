@@ -6,6 +6,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.TextArea;
 import javafx.stage.Modality;
 import javafx.stage.Window;
 
@@ -44,11 +45,20 @@ final class DesktopCommandApproval {
         alert.initModality(Modality.WINDOW_MODAL);
         alert.setTitle("DeepJ Agent");
         alert.setHeaderText("Allow this terminal command?");
-        alert.setContentText(request.argv().get(0) + "\n\nWorking directory\n" + request.directory());
+        alert.getDialogPane().setContent(preview(request));
         ((Button) alert.getDialogPane().lookupButton(run)).setDefaultButton(false);
         ((Button) alert.getDialogPane().lookupButton(deny)).setDefaultButton(true);
         active.set(alert);
         return alert.showAndWait().orElse(deny) == run;
+    }
+
+    private static TextArea preview(Request request) {
+        var preview = new TextArea(request.preview());
+        preview.setEditable(false);
+        preview.setWrapText(true);
+        preview.setPrefColumnCount(64);
+        preview.setPrefRowCount(6);
+        return preview;
     }
 
     private static void close(Alert alert) {

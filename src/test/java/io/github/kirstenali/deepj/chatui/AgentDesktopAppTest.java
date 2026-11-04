@@ -5,6 +5,7 @@ import javafx.application.Platform;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.DialogPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.web.WebView;
@@ -61,12 +62,13 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
     }
 
     private boolean approve(Stage owner, String action) throws Exception {
-        var request = new Request(directory, List.of("/bin/pwd"));
+        var request = new Request(directory, List.of("/bin/sh", "-c", "printf 'one two'"));
         var pending = CompletableFuture.supplyAsync(() -> new DesktopCommandApproval(owner).approve(request));
         DialogPane dialog = awaitDialog();
         onFx(() -> {
-            assertTrue(dialog.getContentText().contains("/bin/pwd"));
-            assertTrue(dialog.getContentText().contains(directory.toString()));
+            var preview = assertInstanceOf(TextArea.class, dialog.getContent());
+            assertFalse(preview.isEditable());
+            assertEquals(request.preview(), preview.getText());
             assertTrue(button(dialog, "Deny").isDefaultButton());
             assertFalse(button(dialog, "Run once").isDefaultButton());
             button(dialog, action).fire();
