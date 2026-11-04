@@ -10,10 +10,10 @@ MAVEN_OPTS="-Xmx12g --enable-native-access=ALL-UNNAMED" \
   mvn compile exec:java -Dexec.mainClass=io.github.kirstenali.deepj.chatui.AgentDesktopApp
 ```
 
-Choose the Qwen3 snapshot's `config.json` in the model picker. After the model loads, select
-**Agent mode** in the toolbar and set the **Working directory** if needed. Ask the model to
-run a command. The approval dialog shows the resolved executable, each argument and the
-working directory. Choose **Run once** or **Deny**.
+Choose the Qwen3 snapshot's `config.json` in the model picker. After the model loads, open
+**Tools** beside the message field, turn on **Agent mode**, and change the **Working directory**
+if needed. Ask the model to run a command. The approval dialog shows the resolved executable,
+each argument and the working directory. Choose **Run once** or **Deny**.
 
 ## CLI
 

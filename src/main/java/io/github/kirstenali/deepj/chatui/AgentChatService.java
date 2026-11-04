@@ -12,14 +12,12 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 final class AgentChatService implements ChatService {
-    private final Consumer<Boolean> modelChanged;
     private final Predicate<InteractiveTerminal.Request> approve;
     private volatile Path directory = Path.of(".").toAbsolutePath().normalize();
     private volatile boolean enabled;
     private volatile Loaded model;
 
-    AgentChatService(Consumer<Boolean> modelChanged, Predicate<InteractiveTerminal.Request> approve) {
-        this.modelChanged = modelChanged;
+    AgentChatService(Predicate<InteractiveTerminal.Request> approve) {
         this.approve = approve;
     }
 
@@ -28,7 +26,6 @@ final class AgentChatService implements ChatService {
         Loaded loaded = load(path);
         enabled = false;
         model = loaded;
-        modelChanged.accept(loaded.qwen() != null && InteractiveTerminal.available());
     }
 
     private static Loaded load(Path path) throws Exception {
@@ -39,6 +36,11 @@ final class AgentChatService implements ChatService {
     }
 
     void enable(boolean selected) { enabled = selected; }
+
+    boolean supportsAgent() {
+        Loaded loaded = model;
+        return loaded != null && loaded.qwen() != null && InteractiveTerminal.available();
+    }
 
     void directory(Path path) { directory = path; }
 

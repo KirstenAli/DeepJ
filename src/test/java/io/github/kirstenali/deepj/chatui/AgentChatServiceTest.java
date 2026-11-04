@@ -7,8 +7,6 @@ import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatFixture;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,9 +17,9 @@ class AgentChatServiceTest {
 
     @Test
     void detectsQwen3AndFallsBackWhenADifferentCheckpointIsLoaded() throws Exception {
-        var capabilities = new ArrayList<Boolean>();
-        var service = new AgentChatService(capabilities::add, request -> fail("Unexpected command"));
+        var service = new AgentChatService(request -> fail("Unexpected command"));
         service.loadModel(qwenSnapshot());
+        assertEquals(InteractiveTerminal.available(), service.supportsAgent());
         assertEquals("Qwen3", service.getLoadedModelName());
         assertEquals("xxxx", service.generate("Hello", 4, 0.7f, 1, 1L));
         if (InteractiveTerminal.available()) {
@@ -33,7 +31,7 @@ class AgentChatServiceTest {
         service.loadModel(checkpoint);
         assertEquals("model.dj", service.getLoadedModelName());
         assertDoesNotThrow(() -> service.generate("Hello", 2, 0.7f, 1, 1L));
-        assertEquals(List.of(InteractiveTerminal.available(), false), capabilities);
+        assertFalse(service.supportsAgent());
     }
 
     private Path qwenSnapshot() throws Exception {

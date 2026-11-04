@@ -25,6 +25,7 @@ public final class ChatWindow {
     private final Stage stage;
     private final WebView view;
     private final ChatService service;
+    private final AgentWorkspace agentWorkspace;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deepj-chat-worker");
         thread.setDaemon(true);
@@ -41,6 +42,8 @@ public final class ChatWindow {
         this.stage = stage;
         this.view = view;
         this.service = service;
+        agentWorkspace = service instanceof AgentChatService agent
+                ? new AgentWorkspace(stage, agent, () -> busy) : null;
     }
 
     void open() {
@@ -67,7 +70,9 @@ public final class ChatWindow {
 
     private void connect() {
         window().setMember("chatBridge", this);
+        if (agentWorkspace != null) window().setMember("agentBridge", agentWorkspace);
         call("bridgeReady");
+        refreshAgentWorkspace();
     }
 
     public void chooseModel() {
@@ -102,8 +107,13 @@ public final class ChatWindow {
         requests.clear();
         call("clearAlternativeActions");
         call("setModel", service.getLoadedModelName());
+        refreshAgentWorkspace();
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
+    }
+
+    private void refreshAgentWorkspace() {
+        if (agentWorkspace != null) call("setAgentWorkspace", agentWorkspace.directoryLabel());
     }
 
     private void loadFailed(Throwable error) {

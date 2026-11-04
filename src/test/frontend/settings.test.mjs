@@ -17,6 +17,51 @@ test('model menu and preview picker behave clearly', (context) => {
   assert.match(ui.element('toast').textContent, /not available in this preview/);
 });
 
+test('composer tools open beside the prompt and report agent and directory actions', (context) => {
+  const ui = fixture(context);
+  assert.equal(ui.element('agentControls').hidden, true);
+  ui.window.setAgentWorkspace('/tmp/project');
+  ui.click('agentPicker');
+  assert.equal(ui.element('agentPicker').getAttribute('aria-expanded'), 'true');
+  ui.click('agentMode');
+  assert.equal(ui.element('agentLabel').textContent, 'Agent on');
+  ui.click('chooseAgentDirectory');
+  assert.equal(ui.element('agentDirectory').textContent, 'other project');
+  assert.equal(ui.element('agentDirectory').title, '/tmp/other project');
+  assert.equal(ui.element('agentMode').checked, true);
+  ui.click('agentMode');
+  assert.equal(ui.element('agentLabel').textContent, 'Tools');
+  assert.deepEqual(ui.calls, [['setEnabled', true], ['chooseDirectory'], ['setEnabled', false]]);
+});
+
+test('composer tools dismiss with Escape and outside click', (context) => {
+  const ui = fixture(context);
+  ui.window.setAgentWorkspace('/tmp/project');
+  ui.click('agentPicker');
+  keyboard(ui, ui.element('agentMode'), 'Escape');
+  assert.equal(ui.element('agentPicker').getAttribute('aria-expanded'), 'false');
+  assert.equal(ui.window.document.activeElement, ui.element('agentPicker'));
+  ui.click('agentPicker');
+  ui.click('prompt');
+  assert.equal(ui.element('agentMenu').hidden, true);
+});
+
+test('composer tools close during generation and reset when the model changes', (context) => {
+  const ui = fixture(context);
+  ui.window.setAgentWorkspace('/tmp/project');
+  assert.equal(ui.element('agentControls').hidden, false);
+  ui.click('agentPicker');
+  ui.click('agentMode');
+  ui.window.setBusy(true);
+  assert.equal(ui.element('agentPicker').disabled, true);
+  assert.equal(ui.element('agentMenu').hidden, true);
+  ui.window.setBusy(false);
+  assert.equal(ui.element('agentMode').checked, true);
+  ui.window.setAgentWorkspace('');
+  assert.equal(ui.element('agentControls').hidden, true);
+  assert.equal(ui.element('agentMode').checked, false);
+});
+
 test('settings open, close, escape and outside clicks restore focus', (context) => {
   const ui = fixture(context);
   ui.click('openSettings');

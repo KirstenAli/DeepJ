@@ -3,6 +3,7 @@ import sonarjs from 'eslint-plugin-sonarjs';
 
 const bridgeCallbacks = [
   'setModel',
+  'setAgentWorkspace',
   'setBusy',
   'setGenerating',
   'startResponse',

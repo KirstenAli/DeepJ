@@ -1,13 +1,12 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.agent.InteractiveTerminal;
 import io.github.kirstenali.deepj.agent.InteractiveTerminal.Request;
+import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatFixture;
 import javafx.application.Platform;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.TextArea;
-import javafx.scene.control.ToolBar;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -29,21 +28,34 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
     @TempDir Path directory;
 
     @Test
-    void launchesTheChatWindowWithAgentModeDisabledUntilModelLoad() throws Exception {
+    void launchesWithTheChatWebViewFillingTheWindow() throws Exception {
         onFx(() -> {
             Stage stage = openAgent();
             try {
                 assertEquals("DeepJ Agent", stage.getTitle());
-                var layout = (BorderPane) stage.getScene().getRoot();
-                var toolbar = (ToolBar) layout.getTop();
-                var mode = (CheckBox) toolbar.getItems().get(0);
-                assertEquals("Agent mode", mode.getText());
-                assertTrue(mode.isDisabled());
-                assertInstanceOf(WebView.class, layout.getCenter());
+                assertInstanceOf(WebView.class, stage.getScene().getRoot());
             } finally {
                 stage.close();
             }
             return null;
+        });
+    }
+
+    @Test
+    void placesAvailableAgentToolsInTheComposer() throws Exception {
+        var service = new AgentChatService(request -> fail("Unexpected command"));
+        service.directory(directory);
+        service.loadModel(Qwen3ChatFixture.create(directory.resolve("qwen")));
+        var fixture = open(service);
+        verify(fixture, view -> {
+            assertEquals(!InteractiveTerminal.available(), script(view, "element('agentControls').hidden"));
+            assertEquals(true, script(view, "element('agentMenu').hidden"));
+            assertEquals(false, script(view, "element('agentMode').checked"));
+            if (!InteractiveTerminal.available()) return;
+            assertEquals(directory.toString(), script(view, "element('agentDirectory').title"));
+            script(view, "element('agentPicker').click(); element('agentMode').click()");
+            assertEquals("Agent on", script(view, "element('agentLabel').textContent"));
+            assertTrue(styleNumber(view, "#agentMenu", "width") >= 280);
         });
     }
 

@@ -24,6 +24,9 @@
       <symbol id="icon-settings" viewBox="0 0 24 24">
         <path d="M4 7h16M4 17h16M9 4v6M15 14v6" />
       </symbol>
+      <symbol id="icon-terminal" viewBox="0 0 24 24">
+        <path d="m5 7 5 5-5 5m8 0h6" />
+      </symbol>
       <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
       <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
       <symbol id="icon-send" viewBox="0 0 24 24"><path d="M12 19V5m-7 7 7-7 7 7" /></symbol>
@@ -83,7 +86,7 @@
             >
               <span>DeepJ</span><svg><use href="#icon-chevron" /></svg>
             </button>
-            <div id="modelMenu" class="model-menu" hidden>
+            <div id="modelMenu" class="model-menu popover" hidden>
               <button type="button" id="menuLoad" class="menu-item">
                 <svg><use href="#icon-folder" /></svg><span>Open local model…</span>
               </button>
@@ -118,6 +121,57 @@
                 >
                   <svg><use href="#icon-plus" /></svg>
                 </button>
+                <div id="agentControls" hidden>
+                  <button
+                    type="button"
+                    id="agentPicker"
+                    class="composer-chip"
+                    aria-controls="agentMenu"
+                    aria-expanded="false"
+                  >
+                    <svg aria-hidden="true"><use href="#icon-terminal" /></svg>
+                    <span id="agentLabel">Tools</span>
+                    <svg class="chip-chevron" aria-hidden="true"><use href="#icon-chevron" /></svg>
+                  </button>
+                  <div
+                    id="agentMenu"
+                    class="agent-menu popover"
+                    role="group"
+                    aria-labelledby="agentTitle"
+                    hidden
+                  >
+                    <h2 id="agentTitle">Chat tools</h2>
+                    <label class="toggle-row">
+                      <span class="control-copy">
+                        <strong id="agentModeTitle">Agent mode</strong>
+                        <small id="agentHelp">Ask before running terminal commands.</small>
+                      </span>
+                      <input
+                        id="agentMode"
+                        class="toggle"
+                        type="checkbox"
+                        role="switch"
+                        aria-labelledby="agentModeTitle"
+                        aria-describedby="agentHelp"
+                      />
+                    </label>
+                    <div class="directory-row">
+                      <svg aria-hidden="true"><use href="#icon-folder" /></svg>
+                      <span class="control-copy">
+                        <strong>Working directory</strong>
+                        <small id="agentDirectory"></small>
+                      </span>
+                      <button
+                        type="button"
+                        id="chooseAgentDirectory"
+                        class="directory-button"
+                        aria-label="Change working directory"
+                      >
+                        Change…
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <span id="composerHint">Local model</span>
                 <button
                   type="button"
@@ -196,14 +250,24 @@
               <input id="repetitionPenalty" type="number" min="1" max="2" step="0.05" value="1" />
               <small>1.0 is off. Try 1.1 if text loops.</small>
             </label>
-            <label class="cache-choice">
-              <span><input id="rollingCache" type="checkbox" /> Rolling KV cache</span>
-              <small
-                >Keep decoding fast after the window fills. RoPE models only; long responses may
+          </div>
+          <label class="toggle-row cache-row">
+            <span class="control-copy">
+              <strong id="rollingCacheTitle">Rolling KV cache</strong>
+              <small id="rollingCacheHelp"
+                >Keeps decoding fast when the context fills. For RoPE models. Long responses may
                 change.</small
               >
-            </label>
-          </div>
+            </span>
+            <input
+              id="rollingCache"
+              class="toggle"
+              type="checkbox"
+              role="switch"
+              aria-labelledby="rollingCacheTitle"
+              aria-describedby="rollingCacheHelp"
+            />
+          </label>
         </details>
         <button type="button" id="doneSettings" class="done-button">Done</button>
       </section>

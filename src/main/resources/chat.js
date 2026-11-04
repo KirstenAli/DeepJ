@@ -3,6 +3,7 @@ const promptBox = document.getElementById('prompt');
 const conversation = document.getElementById('conversation');
 const messages = document.getElementById('messages');
 const modelMenu = document.getElementById('modelMenu');
+const agentMenu = document.getElementById('agentMenu');
 const settings = document.getElementById('settingsBackdrop');
 let modelLoaded = false;
 let busy = false;
@@ -44,7 +45,8 @@ function setModel(name) {
 function setBusy(value) {
   busy = value;
   promptBox.disabled = value;
-  ['composerModel', 'menuLoad'].forEach((id) => (element(id).disabled = value));
+  ['composerModel', 'menuLoad', 'agentPicker'].forEach((id) => (element(id).disabled = value));
+  if (value) showAgentMenu(false);
   document.querySelectorAll('.alternatives-button').forEach((button) => (button.disabled = value));
   updateSend();
 }
@@ -284,6 +286,36 @@ function closeModelMenu() {
   element('modelPicker').setAttribute('aria-expanded', 'false');
 }
 
+function setAgentWorkspace(directory) {
+  element('agentControls').hidden = !directory;
+  showAgentMenu(false);
+  element('agentMode').checked = false;
+  showAgentMode(false);
+  setAgentDirectory(directory);
+}
+
+function setAgentDirectory(directory) {
+  const path = element('agentDirectory');
+  path.textContent = directory.slice(directory.lastIndexOf('/') + 1) || directory;
+  path.title = directory;
+}
+
+function showAgentMenu(open) {
+  agentMenu.hidden = !open;
+  element('agentPicker').setAttribute('aria-expanded', String(open));
+}
+
+function showAgentMode(enabled) {
+  element('agentLabel').textContent = enabled ? 'Agent on' : 'Tools';
+  element('agentPicker').classList.toggle('agent-on', enabled);
+}
+
+function changeAgentMode() {
+  const enabled = element('agentMode').checked;
+  window.agentBridge.setEnabled(enabled);
+  showAgentMode(enabled);
+}
+
 function newChat() {
   if (window.chatBridge) chatBridge.newChat();
   messages.replaceChildren();
@@ -338,6 +370,10 @@ element('newChat').onclick = newChat;
 element('composerModel').onclick = chooseModel;
 element('menuLoad').onclick = chooseModel;
 element('modelPicker').onclick = toggleModelMenu;
+element('agentPicker').onclick = () => showAgentMenu(agentMenu.hidden);
+element('agentMode').onchange = changeAgentMode;
+element('chooseAgentDirectory').onclick = () =>
+  setAgentDirectory(window.agentBridge.chooseDirectory());
 element('openSettings').onclick = openSettings;
 element('closeSettings').onclick = closeSettings;
 element('doneSettings').onclick = closeSettings;
@@ -360,7 +396,12 @@ document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   closeSettings();
   closeModelMenu();
+  if (!agentMenu.hidden) {
+    showAgentMenu(false);
+    element('agentPicker').focus();
+  }
 });
 document.addEventListener('click', (event) => {
   if (!event.target.closest('.model-control')) closeModelMenu();
+  if (!event.target.closest('#agentControls')) showAgentMenu(false);
 });

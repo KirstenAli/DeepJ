@@ -245,17 +245,19 @@ svg {
   height: 14px;
   color: var(--muted);
 }
-.model-menu {
+.popover {
   position: absolute;
   z-index: 10;
-  top: 43px;
-  left: 0;
-  width: 272px;
-  padding: 6px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--menu);
   box-shadow: 0 12px 38px rgba(0, 0, 0, 0.12);
+}
+.model-menu {
+  top: 43px;
+  left: 0;
+  width: 272px;
+  padding: 6px;
 }
 .menu-item {
   width: 100%;
@@ -429,6 +431,7 @@ svg {
   padding: 0 28px 16px;
 }
 #composer {
+  position: relative;
   width: min(100%, 790px);
   margin: 0 auto;
   padding: 9px 11px 8px;
@@ -470,6 +473,88 @@ svg {
 }
 .composer-actions .icon-button:hover {
   background: var(--hover);
+}
+#agentControls {
+  flex: none;
+}
+.composer-chip,
+.directory-button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.composer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 16px;
+  color: var(--muted);
+}
+.composer-chip:hover,
+.composer-chip[aria-expanded='true'],
+.directory-button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.composer-chip.agent-on {
+  background: var(--bubble);
+  color: var(--text);
+}
+.composer-chip:disabled {
+  opacity: 0.55;
+}
+.composer-chip svg,
+.directory-row svg {
+  width: 16px;
+  height: 16px;
+}
+.composer-chip .chip-chevron {
+  width: 12px;
+  height: 12px;
+}
+.composer-chip[aria-expanded='true'] .chip-chevron {
+  transform: rotate(180deg);
+}
+.agent-menu {
+  bottom: calc(100% + 8px);
+  left: 12px;
+  width: min(302px, calc(100% - 24px));
+  padding: 12px;
+}
+.agent-menu h2 {
+  margin: 0 0 6px;
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.directory-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 6px;
+  padding: 12px 8px 4px;
+  border-top: 1px solid var(--line);
+}
+.directory-row svg {
+  color: var(--muted);
+}
+.directory-row .control-copy {
+  flex: 1;
+}
+#agentDirectory {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.directory-button,
+.send-button {
+  flex: none;
 }
 #composerHint {
   max-width: 60%;
@@ -523,11 +608,21 @@ svg {
 }
 .settings-dialog {
   width: min(100%, 480px);
+  max-height: 100%;
+  overflow-y: auto;
   padding: 22px;
   border-radius: 18px;
   background: var(--menu);
   color: var(--text);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+}
+.settings-dialog::-webkit-scrollbar {
+  width: 8px;
+}
+.settings-dialog::-webkit-scrollbar-thumb {
+  border: 2px solid var(--menu);
+  border-radius: 8px;
+  background: var(--muted);
 }
 .dialog-heading {
   display: flex;
@@ -631,17 +726,68 @@ svg {
   background: var(--field);
   color: var(--text);
 }
-.cache-choice span {
+.toggle-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--text);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
 }
-.settings-grid input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
+.toggle-row:hover {
+  background: var(--hover);
+}
+.control-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  line-height: 1.35;
+}
+.control-copy strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.control-copy small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.toggle {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 34px;
+  height: 20px;
+  margin: 0;
   padding: 0;
-  accent-color: var(--text);
+  border: 1px solid var(--muted);
+  border-radius: 10px;
+  background: var(--field);
+  cursor: pointer;
+}
+.toggle::before {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--muted);
+  content: '';
+}
+.toggle:checked {
+  border-color: #2779b1;
+  background: #2779b1;
+}
+.toggle:checked::before {
+  transform: translateX(14px);
+  background: #fff;
+}
+.cache-row {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
 }
 .done-button {
   display: block;
@@ -683,5 +829,38 @@ svg {
   #messages {
     padding-left: 20px;
     padding-right: 20px;
+  }
+}
+
+@media (max-height: 640px) {
+  .modal-backdrop {
+    padding: 12px;
+  }
+  .settings-dialog {
+    padding: 16px;
+  }
+  .settings-dialog h3 {
+    margin: 14px 0 8px;
+  }
+  .theme-choice {
+    min-height: 46px;
+  }
+  #generationOptions {
+    margin-top: 14px;
+    padding-top: 11px;
+  }
+  .settings-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .settings-grid input {
+    height: 32px;
+  }
+  .cache-row {
+    margin-top: 12px;
+  }
+  .done-button {
+    margin-top: 16px;
   }
 }
