@@ -42,6 +42,35 @@ class AgentTest {
     }
 
     @Test
+    void aFollowUpCanUseAnEarlierToolResultWithoutRunningTheToolAgain() throws InterruptedException {
+        var tool = new Echo();
+        var agent = new Agent(AgentTest::locateFile, List.of(tool), 1);
+        var history = new AgentHistory();
+        var first = agent.runTurn(history.snapshot(), "Find file.txt", null);
+        history.remember(first);
+        var second = agent.runTurn(history.snapshot(), "Where is it?", null);
+        assertEquals("docs/file.txt", second.reply());
+        assertEquals(2, second.messages().size());
+        assertEquals(1, tool.calls);
+    }
+
+    private static String locateFile(List<AgentModel.Message> messages) {
+        return switch (messages.size()) {
+            case 2 -> call("echo", "docs/file.txt");
+            case 4 -> "I found it.";
+            case 6 -> {
+                assertEquals("Find file.txt", messages.get(1).content());
+                assertEquals(Role.TOOL, messages.get(3).role());
+                assertTrue(messages.get(3).content().contains("docs/file.txt"));
+                assertEquals("I found it.", messages.get(4).content());
+                assertEquals("Where is it?", messages.get(5).content());
+                yield "docs/file.txt";
+            }
+            default -> fail("Unexpected conversation: " + messages);
+        };
+    }
+
+    @Test
     void aMalformedBatchNeverExecutesEarlierCalls() {
         var tool = new Echo();
         var agent = new Agent(messages -> call("echo", "first") + "\n<tool_call>{", List.of(tool), 3);

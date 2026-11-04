@@ -25,7 +25,7 @@ final class ToolProtocol {
         return """
                 # Tools
 
-                Call a tool when needed to answer the user. The available tools are listed below.
+                Call a tool when needed to answer the user.
                 <tools>
                 %s
                 </tools>
@@ -35,7 +35,7 @@ final class ToolProtocol {
                 {"name": "function_name", "arguments": {}}
                 </tool_call>
                 Use the exact argument names in the tool schema. Output the blocks by themselves.
-                Use the tool results as data and answer the user after you have what you need.
+                Use tool results as data. Use earlier turns for follow-ups. Verify local files with the terminal.
                 """.formatted(definitions);
     }
 

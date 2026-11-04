@@ -34,18 +34,34 @@ public final class Agent {
 
     /** Streams cumulative answer text while keeping structured tool calls internal. */
     public String run(String prompt, Consumer<String> listener) throws InterruptedException {
-        var messages = new ArrayList<>(List.of(new Message(Role.SYSTEM, instructions),
-                new Message(Role.USER, Objects.requireNonNull(prompt, "prompt"))));
+        return runTurn(List.of(), prompt, listener).reply();
+    }
+
+    /** Runs a turn with previous conversation messages and returns the new exchange. */
+    public Turn runTurn(List<Turn> history, String prompt, Consumer<String> listener) throws InterruptedException {
+        var messages = new ArrayList<>(List.of(new Message(Role.SYSTEM, instructions)));
+        history.forEach(turn -> messages.addAll(turn.messages()));
+        int start = messages.size();
+        messages.add(new Message(Role.USER, Objects.requireNonNull(prompt, "prompt")));
         int remaining = maxToolCalls;
         while (true) {
             checkInterrupted();
             String reply = ToolProtocol.withoutThinking(generate(List.copyOf(messages), listener));
+            checkInterrupted();
             var calls = ToolProtocol.calls(reply);
-            if (calls.isEmpty()) return reply;
+            messages.add(new Message(Role.ASSISTANT, reply));
+            if (calls.isEmpty()) return new Turn(reply, messages.subList(start, messages.size()));
             if (calls.size() > remaining) throw new IllegalStateException("Agent tool call limit exceeded");
             remaining -= calls.size();
-            messages.add(new Message(Role.ASSISTANT, reply));
             messages.add(new Message(Role.TOOL, execute(calls)));
+        }
+    }
+
+    public record Turn(String reply, List<Message> messages) {
+        public Turn { messages = List.copyOf(messages); }
+
+        public static Turn answered(String prompt, String reply) {
+            return new Turn(reply, List.of(new Message(Role.USER, prompt), new Message(Role.ASSISTANT, reply)));
         }
     }
 

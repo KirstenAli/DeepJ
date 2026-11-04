@@ -30,7 +30,7 @@ class AgentCliTest extends CliTestSupport {
     @ValueSource(strings = {"yes", ""})
     void runsTheCommandOnlyAfterAffirmativeApproval(String approval) throws Exception {
         assumeTrue(InteractiveTerminal.available());
-        console.inputs.addAll(List.of("Print hello", approval, "/exit"));
+        console.inputs.addAll(List.of("Print hello", approval, "What was the result?", "/exit"));
         var view = new CliView(console, new CliOptions(), Map.of("NO_COLOR", "1"));
         var agent = new AgentCliSession(console, view, scriptedModel(approval.equals("yes")), directory);
         agent.run();
@@ -38,6 +38,7 @@ class AgentCliTest extends CliTestSupport {
         assertTrue(output.toString().contains(command));
         assertTrue(output.toString().contains("Working directory: \"" + directory + "\""));
         assertTrue(output.toString().contains("Done"));
+        assertTrue(output.toString().contains(approval.equals("yes") ? "Earlier: hello world" : "Earlier: denied"));
     }
 
     @Test
@@ -60,6 +61,10 @@ class AgentCliTest extends CliTestSupport {
                     </tool_call>
                     """;
             assertTrue(messages.get(3).content().contains(expected), messages.get(3).content());
+            if (messages.size() == 6) {
+                assertEquals("What was the result?", messages.get(5).content());
+                return "Earlier: " + (allowed ? "hello world" : "denied");
+            }
             return "Done";
         };
     }

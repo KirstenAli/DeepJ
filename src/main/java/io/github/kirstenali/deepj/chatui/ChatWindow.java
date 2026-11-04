@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.agent.Agent;
+import io.github.kirstenali.deepj.chatui.ChatRequests.Request;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 import javafx.concurrent.Task;
@@ -14,8 +16,6 @@ import javafx.stage.Stage;
 import netscape.javascript.JSObject;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,17 +31,18 @@ public final class ChatWindow {
         thread.setDaemon(true);
         return thread;
     });
-    private Task<String> activeGeneration;
+    private Task<Agent.Turn> activeGeneration;
     private int activeResponse;
     private int activeAlternative = -1;
     private boolean busy;
     private int nextResponse;
-    private final Map<Integer, Request> requests = new HashMap<>();
+    private final ChatRequests requests;
 
     ChatWindow(Stage stage, WebView view, ChatService service) {
         this.stage = stage;
         this.view = view;
         this.service = service;
+        requests = new ChatRequests(service);
         agentWorkspace = service instanceof AgentChatService agent
                 ? new AgentWorkspace(stage, agent, () -> busy) : null;
     }
@@ -151,43 +152,34 @@ public final class ChatWindow {
 
     private void startGeneration(String prompt, ChatGenerationSettings settings) {
         int response = nextResponse++;
-        requests.put(response, new Request(prompt, settings));
+        var request = requests.add(response, prompt, settings);
         call("startResponse", prompt, response);
         call("setGenerating", true);
         setBusy(true);
-        Task<String> task = generation(prompt, settings);
+        Task<Agent.Turn> task = requests.generate(request, settings);
         activeGeneration = task;
         activeResponse = response;
-        task.valueProperty().addListener((ob, old, text) -> partial(task, response, text));
+        task.messageProperty().addListener((ob, old, text) -> partial(task, response, text));
         task.setOnSucceeded(event -> complete(task, response));
         task.setOnFailed(event -> failed(task, response));
         start(task);
     }
 
-    private Task<String> generation(String prompt, ChatGenerationSettings settings) {
-        return new Task<>() {
-            @Override protected String call() {
-                return service.generate(prompt, settings.maxTokens(), (float) settings.temperature(),
-                        settings.topK(), settings.seed(), (float) settings.repetitionPenalty(),
-                        settings.contextWindow(), this::updateValue);
-            }
-        };
-    }
-
-    private void partial(Task<String> task, int response, String text) {
+    private void partial(Task<Agent.Turn> task, int response, String text) {
         if (task == activeGeneration && text != null && !text.isEmpty()) {
             call("updateResponse", response, text);
         }
     }
 
-    private void complete(Task<String> task, int response) {
+    private void complete(Task<Agent.Turn> task, int response) {
         if (task != activeGeneration) return;
-        if (task.getValue() == null || task.getValue().isBlank()) requests.remove(response);
-        call("finishResponse", response, task.getValue());
+        Agent.Turn turn = task.getValue();
+        requests.complete(response, turn);
+        call("finishResponse", response, turn.reply());
         finishGeneration();
     }
 
-    private void failed(Task<String> task, int response) {
+    private void failed(Task<Agent.Turn> task, int response) {
         if (task != activeGeneration) return;
         requests.remove(response);
         call("failResponse", response, message(task.getException()));
@@ -207,29 +199,29 @@ public final class ChatWindow {
         ChatGenerationSettings settings = option == 0
                 ? request.settings().withPenalty() : request.settings().withNewSeed();
         call("startAlternative", response, option);
-        Task<String> task = generation(request.prompt(), settings);
+        Task<Agent.Turn> task = requests.generate(request, settings);
         activeGeneration = task;
         activeResponse = response;
         activeAlternative = option;
-        task.valueProperty().addListener((ob, old, text) -> partialAlternative(task, response, option, text));
+        task.messageProperty().addListener((ob, old, text) -> partialAlternative(task, response, option, text));
         task.setOnSucceeded(event -> completeAlternative(task, response, option, request));
         task.setOnFailed(event -> failAlternative(task, response, option, request));
         start(task);
     }
 
-    private void partialAlternative(Task<String> task, int response, int option, String text) {
+    private void partialAlternative(Task<Agent.Turn> task, int response, int option, String text) {
         if (task == activeGeneration && text != null && !text.isEmpty()) {
             call("updateAlternative", response, option, text);
         }
     }
 
-    private void completeAlternative(Task<String> task, int response, int option, Request request) {
+    private void completeAlternative(Task<Agent.Turn> task, int response, int option, Request request) {
         if (task != activeGeneration) return;
-        call("finishAlternative", response, option, task.getValue());
+        call("finishAlternative", response, option, task.getValue().reply());
         nextAlternative(response, option, request);
     }
 
-    private void failAlternative(Task<String> task, int response, int option, Request request) {
+    private void failAlternative(Task<Agent.Turn> task, int response, int option, Request request) {
         if (task != activeGeneration) return;
         call("failAlternative", response, option, message(task.getException()));
         nextAlternative(response, option, request);
@@ -242,7 +234,7 @@ public final class ChatWindow {
 
     public void stop() {
         if (activeGeneration == null) return;
-        Task<String> task = activeGeneration;
+        Task<Agent.Turn> task = activeGeneration;
         int response = activeResponse;
         activeGeneration = null;
         task.cancel(true);
@@ -295,5 +287,4 @@ public final class ChatWindow {
         worker.execute(task);
     }
 
-    private record Request(String prompt, ChatGenerationSettings settings) {}
 }

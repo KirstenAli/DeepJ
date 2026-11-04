@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
 import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Chat;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -40,23 +41,52 @@ public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperat
 
     @Override
     public String stream(List<Message> messages, Consumer<String> listener) {
-        String prompt = Qwen3Chat.format(messages.stream().map(Qwen3AgentModel::format).toList(), true, false);
-        var tokenizer = chat.tokenizer();
         int window = chat.model().config().maxSeqLen();
-        int[] input = tokenizer.encode(prompt);
-        int tokens = Math.min(maxTokens, window - input.length);
+        Prompt input = fitPrompt(messages, window);
+        int tokens = Math.min(maxTokens, window - input.ids().length);
         if (tokens < 1) throw new IllegalStateException("Agent conversation fills the model context window");
-        String prefix = tokenizer.decode(input);
+        return generate(input, window, tokens, listener);
+    }
+
+    private String generate(Prompt input, int window, int tokens, Consumer<String> listener) {
+        var tokenizer = chat.tokenizer();
+        String prefix = tokenizer.decode(input.ids());
         try (var session = chat.model().openGeneration(mode)) {
             String text = listener == null
-                    ? TextGenerator.generate(session, window, tokenizer, prompt,
+                    ? TextGenerator.generate(session, window, tokenizer, input.text(),
                             tokens, temperature, topK, seed, repetitionPenalty)
-                    : TextGenerator.stream(session, window, tokenizer, prompt,
+                    : TextGenerator.stream(session, window, tokenizer, input.text(),
                             tokens, temperature, topK, seed, repetitionPenalty,
                             generated -> listener.accept(continuation(prefix, generated)));
             return continuation(prefix, text);
         }
     }
+
+    private Prompt fitPrompt(List<Message> messages, int window) {
+        Prompt prompt = encode(messages);
+        int budget = window - Math.min(maxTokens, window - 1);
+        if (prompt.ids().length <= budget) return prompt;
+        int firstUser = messages.get(0).role() == Role.SYSTEM ? 1 : 0;
+        int current = messages.size() - 1;
+        while (current > firstUser && messages.get(current).role() != Role.USER) {
+            current--;
+        }
+        for (int start = firstUser + 1; start <= current; start++) {
+            if (messages.get(start).role() != Role.USER) continue;
+            var recent = new ArrayList<>(messages.subList(0, firstUser));
+            recent.addAll(messages.subList(start, messages.size()));
+            prompt = encode(recent);
+            if (prompt.ids().length <= budget) break;
+        }
+        return prompt;
+    }
+
+    private Prompt encode(List<Message> messages) {
+        String prompt = Qwen3Chat.format(messages.stream().map(Qwen3AgentModel::format).toList(), true, false);
+        return new Prompt(prompt, chat.tokenizer().encode(prompt));
+    }
+
+    private record Prompt(String text, int[] ids) {}
 
     private static String continuation(String prefix, String text) {
         if (!text.startsWith(prefix)) throw new IllegalStateException("Generated text lost its prompt prefix");

@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.agent.Agent;
+import io.github.kirstenali.deepj.agent.AgentHistory;
 import io.github.kirstenali.deepj.agent.AgentModel;
 import io.github.kirstenali.deepj.agent.InteractiveTerminal;
 import org.jline.reader.EndOfFileException;
@@ -13,6 +14,7 @@ final class AgentCliSession {
     private final CliConsole console;
     private final CliView view;
     private final Agent agent;
+    private final AgentHistory history = new AgentHistory();
 
     AgentCliSession(CliConsole console, CliView view, AgentModel model, Path directory) {
         this.console = console;
@@ -48,9 +50,10 @@ final class AgentCliSession {
     private void answer(String prompt) throws InterruptedException {
         Thread worker = Thread.currentThread();
         try (var ignored = console.interrupt(worker::interrupt)) {
-            String response = agent.run(prompt);
+            var turn = agent.runTurn(history.snapshot(), prompt, null);
+            history.remember(turn);
             view.response("DeepJ Agent");
-            view.out().println(CliText.safe(response));
+            view.out().println(CliText.safe(turn.reply()));
         } finally {
             Thread.interrupted();
         }

@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.agent.InteractiveTerminal;
 import io.github.kirstenali.deepj.agent.Qwen3AgentModel;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
@@ -7,6 +8,7 @@ import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
@@ -66,19 +68,33 @@ final class AgentChatService implements ChatService {
     @Override
     public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
                            float penalty, ContextWindowMode mode, Consumer<String> listener) {
+        var settings = new ChatGenerationSettings(maxTokens, temperature, topK, seed, penalty, mode);
+        return generateTurn(prompt, List.of(), settings, listener).reply();
+    }
+
+    Agent.Turn generateTurn(String prompt, List<Agent.Turn> history, ChatGenerationSettings settings,
+                            Consumer<String> listener) {
         Loaded loaded = model;
         if (loaded == null) throw new IllegalStateException("Load a model first");
         if (loaded.qwen() == null) {
-            return loaded.plain().generate(prompt, maxTokens, temperature, topK, seed, penalty, mode, listener);
+            return Agent.Turn.answered(prompt, settings.generate(loaded.plain(), prompt, listener));
         }
-        if (!enabled) return loaded.qwen().stream(prompt, maxTokens, temperature, topK, seed, penalty, mode, listener);
-        var qwen = new Qwen3AgentModel(loaded.qwen(), maxTokens, temperature, topK, seed, penalty, mode);
-        return runAgent(prompt, qwen, listener);
+        if (!enabled) {
+            String reply = loaded.qwen().stream(prompt, settings.maxTokens(), (float) settings.temperature(),
+                    settings.topK(), settings.seed(), (float) settings.repetitionPenalty(),
+                    settings.contextWindow(), listener);
+            return Agent.Turn.answered(prompt, reply);
+        }
+        var qwen = new Qwen3AgentModel(loaded.qwen(), settings.maxTokens(), (float) settings.temperature(),
+                settings.topK(), settings.seed(), (float) settings.repetitionPenalty(), settings.contextWindow());
+        return runAgent(prompt, history, qwen, listener);
     }
 
-    private String runAgent(String prompt, Qwen3AgentModel qwen, Consumer<String> listener) {
+    private Agent.Turn runAgent(String prompt, List<Agent.Turn> history, Qwen3AgentModel qwen,
+                                Consumer<String> listener) {
         try {
-            return InteractiveTerminal.withCommandReview(directory, review).agent(qwen).run(prompt, listener);
+            var agent = InteractiveTerminal.withCommandReview(directory, review).agent(qwen);
+            return agent.runTurn(history, prompt, listener);
         } catch (InterruptedException stopped) {
             Thread.currentThread().interrupt();
             throw new CancellationException("Agent stopped");
