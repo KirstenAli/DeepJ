@@ -182,6 +182,7 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     }
 
     private static boolean isRandomWeight(Tensor tensor) {
+        if (!tensor.hasHostStorage() && tensor.getGpuTag() == null) return false;
         return !isFilledWith(tensor, 0.0f) && !isFilledWith(tensor, 1.0f);
     }
 

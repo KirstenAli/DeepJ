@@ -34,10 +34,19 @@ class MetalTypedModelLoaderTest extends MetalDifferentialTestSupport {
         try (var ignored = GradMode.noGrad()) {
             float[] expected = original.forwardBatch(inputs()).toFloatArray();
             DecoderOnlyModel loaded = ModelLoader.load(file);
+            assertResidentMatrices(loaded);
             assertArrayEquals(expected, loaded.forwardBatch(inputs()).toFloatArray());
             assertEquals(original.promptFormat(), loaded.promptFormat());
             assertEquals(original.metadata(), loaded.metadata());
             compareParameters(original, loaded);
+        }
+    }
+
+    private static void assertResidentMatrices(DecoderOnlyModel model) {
+        for (var parameter : model.parameters()) {
+            if (parameter.value.matrixRows() <= 1) continue;
+            assertFalse(parameter.value.hasHostStorage(), parameter.name());
+            assertNotNull(parameter.value.getGpuTag(), parameter.name());
         }
     }
 

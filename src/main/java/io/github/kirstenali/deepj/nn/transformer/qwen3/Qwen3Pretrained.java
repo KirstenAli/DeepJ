@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.nn.transformer.qwen3;
 
-import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
@@ -10,7 +9,7 @@ import io.github.kirstenali.deepj.persistence.qwen3.SafeTensorFile;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorDescriptor;
-import io.github.kirstenali.deepj.tensor.TensorScope;
+import io.github.kirstenali.deepj.tensor.TensorEncoding;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -34,7 +33,8 @@ public final class Qwen3Pretrained {
         Map<String, Tensor> targets = new HashMap<>();
         model.parameters().forEach(parameter -> targets.put(parameter.name(), parameter.value));
         for (var weight : layout.weights()) {
-            restore(layout.source().get(weight.source()), targets.get(weight.name()), weight);
+            Tensor source = SafeTensorFile.read(layout.source().get(weight.source()));
+            TensorEncoding.restoreWeight(targets.get(weight.name()), source, weight.transpose());
         }
         return model;
     }
@@ -85,19 +85,4 @@ public final class Qwen3Pretrained {
         }
     }
 
-    private static void restore(SafeTensorFile.Entry entry, Tensor target, Qwen3Weights.Weight weight)
-            throws IOException {
-        try (var ignored = GradMode.noGrad(); var scope = TensorScope.open()) {
-            Tensor value = SafeTensorFile.read(entry);
-            if (weight.transpose()) value = value.transpose();
-            else value = value.reshape(target.shape());
-            target.copyFrom(value);
-            finishRestore(target);
-        }
-    }
-
-    /** Bounds deferred upload snapshots by downloading a scalar copy, rather than the parameter. */
-    private static void finishRestore(Tensor target) {
-        if (Tensor.backend().usesDeviceStorage()) target.select(0, 0).select(0, 0).copy().item();
-    }
 }

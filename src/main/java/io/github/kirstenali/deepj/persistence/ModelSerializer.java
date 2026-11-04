@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.persistence;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.nn.transformer.TransformerConfig;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorEncoding;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -93,7 +94,7 @@ public final class ModelSerializer {
         var lookup = new ModelParameterIndex(params, format);
         for (int position = 0; position < params.size(); position++) {
             Parameter parameter = lookup.match(position, ModelTensorIO.descriptor(input, format));
-            io.github.kirstenali.deepj.tensor.TensorEncoding.readValues(input, parameter.value);
+            TensorEncoding.readWeight(input, parameter.value);
         }
         if (input.read() != -1) throw new IOException("Unexpected trailing checkpoint data");
     }

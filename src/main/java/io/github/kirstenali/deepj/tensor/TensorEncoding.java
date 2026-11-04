@@ -61,6 +61,37 @@ public final class TensorEncoding {
         }
     }
 
+    /** Restores a lazily allocated model weight without retaining its host payload on a device backend. */
+    public static void readWeight(DataInput input, Tensor target) throws IOException {
+        if (Tensor.backend().usesDeviceStorage() && target.coversStorage()
+                && !target.hasHostStorage() && target.numel() != 0) {
+            restoreWeight(target, readValues(input, target.dtype(), target.shape()), false);
+        } else {
+            readValues(input, target);
+        }
+    }
+
+    private static Tensor readValues(DataInput input, DType dtype, int... shape) throws IOException {
+        Tensor source = new Tensor(dtype, shape);
+        readValues(input, source);
+        return source;
+    }
+
+    /** Transfers a private, contiguous checkpoint tensor and retires its staging buffer before returning. */
+    public static void restoreWeight(Tensor target, Tensor source, boolean transpose) {
+        try (var ignored = GradMode.noGrad(); var buffers = BackwardBuffers.begin()) {
+            try {
+                buffers.capture(() -> {
+                    Tensor staged = Tensor.backend().usesDeviceStorage() ? HostStaging.copy(source) : source;
+                    Tensor value = transpose ? staged.transpose() : staged.reshape(target.shape());
+                    return target.copyFrom(value);
+                });
+            } finally {
+                buffers.releaseTemporaryResources();
+            }
+        }
+    }
+
     public static void readValues(DataInput input, Tensor tensor) throws IOException {
         tensor.layout().requireWritable();
         tensor.materialize();
