@@ -7,20 +7,19 @@ import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.function.Function;
 
 final class AgentChatService implements ChatService {
-    private final Consumer<Boolean> modelChanged;
-    private final Predicate<InteractiveTerminal.Request> approve;
+    private final Function<InteractiveTerminal.Request, Optional<InteractiveTerminal.Request>> review;
     private volatile Path directory = Path.of(".").toAbsolutePath().normalize();
     private volatile boolean enabled;
     private volatile Loaded model;
 
-    AgentChatService(Consumer<Boolean> modelChanged, Predicate<InteractiveTerminal.Request> approve) {
-        this.modelChanged = modelChanged;
-        this.approve = approve;
+    AgentChatService(Function<InteractiveTerminal.Request, Optional<InteractiveTerminal.Request>> review) {
+        this.review = review;
     }
 
     @Override
@@ -28,17 +27,21 @@ final class AgentChatService implements ChatService {
         Loaded loaded = load(path);
         enabled = false;
         model = loaded;
-        modelChanged.accept(loaded.qwen() != null && InteractiveTerminal.available());
     }
 
     private static Loaded load(Path path) throws Exception {
-        if (Qwen3Snapshot.matches(path)) return new Loaded(null, Qwen3ChatModel.load(path));
+        if (Qwen3Snapshot.matches(path)) return new Loaded(null, Qwen3ChatService.loadSnapshot(path));
         ChatService plain = new DeepJChatService();
         plain.loadModel(path);
         return new Loaded(plain, null);
     }
 
     void enable(boolean selected) { enabled = selected; }
+
+    boolean supportsAgent() {
+        Loaded loaded = model;
+        return loaded != null && loaded.qwen() != null && InteractiveTerminal.available();
+    }
 
     void directory(Path path) { directory = path; }
 
@@ -69,13 +72,13 @@ final class AgentChatService implements ChatService {
             return loaded.plain().generate(prompt, maxTokens, temperature, topK, seed, penalty, mode, listener);
         }
         if (!enabled) return loaded.qwen().stream(prompt, maxTokens, temperature, topK, seed, penalty, mode, listener);
-        return runAgent(prompt,
-                new Qwen3AgentModel(loaded.qwen(), maxTokens, temperature, topK, seed, penalty, mode));
+        var qwen = new Qwen3AgentModel(loaded.qwen(), maxTokens, temperature, topK, seed, penalty, mode);
+        return runAgent(prompt, qwen, listener);
     }
 
-    private String runAgent(String prompt, Qwen3AgentModel qwen) {
+    private String runAgent(String prompt, Qwen3AgentModel qwen, Consumer<String> listener) {
         try {
-            return new InteractiveTerminal(directory, approve).agent(qwen).run(prompt);
+            return InteractiveTerminal.withCommandReview(directory, review).agent(qwen).run(prompt, listener);
         } catch (InterruptedException stopped) {
             Thread.currentThread().interrupt();
             throw new CancellationException("Agent stopped");

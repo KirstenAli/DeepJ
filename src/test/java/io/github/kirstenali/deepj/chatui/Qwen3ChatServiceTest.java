@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatFixture;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import java.nio.file.Files;
@@ -38,5 +39,19 @@ class Qwen3ChatServiceTest {
         Files.writeString(snapshot.resolve("tokenizer.json"), "invalid");
         assertThrows(java.io.IOException.class, () -> service.loadModel(snapshot));
         assertEquals("xx", service.generate("hello", 2, 0.8f, 1, 5));
+    }
+
+    @Test void loadsQwenWeightsInTheRequestedDesktopFormat() throws Exception {
+        Tensor.setBackend(new CpuBackend());
+        var snapshot = Qwen3ChatFixture.create(directory.resolve("model"), DType.BFLOAT16);
+        String property = "deepj.chat.qwen3.dtype";
+        String previous = System.setProperty(property, "float32");
+        try {
+            var chat = Qwen3ChatService.loadSnapshot(snapshot.resolve("config.json"));
+            assertTrue(chat.model().parameters().stream().allMatch(weight -> weight.value.dtype() == DType.FLOAT32));
+        } finally {
+            if (previous == null) System.clearProperty(property);
+            else System.setProperty(property, previous);
+        }
     }
 }

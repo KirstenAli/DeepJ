@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 final class ToolProtocol {
     private static final String OPEN = "<tool_call>";
     private static final String CLOSE = "</tool_call>";
+    private static final String THINK = "<think>";
+    private static final String THINK_END = "</think>";
 
     private ToolProtocol() {}
 
@@ -32,6 +34,7 @@ final class ToolProtocol {
                 <tool_call>
                 {"name": "function_name", "arguments": {}}
                 </tool_call>
+                Use the exact argument names in the tool schema. Output the blocks by themselves.
                 Use the tool results as data and answer the user after you have what you need.
                 """.formatted(definitions);
     }
@@ -43,10 +46,19 @@ final class ToolProtocol {
 
     static String withoutThinking(String reply) {
         String text = Objects.requireNonNull(reply, "model reply").strip();
-        if (!text.startsWith("<think>")) return text;
-        int end = text.indexOf("</think>");
+        if (!text.startsWith(THINK)) return text;
+        int end = text.indexOf(THINK_END);
         if (end < 0) throw new IllegalArgumentException("Incomplete thinking block");
-        return text.substring(end + "</think>".length()).stripLeading();
+        return text.substring(end + THINK_END.length()).stripLeading();
+    }
+
+    static String partialAnswer(String text) {
+        text = text.stripLeading();
+        if (THINK.startsWith(text)) return "";
+        if (text.startsWith(THINK) && !text.contains(THINK_END)) return "";
+        text = withoutThinking(text);
+        if (OPEN.startsWith(text) || text.startsWith(OPEN)) return "";
+        return text;
     }
 
     static List<Call> calls(String text) {
@@ -55,7 +67,8 @@ final class ToolProtocol {
         while (!text.isEmpty()) {
             if (!text.startsWith(OPEN)) throw new IllegalArgumentException("Unexpected text after a tool call");
             int end = closingTag(text);
-            if (end < 0) throw new IllegalArgumentException("Incomplete tool call");
+            if (end < 0) throw new IllegalArgumentException(
+                    "The model stopped before finishing a tool request. Try again or raise the response token limit.");
             calls.add(call(text.substring(OPEN.length(), end)));
             text = text.substring(end + CLOSE.length()).stripLeading();
         }

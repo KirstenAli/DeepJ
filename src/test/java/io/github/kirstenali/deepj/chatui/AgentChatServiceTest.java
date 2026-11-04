@@ -19,21 +19,25 @@ class AgentChatServiceTest {
 
     @Test
     void detectsQwen3AndFallsBackWhenADifferentCheckpointIsLoaded() throws Exception {
-        var capabilities = new ArrayList<Boolean>();
-        var service = new AgentChatService(capabilities::add, request -> fail("Unexpected command"));
+        var service = new AgentChatService(request -> fail("Unexpected command"));
         service.loadModel(qwenSnapshot());
+        assertEquals(InteractiveTerminal.available(), service.supportsAgent());
         assertEquals("Qwen3", service.getLoadedModelName());
         assertEquals("xxxx", service.generate("Hello", 4, 0.7f, 1, 1L));
-        if (InteractiveTerminal.available()) {
-            service.enable(true);
-            assertEquals("xxxx", service.generate("Hello", 4, 0.7f, 1, 1L));
-        }
+        if (InteractiveTerminal.available()) verifyAgentStreaming(service);
         Path checkpoint = directory.resolve("model.dj");
         new DeepJOrigin(new DeepJOriginConfig(256, 16, 8, 2, 1, 16), 2).save(checkpoint);
         service.loadModel(checkpoint);
         assertEquals("model.dj", service.getLoadedModelName());
         assertDoesNotThrow(() -> service.generate("Hello", 2, 0.7f, 1, 1L));
-        assertEquals(List.of(InteractiveTerminal.available(), false), capabilities);
+        assertFalse(service.supportsAgent());
+    }
+
+    private static void verifyAgentStreaming(AgentChatService service) {
+        service.enable(true);
+        var partials = new ArrayList<String>();
+        assertEquals("xxxx", service.generate("Hello", 4, 0.7f, 1, 1L, partials::add));
+        assertEquals(List.of("x", "xx", "xxx", "xxxx"), partials);
     }
 
     private Path qwenSnapshot() throws Exception {

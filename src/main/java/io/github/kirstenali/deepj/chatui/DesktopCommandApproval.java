@@ -1,34 +1,33 @@
 package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.agent.InteractiveTerminal.Request;
+import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import javafx.application.Platform;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar.ButtonData;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.TextArea;
-import javafx.stage.Modality;
+import javafx.scene.web.WebView;
 import javafx.stage.Window;
+import netscape.javascript.JSObject;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.atomic.AtomicReference;
 
-final class DesktopCommandApproval {
+/** Connects a pending terminal request to the approval dialog inside the chat view. */
+public final class DesktopCommandApproval {
     private final Window owner;
+    private Pending active;
 
     DesktopCommandApproval(Window owner) { this.owner = owner; }
 
-    boolean approve(Request request) {
-        var alert = new AtomicReference<Alert>();
-        var task = new FutureTask<>(() -> show(request, alert));
-        Platform.runLater(task);
+    Optional<Request> review(Request request) {
+        var decision = new CompletableFuture<Optional<Request>>();
+        Platform.runLater(() -> show(request, decision));
         try {
-            return task.get();
+            return decision.get();
         } catch (InterruptedException stopped) {
-            task.cancel(false);
-            Platform.runLater(() -> close(alert.get()));
+            decision.cancel(false);
+            Platform.runLater(() -> dismiss(decision));
             Thread.currentThread().interrupt();
             throw new CancellationException("Agent stopped");
         } catch (ExecutionException failure) {
@@ -36,32 +35,61 @@ final class DesktopCommandApproval {
         }
     }
 
-    private boolean show(Request request, AtomicReference<Alert> active) {
-        if (!owner.isShowing()) return false;
-        var run = new ButtonType("Run once", ButtonData.OK_DONE);
-        var deny = new ButtonType("Deny", ButtonData.CANCEL_CLOSE);
-        var alert = new Alert(Alert.AlertType.CONFIRMATION, "", run, deny);
-        alert.initOwner(owner);
-        alert.initModality(Modality.WINDOW_MODAL);
-        alert.setTitle("DeepJ Agent");
-        alert.setHeaderText("Allow this terminal command?");
-        alert.getDialogPane().setContent(preview(request));
-        ((Button) alert.getDialogPane().lookupButton(run)).setDefaultButton(false);
-        ((Button) alert.getDialogPane().lookupButton(deny)).setDefaultButton(true);
-        active.set(alert);
-        return alert.showAndWait().orElse(deny) == run;
+    private void show(Request request, CompletableFuture<Optional<Request>> decision) {
+        if (decision.isDone() || active != null || !owner.isShowing()) {
+            decision.complete(Optional.empty());
+            return;
+        }
+        try {
+            JSObject window = window();
+            active = new Pending(request, decision);
+            window.setMember("approvalBridge", this);
+            window.call("openApproval", request.commandPreview(), request.directoryPreview());
+        } catch (RuntimeException failure) {
+            active = null;
+            decision.completeExceptionally(failure);
+        }
     }
 
-    private static TextArea preview(Request request) {
-        var preview = new TextArea(request.preview());
-        preview.setEditable(false);
-        preview.setWrapText(true);
-        preview.setPrefColumnCount(64);
-        preview.setPrefRowCount(6);
-        return preview;
+    public String reviewEdit(String json) {
+        var pending = active;
+        if (pending == null || pending.decision().isDone()) return editError("This request has expired.");
+        try {
+            var argv = Qwen3Json.array(Qwen3Json.parse(json)).stream().map(Qwen3Json::string).toList();
+            var revised = pending.request().revise(argv);
+            active = new Pending(revised, pending.decision());
+            return Qwen3Json.stringify(Map.of("preview", revised.commandPreview()));
+        } catch (IllegalArgumentException invalid) {
+            return editError(invalid.getMessage());
+        }
     }
 
-    private static void close(Alert alert) {
-        if (alert != null) alert.close();
+    private static String editError(String message) {
+        return Qwen3Json.stringify(Map.of("error", message));
     }
+
+    public void decide(boolean allow) {
+        var pending = active;
+        if (pending == null) return;
+        var decision = pending.decision();
+        try {
+            dismiss(decision);
+            decision.complete(allow ? Optional.of(pending.request()) : Optional.empty());
+        } catch (RuntimeException failure) {
+            decision.completeExceptionally(failure);
+        }
+    }
+
+    private void dismiss(CompletableFuture<Optional<Request>> decision) {
+        if (active == null || active.decision() != decision) return;
+        active = null;
+        if (owner.isShowing()) window().call("closeApproval");
+    }
+
+    private JSObject window() {
+        var view = (WebView) owner.getScene().getRoot();
+        return (JSObject) view.getEngine().executeScript("window");
+    }
+
+    private record Pending(Request request, CompletableFuture<Optional<Request>> decision) {}
 }

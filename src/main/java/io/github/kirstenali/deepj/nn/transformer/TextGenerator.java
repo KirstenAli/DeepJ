@@ -149,7 +149,7 @@ public final class TextGenerator {
                     temperature, topK, repetitionPenalty, rnd);
             if (tok.isEndOfSequence(token)) break;
             ids[length++] = token;
-            if (listener != null) listener.accept(tok.decode(Arrays.copyOf(ids, length)));
+            if (listener != null) listener.accept(tok.decodePartial(Arrays.copyOf(ids, length)));
         }
         return length;
     }

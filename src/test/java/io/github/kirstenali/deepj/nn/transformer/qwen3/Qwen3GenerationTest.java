@@ -4,8 +4,13 @@ import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,6 +18,34 @@ import org.junit.jupiter.params.provider.EnumSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class Qwen3GenerationTest {
+    @ParameterizedTest @EnumSource(ContextWindowMode.class)
+    void decodingAfterALongPromptReusesThePrefilledCache(ContextWindowMode mode) {
+        var offsets = new ArrayList<Integer>();
+        Tensor.setBackend(recordCacheWrites(offsets));
+        var config = new Qwen3Config(19, 300, 12, 4, 2, 1, 20, 4, 1_000_000, 0.02f, 1);
+        Qwen3 model = new Qwen3(config, 8);
+        try (var session = model.openGeneration(mode)) {
+            session.apply(new int[200]);
+            for (int length = 201; length <= 280; length++) {
+                session.apply(new int[length]);
+            }
+            assertEquals(2, offsets.stream().filter(offset -> offset == 0).count(),
+                    "Only the initial key and value writes should start at position zero");
+        } finally {
+            cpu();
+        }
+    }
+
+    private static TensorBackend recordCacheWrites(List<Integer> offsets) {
+        var cpu = new CpuBackend();
+        return (TensorBackend) Proxy.newProxyInstance(TensorBackend.class.getClassLoader(),
+                new Class<?>[]{TensorBackend.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("writeHeadCache")) offsets.add((Integer) args[3]);
+                    try { return method.invoke(cpu, args); }
+                    catch (InvocationTargetException error) { throw error.getCause(); }
+                });
+    }
+
     @Test void cacheGrowthAndPromptResetsPreserveTheFullContextNumerics() {
         Tensor.setBackend(new CpuBackend());
         var config = new Qwen3Config(19, 260, 12, 4, 2, 1, 20, 4, 1_000_000, 0.02f, 1);

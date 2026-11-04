@@ -2,17 +2,24 @@ package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
+import io.github.kirstenali.deepj.tensor.DType;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 /** Adapts local Qwen3 snapshots to the existing desktop chat service contract. */
 public final class Qwen3ChatService implements ChatService {
     private Qwen3ChatModel chat;
 
-    @Override public void loadModel(Path path) throws IOException { chat = Qwen3ChatModel.load(path); }
+    @Override public void loadModel(Path path) throws IOException { chat = loadSnapshot(path); }
     @Override public boolean isModelLoaded() { return chat != null; }
     @Override public String getLoadedModelName() { return chat == null ? "No model" : "Qwen3"; }
+
+    static Qwen3ChatModel loadSnapshot(Path path) throws IOException {
+        String dtype = System.getProperty("deepj.chat.qwen3.dtype");
+        return Qwen3ChatModel.load(path, dtype == null ? null : DType.valueOf(dtype.toUpperCase(Locale.ROOT)));
+    }
 
     @Override public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,
                                      Consumer<String> listener) {

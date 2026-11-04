@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.GenerationSession;
+import io.github.kirstenali.deepj.tensor.BackwardBuffers;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import java.util.Arrays;
@@ -11,6 +12,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 final class Qwen3Session implements GenerationSession {
+    private static final int INITIAL_CAPACITY = 128;
+
     private final Qwen3 model;
     private final TensorBackend backend = Tensor.backend();
     private InferenceContext cache;
@@ -23,7 +26,7 @@ final class Qwen3Session implements GenerationSession {
     Qwen3Session(Qwen3 model, ContextWindowMode mode) {
         this.model = model;
         rolling = mode == ContextWindowMode.ROLLING;
-        capacity = Math.min(128, model.config().maxSeqLen());
+        capacity = Math.min(INITIAL_CAPACITY, model.config().maxSeqLen());
         cache = new InferenceContext(capacity, rolling);
         model.parameters().forEach(parameter ->
                 weights.put(parameter.value, parameter.value.gradientState().version()));
@@ -35,7 +38,7 @@ final class Qwen3Session implements GenerationSession {
         cache.begin(position);
         try (var ignored = GradMode.noGrad()) {
             int[] input = continuation ? new int[]{tokens[tokens.length - 1]} : tokens;
-            Tensor result = model.cached(input, cache);
+            Tensor result = cached(input);
             cache.finish();
             position = Math.addExact(position, input.length);
             history = tokens.clone();
@@ -46,13 +49,27 @@ final class Qwen3Session implements GenerationSession {
         }
     }
 
+    private Tensor cached(int[] input) {
+        if (input.length == 1 || !backend.usesDeviceStorage()) return model.cached(input, cache);
+        try (var scratch = BackwardBuffers.begin()) {
+            Tensor logits = scratch.capture(() -> model.cached(input, cache));
+            scratch.expose(logits);
+            return logits;
+        }
+    }
+
     private boolean prepare(int[] tokens, boolean continuation) {
         if (continuation && tokens.length <= capacity) return true;
         reset();
-        long requested = continuation ? Math.max(tokens.length, 2L * capacity) : Math.max(128, tokens.length);
+        long requested = continuation ? Math.max(tokens.length, 2L * capacity) : promptCapacity(tokens.length);
         capacity = (int) Math.min(model.config().maxSeqLen(), requested);
         cache = new InferenceContext(capacity, rolling);
         return false;
+    }
+
+    private static long promptCapacity(int length) {
+        if (length < INITIAL_CAPACITY) return INITIAL_CAPACITY;
+        return (long) length + INITIAL_CAPACITY;
     }
 
     private void validate(int[] tokens) {

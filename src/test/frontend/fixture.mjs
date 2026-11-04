@@ -28,6 +28,13 @@ export function fixture(context) {
   const calls = [];
   const timers = fakeTimers(window);
   window.chatBridge = recordingBridge(calls);
+  window.agentBridge = {
+    setEnabled: (enabled) => calls.push(['setEnabled', enabled]),
+    chooseDirectory: () => {
+      calls.push(['chooseDirectory']);
+      return '/tmp/other project';
+    },
+  };
   script.runInContext(dom.getInternalVMContext());
   context.after(() => window.close());
   const element = (id) => window.document.getElementById(id);

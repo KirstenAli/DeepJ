@@ -57,6 +57,21 @@ class InteractiveTerminalTest {
     }
 
     @Test
+    void rejectsTheCommandAliasWithoutRequestingApproval() throws Exception {
+        var terminal = new InteractiveTerminal(directory, request -> fail("Unexpected approval"));
+        var agent = terminal.agent(messages -> {
+            if (messages.size() == 2) return """
+                    <tool_call>
+                    {"name":"terminal","arguments":{"command":["pwd"]}}
+                    </tool_call>
+                    """;
+            assertTrue(messages.get(3).content().contains("Expected only the argv argument"));
+            return "No command ran.";
+        });
+        assertEquals("No command ran.", agent.run("Check the working directory"));
+    }
+
+    @Test
     void showsAllArgumentsAndEscapesControlCharactersInApproval() {
         var request = new InteractiveTerminal.Request(directory, List.of("/bin/sh", "-c", "one\ntwo\u202e"));
         String preview = request.preview();
