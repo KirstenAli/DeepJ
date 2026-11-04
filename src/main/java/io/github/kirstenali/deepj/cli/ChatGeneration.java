@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.agent.Agent;
+import java.util.List;
 import java.util.concurrent.CancellationException;
 
 final class ChatGeneration {
@@ -11,16 +13,18 @@ final class ChatGeneration {
         this.model = model;
     }
 
-    boolean run(String prompt, SamplingSettings settings, CliView view, String title) {
+    String run(String prompt, List<Agent.Turn> history, SamplingSettings settings, CliView view, String title) {
         view.response(title);
         StreamedText output = new StreamedText(console.out());
         Thread generation = Thread.currentThread();
         try (var ignored = console.interrupt(generation::interrupt)) {
-            output.complete(model.stream(prompt, settings, output::update));
+            String reply = model.streamConversation(prompt, history, settings, output::update);
+            output.complete(reply);
             finish(output, view);
-            return true;
+            return reply;
         } catch (RuntimeException failure) {
-            return stopped(failure, view);
+            stopped(failure, view);
+            return null;
         } finally {
             Thread.interrupted();
             view.out().println();
@@ -28,11 +32,10 @@ final class ChatGeneration {
         }
     }
 
-    private boolean stopped(RuntimeException failure, CliView view) {
+    private void stopped(RuntimeException failure, CliView view) {
         if (!(failure instanceof CancellationException) && !Thread.currentThread().isInterrupted()) throw failure;
         view.out().println();
         view.note("Stopped.");
-        return false;
     }
 
     private void finish(StreamedText output, CliView view) {

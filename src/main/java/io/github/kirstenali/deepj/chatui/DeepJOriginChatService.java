@@ -18,7 +18,7 @@ public final class DeepJOriginChatService implements ConversationChatService {
     @Override
     public Agent.Turn generateTurn(String prompt, List<Agent.Turn> history, ChatGenerationSettings settings,
                                    Consumer<String> listener) {
-        String formatted = ChatModelGeneration.conversationPrompt(PromptFormat.PLAIN, tokenizer, prompt, history,
+        String formatted = PromptFormat.PLAIN.applyConversation(prompt, history, tokenizer,
                 config.maxSeqLen(), settings.maxTokens());
         return Agent.Turn.answered(prompt, settings.generate(this, formatted, listener));
     }

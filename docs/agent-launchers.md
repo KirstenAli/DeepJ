@@ -30,6 +30,10 @@ java -Xmx12g --enable-native-access=ALL-UNNAMED -cp target/deepj-cli.jar \
 Use `--backend cpu` to run on CPU. In an interactive terminal, answer `y` to approve a
 requested command once. Enter defaults to denial. Use `/exit` to close the chat.
 
+Conversation history starts off. Use `/set history on` to include recent turns and their tool
+results in follow-up prompts. Use `/set history off` to stop including earlier turns, or
+`/settings` to check the current value.
+
 On macOS and Linux, Agent mode accepts executables on the launcher's `PATH` and explicit paths
 such as `./mvnw`. For pipes or redirects, the agent can request an explicit shell command.
 The approval prompt includes the entire script as an argument.

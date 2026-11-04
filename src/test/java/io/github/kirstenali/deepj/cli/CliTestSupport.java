@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.PromptFormat;
 import io.github.kirstenali.deepj.nn.transformer.prism.DeepJPrismConfig;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
@@ -65,6 +66,7 @@ abstract class CliTestSupport {
     final class Model implements CliModel {
         final List<String> prompts = new ArrayList<>();
         final List<SamplingSettings> settings = new ArrayList<>();
+        final List<List<Agent.Turn>> histories = new ArrayList<>();
         boolean closed, cancel;
         RuntimeException failure, cancellation = new java.util.concurrent.CancellationException();
 
@@ -72,6 +74,13 @@ abstract class CliTestSupport {
         @Override public String backend() { return "CPU"; }
         @Override public ModelInspection inspection() { return info(); }
         @Override public void close() { closed = true; }
+
+        @Override
+        public String streamConversation(String prompt, List<Agent.Turn> history, SamplingSettings sampling,
+                                         Consumer<String> listener) {
+            histories.add(history);
+            return stream(prompt, sampling, listener);
+        }
 
         @Override public String stream(String prompt, SamplingSettings sampling, Consumer<String> listener) {
             prompts.add(prompt);

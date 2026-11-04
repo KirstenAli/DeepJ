@@ -1,12 +1,14 @@
 package io.github.kirstenali.deepj.nn.transformer.qwen3;
 
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
+import io.github.kirstenali.deepj.nn.transformer.ConversationTurn;
 import io.github.kirstenali.deepj.nn.transformer.TextGenerator;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Chat;
 import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Tokenizer;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -43,6 +45,20 @@ public record Qwen3ChatModel(Qwen3 model, Qwen3Tokenizer tokenizer) {
                                      long seed, float penalty, ContextWindowMode mode, Consumer<String> listener) {
         String formatted = fitConversation(messages, maxTokens);
         return streamFormatted(formatted, maxTokens, temperature, topK, seed, penalty, mode, listener);
+    }
+
+    /** Streams the current prompt with recent visible chat turns. */
+    public String streamConversation(String prompt, List<? extends ConversationTurn> history, int maxTokens,
+                                     float temperature, int topK, long seed, float penalty, ContextWindowMode mode,
+                                     Consumer<String> listener) {
+        if (history.isEmpty()) return stream(prompt, maxTokens, temperature, topK, seed, penalty, mode, listener);
+        var messages = new ArrayList<Qwen3Chat.Message>();
+        for (var turn : history) {
+            messages.add(new Qwen3Chat.Message(Qwen3Chat.Role.USER, turn.prompt().replace("<|", "< |")));
+            messages.add(new Qwen3Chat.Message(Qwen3Chat.Role.ASSISTANT, turn.reply().replace("<|", "< |"), ""));
+        }
+        messages.add(new Qwen3Chat.Message(Qwen3Chat.Role.USER, prompt));
+        return streamConversation(messages, maxTokens, temperature, topK, seed, penalty, mode, listener);
     }
 
     private String fitConversation(List<Qwen3Chat.Message> messages, int maxTokens) {

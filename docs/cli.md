@@ -52,7 +52,7 @@ Enter sends a prompt; Alt+Enter inserts a line. Up-arrow recalls session prompts
 
 Choose `--theme aurora`, `--theme ember` or `--theme mono`, or change it in chat with `/theme`. The display adapts to narrow terminals. `--no-banner` hides the wordmark, and `--color never` disables styling. Automatic color respects `NO_COLOR`.
 
-Prompts are independent: terminal input history is not sent as conversation context and is not saved to a history file. The model's configured prompt format is applied automatically. Generation uses a fresh KV-cache session for each request.
+Conversation history starts off. Use `/set history on` to include recent completed turns from the current chat, or `/set history off` to return to independent prompts. `/settings` shows the current value. DeepJ applies the model's configured prompt format and starts a fresh KV-cache session for each request.
 
 ## Scripts and files
 

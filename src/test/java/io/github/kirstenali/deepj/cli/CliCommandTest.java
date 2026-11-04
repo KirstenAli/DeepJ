@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.agent.Agent;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -61,6 +63,19 @@ class CliCommandTest extends CliTestSupport {
         assertEquals(1.1f, model.settings.get(1).repetitionPenalty());
         assertTrue(console.cleared && console.closed && model.closed);
         assertFalse(output.toString().contains("\u001b"));
+    }
+
+    @Test
+    void chatHistoryIsOptInAndAlternativesDoNotAddTurns() {
+        console.inputs.addAll(List.of("First", "Second", "/set history on", "Third", "/alternatives",
+                "Fourth", "/set history off", "Fifth", "/exit"));
+        assertEquals(0, DeepJCli.execute(services("", true), "chat", "fake", "--color", "never"));
+        var first = Agent.Turn.answered("First", "Hello!");
+        var second = Agent.Turn.answered("Second", "Hello!");
+        var third = Agent.Turn.answered("Third", "Hello!");
+        var original = List.of(first, second);
+        assertEquals(List.of(List.of(), List.of(), original, original, original, List.of(first, second, third),
+                List.of()), model.histories);
     }
 
     @Test

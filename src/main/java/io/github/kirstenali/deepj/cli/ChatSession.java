@@ -1,7 +1,10 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.agent.Agent;
+import io.github.kirstenali.deepj.agent.AgentHistory;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.UserInterruptException;
+import java.util.List;
 
 final class ChatSession {
     private final CliConsole console;
@@ -10,8 +13,10 @@ final class ChatSession {
     private final ChatGeneration generation;
     private final CliModel model;
     private CliView view;
-    private SamplingSettings settings, previous;
-    private String lastPrompt;
+    private SamplingSettings settings;
+    private final AgentHistory history = new AgentHistory();
+    private boolean historyEnabled;
+    private Request last;
 
     ChatSession(CliConsole console, CliModel model, CliOptions options,
                 CliServices services, SamplingSettings settings) {
@@ -48,18 +53,21 @@ final class ChatSession {
     }
 
     private void generate(String prompt) {
-        lastPrompt = prompt;
-        previous = settings;
-        generation.run(prompt, settings, view, "DeepJ");
+        List<Agent.Turn> context = historyEnabled ? history.snapshot() : List.of();
+        last = new Request(prompt, settings, context);
+        String reply = generation.run(prompt, context, settings, view, "DeepJ");
+        if (reply != null) history.remember(Agent.Turn.answered(prompt, reply));
     }
 
     void alternatives() {
-        if (lastPrompt == null) {
+        if (last == null) {
             view.note("Send a prompt first, then use /alternatives.");
             return;
         }
-        if (generation.run(lastPrompt, previous.alternativePenalty(), view, "Alternative 1")) {
-            generation.run(lastPrompt, previous.alternativeSeed(), view, "Alternative 2");
+        List<Agent.Turn> context = historyEnabled ? last.history() : List.of();
+        if (generation.run(last.prompt(), context, last.settings().alternativePenalty(), view, "Alternative 1")
+                != null) {
+            generation.run(last.prompt(), context, last.settings().alternativeSeed(), view, "Alternative 2");
         }
     }
 
@@ -69,8 +77,14 @@ final class ChatSession {
         view.note("Theme: " + theme.name().toLowerCase(java.util.Locale.ROOT));
     }
 
-    void edit(String name, String value) { settings = settings.edit(name, value); }
-    void settings() { view.settings(settings); }
+    void edit(String name, String value) {
+        if (name.equals("history")) historyEnabled = ChatCommands.historyEnabled(value);
+        else settings = settings.edit(name, value);
+    }
+
+    void settings() { view.settings(settings, historyEnabled); }
     void help() { view.help(); }
     void clear() { console.clear(); }
+
+    private record Request(String prompt, SamplingSettings settings, List<Agent.Turn> history) {}
 }

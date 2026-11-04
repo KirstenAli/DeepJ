@@ -8,6 +8,7 @@ import org.jline.reader.EndOfFileException;
 import org.jline.reader.UserInterruptException;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CancellationException;
 
 final class AgentCliSession {
@@ -15,6 +16,7 @@ final class AgentCliSession {
     private final CliView view;
     private final Agent agent;
     private final AgentHistory history = new AgentHistory();
+    private boolean historyEnabled;
 
     AgentCliSession(CliConsole console, CliView view, AgentModel model, Path directory) {
         this.console = console;
@@ -33,10 +35,7 @@ final class AgentCliSession {
         try {
             String prompt = console.readLine(view.prompt()).strip();
             if (prompt.equals("/exit")) return false;
-            if (prompt.equals("/help")) {
-                view.note("Enter sends a prompt · /exit leaves · Ctrl+C stops the current turn");
-            }
-            else if (!prompt.isEmpty()) answer(prompt);
+            if (!prompt.isEmpty()) dispatch(prompt);
         } catch (EndOfFileException ended) {
             return false;
         } catch (UserInterruptException | CancellationException | InterruptedException stopped) {
@@ -47,10 +46,28 @@ final class AgentCliSession {
         return true;
     }
 
+    private void dispatch(String prompt) throws InterruptedException {
+        String[] words = prompt.split("\\s+");
+        switch (words[0]) {
+            case "/help" -> view.note("/set history on|off · /settings · /exit · Ctrl+C stops the current turn");
+            case "/settings" -> view.history(historyEnabled);
+            case "/set" -> setHistory(words);
+            default -> answer(prompt);
+        }
+    }
+
+    private void setHistory(String[] words) {
+        if (words.length != 3 || !words[1].equals("history")) {
+            throw new IllegalArgumentException("Use /set history on or /set history off.");
+        }
+        historyEnabled = ChatCommands.historyEnabled(words[2]);
+        view.history(historyEnabled);
+    }
+
     private void answer(String prompt) throws InterruptedException {
         Thread worker = Thread.currentThread();
         try (var ignored = console.interrupt(worker::interrupt)) {
-            var turn = agent.runTurn(history.snapshot(), prompt, null);
+            var turn = agent.runTurn(historyEnabled ? history.snapshot() : List.of(), prompt, null);
             history.remember(turn);
             view.response("DeepJ Agent");
             view.out().println(CliText.safe(turn.reply()));

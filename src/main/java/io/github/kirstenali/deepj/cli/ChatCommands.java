@@ -37,6 +37,14 @@ final class ChatCommands {
         session.settings();
     }
 
+    static boolean historyEnabled(String value) {
+        return switch (value.toLowerCase(Locale.ROOT)) {
+            case "on" -> true;
+            case "off" -> false;
+            default -> throw new IllegalArgumentException("Use /set history on or /set history off.");
+        };
+    }
+
     private static void require(boolean valid, String message) {
         if (!valid) throw new IllegalArgumentException(message);
     }

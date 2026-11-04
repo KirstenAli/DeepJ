@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.agent;
 
+import io.github.kirstenali.deepj.nn.transformer.ConversationTurn;
 import io.github.kirstenali.deepj.agent.AgentModel.Message;
 import io.github.kirstenali.deepj.agent.AgentModel.Role;
 
@@ -57,7 +58,7 @@ public final class Agent {
         }
     }
 
-    public record Turn(String reply, List<Message> messages) {
+    public record Turn(String reply, List<Message> messages) implements ConversationTurn {
         public Turn { messages = List.copyOf(messages); }
 
         public String prompt() { return messages.get(0).content(); }

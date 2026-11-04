@@ -4,11 +4,8 @@ import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
 import io.github.kirstenali.deepj.tensor.DType;
-import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Chat.Message;
-import io.github.kirstenali.deepj.tokenizers.qwen3.Qwen3Chat.Role;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -35,20 +32,10 @@ public final class Qwen3ChatService implements ConversationChatService {
 
     static Agent.Turn plainTurn(Qwen3ChatModel chat, String prompt, List<Agent.Turn> history,
                                 ChatGenerationSettings settings, Consumer<String> listener) {
-        String reply = chat.streamConversation(plainMessages(prompt, history), settings.maxTokens(),
+        String reply = chat.streamConversation(prompt, history, settings.maxTokens(),
                 (float) settings.temperature(), settings.topK(), settings.seed(),
                 (float) settings.repetitionPenalty(), settings.contextWindow(), listener);
         return Agent.Turn.answered(prompt, reply);
-    }
-
-    private static List<Message> plainMessages(String prompt, List<Agent.Turn> history) {
-        var messages = new ArrayList<Message>();
-        for (var turn : history) {
-            messages.add(new Message(Role.USER, turn.prompt().replace("<|", "< |")));
-            messages.add(new Message(Role.ASSISTANT, turn.reply().replace("<|", "< |"), ""));
-        }
-        messages.add(new Message(Role.USER, prompt));
-        return messages;
     }
 
     @Override public String generate(String prompt, int maxTokens, float temperature, int topK, long seed,

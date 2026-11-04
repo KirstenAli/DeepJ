@@ -31,8 +31,8 @@ class ChatModelGenerationTest {
         String expected = "Instruction:\nRemember Frisky\nResponse:\nOkay\n\nInstruction:\nWhat name?\nResponse:";
         var tokenizer = new ByteTokenizer();
         int window = tokenizer.encode(expected).length + 12;
-        String fitted = ChatModelGeneration.conversationPrompt(PromptFormat.INSTRUCTION_RESPONSE, tokenizer,
-                "What name?", List.of(older, recent), window, 12);
+        String fitted = PromptFormat.INSTRUCTION_RESPONSE.applyConversation(
+                "What name?", List.of(older, recent), tokenizer, window, 12);
         assertEquals(expected, fitted);
     }
 
@@ -41,10 +41,9 @@ class ChatModelGenerationTest {
         var earlier = Agent.Turn.answered("Remember Frisky", "Okay");
         var tokenizer = new ByteTokenizer();
         assertEquals("User:\nRemember Frisky\nAssistant:\nOkay\n\nUser:\nWhat name?\nAssistant:",
-                ChatModelGeneration.conversationPrompt(PromptFormat.PLAIN, tokenizer, "What name?",
-                        List.of(earlier), 128, 12));
-        assertEquals("What name?", ChatModelGeneration.conversationPrompt(PromptFormat.PLAIN,
-                tokenizer, "What name?", List.of(earlier), 16, 12));
+                PromptFormat.PLAIN.applyConversation("What name?", List.of(earlier), tokenizer, 128, 12));
+        assertEquals("What name?", PromptFormat.PLAIN.applyConversation("What name?", List.of(earlier),
+                tokenizer, 16, 12));
     }
 
     private static final class CapturingTokenizer implements Tokenizer {

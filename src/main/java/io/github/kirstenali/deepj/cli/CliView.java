@@ -34,7 +34,7 @@ final class CliView {
     void note(String text) { out().println(style.dim(CliText.safe(text))); }
     void error(String text) { out().println(style.warning(CliText.safe(text))); }
 
-    void settings(SamplingSettings settings) {
+    void settings(SamplingSettings settings, boolean historyEnabled) {
         out().println();
         row("max-tokens", settings.maxTokens());
         row("temperature", settings.temperature());
@@ -42,8 +42,11 @@ final class CliView {
         row("seed", settings.seed());
         row("repetition-penalty", settings.repetitionPenalty());
         row("context-window", settings.contextWindow().name().toLowerCase(Locale.ROOT));
+        history(historyEnabled);
         note("\n/set <setting> <value> changes the next response.");
     }
+
+    void history(boolean enabled) { row("history", enabled ? "on" : "off"); }
 
     void help() {
         out().println();
@@ -54,7 +57,7 @@ final class CliView {
         row("/clear", "Clear the terminal");
         row("/exit", "Close the model and leave");
         note("\nEnter sends · Alt+Enter adds a line · ↑ recalls prompts · Tab completes commands");
-        note("Prompts are independent; terminal history is not sent as conversation context.");
+        note("Conversation history starts off. Use /set history on to include earlier turns.");
     }
 
     private void row(String name, Object value) {

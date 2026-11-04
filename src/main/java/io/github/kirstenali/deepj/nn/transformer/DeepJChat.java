@@ -8,6 +8,7 @@ import io.github.kirstenali.deepj.tokenizers.bpe.BPETokenizer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -90,8 +91,15 @@ public final class DeepJChat {
 
     public String stream(String prompt, int maxTokens, float temperature, int topK,
                          long seed, float repetitionPenalty, Consumer<String> listener) {
+        return streamConversation(prompt, List.of(), maxTokens, temperature, topK, seed, repetitionPenalty, listener);
+    }
+
+    public String streamConversation(String prompt, List<? extends ConversationTurn> history, int maxTokens,
+                                     float temperature, int topK, long seed, float repetitionPenalty,
+                                     Consumer<String> listener) {
         Objects.requireNonNull(listener, "listener");
-        String formatted = model.promptFormat().apply(prompt);
+        String formatted = model.promptFormat().applyConversation(prompt, history, tokenizer,
+                model.config().maxSeqLen(), maxTokens);
         String prefix = tokenizer.decode(tokenizer.encode(formatted));
         try (var session = model.openGeneration(contextWindow)) {
             String result = TextGenerator.stream(session, model.config().maxSeqLen(), tokenizer, formatted,

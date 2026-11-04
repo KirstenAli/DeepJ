@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3ChatModel;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
@@ -10,6 +11,7 @@ import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Consumer;
 
 record Qwen3CliModel(Qwen3ChatModel chat, ModelInspection inspection, TensorBackend computation) implements CliModel {
@@ -31,5 +33,12 @@ record Qwen3CliModel(Qwen3ChatModel chat, ModelInspection inspection, TensorBack
     @Override public String stream(String prompt, SamplingSettings settings, Consumer<String> listener) {
         return chat.stream(prompt, settings.maxTokens(), settings.temperature(), settings.topK(), settings.seed(),
                 settings.repetitionPenalty(), settings.contextWindow(), listener);
+    }
+
+    @Override
+    public String streamConversation(String prompt, List<Agent.Turn> history, SamplingSettings settings,
+                                     Consumer<String> listener) {
+        return chat.streamConversation(prompt, history, settings.maxTokens(), settings.temperature(), settings.topK(),
+                settings.seed(), settings.repetitionPenalty(), settings.contextWindow(), listener);
     }
 }

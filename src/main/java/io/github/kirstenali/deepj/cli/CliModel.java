@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.cli;
 
+import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.DeepJChat;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
@@ -13,6 +14,7 @@ import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Consumer;
 
 interface CliModel extends AutoCloseable {
@@ -20,6 +22,10 @@ interface CliModel extends AutoCloseable {
     String backend();
     ModelInspection inspection();
     String stream(String prompt, SamplingSettings settings, Consumer<String> listener);
+    default String streamConversation(String prompt, List<Agent.Turn> history, SamplingSettings settings,
+                                      Consumer<String> listener) {
+        return stream(prompt, settings, listener);
+    }
     @Override void close();
 
     static Path modelFile(Path path) {
@@ -61,8 +67,14 @@ interface CliModel extends AutoCloseable {
 
         @Override
         public String stream(String prompt, SamplingSettings settings, Consumer<String> listener) {
-            return chat.withContextWindow(settings.contextWindow()).stream(
-                    prompt, settings.maxTokens(), settings.temperature(), settings.topK(),
+            return streamConversation(prompt, List.of(), settings, listener);
+        }
+
+        @Override
+        public String streamConversation(String prompt, List<Agent.Turn> history, SamplingSettings settings,
+                                         Consumer<String> listener) {
+            return chat.withContextWindow(settings.contextWindow()).streamConversation(
+                    prompt, history, settings.maxTokens(), settings.temperature(), settings.topK(),
                     settings.seed(), settings.repetitionPenalty(), listener);
         }
 

@@ -30,7 +30,7 @@ class AgentCliTest extends CliTestSupport {
     @ValueSource(strings = {"yes", ""})
     void runsTheCommandOnlyAfterAffirmativeApproval(String approval) throws Exception {
         assumeTrue(InteractiveTerminal.available());
-        console.inputs.addAll(List.of("Print hello", approval, "What was the result?", "/exit"));
+        console.inputs.addAll(List.of("Print hello", approval, "/set history on", "What was the result?", "/exit"));
         var view = new CliView(console, new CliOptions(), Map.of("NO_COLOR", "1"));
         var agent = new AgentCliSession(console, view, scriptedModel(approval.equals("yes")), directory);
         agent.run();
@@ -39,6 +39,20 @@ class AgentCliTest extends CliTestSupport {
         assertTrue(output.toString().contains("Working directory: \"" + directory + "\""));
         assertTrue(output.toString().contains("Done"));
         assertTrue(output.toString().contains(approval.equals("yes") ? "Earlier: hello world" : "Earlier: denied"));
+    }
+
+    @Test
+    void agentHistoryIsOffUntilEnabledAndCanBeTurnedOffAgain() {
+        assumeTrue(InteractiveTerminal.available());
+        console.inputs.addAll(List.of("First", "Second", "/set history on", "Third", "/set history off",
+                "Fourth", "/exit"));
+        var contextSizes = new java.util.ArrayList<Integer>();
+        var view = new CliView(console, new CliOptions(), Map.of("NO_COLOR", "1"));
+        new AgentCliSession(console, view, messages -> {
+            contextSizes.add(messages.size());
+            return "Reply";
+        }, directory).run();
+        assertEquals(List.of(2, 2, 6, 2), contextSizes);
     }
 
     @Test
