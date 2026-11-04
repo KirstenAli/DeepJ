@@ -23,20 +23,22 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @EnabledIfSystemProperty(named = "deepj.uiTests", matches = "true")
 class AgentDesktopAppTest extends ChatDesktopTestSupport {
+    private static final int STARTUP_TIMEOUT_SECONDS = 15;
+
     @TempDir Path directory;
 
     @Test
     void launchesWithTheChatWebViewFillingTheWindow() throws Exception {
-        onFx(() -> {
-            Stage stage = openAgent();
-            try {
+        Stage stage = openAgent();
+        try {
+            onFx(() -> {
                 assertEquals("DeepJ Agent", stage.getTitle());
                 assertInstanceOf(WebView.class, stage.getScene().getRoot());
-            } finally {
-                stage.close();
-            }
-            return null;
-        });
+                return null;
+            });
+        } finally {
+            close(stage);
+        }
     }
 
     @Test
@@ -59,7 +61,7 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
 
     @Test
     void displaysTheExactCommandAndReturnsTheSelectedDecision() throws Exception {
-        Stage owner = onFx(AgentDesktopAppTest::openAgent);
+        Stage owner = openAgent();
         try {
             assertFalse(approve(owner, "denyCommand"));
             assertTrue(approve(owner, "allowCommand"));
@@ -88,7 +90,7 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
     @Test
     void runsTheReviewedEditAndReturnsItsArgumentsAndOutputToTheModel() throws Exception {
         assumeTrue(InteractiveTerminal.available());
-        Stage owner = onFx(AgentDesktopAppTest::openAgent);
+        Stage owner = openAgent();
         try {
             WebView view = onFx(() -> (WebView) owner.getScene().getRoot());
             awaitCondition(view, "typeof openApproval === 'function'");
@@ -145,17 +147,23 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
         return null;
     }
 
-    private static Stage openAgent() {
-        var stage = new Stage();
-        new AgentDesktopApp().start(stage);
-        return stage;
+    private static Stage openAgent() throws Exception {
+        Stage stage = onFx(Stage::new, STARTUP_TIMEOUT_SECONDS);
+        try {
+            onFx(() -> {
+                new AgentDesktopApp().start(stage);
+                return null;
+            }, STARTUP_TIMEOUT_SECONDS);
+            return stage;
+        } catch (Exception failure) {
+            // If startup already began, close the stage when the FX thread is free.
+            close(stage);
+            throw failure;
+        }
     }
 
-    private static void close(Stage owner) throws Exception {
-        onFx(() -> {
-            owner.close();
-            return null;
-        });
+    private static void close(Stage owner) {
+        Platform.runLater(owner::close);
     }
 
     private static void awaitCondition(WebView view, String condition) throws Exception {
@@ -168,8 +176,16 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
     }
 
     private static <T> T onFx(Callable<T> action) throws Exception {
+        return onFx(action, 5);
+    }
+
+    private static <T> T onFx(Callable<T> action, int timeoutSeconds) throws Exception {
         var task = new FutureTask<>(action);
         Platform.runLater(task);
-        return task.get(5, TimeUnit.SECONDS);
+        try {
+            return task.get(timeoutSeconds, TimeUnit.SECONDS);
+        } finally {
+            task.cancel(false);
+        }
     }
 }
