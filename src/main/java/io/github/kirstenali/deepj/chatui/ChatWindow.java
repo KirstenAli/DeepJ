@@ -252,6 +252,10 @@ public final class ChatWindow {
         requests.clear();
     }
 
+    public void setConversationHistory(boolean enabled) {
+        requests.useHistory(enabled);
+    }
+
     private void finishGeneration() {
         activeGeneration = null;
         activeAlternative = -1;

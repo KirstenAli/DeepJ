@@ -47,6 +47,7 @@ function recordingBridge(calls) {
       'chooseModel',
       'sendWithSettings',
       'sendWithWindowSettings',
+      'setConversationHistory',
       'stop',
       'copy',
       'newChat',

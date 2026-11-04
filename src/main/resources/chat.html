@@ -231,6 +231,22 @@
             <span class="theme-swatch ocean"></span>Ocean
           </button>
         </div>
+        <label class="toggle-row settings-toggle">
+          <span class="control-copy">
+            <strong id="conversationHistoryTitle">Conversation history</strong>
+            <small id="conversationHistoryHelp"
+              >Include recent messages when generating replies.</small
+            >
+          </span>
+          <input
+            id="conversationHistory"
+            class="toggle"
+            type="checkbox"
+            role="switch"
+            aria-labelledby="conversationHistoryTitle"
+            aria-describedby="conversationHistoryHelp"
+          />
+        </label>
         <details id="generationOptions">
           <summary>
             Generation settings <svg><use href="#icon-chevron" /></svg>
@@ -258,7 +274,7 @@
               <small>1.0 is off. Try 1.1 if text loops.</small>
             </label>
           </div>
-          <label class="toggle-row cache-row">
+          <label class="toggle-row settings-toggle">
             <span class="control-copy">
               <strong id="rollingCacheTitle">Rolling KV cache</strong>
               <small id="rollingCacheHelp"

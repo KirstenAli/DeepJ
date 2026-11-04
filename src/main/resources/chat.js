@@ -457,6 +457,8 @@ element('agentMode').onchange = changeAgentMode;
 element('chooseAgentDirectory').onclick = () =>
   setAgentDirectory(window.agentBridge.chooseDirectory());
 element('openSettings').onclick = openSettings;
+element('conversationHistory').onchange = (event) =>
+  window.chatBridge?.setConversationHistory(event.currentTarget.checked);
 element('closeSettings').onclick = closeSettings;
 element('doneSettings').onclick = closeSettings;
 element('denyCommand').onclick = () => decideCommand(false);

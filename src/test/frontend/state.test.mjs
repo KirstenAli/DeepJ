@@ -81,6 +81,18 @@ test('rolling cache is opt-in and reaches Java with unchanged sampling settings'
   assert.deepEqual(ui.calls, [['sendWithWindowSettings', 'Hello', 80, 0.8, 40, 1234, 1, true]]);
 });
 
+test('conversation history starts off and the Settings switch can enable or disable it', (context) => {
+  const ui = fixture(context);
+  assert.equal(ui.element('conversationHistory').checked, false);
+  ui.click('openSettings');
+  ui.click('conversationHistory');
+  ui.click('conversationHistory');
+  assert.deepEqual(ui.calls, [
+    ['setConversationHistory', true],
+    ['setConversationHistory', false],
+  ]);
+});
+
 test('the send button uses the normal submission path when not generating', (context) => {
   const ui = fixture(context);
   ui.window.setModel('nova.dj');

@@ -811,7 +811,7 @@ svg {
   transform: translateX(14px);
   background: #fff;
 }
-.cache-row {
+.settings-toggle {
   margin-top: 16px;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -1004,7 +1004,7 @@ svg {
   .settings-grid input {
     height: 32px;
   }
-  .cache-row {
+  .settings-toggle {
     margin-top: 12px;
   }
   .done-button {
