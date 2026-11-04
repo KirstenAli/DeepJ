@@ -23,7 +23,7 @@ import java.util.function.Predicate;
 public final class TerminalTool implements Tool {
     private static final int OUTPUT_BYTES = 8192;
     private final Path directory;
-    private final Map<String, Path> executables;
+    private final TerminalCommands commands;
     private final Predicate<List<String>> authorize;
     private final long timeoutNanos;
 
@@ -33,12 +33,19 @@ public final class TerminalTool implements Tool {
      */
     public TerminalTool(Path directory, Map<String, Path> executables,
                         Predicate<List<String>> authorize, Duration timeout) {
+        this(directory, TerminalCommands.allowlist(executables), authorize, timeout);
+    }
+
+    static TerminalTool local(Path directory, Predicate<List<String>> authorize, Duration timeout) {
+        var commands = TerminalCommands.local(directory.toAbsolutePath(), System.getenv("PATH"));
+        return new TerminalTool(directory, commands, authorize, timeout);
+    }
+
+    private TerminalTool(Path directory, TerminalCommands commands,
+                         Predicate<List<String>> authorize, Duration timeout) {
         this.directory = directory.toAbsolutePath();
         if (!Files.isDirectory(this.directory)) throw new IllegalArgumentException("Working directory must exist");
-        this.executables = Map.copyOf(executables);
-        if (this.executables.values().stream().anyMatch(path -> !path.isAbsolute())) {
-            throw new IllegalArgumentException("Executable paths must be absolute");
-        }
+        this.commands = commands;
         this.authorize = Objects.requireNonNull(authorize, "authorize");
         timeoutNanos = timeout.toNanos();
         if (timeoutNanos <= 0) throw new IllegalArgumentException("Timeout must be positive");
@@ -49,9 +56,7 @@ public final class TerminalTool implements Tool {
 
     @Override
     public String description() {
-        return "Run an approved command in the working directory. Available commands: "
-                + String.join(", ", executables.keySet().stream().sorted().toList())
-                + ". Supply its name first, followed by each argument separately.";
+        return commands.description();
     }
 
     @Override
@@ -64,7 +69,7 @@ public final class TerminalTool implements Tool {
     @Override
     public Map<String, Object> execute(Map<String, Object> arguments) throws IOException, InterruptedException {
         List<String> argv = arguments(arguments);
-        Path executable = executables.get(argv.get(0));
+        Path executable = commands.lookup().apply(argv.get(0));
         if (executable == null) return Map.of("error", "Command is not available");
         var command = new ArrayList<>(argv);
         command.set(0, executable.toString());
@@ -87,7 +92,7 @@ public final class TerminalTool implements Tool {
 
     private Map<String, Object> run(List<String> command) throws IOException, InterruptedException {
         var builder = new ProcessBuilder(command).directory(directory.toFile()).redirectErrorStream(true);
-        builder.environment().clear();
+        if (!commands.inheritEnvironment()) builder.environment().clear();
         Process process = builder.start();
         long start = System.nanoTime();
         try {

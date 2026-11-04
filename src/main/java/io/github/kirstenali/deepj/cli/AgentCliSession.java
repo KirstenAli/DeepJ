@@ -57,8 +57,7 @@ final class AgentCliSession {
     }
 
     private boolean approve(InteractiveTerminal.Request request) {
-        view.note("Requested command: " + CliText.label(request.argv().get(0)));
-        view.note("Working directory: " + CliText.label(request.directory().toString()));
+        view.note(request.preview());
         if (!console.interactive()) {
             view.note("Command denied. Approval requires an interactive terminal.");
             return false;

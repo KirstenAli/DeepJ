@@ -54,12 +54,26 @@ final class ToolProtocol {
         var calls = new ArrayList<Call>();
         while (!text.isEmpty()) {
             if (!text.startsWith(OPEN)) throw new IllegalArgumentException("Unexpected text after a tool call");
-            int end = text.indexOf(CLOSE, OPEN.length());
+            int end = closingTag(text);
             if (end < 0) throw new IllegalArgumentException("Incomplete tool call");
             calls.add(call(text.substring(OPEN.length(), end)));
             text = text.substring(end + CLOSE.length()).stripLeading();
         }
         return calls;
+    }
+
+    private static int closingTag(String text) {
+        boolean quoted = false;
+        for (int index = OPEN.length(); index < text.length(); index++) {
+            char character = text.charAt(index);
+            if (quoted && character == '\\') {
+                index++;
+                continue;
+            }
+            if (character == '"') quoted = !quoted;
+            if (!quoted && character == '<' && text.startsWith(CLOSE, index)) return index;
+        }
+        return -1;
     }
 
     private static Call call(String json) {
