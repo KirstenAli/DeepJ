@@ -116,8 +116,6 @@ Start with the [documentation index](docs/README.md), or go directly to:
 | [Saving and loading](docs/persistence.md) | Network weights, persistent buffers, and model checkpoints |
 | [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
 | <a id="desktop-chat"></a>[Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
-| [Gemma 2 chat](docs/gemma2.md) | Pretrained Gemma loading, streaming chat, and the shared image-prompt backbone |
-| [SANA-Sprint images](docs/sana-sprint.md) | Local image generation, desktop controls, and PNG saving |
 
 ## Build and release
 
