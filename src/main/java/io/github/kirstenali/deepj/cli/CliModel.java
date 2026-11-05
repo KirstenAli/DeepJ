@@ -2,6 +2,8 @@ package io.github.kirstenali.deepj.cli;
 
 import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.DeepJChat;
+import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Pretrained;
+import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Snapshot;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
@@ -41,8 +43,9 @@ interface CliModel extends AutoCloseable {
     }
 
     static CliModel load(Path path, BackendChoice backend, DType dtype) throws IOException {
+        if (Gemma2Snapshot.matches(path)) return Gemma2CliModel.load(path, backend, dtype);
         if (Qwen3Snapshot.matches(path)) return Qwen3CliModel.load(path, backend, dtype);
-        if (dtype != null) throw new IllegalArgumentException("--dtype is available for Qwen3 chat.");
+        if (dtype != null) throw new IllegalArgumentException("--dtype is available for Qwen3 and Gemma 2 chat.");
         Path file = modelFile(path).toAbsolutePath();
         ModelInspection info = ModelSerializer.inspect(file);
         backend.activate();
@@ -56,6 +59,7 @@ interface CliModel extends AutoCloseable {
     }
 
     static ModelInspection inspect(Path path) throws IOException {
+        if (Gemma2Snapshot.matches(path)) return Gemma2Pretrained.inspect(Gemma2Snapshot.directory(path));
         return Qwen3Snapshot.matches(path) ? Qwen3Pretrained.inspect(Qwen3Snapshot.directory(path))
                 : ModelSerializer.inspect(modelFile(path));
     }

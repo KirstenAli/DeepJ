@@ -14,6 +14,7 @@
     />
     <link rel="stylesheet" href="chat.css" />
     <script defer src="chat.js"></script>
+    <script defer src="images.js"></script>
   </head>
   <body class="theme-light">
     <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -44,6 +45,14 @@
         <rect x="8" y="8" width="12" height="12" rx="2" />
         <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
       </symbol>
+      <symbol id="icon-image" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="3" />
+        <circle cx="8" cy="8" r="1.5" />
+        <path d="m3 17 5-5 4 4 4-6 5 7" />
+      </symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24">
+        <path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4" />
+      </symbol>
       <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
       <symbol id="icon-close" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19" /></symbol>
     </svg>
@@ -62,7 +71,7 @@
           </button>
         </div>
         <button type="button" id="newChat" class="nav-button">
-          <svg><use href="#icon-new" /></svg><span>New chat</span>
+          <svg><use href="#icon-new" /></svg><span id="newChatLabel">New chat</span>
         </button>
         <div class="sidebar-spacer"></div>
         <button type="button" id="openSettings" class="nav-button">
@@ -97,9 +106,15 @@
               <button type="button" id="menuLoad" class="menu-item">
                 <svg><use href="#icon-folder" /></svg><span>Open local model…</span>
               </button>
+              <button type="button" id="menuLoadImage" class="menu-item">
+                <svg><use href="#icon-image" /></svg><span>Open image model folder…</span>
+              </button>
               <div id="modelName" class="menu-detail">No model loaded</div>
             </div>
           </div>
+          <span id="imageModeLabel" class="mode-label" hidden>
+            <svg aria-hidden="true"><use href="#icon-image" /></svg>Images
+          </span>
         </header>
         <div id="workspace">
           <section id="conversation" aria-label="Conversation">
@@ -127,6 +142,10 @@
                   title="Open model"
                 >
                   <svg><use href="#icon-plus" /></svg>
+                </button>
+                <button type="button" id="imageSettingsButton" class="composer-chip" hidden>
+                  <svg aria-hidden="true"><use href="#icon-settings" /></svg>
+                  <span id="imageSizeHint">1024 × 1024</span>
                 </button>
                 <div id="agentControls" hidden>
                   <button
@@ -231,67 +250,115 @@
             <span class="theme-swatch ocean"></span>Ocean
           </button>
         </div>
-        <label class="toggle-row settings-toggle">
-          <span class="control-copy">
-            <strong id="conversationHistoryTitle">Conversation history</strong>
-            <small id="conversationHistoryHelp"
-              >Include recent messages when generating replies.</small
-            >
-          </span>
-          <input
-            id="conversationHistory"
-            class="toggle"
-            type="checkbox"
-            role="switch"
-            aria-labelledby="conversationHistoryTitle"
-            aria-describedby="conversationHistoryHelp"
-          />
-        </label>
-        <details id="generationOptions">
-          <summary>
-            Generation settings <svg><use href="#icon-chevron" /></svg>
-          </summary>
-          <div class="settings-grid">
-            <label>
-              <span>Temperature</span>
-              <input id="temperature" type="number" min="0.01" max="3" step="0.01" value="0.8" />
-            </label>
-            <label>
-              <span>Top-k</span>
-              <input id="topK" type="number" min="0" step="1" value="40" />
-            </label>
-            <label>
-              <span>Maximum tokens</span>
-              <input id="maxTokens" type="number" min="1" step="1" value="80" />
-            </label>
-            <label>
-              <span>Seed</span>
-              <input id="seed" type="number" step="1" value="1234" />
-            </label>
-            <label>
-              <span>Repetition penalty</span>
-              <input id="repetitionPenalty" type="number" min="1" max="2" step="0.05" value="1" />
-              <small>1.0 is off. Try 1.1 if text loops.</small>
-            </label>
-          </div>
+        <div id="chatSettings">
           <label class="toggle-row settings-toggle">
             <span class="control-copy">
-              <strong id="rollingCacheTitle">Rolling KV cache</strong>
-              <small id="rollingCacheHelp"
-                >Keeps decoding fast when the context fills. For RoPE models. Long responses may
-                change.</small
+              <strong id="conversationHistoryTitle">Conversation history</strong>
+              <small id="conversationHistoryHelp"
+                >Include recent messages when generating replies.</small
               >
             </span>
             <input
-              id="rollingCache"
+              id="conversationHistory"
               class="toggle"
               type="checkbox"
               role="switch"
-              aria-labelledby="rollingCacheTitle"
-              aria-describedby="rollingCacheHelp"
+              aria-labelledby="conversationHistoryTitle"
+              aria-describedby="conversationHistoryHelp"
             />
           </label>
-        </details>
+          <details id="generationOptions">
+            <summary>
+              Generation settings <svg><use href="#icon-chevron" /></svg>
+            </summary>
+            <div class="settings-grid">
+              <label>
+                <span>Temperature</span>
+                <input id="temperature" type="number" min="0.01" max="3" step="0.01" value="0.8" />
+              </label>
+              <label>
+                <span>Top-k</span>
+                <input id="topK" type="number" min="0" step="1" value="40" />
+              </label>
+              <label>
+                <span>Maximum tokens</span>
+                <input id="maxTokens" type="number" min="1" step="1" value="80" />
+              </label>
+              <label>
+                <span>Seed</span>
+                <input id="seed" type="number" step="1" value="1234" />
+              </label>
+              <label>
+                <span>Repetition penalty</span>
+                <input id="repetitionPenalty" type="number" min="1" max="2" step="0.05" value="1" />
+                <small>1.0 is off. Try 1.1 if text loops.</small>
+              </label>
+            </div>
+            <label id="rollingCacheRow" class="toggle-row settings-toggle">
+              <span class="control-copy">
+                <strong id="rollingCacheTitle">Rolling KV cache</strong>
+                <small id="rollingCacheHelp"
+                  >Keeps decoding fast when the context fills. For RoPE models. Long responses may
+                  change.</small
+                >
+              </span>
+              <input
+                id="rollingCache"
+                class="toggle"
+                type="checkbox"
+                role="switch"
+                aria-labelledby="rollingCacheTitle"
+                aria-describedby="rollingCacheHelp"
+              />
+            </label>
+          </details>
+        </div>
+        <section id="imageSettings" aria-labelledby="imageSettingsTitle" hidden>
+          <h3 id="imageSettingsTitle">Image generation</h3>
+          <div class="settings-grid">
+            <label>
+              <span>Image size</span>
+              <span class="select-control">
+                <select id="imageSize">
+                  <option value="1024x1024">1024 × 1024 · Square</option>
+                  <option value="1344x768">1344 × 768 · Landscape</option>
+                  <option value="768x1344">768 × 1344 · Portrait</option>
+                  <option value="512x512">512 × 512 · Smaller</option>
+                </select>
+                <svg aria-hidden="true"><use href="#icon-chevron" /></svg>
+              </span>
+            </label>
+            <label>
+              <span>Sampling steps</span>
+              <span class="select-control">
+                <select id="imageSteps">
+                  <option value="1">1 step</option>
+                  <option value="2" selected>2 steps · Default</option>
+                  <option value="3">3 steps</option>
+                  <option value="4">4 steps</option>
+                </select>
+                <svg aria-hidden="true"><use href="#icon-chevron" /></svg>
+              </span>
+            </label>
+            <label>
+              <span>Seed</span>
+              <input
+                id="imageSeed"
+                type="number"
+                min="0"
+                max="9007199254740991"
+                step="1"
+                value="42"
+              />
+              <small>Use the same seed to repeat an image.</small>
+            </label>
+            <label>
+              <span>Prompt guidance</span>
+              <input id="imageGuidance" type="number" min="0" max="20" step="0.5" value="4.5" />
+              <small>How closely the image follows your description.</small>
+            </label>
+          </div>
+        </section>
         <button type="button" id="doneSettings" class="done-button">Done</button>
       </section>
     </div>

@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import static io.github.kirstenali.deepj.chatui.DesktopErrors.message;
 import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.chatui.ChatRequests.Request;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
@@ -11,7 +12,6 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.web.WebView;
-import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import netscape.javascript.JSObject;
 
@@ -26,6 +26,7 @@ public final class ChatWindow {
     private final WebView view;
     private final ChatService service;
     private final AgentWorkspace agentWorkspace;
+    private final ImageWorkspace imageWorkspace;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deepj-chat-worker");
         thread.setDaemon(true);
@@ -43,6 +44,8 @@ public final class ChatWindow {
         this.view = view;
         this.service = service;
         requests = new ChatRequests(service);
+        imageWorkspace = new ImageWorkspace(stage, worker, service,
+                new ImageWorkspace.Events(() -> busy, this::setBusy, requests::clear, this::call));
         agentWorkspace = service instanceof AgentChatService agent
                 ? new AgentWorkspace(stage, agent, () -> busy) : null;
     }
@@ -71,6 +74,7 @@ public final class ChatWindow {
 
     private void connect() {
         window().setMember("chatBridge", this);
+        window().setMember("imageBridge", imageWorkspace);
         if (agentWorkspace != null) window().setMember("agentBridge", agentWorkspace);
         call("bridgeReady");
         refreshAgentWorkspace();
@@ -78,19 +82,15 @@ public final class ChatWindow {
 
     public void chooseModel() {
         if (busy) return;
-        File file = modelFile();
+        File file = DesktopModelPicker.choose(stage);
         if (file != null) loadModel(file);
     }
 
-    private File modelFile() {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Choose a DeepJ or Qwen3 model");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("DeepJ and Qwen3 models",
-                "*.dj", "*.bin", "config.json", "*.safetensors", "*.safetensors.index.json"));
-        return chooser.showOpenDialog(stage);
-    }
-
     private void loadModel(File file) {
+        if (io.github.kirstenali.deepj.nn.diffusion.sana.SanaSnapshot.matches(file.toPath())) {
+            imageWorkspace.load(file.toPath());
+            return;
+        }
         setBusy(true);
         call("setStatus", "Loading " + file.getName() + "…");
         Task<Void> task = new Task<>() {
@@ -101,13 +101,15 @@ public final class ChatWindow {
         };
         task.setOnSucceeded(event -> modelLoaded());
         task.setOnFailed(event -> loadFailed(task.getException()));
-        start(task);
+        worker.execute(task);
     }
 
     private void modelLoaded() {
+        imageWorkspace.leave();
         requests.clear();
         call("clearAlternativeActions");
         call("setModel", service.getLoadedModelName());
+        call("setRollingCacheAvailable", service.supportsRollingCache());
         refreshAgentWorkspace();
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
@@ -162,7 +164,7 @@ public final class ChatWindow {
         task.messageProperty().addListener((ob, old, text) -> partial(task, response, text));
         task.setOnSucceeded(event -> complete(task, response));
         task.setOnFailed(event -> failed(task, response));
-        start(task);
+        worker.execute(task);
     }
 
     private void partial(Task<Agent.Turn> task, int response, String text) {
@@ -206,7 +208,7 @@ public final class ChatWindow {
         task.messageProperty().addListener((ob, old, text) -> partialAlternative(task, response, option, text));
         task.setOnSucceeded(event -> completeAlternative(task, response, option, request));
         task.setOnFailed(event -> failAlternative(task, response, option, request));
-        start(task);
+        worker.execute(task);
     }
 
     private void partialAlternative(Task<Agent.Turn> task, int response, int option, String text) {
@@ -248,6 +250,8 @@ public final class ChatWindow {
     }
 
     public void newChat() {
+        imageWorkspace.stop();
+        imageWorkspace.clear();
         stop();
         requests.clear();
     }
@@ -281,14 +285,6 @@ public final class ChatWindow {
 
     private void call(String name, Object... arguments) {
         window().call(name, arguments);
-    }
-
-    private static String message(Throwable error) {
-        return error == null || error.getMessage() == null ? "Unknown error" : error.getMessage();
-    }
-
-    private void start(Task<?> task) {
-        worker.execute(task);
     }
 
 }

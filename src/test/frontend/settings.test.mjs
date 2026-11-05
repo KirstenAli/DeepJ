@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, keyboard } from './fixture.mjs';
 
+test('models can hide the rolling option while retaining ordinary cached generation', (context) => {
+  const ui = fixture(context);
+  ui.element('rollingCache').checked = true;
+  ui.window.setRollingCacheAvailable(false);
+  assert.equal(ui.element('rollingCacheRow').hidden, true);
+  assert.equal(ui.element('rollingCache').checked, false);
+  ui.window.setRollingCacheAvailable(true);
+  assert.equal(ui.element('rollingCacheRow').hidden, false);
+});
+
 test('model menu and preview picker behave clearly', (context) => {
   const ui = fixture(context);
   ui.click('modelPicker');

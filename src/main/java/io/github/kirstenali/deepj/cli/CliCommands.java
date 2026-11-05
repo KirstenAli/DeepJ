@@ -19,7 +19,8 @@ final class CliCommands {
         @Parameters(index = "0", paramLabel = "MODEL", description = "Model directory or .dj checkpoint.")
         private Path path;
         @Option(names = "--dtype",
-                description = "Qwen3 weight storage: ${COMPLETION-CANDIDATES} (default: checkpoint).")
+                description = "Qwen3/Gemma 2 weight storage: ${COMPLETION-CANDIDATES}"
+                        + " (default: Qwen3 checkpoint; Gemma 2 BFLOAT16).")
         private DType dtype;
         @Mixin private SamplingOptions sampling = new SamplingOptions();
         private final CliOptions options;

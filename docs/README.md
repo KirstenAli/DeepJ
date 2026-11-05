@@ -31,6 +31,8 @@ differentiation, composable layers, and shared CPU/Metal execution.
 | [Incremental generation](inference.md) | KV caches, sessions, context windows, and rolling generation |
 | [Looped training](looped-training.md) | Shared decoder layers and loop-specific training |
 | [CLI reference](cli.md) | Terminal commands, settings, themes, and scripting |
+| [Gemma 2 chat](gemma2.md) | Local Gemma chat through the CLI and desktop UI |
+| [SANA-Sprint images](sana-sprint.md) | Text-to-image generation, image settings, and PNG saving |
 
 ## Availability
 

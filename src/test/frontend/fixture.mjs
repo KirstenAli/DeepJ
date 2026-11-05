@@ -5,6 +5,10 @@ import { JSDOM } from 'jsdom';
 
 const html = readFileSync(new URL('../../main/resources/chat.html', import.meta.url), 'utf8');
 const source = new URL('../../main/resources/chat.js', import.meta.url);
+const imageSource = new URL('../../main/resources/images.js', import.meta.url);
+const imageScript = new Script(readFileSync(imageSource, 'utf8'), {
+  filename: fileURLToPath(imageSource),
+});
 const script = new Script(readFileSync(source, 'utf8'), { filename: fileURLToPath(source) });
 
 function fakeTimers(window) {
@@ -36,6 +40,7 @@ export function fixture(context) {
     },
   };
   script.runInContext(dom.getInternalVMContext());
+  imageScript.runInContext(dom.getInternalVMContext());
   context.after(() => window.close());
   const element = (id) => window.document.getElementById(id);
   return { window, calls, timers, element, click: (id) => element(id).click() };
