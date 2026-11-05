@@ -721,14 +721,19 @@ kernel void kernel_layout_index_add(device unsigned char* target [[buffer(0)]],
     storage_write_bits(target, address, params[5], as_type<uint>(sum));
 }
 
+inline float layout_tanh(float x) {
+    // Fast Metal tanh can overflow internally; these tails already round to +/-1 in FP32.
+    return abs(x) >= 10.0f ? copysign(1.0f, x) : tanh(x);
+}
+
 inline float layout_gelu(float x) {
     float t = 0.7978845608f * (x + 0.044715f * x * x * x);
-    return 0.5f * x * (1.0f + tanh(t));
+    return 0.5f * x * (1.0f + layout_tanh(t));
 }
 
 inline float layout_gelu_gradient(float x, float gradient) {
     float x2 = x * x, t = 0.7978845608f * (x + 0.044715f * x2 * x);
-    float tanhT = tanh(t), sech2 = 1.0f - tanhT * tanhT;
+    float tanhT = layout_tanh(t), sech2 = 1.0f - tanhT * tanhT;
     float derivative = 0.7978845608f * (1.0f + 3.0f * 0.044715f * x2);
     return gradient * (0.5f * (1.0f + tanhT) + 0.5f * x * sech2 * derivative);
 }
@@ -749,7 +754,7 @@ inline float layout_activation_value(float x, uint operation) {
     switch (operation) {
         case 9: return exp(x);
         case 10: return log(x);
-        case 11: return tanh(x);
+        case 11: return layout_tanh(x);
         case 12: return 1.0f / (1.0f + exp(-x));
         case 13: return max(0.0f, x);
         default: return layout_gelu(x);
@@ -1981,7 +1986,7 @@ kernel void kernel_log(device const float* a [[buffer(0)]],
 kernel void kernel_tanh(device const float* a [[buffer(0)]],
                         device float* out     [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
-    out[id] = tanh(a[id]);
+    out[id] = layout_tanh(a[id]);
 }
 
 kernel void kernel_sigmoid(device const float* a [[buffer(0)]],
@@ -2027,27 +2032,14 @@ kernel void kernel_relu_backward(device const float* input   [[buffer(0)]],
 kernel void kernel_gelu(device const float* a [[buffer(0)]],
                         device float* out     [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
-    float x = a[id];
-    float sqrtTwoOverPi = 0.7978845608f;
-    float x3 = x * x * x;
-    float t = sqrtTwoOverPi * (x + 0.044715f * x3);
-    out[id] = 0.5f * x * (1.0f + tanh(t));
+    out[id] = layout_gelu(a[id]);
 }
 
 kernel void kernel_gelu_backward(device const float* input [[buffer(0)]],
                                  device const float* grad  [[buffer(1)]],
                                  device float* out         [[buffer(2)]],
                                  uint id [[thread_position_in_grid]]) {
-    float x = input[id];
-    float sqrtTwoOverPi = 0.7978845608f;
-    float x2 = x * x;
-    float x3 = x2 * x;
-    float t = sqrtTwoOverPi * (x + 0.044715f * x3);
-    float tanhT = tanh(t);
-    float sech2 = 1.0f - tanhT * tanhT;
-    float dt_dx = sqrtTwoOverPi * (1.0f + 3.0f * 0.044715f * x2);
-    float d_gelu = 0.5f * (1.0f + tanhT) + 0.5f * x * sech2 * dt_dx;
-    out[id] = grad[id] * d_gelu;
+    out[id] = layout_gelu_gradient(input[id], grad[id]);
 }
 
 inline float write_row_exp(device const float* input, device float* output,
