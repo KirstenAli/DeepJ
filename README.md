@@ -26,7 +26,7 @@ Build feed-forward networks, convolutional networks, recurrent networks, autoenc
 | Autoencoders | Composable `Autoencoder` with separate encoder and decoder access |
 | Transformer encoders | Bidirectional attention, padding masks, and masked mean pooling |
 | Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, Loop, Qwen3, and Gemma 2 for causal language modeling |
-| Text-to-image models | SANA-Sprint 0.6B with Gemma 2 prompt encoding and DC-AE image decoding |
+| Diffusion models | SANA-Sprint 0.6B for text-to-image generation |
 
 ## Install
 
