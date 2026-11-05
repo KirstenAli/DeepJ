@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn.diffusion.sana;
 
+import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -14,8 +15,8 @@ class SanaAutogradTest {
 
     @Test void transformerInputAndParameterGradientsFollowDeepjAutograd() throws Exception {
         Tensor.setBackend(Boolean.getBoolean("sana.test.metal") ? new MetalBackend() : new CpuBackend());
-        try (var weights = SanaWeights.open(ROOT.resolve("transformer"), DType.FLOAT32);
-             var fixture = SanaWeights.open(ROOT, DType.FLOAT32)) {
+        try (var weights = TensorWeights.open(ROOT.resolve("transformer"), DType.FLOAT32);
+             var fixture = TensorWeights.open(ROOT, DType.FLOAT32)) {
             var model = new SanaTransformer(ROOT.resolve("transformer/config.json"), weights);
             Tensor input = fixture.tensor("transformer.input"), text = fixture.tensor("transformer.text");
             loss(model, input, text).backward();

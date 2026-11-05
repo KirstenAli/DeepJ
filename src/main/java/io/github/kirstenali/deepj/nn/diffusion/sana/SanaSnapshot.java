@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.nn.diffusion.sana;
 
+import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
+import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Snapshot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,6 +13,7 @@ public final class SanaSnapshot {
 
     public static boolean matches(Path selection) {
         try {
+            if (Gemma2Snapshot.matches(selection)) return false;
             directory(selection);
             return true;
         }
@@ -37,7 +40,7 @@ public final class SanaSnapshot {
             if (!Files.isRegularFile(directory.resolve(name))) throw new IOException("Missing SANA file: " + name);
         }
         for (String stage : new String[]{"text_encoder", "transformer", "vae"}) {
-            try (var ignored = SanaWeights.open(directory.resolve(stage),
+            try (var ignored = TensorWeights.open(directory.resolve(stage),
                     io.github.kirstenali.deepj.tensor.DType.FLOAT32)) {
                 // Validate metadata without loading weights.
             }

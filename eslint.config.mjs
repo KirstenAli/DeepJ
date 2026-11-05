@@ -17,6 +17,7 @@ const bridgeCallbacks = [
   'finishAlternative',
   'stopAlternative',
   'bridgeReady',
+  'setRollingCacheAvailable',
   'imageMode',
   'setImageMode',
   'submitImage',

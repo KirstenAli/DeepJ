@@ -1,5 +1,9 @@
 package io.github.kirstenali.deepj.nn.diffusion.sana;
 
+import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Backbone;
+import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Config;
+import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
+import io.github.kirstenali.deepj.nn.ModelMemory;
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.GroupedConv2D;
 import io.github.kirstenali.deepj.tensor.DType;
@@ -20,9 +24,9 @@ class SanaReferenceTest {
     }
 
     @Test void gemmaMatchesTransformersIncludingSlidingWindowAndPadding() throws Exception {
-        try (var weights = SanaWeights.open(ROOT.resolve("gemma"), DType.FLOAT32);
-             var fixture = SanaWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
-            var model = new Gemma2Encoder(ROOT.resolve("gemma/config.json"), weights);
+        try (var weights = TensorWeights.open(ROOT.resolve("gemma"), DType.FLOAT32);
+             var fixture = TensorWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
+            var model = new Gemma2Backbone(Gemma2Config.read(ROOT.resolve("gemma/config.json")), weights::tensor);
             Tensor output = model.forward(integers(fixture.tensor("gemma.tokens")),
                     integers(fixture.tensor("gemma.mask")));
             close(output, fixture.tensor("gemma.output"), 5e-5f);
@@ -30,9 +34,9 @@ class SanaReferenceTest {
     }
 
     @Test void bf16GemmaMatchesTransformers() throws Exception {
-        try (var weights = SanaWeights.open(ROOT.resolve("gemma"), DType.BFLOAT16);
-             var fixture = SanaWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
-            var model = new Gemma2Encoder(ROOT.resolve("gemma/config.json"), weights);
+        try (var weights = TensorWeights.open(ROOT.resolve("gemma"), DType.BFLOAT16);
+             var fixture = TensorWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
+            var model = new Gemma2Backbone(Gemma2Config.read(ROOT.resolve("gemma/config.json")), weights::tensor);
             Tensor output = model.forward(integers(fixture.tensor("gemma.tokens")),
                     integers(fixture.tensor("gemma.mask")));
             close(output, fixture.tensor("gemma.output_bf16"), 0.035f);
@@ -40,8 +44,8 @@ class SanaReferenceTest {
     }
 
     @Test void sanaTransformerMatchesDiffusersWithConditioningAndMaskedCrossAttention() throws Exception {
-        try (var weights = SanaWeights.open(ROOT.resolve("transformer"), DType.FLOAT32);
-             var fixture = SanaWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
+        try (var weights = TensorWeights.open(ROOT.resolve("transformer"), DType.FLOAT32);
+             var fixture = TensorWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
             var model = new SanaTransformer(ROOT.resolve("transformer/config.json"), weights);
             Tensor output = model.forward(fixture.tensor("transformer.input"), fixture.tensor("transformer.text"),
                     integers(fixture.tensor("transformer.mask")), 0.6f, 4.5f);
@@ -50,8 +54,8 @@ class SanaReferenceTest {
     }
 
     @Test void dcAeMatchesDiffusersForQuadraticAndLinearReferenceAttention() throws Exception {
-        try (var weights = SanaWeights.open(ROOT.resolve("vae"), DType.FLOAT32);
-             var fixture = SanaWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
+        try (var weights = TensorWeights.open(ROOT.resolve("vae"), DType.FLOAT32);
+             var fixture = TensorWeights.open(ROOT, DType.FLOAT32); var ignored = GradMode.noGrad()) {
             var model = new DcAeDecoder(ROOT.resolve("vae/config.json"), weights);
             for (int size : new int[]{2, 4}) {
                 close(model.forward(fixture.tensor("vae" + size + ".input")),
@@ -61,7 +65,7 @@ class SanaReferenceTest {
     }
 
     @Test void groupedConvolutionAndAllGradientsMatchTorch() throws Exception {
-        try (var fixture = SanaWeights.open(ROOT, DType.FLOAT32)) {
+        try (var fixture = TensorWeights.open(ROOT, DType.FLOAT32)) {
             Tensor input = fixture.tensor("conv.input"), weight = fixture.tensor("conv.weight");
             Tensor bias = fixture.tensor("conv.bias");
             Tensor output = GroupedConv2D.apply(input, weight, bias, 2);
@@ -99,7 +103,7 @@ class SanaReferenceTest {
         output.sumTensor().backward();
         for (float gradient : input.grad().toFloatArray()) { assertTrue(Float.isFinite(gradient)); }
         assertThrows(IllegalStateException.class,
-                () -> SanaMemory.finite(Tensor.from(new float[]{Float.NaN}, 1), "test"));
+                () -> ModelMemory.finite(Tensor.from(new float[]{Float.NaN}, 1), "test"));
     }
 
     @Test void imageAndOptionsValidateContract() {

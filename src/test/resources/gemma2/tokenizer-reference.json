@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "text": "Hello",
+      "ids": [2, 47, 18, 25, 25, 28]
+    },
+    {
+      "text": "A fox \ud83e\udd8a\n\u96ea",
+      "ids": [2, 40, 103, 19, 28, 37, 103, 348, 267, 274, 246, 99, 341, 263, 278]
+    },
+    {
+      "text": "<start_of_turn>user\nHello<end_of_turn>\n<start_of_turn>model\nHi!<end_of_turn>\n<start_of_turn>user\nA fox \ud83e\udd8a\n\u96ea<end_of_turn>\n<start_of_turn>model\n",
+      "ids": [
+        2, 106, 34, 32, 18, 31, 99, 47, 18, 25, 25, 28, 107, 99, 106, 26, 28, 17, 18, 25, 99, 47,
+        22, 66, 107, 99, 106, 34, 32, 18, 31, 99, 40, 103, 19, 28, 37, 103, 348, 267, 274, 246, 99,
+        341, 263, 278, 107, 99, 106, 26, 28, 17, 18, 25, 99
+      ]
+    }
+  ],
+  "formatted": "<bos><start_of_turn>user\nHello<end_of_turn>\n<start_of_turn>model\nHi!<end_of_turn>\n<start_of_turn>user\nA fox \ud83e\udd8a\n\u96ea<end_of_turn>\n<start_of_turn>model\n",
+  "chat_reply": "?z2\ufffd"
+}

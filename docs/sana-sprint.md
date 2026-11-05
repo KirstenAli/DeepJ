@@ -52,7 +52,11 @@ Each result has a **Save image** action that opens the native PNG save dialog. P
 
 `SanaSprint.generate(prompt, options)` returns a `BufferedImage`. `SanaSprint.Options.defaults()` supplies the defaults above. Select DeepJ's tensor backend before calling it. An optional `Consumer<String>` constructor argument receives stage and sampling progress.
 
-`Gemma2Encoder`, `SanaTransformer`, and `DcAeDecoder` expose tensor-level forward methods. Their operations use DeepJ autograd when graph recording is enabled. `SanaWeights` owns the parameters loaded from a stage directory and releases their device retention when closed. `parameters()` returns the parameters loaded so far; weights load on first use. Image generation is provided here; a pretrained-model fine-tuning workflow is not included.
+`Gemma2Backbone`, `SanaTransformer`, and `DcAeDecoder` expose tensor-level forward methods. Their operations use DeepJ autograd when graph recording is enabled. `TensorWeights` owns the parameters loaded from a stage directory and releases their device retention when closed. `parameters()` returns the parameters loaded so far; weights load on first use. Image generation is provided here; a pretrained-model fine-tuning workflow is not included.
+
+The Gemma backbone is also used for [standalone Gemma 2 chat](gemma2.md). Loading `text_encoder/config.json` in the desktop model-file picker opens Gemma chat; loading the pipeline's `model_index.json` opens image generation.
+
+![SANA-Sprint generated fox in the DeepJ desktop UI](sana-sprint-ui.png)
 
 `GroupedConv2D` adds grouped and depthwise, odd-kernel, same-padded NCHW cross-correlation. It reuses DeepJ's spatial patch gathering, tensor joins, matrix multiplication, and gradients. Spatial work is tiled to bound the patch allocation.
 

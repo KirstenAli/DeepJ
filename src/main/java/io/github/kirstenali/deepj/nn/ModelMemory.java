@@ -1,20 +1,20 @@
-package io.github.kirstenali.deepj.nn.diffusion.sana;
+package io.github.kirstenali.deepj.nn;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-final class SanaMemory {
-    private SanaMemory() {}
+public final class ModelMemory {
+    private ModelMemory() {}
 
-    static void checkCancelled() {
+    public static void checkCancelled() {
         if (Thread.currentThread().isInterrupted()) {
-            throw new java.util.concurrent.CancellationException("Image generation stopped");
+            throw new java.util.concurrent.CancellationException("Generation stopped");
         }
     }
 
-    static Pin retain(Tensor... tensors) { return new Pin(tensors); }
+    public static Pin retain(Tensor... tensors) { return new Pin(tensors); }
 
-    static float[] finite(Tensor tensor, String stage) {
+    public static float[] finite(Tensor tensor, String stage) {
         float[] values = tensor.toFloatArray();
         for (float value : values) {
             if (!Float.isFinite(value)) throw new IllegalStateException("Non-finite " + stage + " output");
@@ -22,7 +22,7 @@ final class SanaMemory {
         return values;
     }
 
-    static final class Pin implements AutoCloseable {
+    public static final class Pin implements AutoCloseable {
         private final Tensor[] tensors;
         private Pin(Tensor[] tensors) {
             this.tensors = tensors;
@@ -33,7 +33,7 @@ final class SanaMemory {
         }
     }
 
-    static Tensor finish(Tensor output) {
+    public static Tensor finish(Tensor output) {
         if (!GradMode.isEnabled()) {
             output.materialize();
             output.retainDeviceBuffer();

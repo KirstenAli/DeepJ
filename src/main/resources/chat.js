@@ -45,6 +45,11 @@ function setModel(name) {
   updateSend();
 }
 
+function setRollingCacheAvailable(available) {
+  element('rollingCacheRow').hidden = !available;
+  if (!available) element('rollingCache').checked = false;
+}
+
 function setBusy(value) {
   busy = value;
   promptBox.disabled = value;

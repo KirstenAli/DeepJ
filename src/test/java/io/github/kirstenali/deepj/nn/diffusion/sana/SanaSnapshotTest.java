@@ -15,6 +15,7 @@ class SanaSnapshotTest {
         assertEquals(MODEL, SanaSnapshot.directory(MODEL.resolve("model_index.json")));
         assertEquals(MODEL, SanaSnapshot.directory(MODEL.resolve("transformer/config.json")));
         assertTrue(SanaSnapshot.matches(MODEL.resolve("vae/model.safetensors")));
+        assertFalse(SanaSnapshot.matches(MODEL.resolve("text_encoder/config.json")));
         assertFalse(SanaSnapshot.matches(Path.of("pom.xml")));
     }
 

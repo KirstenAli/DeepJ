@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import static io.github.kirstenali.deepj.chatui.DesktopErrors.message;
 import io.github.kirstenali.deepj.nn.diffusion.sana.SanaSprint;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import javafx.application.Platform;
@@ -174,7 +175,4 @@ public final class ImageWorkspace {
     }
 
     private void show(String name, Object... arguments) { if (!closed) events.ui().call(name, arguments); }
-    private static String message(Throwable error) {
-        return error == null || error.getMessage() == null ? "Unknown error" : error.getMessage();
-    }
 }

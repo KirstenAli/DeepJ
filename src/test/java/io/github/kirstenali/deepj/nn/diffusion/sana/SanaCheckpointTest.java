@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn.diffusion.sana;
 
+import io.github.kirstenali.deepj.tokenizers.gemma.GemmaTokenizer;
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;

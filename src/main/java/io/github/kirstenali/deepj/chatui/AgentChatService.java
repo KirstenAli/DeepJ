@@ -27,6 +27,7 @@ final class AgentChatService implements ConversationChatService {
     @Override
     public void loadModel(Path path) throws Exception {
         Loaded loaded = load(path);
+        unloadModel();
         enabled = false;
         model = loaded;
     }
@@ -45,11 +46,17 @@ final class AgentChatService implements ConversationChatService {
         return loaded != null && loaded.qwen() != null && InteractiveTerminal.available();
     }
 
+    @Override public boolean supportsRollingCache() {
+        Loaded loaded = model;
+        return loaded == null || loaded.qwen() != null || loaded.plain().supportsRollingCache();
+    }
+
     void directory(Path path) { directory = path; }
 
     Path directory() { return directory; }
 
     @Override public void unloadModel() {
+        if (model != null && model.plain() != null) model.plain().unloadModel();
         model = null;
         enabled = false;
     }

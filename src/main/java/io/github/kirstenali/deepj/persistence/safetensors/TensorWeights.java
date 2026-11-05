@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.nn.diffusion.sana;
+package io.github.kirstenali.deepj.persistence.safetensors;
 
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
@@ -7,6 +7,7 @@ import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorEncoding;
 import io.github.kirstenali.deepj.tensor.TensorScope;
+import io.github.kirstenali.deepj.tensor.TensorDescriptor;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -17,27 +18,27 @@ import java.util.List;
 import java.util.Map;
 
 /** One pipeline stage owns its loaded parameters and releases their device retention on close. */
-public final class SanaWeights implements AutoCloseable {
+public final class TensorWeights implements AutoCloseable {
     private final Map<String, SafeTensorFile.Entry> entries;
     private final Map<String, Parameter> loaded = new LinkedHashMap<>();
     private final DType dtype;
     private boolean closed;
 
-    private SanaWeights(Map<String, SafeTensorFile.Entry> entries, DType dtype) {
+    private TensorWeights(Map<String, SafeTensorFile.Entry> entries, DType dtype) {
         this.entries = entries;
         this.dtype = dtype;
     }
 
-    public static SanaWeights open(Path directory, DType dtype) throws IOException {
+    public static TensorWeights open(Path directory, DType dtype) throws IOException {
         Path index = directory.resolve("model.safetensors.index.json");
         var entries = Files.exists(index) ? shards(directory, index)
-                : SanaTensorFile.inspect(singleFile(directory));
-        return new SanaWeights(entries, java.util.Objects.requireNonNull(dtype));
+                : TensorFile.inspect(singleFile(directory));
+        return new TensorWeights(entries, java.util.Objects.requireNonNull(dtype));
     }
 
     /** Useful for small tensor fixtures and differentiable model experiments. */
-    public static SanaWeights from(Map<String, Tensor> tensors) {
-        var weights = new SanaWeights(Map.of(), DType.FLOAT32);
+    public static TensorWeights from(Map<String, Tensor> tensors) {
+        var weights = new TensorWeights(Map.of(), DType.FLOAT32);
         tensors.forEach((name, tensor) -> weights.loaded.put(name, parameter(name, tensor)));
         return weights;
     }
@@ -49,6 +50,13 @@ public final class SanaWeights implements AutoCloseable {
 
     public boolean contains(String name) { return loaded.containsKey(name) || entries.containsKey(name); }
     public List<Parameter> parameters() { return List.copyOf(loaded.values()); }
+
+    public Map<String, io.github.kirstenali.deepj.tensor.TensorDescriptor> descriptors() {
+        var result = new LinkedHashMap<String, io.github.kirstenali.deepj.tensor.TensorDescriptor>();
+        entries.forEach((name, entry) -> result.put(name, entry.descriptor()));
+        loaded.forEach((name, p) -> result.put(name, new TensorDescriptor(p.value.dtype(), p.value.shape())));
+        return Map.copyOf(result);
+    }
 
     private Parameter load(String name) {
         var entry = entries.get(name);
@@ -89,7 +97,7 @@ public final class SanaWeights implements AutoCloseable {
         for (Object filename : new java.util.HashSet<>(weights.values())) {
             String name = Qwen3Json.string(filename);
             if (!name.matches("[A-Za-z0-9_-]+\\.safetensors")) throw new IOException("Invalid shard name");
-            var entries = SanaTensorFile.inspect(directory.resolve(name));
+            var entries = TensorFile.inspect(directory.resolve(name));
             for (var entry : entries.entrySet()) {
                 if (!filename.equals(weights.get(entry.getKey()))) throw new IOException("Shard index mismatch");
                 if (result.put(entry.getKey(), entry.getValue()) != null) throw new IOException("Duplicate weight");

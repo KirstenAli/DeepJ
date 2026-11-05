@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.nn.diffusion.sana;
+package io.github.kirstenali.deepj.tokenizers.gemma;
 
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import io.github.kirstenali.deepj.tokenizers.Tokenizer;
@@ -48,9 +48,15 @@ public final class GemmaTokenizer implements Tokenizer {
 
     private void merges(List<?> entries) {
         for (int rank = 0; rank < entries.size(); rank++) {
-            var pair = Qwen3Json.array(entries.get(rank));
+            var pair = mergePair(entries.get(rank));
             ranks.put(new Pair(Qwen3Json.string(pair.get(0)), Qwen3Json.string(pair.get(1))), rank);
         }
+    }
+
+    private static List<?> mergePair(Object value) {
+        List<?> pair = value instanceof String text ? List.of(text.split(" ", 2)) : Qwen3Json.array(value);
+        if (pair.size() != 2) throw new IllegalArgumentException("Invalid Gemma merge pair");
+        return pair;
     }
 
     @Override public int vocabSize() { return vocabulary.size(); }
@@ -103,6 +109,12 @@ public final class GemmaTokenizer implements Tokenizer {
     }
 
     @Override public String decode(int[] tokens) {
+        return decode(tokens, false);
+    }
+
+    @Override public String decodePartial(int[] tokens) { return decode(tokens, true); }
+
+    private String decode(int[] tokens, boolean partial) {
         StringBuilder result = new StringBuilder();
         var bytes = new ByteArrayOutputStream();
         for (int token : tokens) {
@@ -115,7 +127,16 @@ public final class GemmaTokenizer implements Tokenizer {
                 result.append(piece.replace('▁', ' '));
             }
         }
-        return result.append(bytes.toString(StandardCharsets.UTF_8)).toString();
+        return result.append(decodeBytes(bytes.toByteArray(), partial)).toString();
+    }
+
+    private static String decodeBytes(byte[] bytes, boolean partial) {
+        if (!partial) return new String(bytes, StandardCharsets.UTF_8);
+        var decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE);
+        var output = java.nio.CharBuffer.allocate(bytes.length);
+        decoder.decode(java.nio.ByteBuffer.wrap(bytes), output, false);
+        return output.flip().toString();
     }
 
     private record Pair(String left, String right) {}

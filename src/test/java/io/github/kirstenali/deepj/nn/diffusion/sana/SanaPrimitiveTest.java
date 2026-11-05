@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn.diffusion.sana;
 
+import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.GroupedConv2D;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -39,7 +40,7 @@ class SanaPrimitiveTest {
 
     private static float[] attention() {
         try (var ignored = GradMode.noGrad()) {
-            return SanaOps.linearAttention(random(1, 3, 16, 8), random(1, 3, 16, 8),
+            return ModelOps.linearAttention(random(1, 3, 16, 8), random(1, 3, 16, 8),
                     random(1, 3, 16, 8), 1e-15f).toFloatArray();
         }
     }

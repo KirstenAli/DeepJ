@@ -1,4 +1,4 @@
-package io.github.kirstenali.deepj.nn.diffusion.sana;
+package io.github.kirstenali.deepj.persistence.safetensors;
 
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import io.github.kirstenali.deepj.persistence.qwen3.SafeTensorFile;
@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Map;
 
 /** Adds convolution-rank metadata to the existing safetensors payload reader. */
-final class SanaTensorFile {
-    private SanaTensorFile() {}
+final class TensorFile {
+    private TensorFile() {}
 
     static Map<String, SafeTensorFile.Entry> inspect(Path path) throws IOException {
         try (var file = new RandomAccessFile(path.toFile(), "r")) {

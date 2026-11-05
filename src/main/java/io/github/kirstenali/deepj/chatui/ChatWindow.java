@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
+import static io.github.kirstenali.deepj.chatui.DesktopErrors.message;
 import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.chatui.ChatRequests.Request;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
@@ -108,6 +109,7 @@ public final class ChatWindow {
         requests.clear();
         call("clearAlternativeActions");
         call("setModel", service.getLoadedModelName());
+        call("setRollingCacheAvailable", service.supportsRollingCache());
         refreshAgentWorkspace();
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
@@ -285,7 +287,4 @@ public final class ChatWindow {
         window().call(name, arguments);
     }
 
-    private static String message(Throwable error) {
-        return error == null || error.getMessage() == null ? "Unknown error" : error.getMessage();
-    }
 }

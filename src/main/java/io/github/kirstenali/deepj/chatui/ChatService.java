@@ -10,6 +10,9 @@ public interface ChatService {
     /** Discards the active desktop model before switching to another model type. */
     default void unloadModel() {}
 
+    /** Whether the desktop should offer the existing rolling-cache control. */
+    default boolean supportsRollingCache() { return true; }
+
     boolean isModelLoaded();
 
     String getLoadedModelName();

@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.chatui;
 import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
+import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Snapshot;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,16 +32,22 @@ public final class DeepJChatService implements ConversationChatService {
     public void loadModel(Path path) throws Exception {
         ChatService candidate = serviceFor(path);
         candidate.loadModel(path);
+        unloadModel();
         model = candidate;
     }
 
     private static ChatService serviceFor(Path path) throws IOException {
+        if (Gemma2Snapshot.matches(path)) return new Gemma2ChatService();
         if (Qwen3Snapshot.matches(path)) return new Qwen3ChatService();
         return path.toString().endsWith(".dj")
                 ? new EmbeddedModelChatService() : new DeepJOriginChatService();
     }
 
-    @Override public void unloadModel() { model = null; }
+    @Override public void unloadModel() {
+        if (model != null) model.unloadModel();
+        model = null;
+    }
+    @Override public boolean supportsRollingCache() { return model == null || model.supportsRollingCache(); }
 
     @Override
     public boolean isModelLoaded() {

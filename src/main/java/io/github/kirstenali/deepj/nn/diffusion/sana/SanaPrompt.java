@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn.diffusion.sana;
 
+import io.github.kirstenali.deepj.tokenizers.gemma.GemmaTokenizer;
 import java.util.Arrays;
 import java.util.Locale;
 
