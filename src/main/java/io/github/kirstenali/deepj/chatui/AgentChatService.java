@@ -49,6 +49,11 @@ final class AgentChatService implements ConversationChatService {
 
     Path directory() { return directory; }
 
+    @Override public void unloadModel() {
+        model = null;
+        enabled = false;
+    }
+
     @Override
     public boolean isModelLoaded() { return model != null; }
 

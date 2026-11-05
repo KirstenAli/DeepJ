@@ -34,6 +34,7 @@ public final class SanaTransformer {
             Tensor caption = caption(text), mask = textMask(valid);
             try (var pinned = SanaMemory.retain(conditioning, modulation, caption, mask)) {
                 for (int layer = 0; layer < config.integer("num_layers"); layer++) {
+                    SanaMemory.checkCancelled();
                     hidden = block(hidden, caption, mask, modulation, layer, latent.size(2), latent.size(3));
                 }
                 return scope.escape(output(hidden, conditioning, latent.size(2), latent.size(3)));

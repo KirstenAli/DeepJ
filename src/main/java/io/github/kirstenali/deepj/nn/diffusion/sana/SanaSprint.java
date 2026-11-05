@@ -42,6 +42,7 @@ public final class SanaSprint {
         if (prompt == null || prompt.isBlank()) throw new IllegalArgumentException("An image prompt is required");
         Objects.requireNonNull(options);
         try (var ignored = GradMode.noGrad(); var scope = TensorScope.open()) {
+            SanaMemory.checkCancelled();
             PromptFeatures features = encode(prompt);
             Tensor latent = sample(features, options);
             return decode(latent);
@@ -51,7 +52,7 @@ public final class SanaSprint {
     }
 
     private PromptFeatures encode(String text) throws IOException {
-        progress.accept("Encoding prompt with Gemma 2");
+        stage("Encoding prompt with Gemma 2");
         var prompt = new SanaPrompt(new GemmaTokenizer(directory.resolve("tokenizer")), text);
         Path stage = directory.resolve("text_encoder");
         try (var scope = TensorScope.open(); var weights = SanaWeights.open(stage, DType.BFLOAT16)) {
@@ -62,7 +63,7 @@ public final class SanaSprint {
     }
 
     private Tensor sample(PromptFeatures features, Options options) throws IOException {
-        progress.accept("Loading SANA-Sprint transformer");
+        stage("Loading SANA-Sprint transformer");
         Path stage = directory.resolve("transformer");
         try (var scope = TensorScope.open(); var weights = SanaWeights.open(stage, DType.FLOAT32)) {
             var transformer = new SanaTransformer(stage.resolve("config.json"), weights);
@@ -85,6 +86,7 @@ public final class SanaSprint {
     private Tensor step(SanaTransformer model, Tensor text, int[] mask, Tensor latent, Random random,
                         Options options, float[] times, int index) {
         try (var scope = TensorScope.open(); var pinned = SanaMemory.retain(latent)) {
+            SanaMemory.checkCancelled();
             Tensor input = SanaScm.modelInput(latent, SanaScm.time(times[index]));
             Tensor predicted = model.forward(input, text, mask, SanaScm.time(times[index]), options.guidance());
             Tensor denoised = SanaScm.denoise(latent, input, predicted, times[index]);
@@ -95,13 +97,18 @@ public final class SanaSprint {
     }
 
     private BufferedImage decode(Tensor latent) throws IOException {
-        progress.accept("Decoding image with DC-AE");
+        stage("Decoding image with DC-AE");
         Path stage = directory.resolve("vae");
         var config = new SanaConfig(stage.resolve("config.json"));
         try (var scope = TensorScope.open(); var weights = SanaWeights.open(stage, DType.FLOAT32)) {
             var decoder = new DcAeDecoder(stage.resolve("config.json"), weights);
             return SanaImages.rgb(decoder.forward(latent.divideScalar(config.decimal("scaling_factor"))));
         }
+    }
+
+    private void stage(String message) {
+        progress.accept(message);
+        SanaMemory.checkCancelled();
     }
 
     private record PromptFeatures(float[] values, int[] shape, int[] mask) {}

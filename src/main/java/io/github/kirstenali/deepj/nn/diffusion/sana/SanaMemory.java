@@ -6,6 +6,12 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 final class SanaMemory {
     private SanaMemory() {}
 
+    static void checkCancelled() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new java.util.concurrent.CancellationException("Image generation stopped");
+        }
+    }
+
     static Pin retain(Tensor... tensors) { return new Pin(tensors); }
 
     static float[] finite(Tensor tensor, String stage) {

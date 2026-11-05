@@ -40,6 +40,8 @@ public final class DeepJChatService implements ConversationChatService {
                 ? new EmbeddedModelChatService() : new DeepJOriginChatService();
     }
 
+    @Override public void unloadModel() { model = null; }
+
     @Override
     public boolean isModelLoaded() {
         return model != null && model.isModelLoaded();

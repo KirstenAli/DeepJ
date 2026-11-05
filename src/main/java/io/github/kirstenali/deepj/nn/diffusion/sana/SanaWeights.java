@@ -71,10 +71,11 @@ public final class SanaWeights implements AutoCloseable {
     }
 
     @Override public void close() {
+        boolean populated = !loaded.isEmpty();
         loaded.values().forEach(p -> p.value.releaseDeviceBufferRetention());
         loaded.clear();
         closed = true;
-        Tensor.backend().releaseTemporaryResources();
+        if (populated) Tensor.backend().releaseTemporaryResources();
     }
 
     private static Path singleFile(Path directory) {

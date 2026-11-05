@@ -30,6 +30,18 @@ class SanaPipelineTest {
         assertThrows(IllegalArgumentException.class, () -> pipeline.generate(" ", options));
     }
 
+    @Test void cancellationBetweenStagesReleasesTheEncoderAndRestoresGradMode() {
+        Tensor.setBackend(Boolean.getBoolean("sana.test.metal") ? new MetalBackend() : new CpuBackend());
+        var pipeline = new SanaSprint(MODEL, message -> {
+            if (message.startsWith("Loading")) Thread.currentThread().interrupt();
+        });
+        try {
+            assertThrows(java.util.concurrent.CancellationException.class,
+                    () -> pipeline.generate("a fox", new SanaSprint.Options(32, 32, 2, 4.5f, 1)));
+        } finally { Thread.interrupted(); }
+        assertTrue(io.github.kirstenali.deepj.autograd.GradMode.isEnabled());
+    }
+
     @Test void standaloneLauncherWritesPngAndReportsInvalidOptions() throws Exception {
         Path output = temporary.resolve("image.png");
         int status = new CommandLine(new SanaImageCli()).execute("--model", MODEL.toString(), "--backend", "cpu",

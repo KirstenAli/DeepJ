@@ -7,6 +7,9 @@ import java.util.function.Consumer;
 public interface ChatService {
     void loadModel(Path modelPath) throws Exception;
 
+    /** Discards the active desktop model before switching to another model type. */
+    default void unloadModel() {}
+
     boolean isModelLoaded();
 
     String getLoadedModelName();

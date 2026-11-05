@@ -103,6 +103,8 @@ print("Saved independent reference fixtures to", ROOT)
 
 # A synthetic full pipeline exercises staging, BF16 encoding and the image launcher without model downloads.
 full = ROOT / "pipeline"
+(full / "model_index.json").parent.mkdir(parents=True, exist_ok=True)
+(full / "model_index.json").write_text(json.dumps({"_class_name": "SanaSprintPipeline"}))
 (full / "tokenizer").mkdir(parents=True, exist_ok=True)
 (full / "tokenizer/tokenizer.json").write_text(json.dumps({
     "model": {"type": "BPE", "byte_fallback": True,

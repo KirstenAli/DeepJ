@@ -30,6 +30,7 @@ public final class Gemma2Encoder {
             Tensor input = weights.tensor("embed_tokens.weight").indexSelect(0, tokens).unsqueeze(0);
             input = input.multiplyScalar((float) Math.sqrt(config.integer("hidden_size")));
             for (int layer = 0; layer < config.integer("num_hidden_layers"); layer++) {
+                SanaMemory.checkCancelled();
                 input = block(input, valid, layer);
             }
             return scope.escape(normalize(input, "norm"));

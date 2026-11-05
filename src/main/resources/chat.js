@@ -37,6 +37,7 @@ function setStatus(message) {
 }
 
 function setModel(name) {
+  setImageMode(false);
   modelLoaded = true;
   element('modelName').textContent = name;
   element('composerHint').textContent = name;
@@ -47,7 +48,9 @@ function setModel(name) {
 function setBusy(value) {
   busy = value;
   promptBox.disabled = value;
-  ['composerModel', 'menuLoad', 'agentPicker'].forEach((id) => (element(id).disabled = value));
+  ['composerModel', 'menuLoad', 'menuLoadImage', 'agentPicker'].forEach(
+    (id) => (element(id).disabled = value),
+  );
   if (value) showAgentMenu(false);
   document.querySelectorAll('.alternatives-button').forEach((button) => (button.disabled = value));
   updateSend();
@@ -62,8 +65,9 @@ function updateSend() {
   const button = element('send');
   button.disabled = !generating && (busy || !promptBox.value.trim());
   button.replaceChildren(icon(generating ? 'stop' : 'send'));
-  button.setAttribute('aria-label', generating ? 'Stop generating' : 'Send message');
-  button.title = generating ? 'Stop generating' : 'Send message';
+  const label = generating ? 'Stop generating' : imageMode ? 'Generate image' : 'Send message';
+  button.setAttribute('aria-label', label);
+  button.title = label;
 }
 
 function resizePrompt() {
@@ -259,6 +263,7 @@ function submitPrompt() {
   const prompt = promptBox.value.trim();
   if (!prompt || busy) return;
   if (!modelLoaded) return chooseModel();
+  if (imageMode) return submitImage(prompt);
   if (!validGenerationSettings()) return;
   sendPrompt(prompt);
 }
@@ -332,7 +337,7 @@ function newChat() {
 }
 
 function submitOrStop() {
-  if (generating) return chatBridge.stop();
+  if (generating) return imageMode ? imageBridge.stop() : chatBridge.stop();
   submitPrompt();
 }
 
@@ -433,7 +438,9 @@ function reviewCommandEdit(event) {
 function trapModalTab(event) {
   if (event.key !== 'Tab') return;
   const controls = [
-    ...event.currentTarget.querySelectorAll('button, input, textarea, summary, [tabindex="0"]'),
+    ...event.currentTarget.querySelectorAll(
+      'button, input, select, textarea, summary, [tabindex="0"]',
+    ),
   ].filter((control) => control.offsetParent !== null);
   const last = controls[controls.length - 1];
   const target = event.shiftKey ? last : controls[0];

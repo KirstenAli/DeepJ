@@ -51,6 +51,9 @@ public final class GroupedConv2D {
         int rows = tileRows(input, weight);
         List<Tensor> tiles = new ArrayList<>();
         for (int start = 0; start < input.size(2); start += rows) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new java.util.concurrent.CancellationException("Convolution stopped");
+            }
             tiles.add(evaluateTile(input, weight, groups, start, Math.min(input.size(2), start + rows)));
         }
         return TensorJoin.concatenate(2, tiles.toArray(Tensor[]::new));

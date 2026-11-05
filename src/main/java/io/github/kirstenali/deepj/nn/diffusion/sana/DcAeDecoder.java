@@ -44,6 +44,7 @@ public final class DcAeDecoder {
             int offset = stage < channels.length - 1 ? 1 : 0;
             Tensor hidden = offset == 0 ? input : upsample(input, prefix + "0");
             for (int layer = 0; layer < layers[stage]; layer++) {
+                SanaMemory.checkCancelled();
                 hidden = block(hidden, stage, prefix + (layer + offset));
             }
             return scope.escape(SanaMemory.finish(hidden));

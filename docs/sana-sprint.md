@@ -2,7 +2,7 @@
 
 DeepJ implements SANA-Sprint 0.6B with its Gemma 2 text encoder, conditioned image transformer, stochastic consistency sampler, and DC-AE image decoder. Inference runs locally in Java through DeepJ tensors on CPU or Apple Metal. Python is used only to regenerate independent test fixtures.
 
-The implementation lives in `io.github.kirstenali.deepj.nn.diffusion.sana`. It adds a standalone image launcher; the existing chat CLI and desktop application keep their current routing.
+The implementation lives in `io.github.kirstenali.deepj.nn.diffusion.sana`. Images can be generated through a standalone launcher or the existing desktop application.
 
 ## Checkpoint
 
@@ -34,6 +34,20 @@ The pipeline loads and releases each model stage in sequence. Gemma weights use 
 
 A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use different random-number generators, so matching seed values do not produce identical noise across the two implementations.
 
+## Desktop UI
+
+Launch the existing DeepJ desktop application with enough heap for the image pipeline:
+
+```sh
+JAVA_TOOL_OPTIONS="-Xmx8g" mvn javafx:run
+```
+
+Open the model menu, choose **Open image model folder…**, and select the checkpoint folder containing `model_index.json`. Selecting that file in the existing model-file picker also recognises the image pipeline.
+
+The composer switches to image descriptions. Its image-size button opens the existing Settings dialog, where you can choose size, sampling steps, seed, and prompt guidance. The window shows generation stages and keeps the Stop action available. After stopping, it waits for the current work to unwind before accepting another generation.
+
+Each result has a **Save image** action that opens the native PNG save dialog. PNG encoding and file writing run in the background. Images remain available to save after switching back to a chat model; **New chat** or **New image** clears the displayed results. Switching model types releases the previous model's device memory.
+
 ## Java API
 
 `SanaSprint.generate(prompt, options)` returns a `BufferedImage`. `SanaSprint.Options.defaults()` supplies the defaults above. Select DeepJ's tensor backend before calling it. An optional `Consumer<String>` constructor argument receives stage and sampling progress.
@@ -52,8 +66,8 @@ mvn -Dtest='Sana*Test' -Dsana.test.metal=true test
 mvn -Dtest=SanaCheckpointTest -Dsana.model=/absolute/path/to/sana-sprint test
 ```
 
-The full official checkpoint was also exercised end to end on Apple M4 Metal at 1024 × 1024 with two sampling steps, producing an RGB image from a text prompt.
-
 The last command checks the real checkpoint tokenizer against Hugging Face token IDs and prompt formatting. Metal checks require an Apple Silicon process with access to Metal.
+
+The full official checkpoint was also exercised end to end through the launcher and desktop UI on Apple M4 Metal at 1024 × 1024 with two sampling steps, producing an RGB image from a text prompt. Desktop tests cover PNG preview and saving, cancellation cleanup, and the existing chat controls. The image controls and results were visually reviewed across all four desktop themes.
 
 Architecture and numerical behavior follow the official [SANA project](https://github.com/NVlabs/Sana), [Diffusers SANA-Sprint pipeline](https://github.com/huggingface/diffusers/blob/v0.33.1/src/diffusers/pipelines/sana/pipeline_sana_sprint.py), and [Transformers Gemma 2 implementation](https://github.com/huggingface/transformers/blob/v4.51.3/src/transformers/models/gemma2/modeling_gemma2.py). The instruction prefix follows the Diffusers pipeline (Hugging Face, Apache-2.0). The checkpoint and its Gemma component remain subject to their respective model licenses and terms; see the model card before redistribution.
