@@ -1,6 +1,5 @@
 package io.github.kirstenali.deepj.nn.transformer.gemma2;
 
-import io.github.kirstenali.deepj.layers.transformer.qwen3.Qwen3Rotary;
 import io.github.kirstenali.deepj.nn.ModelMemory;
 import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.tensor.DType;
@@ -13,12 +12,12 @@ import java.util.stream.IntStream;
 public final class Gemma2Backbone {
     private final Gemma2Config config;
     private final Function<String, Tensor> weights;
-    private final Qwen3Rotary rotary;
+    private final Gemma2Rotary rotary;
 
     public Gemma2Backbone(Gemma2Config config, Function<String, Tensor> weights) {
         this.config = java.util.Objects.requireNonNull(config);
         this.weights = java.util.Objects.requireNonNull(weights);
-        rotary = new Qwen3Rotary(config.headDim(), config.ropeTheta());
+        rotary = new Gemma2Rotary(config.headDim(), config.ropeTheta());
     }
 
     public Tensor forward(int[] tokens, int[] valid) { return forward(tokens, valid, null); }
@@ -75,7 +74,7 @@ public final class Gemma2Backbone {
     private Tensor prefill(Tensor query, Tensor key, Tensor value, int[] valid, int layer) {
         int[] repeated = IntStream.range(0, config.nHeads())
                 .map(i -> i / (config.nHeads() / config.kvHeads())).toArray();
-        return ModelOps.attention(query, key.indexSelect(1, repeated), value.indexSelect(1, repeated),
+        return Gemma2Attention.apply(query, key.indexSelect(1, repeated), value.indexSelect(1, repeated),
                 mask(valid, layer), (float) (1 / Math.sqrt(config.queryScalar())), config.attentionSoftcap());
     }
 

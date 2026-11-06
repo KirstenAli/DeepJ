@@ -51,7 +51,7 @@ final class TensorFile {
     private static SafeTensorFile.Entry entry(Path path, Map<String, Object> value, long start) {
         int[] shape = Qwen3Json.array(value.get("shape")).stream()
                 .mapToInt(v -> Math.toIntExact(Qwen3Json.integer(v))).toArray();
-        if (shape.length < 1 || shape.length > 4) throw new IllegalArgumentException("Invalid weight rank");
+        if (shape.length < 1 || shape.length > 5) throw new IllegalArgumentException("Invalid weight rank");
         for (int size : shape) {
             if (size < 1) throw new IllegalArgumentException("Invalid weight dimension");
         }

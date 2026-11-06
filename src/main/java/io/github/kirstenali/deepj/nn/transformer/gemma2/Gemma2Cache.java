@@ -41,11 +41,9 @@ final class Gemma2Cache implements AutoCloseable {
         Tensor grouped = query.reshape(1, config.kvHeads(), config.nHeads() / config.kvHeads(), config.headDim());
         Tensor scores = Tensor.backend().headPrefixMatmul(HeadLayout.pack(grouped),
                 HeadLayout.pack(keys[layer]), config.kvHeads(), length, true);
-        scores = scores.multiplyScalar((float) (1 / Math.sqrt(config.queryScalar())));
-        scores = scores.divideScalar(config.attentionSoftcap()).tanhActivation()
-                .multiplyScalar(config.attentionSoftcap());
-        if (layer % 2 == 0 && length > config.slidingWindow()) scores = scores.add(localMask());
-        Tensor probabilities = scores.softmax(-1).to(values[layer].dtype());
+        Tensor mask = layer % 2 == 0 && length > config.slidingWindow() ? localMask() : null;
+        Tensor probabilities = Gemma2Attention.probabilities(scores, mask,
+                (float) (1 / Math.sqrt(config.queryScalar())), config.attentionSoftcap()).to(values[layer].dtype());
         return Tensor.backend().headPrefixMatmul(probabilities, HeadLayout.pack(values[layer]),
                 config.kvHeads(), length, false).reshape(query.shape());
     }

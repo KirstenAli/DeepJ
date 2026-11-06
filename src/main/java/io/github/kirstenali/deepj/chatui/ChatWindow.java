@@ -7,8 +7,6 @@ import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 import javafx.concurrent.Task;
 import javafx.concurrent.Worker;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.web.WebView;
@@ -27,6 +25,7 @@ public final class ChatWindow {
     private final ChatService service;
     private final AgentWorkspace agentWorkspace;
     private final ImageWorkspace imageWorkspace;
+    private final VideoWorkspace videoWorkspace;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deepj-chat-worker");
         thread.setDaemon(true);
@@ -45,6 +44,8 @@ public final class ChatWindow {
         this.service = service;
         requests = new ChatRequests(service);
         imageWorkspace = new ImageWorkspace(stage, worker, service,
+                new ImageWorkspace.Events(() -> busy, this::setBusy, requests::clear, this::call));
+        videoWorkspace = new VideoWorkspace(stage, worker, service,
                 new ImageWorkspace.Events(() -> busy, this::setBusy, requests::clear, this::call));
         agentWorkspace = service instanceof AgentChatService agent
                 ? new AgentWorkspace(stage, agent, () -> busy) : null;
@@ -75,9 +76,11 @@ public final class ChatWindow {
     private void connect() {
         window().setMember("chatBridge", this);
         window().setMember("imageBridge", imageWorkspace);
+        window().setMember("videoBridge", videoWorkspace);
         if (agentWorkspace != null) window().setMember("agentBridge", agentWorkspace);
         call("bridgeReady");
         refreshAgentWorkspace();
+        call("setThinkingAvailable", service.supportsThinking());
     }
 
     public void chooseModel() {
@@ -87,30 +90,21 @@ public final class ChatWindow {
     }
 
     private void loadModel(File file) {
-        if (io.github.kirstenali.deepj.nn.diffusion.sana.SanaSnapshot.matches(file.toPath())) {
-            imageWorkspace.load(file.toPath());
-            return;
-        }
+        if (DesktopModels.openMedia(file, imageWorkspace, videoWorkspace)) return;
         setBusy(true);
         call("setStatus", "Loading " + file.getName() + "…");
-        Task<Void> task = new Task<>() {
-            @Override protected Void call() throws Exception {
-                service.loadModel(file.toPath());
-                return null;
-            }
-        };
-        task.setOnSucceeded(event -> modelLoaded());
-        task.setOnFailed(event -> loadFailed(task.getException()));
-        worker.execute(task);
+        DesktopModels.loadChat(file, service, worker, this::modelLoaded, this::loadFailed);
     }
 
     private void modelLoaded() {
         imageWorkspace.leave();
+        videoWorkspace.leave();
         requests.clear();
         call("clearAlternativeActions");
         call("setModel", service.getLoadedModelName());
         call("setRollingCacheAvailable", service.supportsRollingCache());
         refreshAgentWorkspace();
+        call("setThinkingAvailable", service.supportsThinking());
         call("setStatus", ChatBackend.readyStatus());
         setBusy(false);
     }
@@ -141,12 +135,18 @@ public final class ChatWindow {
 
     public void sendWithWindowSettings(String prompt, int maxTokens, double temperature, int topK,
                                        long seed, double repetitionPenalty, boolean rollingCache) {
+        sendWithThinkingSettings(prompt, maxTokens, temperature, topK, seed, repetitionPenalty, rollingCache, false);
+    }
+
+    public void sendWithThinkingSettings(String prompt, int maxTokens, double temperature, int topK,
+                                         long seed, double repetitionPenalty, boolean rollingCache, boolean thinking) {
         if (busy || !service.isModelLoaded()) return;
         if (prompt == null || prompt.isBlank()) return;
         try {
             startGeneration(prompt.trim(),
                     new ChatGenerationSettings(maxTokens, temperature, topK, seed, repetitionPenalty,
-                            rollingCache ? ContextWindowMode.ROLLING : ContextWindowMode.REBUILD));
+                            rollingCache ? ContextWindowMode.ROLLING : ContextWindowMode.REBUILD,
+                            thinking && service.supportsThinking()));
         } catch (IllegalArgumentException error) {
             call("setStatus", error.getMessage());
         }
@@ -252,6 +252,8 @@ public final class ChatWindow {
     public void newChat() {
         imageWorkspace.stop();
         imageWorkspace.clear();
+        videoWorkspace.stop();
+        videoWorkspace.clear();
         stop();
         requests.clear();
     }
@@ -268,11 +270,7 @@ public final class ChatWindow {
         setBusy(false);
     }
 
-    public void copy(String text) {
-        ClipboardContent content = new ClipboardContent();
-        content.putString(text);
-        Clipboard.getSystemClipboard().setContent(content);
-    }
+    public void copy(String text) { DesktopClipboard.copy(text); }
 
     private void setBusy(boolean value) {
         busy = value;

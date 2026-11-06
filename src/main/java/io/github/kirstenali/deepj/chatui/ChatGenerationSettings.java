@@ -8,7 +8,12 @@ import io.github.kirstenali.deepj.agent.Agent;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 record ChatGenerationSettings(int maxTokens, double temperature, int topK, long seed,
-                              double repetitionPenalty, ContextWindowMode contextWindow) {
+                              double repetitionPenalty, ContextWindowMode contextWindow, boolean thinking) {
+
+    ChatGenerationSettings(int maxTokens, double temperature, int topK, long seed,
+                           double repetitionPenalty, ContextWindowMode contextWindow) {
+        this(maxTokens, temperature, topK, seed, repetitionPenalty, contextWindow, false);
+    }
 
     ChatGenerationSettings(int maxTokens, double temperature, int topK, long seed, double repetitionPenalty) {
         this(maxTokens, temperature, topK, seed, repetitionPenalty, ContextWindowMode.REBUILD);
@@ -28,11 +33,12 @@ record ChatGenerationSettings(int maxTokens, double temperature, int topK, long 
 
     ChatGenerationSettings withPenalty() {
         double penalty = repetitionPenalty == 2.0 ? 1.1 : Math.min(2.0, repetitionPenalty + 0.1);
-        return new ChatGenerationSettings(maxTokens, temperature, topK, seed, penalty, contextWindow);
+        return new ChatGenerationSettings(maxTokens, temperature, topK, seed, penalty, contextWindow, thinking);
     }
 
     ChatGenerationSettings withNewSeed() {
-        return new ChatGenerationSettings(maxTokens, temperature, topK, seed + 1, repetitionPenalty, contextWindow);
+        return new ChatGenerationSettings(maxTokens, temperature, topK, seed + 1,
+                repetitionPenalty, contextWindow, thinking);
     }
 
     String generate(ChatService service, String prompt, Consumer<String> listener) {

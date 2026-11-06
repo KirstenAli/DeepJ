@@ -1,0 +1,9 @@
+{
+  "torch": "2.8.0",
+  "diffusers": "0.42.1",
+  "device": "cpu",
+  "guidance": 6,
+  "steps": [20, 50],
+  "latent_shape": [1, 4, 3, 4, 6],
+  "purpose": "Coupled feedback trajectory and causal video decoder, identical saved inputs and weights"
+}

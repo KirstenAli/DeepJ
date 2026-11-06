@@ -13,6 +13,8 @@ public interface ChatService {
     /** Whether the desktop should offer the existing rolling-cache control. */
     default boolean supportsRollingCache() { return true; }
 
+    default boolean supportsThinking() { return false; }
+
     boolean isModelLoaded();
 
     String getLoadedModelName();

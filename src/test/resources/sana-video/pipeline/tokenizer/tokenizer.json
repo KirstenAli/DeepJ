@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "BPE",
+    "byte_fallback": true,
+    "vocab": { "<pad>": 0, "<eos>": 1, "<bos>": 2, "<unk>": 3, "a": 4, "\u2581": 5 },
+    "merges": []
+  },
+  "added_tokens": [
+    { "content": "<bos>", "id": 2 },
+    { "content": "<eos>", "id": 1 }
+  ]
+}

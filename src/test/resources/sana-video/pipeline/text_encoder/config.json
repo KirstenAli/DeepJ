@@ -1,0 +1,50 @@
+{
+  "transformers_version": "5.22.1",
+  "architectures": null,
+  "output_hidden_states": false,
+  "return_dict": true,
+  "dtype": null,
+  "chunk_size_feed_forward": 0,
+  "is_encoder_decoder": false,
+  "id2label": {
+    "0": "LABEL_0",
+    "1": "LABEL_1"
+  },
+  "label2id": {
+    "LABEL_0": 0,
+    "LABEL_1": 1
+  },
+  "problem_type": null,
+  "vocab_size": 32,
+  "hidden_size": 16,
+  "intermediate_size": 24,
+  "num_hidden_layers": 1,
+  "num_attention_heads": 2,
+  "num_key_value_heads": 1,
+  "head_dim": 8,
+  "hidden_activation": "gelu_pytorch_tanh",
+  "max_position_embeddings": 4096,
+  "initializer_range": 0.02,
+  "rms_norm_eps": 1e-6,
+  "use_cache": true,
+  "pad_token_id": 0,
+  "eos_token_id": 1,
+  "bos_token_id": 2,
+  "tie_word_embeddings": true,
+  "rope_parameters": {
+    "rope_theta": 10000.0,
+    "rope_type": "default"
+  },
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+  "query_pre_attn_scalar": 8,
+  "sliding_window": 4096,
+  "layer_types": ["sliding_attention"],
+  "final_logit_softcapping": 30.0,
+  "attn_logit_softcapping": 50.0,
+  "use_bidirectional_attention": null,
+  "_name_or_path": "",
+  "model_type": "gemma2",
+  "output_attentions": false,
+  "rope_theta": 10000.0
+}

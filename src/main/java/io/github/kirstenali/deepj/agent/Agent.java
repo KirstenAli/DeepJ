@@ -40,14 +40,21 @@ public final class Agent {
 
     /** Runs a turn with previous conversation messages and returns the new exchange. */
     public Turn runTurn(List<Turn> history, String prompt, Consumer<String> listener) throws InterruptedException {
+        return runTurn(history, prompt, listener, null);
+    }
+
+    /** Reports reasoning separately from executable tool requests and saved conversation messages. */
+    public Turn runTurn(List<Turn> history, String prompt, Consumer<String> listener,
+                        Consumer<Reasoning> reasoning) throws InterruptedException {
         var messages = new ArrayList<>(List.of(new Message(Role.SYSTEM, instructions)));
         history.forEach(turn -> messages.addAll(turn.messages()));
         int start = messages.size();
         messages.add(new Message(Role.USER, Objects.requireNonNull(prompt, "prompt")));
         int remaining = maxToolCalls;
+        int step = 0;
         while (true) {
             checkInterrupted();
-            String reply = ToolProtocol.withoutThinking(generate(List.copyOf(messages), listener));
+            String reply = ToolProtocol.withoutThinking(generate(List.copyOf(messages), listener, reasoning, step++));
             checkInterrupted();
             var calls = ToolProtocol.calls(reply);
             messages.add(new Message(Role.ASSISTANT, reply));
@@ -57,6 +64,9 @@ public final class Agent {
             messages.add(new Message(Role.TOOL, execute(calls)));
         }
     }
+
+    /** Cumulative reasoning for one model generation. Steps start at zero. */
+    public record Reasoning(int step, String text, boolean complete) {}
 
     public record Turn(String reply, List<Message> messages) implements ConversationTurn {
         public Turn { messages = List.copyOf(messages); }
@@ -68,12 +78,22 @@ public final class Agent {
         }
     }
 
-    private String generate(List<Message> messages, Consumer<String> listener) {
-        if (listener == null) return model.generate(messages);
-        return model.stream(messages, partial -> {
+    private String generate(List<Message> messages, Consumer<String> listener,
+                            Consumer<Reasoning> reasoning, int step) {
+        if (listener == null && reasoning == null) return model.generate(messages);
+        String reply = model.stream(messages, partial -> {
+            reportReasoning(partial, reasoning, step);
             String answer = ToolProtocol.partialAnswer(partial);
-            if (!answer.isEmpty()) listener.accept(answer);
+            if (listener != null && !answer.isEmpty()) listener.accept(answer);
         });
+        reportReasoning(reply, reasoning, step);
+        return reply;
+    }
+
+    private static void reportReasoning(String text, Consumer<Reasoning> listener, int step) {
+        if (listener == null) return;
+        Reasoning progress = ToolProtocol.reasoning(text, step);
+        if (progress != null) listener.accept(progress);
     }
 
     private void register(Tool tool) {

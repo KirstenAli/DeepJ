@@ -40,7 +40,7 @@ test('composer tools open beside the prompt and report agent and directory actio
   assert.equal(ui.element('agentDirectory').title, '/tmp/other project');
   assert.equal(ui.element('agentMode').checked, true);
   ui.click('agentMode');
-  assert.equal(ui.element('agentLabel').textContent, 'Tools');
+  assert.equal(ui.element('agentLabel').textContent, 'Chat options');
   assert.deepEqual(ui.calls, [['setEnabled', true], ['chooseDirectory'], ['setEnabled', false]]);
 });
 
