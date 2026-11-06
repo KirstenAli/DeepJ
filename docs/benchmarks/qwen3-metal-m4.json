@@ -1,0 +1,114 @@
+{
+  "model": "Qwen/Qwen3-1.7B",
+  "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "commit": "96868a6a1b3b10fd514f05e0f536b183921203c7",
+  "hardware": [
+    "Apple M4",
+    "15.5"
+  ],
+  "memory_gib": 16,
+  "cpu_threads": 10,
+  "precision": "FLOAT32 weights, activations and logits; source checkpoint BFLOAT16 expanded to FLOAT32",
+  "batch_size": 1,
+  "prompt_tokens": 64,
+  "cached_decode_tokens": 16,
+  "warmup_trials": 1,
+  "measured_trials": 3,
+  "synchronization": "Full final logit row materialized on host after every step",
+  "loading_included": false,
+  "java_heap_gib": {
+    "CPU": 10,
+    "Metal": 12
+  },
+  "python": "3.11",
+  "pytorch": "2.8.0",
+  "transformers": "4.51.3",
+  "pytorch_attention": "SDPA",
+  "results": [
+    {
+      "engine": "DeepJ",
+      "backend": "Metal",
+      "median_prefill_ms": 152.163292,
+      "median_decode_tokens_per_second": 11.76790636350456,
+      "decode_range": [
+        11.216646583693267,
+        11.993484167927765
+      ],
+      "trials": [
+        {
+          "dtype": "FLOAT32",
+          "decode_seconds": 1.334057708,
+          "engine": "DeepJ",
+          "checksum": 206.64304,
+          "backend": "metal",
+          "trial": 0,
+          "prefill_seconds": 0.152163292,
+          "tokens_per_second": 11.993484167927765
+        },
+        {
+          "dtype": "FLOAT32",
+          "decode_seconds": 1.359630125,
+          "engine": "DeepJ",
+          "checksum": 206.64304,
+          "backend": "metal",
+          "trial": 1,
+          "prefill_seconds": 0.152006583,
+          "tokens_per_second": 11.76790636350456
+        },
+        {
+          "dtype": "FLOAT32",
+          "decode_seconds": 1.426451291,
+          "engine": "DeepJ",
+          "checksum": 206.64304,
+          "backend": "metal",
+          "trial": 2,
+          "prefill_seconds": 0.1629765,
+          "tokens_per_second": 11.216646583693267
+        }
+      ]
+    },
+    {
+      "engine": "PyTorch",
+      "backend": "Metal",
+      "median_prefill_ms": 132.90316699567484,
+      "median_decode_tokens_per_second": 11.81805986047083,
+      "decode_range": [
+        11.783063852539192,
+        12.02393251344398
+      ],
+      "trials": [
+        {
+          "engine": "PyTorch",
+          "backend": "mps",
+          "dtype": "FLOAT32",
+          "trial": 0,
+          "prefill_seconds": 0.13465637499757577,
+          "decode_seconds": 1.3578811249972205,
+          "tokens_per_second": 11.783063852539192,
+          "checksum": 206.64307069778442
+        },
+        {
+          "engine": "PyTorch",
+          "backend": "mps",
+          "dtype": "FLOAT32",
+          "trial": 1,
+          "prefill_seconds": 0.13265349999710452,
+          "decode_seconds": 1.3306794579984853,
+          "tokens_per_second": 12.02393251344398,
+          "checksum": 206.64307069778442
+        },
+        {
+          "engine": "PyTorch",
+          "backend": "mps",
+          "dtype": "FLOAT32",
+          "trial": 2,
+          "prefill_seconds": 0.13290316699567484,
+          "decode_seconds": 1.3538601250038482,
+          "tokens_per_second": 11.81805986047083,
+          "checksum": 206.64307069778442
+        }
+      ]
+    }
+  ],
+  "scope": "Historical full Qwen3-1.7B FP32 Metal/MPS inference comparison; separate from the later CPU tests."
+}
