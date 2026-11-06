@@ -52,7 +52,7 @@ final class CpuDenseElementwise {
             operation.apply(0, count);
             return;
         }
-        CpuRanges.forRange(0, (count - 1) / BLOCK + 1, block ->
+        CpuRanges.balance((count - 1) / BLOCK + 1, block ->
                 operation.apply(block * BLOCK, (int) Math.min(count, (long) (block + 1) * BLOCK)));
     }
 }

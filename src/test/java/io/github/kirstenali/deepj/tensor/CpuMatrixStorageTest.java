@@ -29,7 +29,7 @@ class CpuMatrixStorageTest {
         assertTrue(Tensor.zeros(dtype, 513, 515).isContiguous());
     }
 
-    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    @ParameterizedTest @EnumSource(DType.class)
     void checkpointRestorationAndAdamWMatchDenseParametersBitForBit(DType dtype) {
         Parameter packed = loaded(dtype);
         Parameter dense = new Parameter(Tensor.zeros(dtype, 513, 515));
@@ -45,15 +45,31 @@ class CpuMatrixStorageTest {
         assertArrayEquals(dense.value.toFloatArray(), packed.value.toFloatArray());
     }
 
-    @Test void packedWeightsRemainLeavesAndReceiveLogicalFloat32Gradients() {
-        Parameter packed = loaded(DType.BFLOAT16);
-        TensorEncoding.restoreWeight(packed.value, Tensor.ones(DType.BFLOAT16, 515, 513), true);
+    @ParameterizedTest @EnumSource(DType.class)
+    void packedWeightsRemainLeavesAndReceiveLogicalFloat32Gradients(DType dtype) {
+        Parameter packed = loaded(dtype);
+        TensorEncoding.restoreWeight(packed.value, Tensor.ones(dtype, 515, 513), true);
         Tensor input = Tensor.ones(DType.FLOAT32, 1, 513).requiresGrad(true);
         input.matmul(packed.value).sumTensor().backward();
         assertEquals(DType.FLOAT32, packed.grad().dtype());
         assertArrayEquals(Tensor.ones(DType.FLOAT32, 513, 515).toFloatArray(), packed.grad().toFloatArray());
         assertArrayEquals(Tensor.ones(DType.FLOAT32, 1, 513).multiplyScalar(515).toFloatArray(),
                 input.grad().toFloatArray());
+    }
+
+    @Test void loadedFloatWeightsUseOneAllocationAndKeepReusableDenseGradients() {
+        Parameter packed = loaded(DType.FLOAT32);
+        assertEquals(!CpuBlas.AVAILABLE, packed.value.isContiguous());
+        assertEquals(513L * 515 * Float.BYTES, packed.value.storageBytes());
+        Tensor gradient = packed.grad();
+        gradient.set(0, 0, 3);
+        packed.zeroGrad();
+        assertSame(gradient, packed.grad());
+        assertTrue(gradient.isContiguous());
+        assertEquals(0, gradient.get(0, 0));
+        assertTrue(Tensor.backend().zerosForLoading(DType.FLOAT32, 8192, 32).isContiguous());
+        assertTrue(Tensor.backend().zerosForLoading(DType.FLOAT32, 2, 513, 515).isContiguous());
+        assertTrue(ParameterFactory.float32().random("weight", 513, 515, new Random(37)).value.isContiguous());
     }
 
     private static Parameter loaded(DType dtype) {

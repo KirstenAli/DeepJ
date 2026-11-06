@@ -49,7 +49,9 @@ public final class ParameterFactory {
 
     public Parameter random(String name, int rows, int columns, Random random) {
         DType dtype = dtype(name, rows, columns);
-        if (!randomInitialization) return new Parameter(path(name), Tensor.backend().zeros(dtype, rows, columns));
+        if (!randomInitialization) {
+            return new Parameter(path(name), Tensor.backend().zerosForLoading(dtype, rows, columns));
+        }
         Tensor value = dtype == DType.FLOAT32 ? Tensor.random(rows, columns, random)
                 : Tensor.random(dtype, random, rows, columns);
         return new Parameter(path(name), value);

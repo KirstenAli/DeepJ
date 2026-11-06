@@ -15,6 +15,9 @@ public interface TensorBackend {
         throw new UnsupportedOperationException("This backend does not support the requested zero tensor");
     }
 
+    /** Zero-filled checkpoint slots; backends may choose a layout suited to loaded weights. */
+    default Tensor zerosForLoading(DType dtype, int... shape) { return zeros(dtype, shape); }
+
     /** Independent storage with the same float bits, without recording an autograd operation. */
     default Tensor copy(Tensor source) { return new Tensor(source); }
 

@@ -42,6 +42,26 @@ class CpuNativeMatmulTest {
         checkRightGradient(a, b);
     }
 
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void compactPrefillHandlesTileBoundariesBothWeightLayoutsAndRowTails(DType dtype) {
+        for (int inner : new int[]{2047, 2048, 2049}) {
+            Tensor left = values(DType.FLOAT32, 3, inner);
+            check(left, values(dtype, 259, inner).transpose());
+            check(left, values(dtype, inner, 259));
+        }
+        check(values(DType.FLOAT32, 65, 2048), values(dtype, 2048, 129));
+    }
+
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void directFloatInputsPreserveOffsetsAndStridedInputsKeepTheirPacking(DType dtype) {
+        Tensor right = values(dtype, 259, 2048).transpose(), parent = values(DType.FLOAT32, 5, 2048);
+        check(parent.slice(0, 1, 4), right);
+        check(parent.slice(0, 2, 3), right);
+        check(values(DType.FLOAT32, 2048, 3).transpose(), right);
+        check(values(DType.FLOAT32, 6, 2048).slice(0, 0, 6, 2), right);
+        check(values(DType.FLOAT32, 1, 4096).slice(1, 0, 4096, 2), right);
+    }
+
     private static void check(Tensor a, Tensor b) {
         float[] left = a.toFloatArray(), right = b.toFloatArray();
         Tensor result = a.matmul(b);

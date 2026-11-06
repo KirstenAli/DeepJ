@@ -14,6 +14,8 @@ public final class CpuNdIndexing {
         }
         input.materialize();
         Tensor result = new Tensor(input.dtype(), selection.output().dimensions());
+        if (CpuLastAxisSelection.apply(input, selection, result)) return result;
+        if (CpuContiguousSelection.apply(input, selection, result)) return result;
         for (int index = 0; index < result.numel(); index++) {
             int source = input.layout().addressAt(selection.sourceIndex(index));
             input.memory().copyTo(result.memory(), source, index, 1);

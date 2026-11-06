@@ -32,4 +32,5 @@ final class CpuBlas {
 
     static native void product(float[] left, float[] right, float[] output, int[] shape);
     static native void compactProduct(Object left, Object right, Object output, int[] shape);
+    static native boolean swiGlu(float[] gate, int go, float[] up, int uo, float[] output, int oo, int count);
 }

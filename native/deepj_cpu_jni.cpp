@@ -1,10 +1,12 @@
 #include <Accelerate/Accelerate.h>
 #include <algorithm>
+#include <array>
 #include <arm_neon.h>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <jni.h>
+#include <limits>
 #include <vector>
 
 namespace deepj_cpu {
@@ -161,11 +163,21 @@ inline void matrixProduct(const float* left, const void* b, float* right, float*
                 s[0], s[1], s[2], 1, left, s[2], right, transpose ? s[2] : s[1], 0, result, s[1]);
 }
 
+inline bool directLeft(const int* s) {
+    return s[11] == 1 && s[7] == 1 && (s[0] == 1 || s[6] == s[2]);
+}
+
+inline const float* leftValues(const void* a, float* packed, const int* s) {
+    if (directLeft(s)) return static_cast<const float*>(a) + s[3];
+    pack(a, packed, s[0], s[2], s[3], s[6], s[7], s[11]);
+    return packed;
+}
+
 inline void compactProduct(const void* a, const void* b, void* c, const int* s,
                            float* left, float* right, float* result) {
-    pack(a, left, s[0], s[2], s[3], s[6], s[7], s[11]);
-    if (!vectorProduct(left, b, result, s)) {
-        matrixProduct(left, b, right, result, s);
+    const float* input = leftValues(a, left, s);
+    if (!vectorProduct(input, b, result, s)) {
+        matrixProduct(input, b, right, result, s);
     }
     for (int row = 0; row < s[0]; row++) {
         for (int col = 0; col < s[1]; col++) {
@@ -198,6 +210,55 @@ struct SerialBlas {
     explicit SerialBlas(bool serial) { if (serial) BLASSetThreading(BLAS_THREADING_SINGLE_THREADED); }
     ~SerialBlas() { BLASSetThreading(previous); }
 };
+
+struct ProductScratch {
+    std::vector<float> left, right, output;
+    explicit ProductScratch(const int* s)
+        : left(directLeft(s) ? 0 : size_t(s[0]) * s[2]),
+          right(s[0] == 1 && (s[8] == 1 || s[9] == 1) ? 0 : size_t(s[2]) * s[1]),
+          output(size_t(s[0]) * s[1]) {}
+};
+
+// Keep the Java fallback near FLOAT32 rounding boundaries, far beyond double-library rounding noise.
+inline bool roundedExponential(double value, float& result) {
+    if (!std::isfinite(value) || value >= std::numeric_limits<float>::max()) return false;
+    result = static_cast<float>(value);
+    uint32_t bits;
+    std::memcpy(&bits, &result, sizeof(bits));
+    bits += value >= result ? 1 : -1;
+    float neighbor;
+    std::memcpy(&neighbor, &bits, sizeof(neighbor));
+    double boundary = (double(result) + neighbor) * 0.5;
+    double margin = std::max(value, double(std::numeric_limits<float>::denorm_min())) * 0x1p-40;
+    return std::abs(value - boundary) > margin;
+}
+
+inline bool activationValues(const float* gate, const float* up, float* output,
+                              const double* exponentials, int count) {
+    for (int i = 0; i < count; i++) {
+        float exponential;
+        if (!roundedExponential(exponentials[i], exponential)) return false;
+        float sigmoid = 1.0f / (1.0f + exponential);
+        output[i] = (gate[i] * sigmoid) * up[i];
+    }
+    return true;
+}
+
+inline bool activationBlock(const float* gate, const float* up, float* output, int count) {
+    std::array<double, 256> input, exponentials;
+    for (int i = 0; i < count; i++) {
+        input[i] = -double(gate[i]);
+    }
+    vvexp(exponentials.data(), input.data(), &count);
+    return activationValues(gate, up, output, exponentials.data(), count);
+}
+
+inline bool activation(const float* gate, const float* up, float* output, int count) {
+    for (int first = 0; first < count; first += 256) {
+        if (!activationBlock(gate + first, up + first, output + first, std::min(256, count - first))) return false;
+    }
+    return true;
+}
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -207,14 +268,12 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactProduct(
     env->GetIntArrayRegion(shape, 0, 14, s);
     if (env->ExceptionCheck()) return;
     try {
-        bool vector = s[0] == 1 && (s[8] == 1 || s[9] == 1);
-        std::vector<float> x(size_t(s[0]) * s[2]), y(vector ? 0 : size_t(s[2]) * s[1]);
-        std::vector<float> result(size_t(s[0]) * s[1]);
+        deepj_cpu::ProductScratch scratch(s);
         deepj_cpu::SerialBlas serial(true);
         deepj_cpu::ProductArrays arrays(env, left, right, output);
         if (arrays.valid()) {
             deepj_cpu::compactProduct(arrays.left.data, arrays.right.data, arrays.output.data,
-                                      s, x.data(), y.data(), result.data());
+                                      s, scratch.left.data(), scratch.right.data(), scratch.output.data());
         }
     } catch (const std::bad_alloc&) {
         env->ThrowNew(env->FindClass("java/lang/OutOfMemoryError"), "CPU tile allocation");
@@ -236,4 +295,15 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_product(
         cblas_sgemm(CblasRowMajor, CblasNoTrans, s[8] ? CblasTrans : CblasNoTrans,
                     s[0], s[1], s[2], 1, a + s[3], s[6], b + s[4], s[7], 0, c + s[5], s[1]);
     }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_swiGlu(JNIEnv* env, jclass, jfloatArray gate, jint go,
+        jfloatArray up, jint uo, jfloatArray output, jint oo, jint count) {
+    deepj_cpu::ProductArrays arrays(env, gate, up, output);
+    if (!arrays.valid()) return false;
+    const auto* a = static_cast<const float*>(arrays.left.data) + go;
+    const auto* b = static_cast<const float*>(arrays.right.data) + uo;
+    auto* c = static_cast<float*>(arrays.output.data) + oo;
+    return deepj_cpu::activation(a, b, c, count);
 }

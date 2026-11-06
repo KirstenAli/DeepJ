@@ -11,12 +11,21 @@ public final class CpuNdNormalization {
         Tensor output = new Tensor(type, input.shape()), normalized = new Tensor(DType.FLOAT32, input.shape());
         Tensor denominator = new Tensor(DType.FLOAT32, NormalizationChecks.statisticsShape(input));
         var result = new NormalizationResult(output, normalized, denominator);
-        int width = input.size(-1);
-        Tensor gain = gain(gamma, input.numel() / width);
-        for (int row = 0; row < input.numel() / width; row++) {
+        normalizeRows(input, gamma, beta, result, epsilon, centered);
+        return result;
+    }
+
+    private static void normalizeRows(Tensor input, Tensor gamma, Tensor beta, NormalizationResult result,
+                                       float epsilon, boolean centered) {
+        int width = input.size(-1), rows = input.numel() / width;
+        Tensor gain = gain(gamma, rows);
+        if (input.numel() >= 16384 && rows > 1) {
+            CpuRanges.balance(rows, row -> normalizeRow(input, gain, beta, result, row, width, epsilon, centered));
+            return;
+        }
+        for (int row = 0; row < rows; row++) {
             normalizeRow(input, gain, beta, result, row, width, epsilon, centered);
         }
-        return result;
     }
 
     private static Tensor gain(Tensor gamma, int rows) {

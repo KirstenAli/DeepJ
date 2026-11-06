@@ -29,7 +29,10 @@ products retain Java execution. This CPU library loads independently of Metal an
 falls back to Java if unavailable. `-Ddeepj.cpu.javaOnly=true` disables it for a JVM.
 
 Large compact matrices allocated through `CpuBackend.zeros(...)` can use column-major
-storage for contiguous dot products. Tall lookup tables retain row-major storage.
+storage for contiguous dot products. Checkpoint slots allocated through
+`ParameterFactory.forLoading()` also use this layout for large FLOAT32 projections.
+Tall lookup tables retain row-major storage. Ordinary FLOAT32 zero tensors, gradient
+buffers and randomly initialized parameters retain their contiguous layout.
 Logical shapes, values, dtype promotion, gradients and checkpoint order stay the same;
 use tensor accessors rather than assuming a physical layout. `Tensor.zeros(...)`
 continues to create contiguous tensors. No expanded weight cache is retained.
