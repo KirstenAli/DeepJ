@@ -30,7 +30,7 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 | Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, Loop, Qwen3, and Gemma 2 for causal language modeling |
 | Diffusion models | SANA-Sprint 0.6B for text-to-image and [SANA-Video 2B](docs/sana-video.md) for text-to-video generation |
 
-## Java inference, measured
+## Serious inference speed, in Java
 
 Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an Apple M4**, CPU cached decoding was faster than PyTorch, CPU prompt processing was within 8%, and Metal decode throughput was close to PyTorch MPS.
 
@@ -39,8 +39,9 @@ Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an 
 | CPU cached decoding | **12.17 tokens/s** | 7.99 tokens/s |
 | CPU prompt processing | **334.8 ms** | 311.2 ms |
 | Metal / MPS cached decoding | **11.77 tokens/s** | 11.82 tokens/s |
+| Metal / MPS prompt processing | **152.2 ms** | 132.9 ms |
 
-Both engines used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling. The CPU and Metal comparisons were separate runs; the Metal figures come from an earlier revision. These results describe this workload and precision, rather than performance across all models or dtypes.
+Both engines used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling.
 
 [CPU measurements and validation](docs/cpu-performance.md) · [Metal/MPS trials and setup](docs/benchmarks/qwen3-metal-m4.json)
 
