@@ -37,7 +37,10 @@ function setStatus(message) {
 }
 
 function setModel(name) {
+  pauseVideos();
   setImageMode(false);
+  setVideoMode(false);
+  setThinkingAvailable(false);
   modelLoaded = true;
   element('modelName').textContent = name;
   element('composerHint').textContent = name;
@@ -53,7 +56,7 @@ function setRollingCacheAvailable(available) {
 function setBusy(value) {
   busy = value;
   promptBox.disabled = value;
-  ['composerModel', 'menuLoad', 'menuLoadImage', 'agentPicker'].forEach(
+  ['composerModel', 'menuLoad', 'menuLoadImage', 'menuLoadVideo', 'agentPicker'].forEach(
     (id) => (element(id).disabled = value),
   );
   if (value) showAgentMenu(false);
@@ -70,7 +73,7 @@ function updateSend() {
   const button = element('send');
   button.disabled = !generating && (busy || !promptBox.value.trim());
   button.replaceChildren(icon(generating ? 'stop' : 'send'));
-  const label = generating ? 'Stop generating' : imageMode ? 'Generate image' : 'Send message';
+  const label = sendLabel();
   button.setAttribute('aria-label', label);
   button.title = label;
 }
@@ -156,7 +159,8 @@ function clearAlternativeActions() {
 function startResponse(prompt, id) {
   app.classList.remove('empty');
   addMessage('user', prompt);
-  const response = addMessage('assistant pending', 'Thinking…');
+  const response = addMessage('assistant pending', '');
+  showGenerationStatus(response.querySelector('.message-content'));
   response.id = 'response-' + id;
   promptBox.value = '';
   resizePrompt();
@@ -171,7 +175,7 @@ function updateGenerated(response, text) {
   if (!response) return;
   const follow = nearLatest();
   response.classList.remove('pending');
-  response.querySelector('.message-content').textContent = text;
+  renderThinking(response.querySelector('.message-content'), text);
   if (!response.querySelector('.message-actions')) addCopy(response);
   if (follow) followLatest();
 }
@@ -179,6 +183,7 @@ function updateGenerated(response, text) {
 function finishResponse(id, text) {
   if (text && text.trim()) {
     updateResponse(id, text);
+    finishThinking(element('response-' + id));
     addAlternativesButton(element('response-' + id), id);
     return;
   }
@@ -198,7 +203,7 @@ function startAlternative(id, option) {
   alternative.setAttribute('aria-label', 'Alternative response');
   const content = document.createElement('div');
   content.className = 'message-content';
-  content.textContent = 'Thinking…';
+  showGenerationStatus(content);
   alternative.append(content);
   element('response-' + id)
     .querySelector('.alternatives')
@@ -211,8 +216,9 @@ function updateAlternative(id, option, text) {
 }
 
 function finishAlternative(id, option, text) {
-  if (text && text.trim()) return updateAlternative(id, option, text);
-  failAlternative(id, option, 'No text generated.');
+  if (!text || !text.trim()) return failAlternative(id, option, 'No text generated.');
+  updateAlternative(id, option, text);
+  finishThinking(element(alternativeId(id, option)));
 }
 
 function failAlternative(id, option, message) {
@@ -269,6 +275,7 @@ function submitPrompt() {
   if (!prompt || busy) return;
   if (!modelLoaded) return chooseModel();
   if (imageMode) return submitImage(prompt);
+  if (videoMode) return submitVideo(prompt);
   if (!validGenerationSettings()) return;
   sendPrompt(prompt);
 }
@@ -282,7 +289,9 @@ function sendPrompt(prompt) {
     generationValue('seed'),
     generationValue('repetitionPenalty'),
   ];
-  if (element('rollingCache').checked) chatBridge.sendWithWindowSettings(...values, true);
+  if (element('thinkingMode').checked) {
+    chatBridge.sendWithThinkingSettings(...values, element('rollingCache').checked, true);
+  } else if (element('rollingCache').checked) chatBridge.sendWithWindowSettings(...values, true);
   else chatBridge.sendWithSettings(...values);
 }
 
@@ -303,7 +312,9 @@ function closeModelMenu() {
 }
 
 function setAgentWorkspace(directory) {
-  element('agentControls').hidden = !directory;
+  element('agentModeRow').hidden = !directory;
+  document.querySelector('.directory-row').hidden = !directory;
+  element('agentControls').hidden = !directory && element('thinkingRow').hidden;
   showAgentMenu(false);
   element('agentMode').checked = false;
   showAgentMode(false);
@@ -322,8 +333,13 @@ function showAgentMenu(open) {
 }
 
 function showAgentMode(enabled) {
-  element('agentLabel').textContent = enabled ? 'Agent on' : 'Tools';
-  element('agentPicker').classList.toggle('agent-on', enabled);
+  const thinking = element('thinkingMode').checked;
+  element('agentLabel').textContent = thinking
+    ? thinkingLabel(enabled)
+    : enabled
+      ? 'Agent on'
+      : 'Chat options';
+  element('agentPicker').classList.toggle('agent-on', enabled || thinking);
 }
 
 function changeAgentMode() {
@@ -333,6 +349,7 @@ function changeAgentMode() {
 }
 
 function newChat() {
+  clearVideoPlayers();
   if (window.chatBridge) chatBridge.newChat();
   messages.replaceChildren();
   app.classList.add('empty');
@@ -342,7 +359,7 @@ function newChat() {
 }
 
 function submitOrStop() {
-  if (generating) return imageMode ? imageBridge.stop() : chatBridge.stop();
+  if (generating) return stopActiveMedia();
   submitPrompt();
 }
 

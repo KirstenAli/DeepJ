@@ -33,6 +33,7 @@ differentiation, composable layers, and shared CPU/Metal execution.
 | [CLI reference](cli.md) | Terminal commands, settings, themes, and scripting |
 | [Gemma 2 chat](gemma2.md) | Local Gemma chat through the CLI and desktop UI |
 | [SANA-Sprint images](sana-sprint.md) | Text-to-image generation, image settings, and PNG saving |
+| [SANA-Video clips](sana-video.md) | Text-to-video generation, playback, settings, and MP4 saving |
 
 ## Availability
 

@@ -11,11 +11,17 @@ MAVEN_OPTS="-Xmx12g --enable-native-access=ALL-UNNAMED -Ddeepj.chat.qwen3.dtype=
 ```
 
 Choose the Qwen3 snapshot's `config.json` in the model picker. After the model loads, open
-**Tools** beside the message field, turn on **Agent mode**, and change the **Working directory**
+**Chat options** beside the message field, turn on **Agent mode**, and change the **Working directory**
 if needed. Ask the model to run a command. The approval dialog shows the resolved executable,
 each argument and the working directory. Choose **Run once** or **Deny**. To revise the command,
 choose **Edit command**, update the executable or arguments, then choose **Review command**
 to preview what will run. DeepJ includes the edited command with the output it sends back to the model.
+
+The desktop **Thinking** switch sits beside Agent mode in the Chat options menu. It is off by default
+and works independently of Agent mode. Thinking uses the generation token budget; allow enough
+maximum tokens for reasoning and an answer. Both modes show reasoning in the expandable **Thought process**
+above the answer. In Agent mode, the panel includes reasoning before and after tool calls.
+Terminal commands still require the same approval.
 
 This command loads Qwen3 weights in FP32, which uses more memory than the BF16 checkpoint.
 

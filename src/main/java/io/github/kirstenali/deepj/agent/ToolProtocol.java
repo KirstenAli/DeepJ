@@ -61,6 +61,14 @@ final class ToolProtocol {
         return text;
     }
 
+    static Agent.Reasoning reasoning(String text, int step) {
+        text = text.stripLeading();
+        if (!text.startsWith(THINK)) return null;
+        int end = text.indexOf(THINK_END);
+        String content = text.substring(THINK.length(), end < 0 ? text.length() : end).strip();
+        return new Agent.Reasoning(step, content, end >= 0);
+    }
+
     static List<Call> calls(String text) {
         if (!text.startsWith(OPEN)) return List.of();
         var calls = new ArrayList<Call>();

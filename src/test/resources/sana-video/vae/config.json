@@ -1,0 +1,20 @@
+{
+  "_class_name": "AutoencoderKLWan",
+  "_diffusers_version": "0.42.1",
+  "attn_scales": [],
+  "base_dim": 4,
+  "decoder_base_dim": null,
+  "dim_mult": [1, 2, 4, 4],
+  "dropout": 0.0,
+  "in_channels": 3,
+  "is_residual": false,
+  "latents_mean": [0, 0, 0, 0],
+  "latents_std": [1, 1, 1, 1],
+  "num_res_blocks": 1,
+  "out_channels": 3,
+  "patch_size": null,
+  "scale_factor_spatial": 8,
+  "scale_factor_temporal": 4,
+  "temperal_downsample": [false, true, true],
+  "z_dim": 4
+}

@@ -35,6 +35,8 @@ public final class DeepJCli implements Runnable {
         cli.addSubcommand("generate", new CliCommands.Generate(root.options, services));
         cli.addSubcommand("inspect", new CliCommands.Inspect(services));
         cli.addSubcommand("doctor", new CliCommands.Doctor(services));
+        cli.addSubcommand("video", new io.github.kirstenali.deepj.nn.diffusion.sanavideo.SanaVideoCli(
+                () -> root.options.backend.name().toLowerCase(java.util.Locale.ROOT)));
         configure(cli, services);
         cli.setExecutionStrategy(parsed -> {
             helpColors(cli, root.options.helpAnsi(services));

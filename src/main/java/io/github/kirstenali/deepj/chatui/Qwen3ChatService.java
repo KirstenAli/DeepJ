@@ -15,6 +15,7 @@ public final class Qwen3ChatService implements ConversationChatService {
     private Qwen3ChatModel chat;
 
     @Override public void loadModel(Path path) throws IOException { chat = loadSnapshot(path); }
+    @Override public boolean supportsThinking() { return true; }
     @Override public boolean isModelLoaded() { return chat != null; }
     @Override public String getLoadedModelName() { return chat == null ? "No model" : "Qwen3"; }
 
@@ -32,7 +33,7 @@ public final class Qwen3ChatService implements ConversationChatService {
 
     static Agent.Turn plainTurn(Qwen3ChatModel chat, String prompt, List<Agent.Turn> history,
                                 ChatGenerationSettings settings, Consumer<String> listener) {
-        String reply = chat.streamConversation(prompt, history, settings.maxTokens(),
+        String reply = chat.withThinking(settings.thinking()).streamConversation(prompt, history, settings.maxTokens(),
                 (float) settings.temperature(), settings.topK(), settings.seed(),
                 (float) settings.repetitionPenalty(), settings.contextWindow(), listener);
         return Agent.Turn.answered(prompt, reply);

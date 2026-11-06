@@ -1,0 +1,24 @@
+DeepJ SANA-Video Java implementation
+
+Portions adapted from Hugging Face Diffusers 0.42.1 (Apache License 2.0):
+
+transformer_sana_video.py
+Copyright 2025 The HuggingFace Team and SANA-Video Team. All rights reserved.
+
+pipeline_sana_video.py (prompt instruction and conditioning behavior)
+Copyright 2025 SANA-Video Authors and The HuggingFace Team. All rights reserved.
+
+autoencoder_kl_wan.py (Wan 2.1 decoding and temporal cache behavior)
+Copyright 2025 The Wan Team and The HuggingFace Team. All rights reserved.
+
+scheduling_dpmsolver_multistep.py (DPM-Solver++ midpoint flow sampling)
+Copyright 2025 TSAIL Team and The HuggingFace Team. All rights reserved.
+
+Modified for Java and DeepJ tensor execution by Kirsten Ali, 2026.
+The adaptations use DeepJ tensors, automatic differentiation, memory scopes,
+checkpoint readers, and CPU/Metal backends. Python and PyTorch are not part
+of the inference runtime. The Java implementation streams Transformer blocks
+for inference and exports animation through Java ImageIO.
+
+Upstream source: https://github.com/huggingface/diffusers/tree/v0.42.1
+The Apache-2.0 license is included in sana-video-Apache-2.0.txt.

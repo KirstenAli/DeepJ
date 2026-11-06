@@ -49,6 +49,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.jcodec</groupId>
+            <artifactId>jcodec-javase</artifactId>
+            <version>0.2.5</version>
+        </dependency>
+        <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>
             <version>4.7.7</version>
@@ -274,6 +279,7 @@
                                         <includes>
                                             <include>info.picocli:*</include>
                                             <include>org.jline:*</include>
+                                            <include>org.jcodec:*</include>
                                         </includes>
                                     </artifactSet>
                                     <filters>

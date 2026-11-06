@@ -41,6 +41,11 @@ final class AgentChatService implements ConversationChatService {
 
     void enable(boolean selected) { enabled = selected; }
 
+    @Override public boolean supportsThinking() {
+        Loaded loaded = model;
+        return loaded != null && loaded.qwen() != null;
+    }
+
     boolean supportsAgent() {
         Loaded loaded = model;
         return loaded != null && loaded.qwen() != null && InteractiveTerminal.available();
@@ -96,7 +101,8 @@ final class AgentChatService implements ConversationChatService {
             return Qwen3ChatService.plainTurn(loaded.qwen(), prompt, history, settings, listener);
         }
         var qwen = new Qwen3AgentModel(loaded.qwen(), settings.maxTokens(), (float) settings.temperature(),
-                settings.topK(), settings.seed(), (float) settings.repetitionPenalty(), settings.contextWindow());
+                settings.topK(), settings.seed(), (float) settings.repetitionPenalty(),
+                settings.contextWindow(), settings.thinking());
         return runAgent(prompt, history, qwen, listener);
     }
 
@@ -104,7 +110,9 @@ final class AgentChatService implements ConversationChatService {
                                 Consumer<String> listener) {
         try {
             var agent = InteractiveTerminal.withCommandReview(directory, review).agent(qwen);
-            return agent.runTurn(history, prompt, listener);
+            if (!qwen.thinking()) return agent.runTurn(history, prompt, listener);
+            var thinking = new AgentThinking(listener);
+            return thinking.finish(agent.runTurn(history, prompt, thinking::answer, thinking::reasoning));
         } catch (InterruptedException stopped) {
             Thread.currentThread().interrupt();
             throw new CancellationException("Agent stopped");

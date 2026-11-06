@@ -41,9 +41,19 @@ export function fixture(context) {
   };
   script.runInContext(dom.getInternalVMContext());
   imageScript.runInContext(dom.getInternalVMContext());
+  extraScripts(dom);
   context.after(() => window.close());
   const element = (id) => window.document.getElementById(id);
   return { window, calls, timers, element, click: (id) => element(id).click() };
+}
+
+function extraScripts(dom) {
+  ['thinking', 'videos', 'video-player'].forEach((name) => {
+    const file = new URL('../../main/resources/' + name + '.js', import.meta.url);
+    new Script(readFileSync(file, 'utf8'), { filename: fileURLToPath(file) }).runInContext(
+      dom.getInternalVMContext(),
+    );
+  });
 }
 
 function recordingBridge(calls) {
@@ -51,6 +61,7 @@ function recordingBridge(calls) {
     [
       'chooseModel',
       'sendWithSettings',
+      'sendWithThinkingSettings',
       'sendWithWindowSettings',
       'setConversationHistory',
       'stop',

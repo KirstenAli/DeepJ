@@ -40,6 +40,7 @@ body.theme-light {
   --bubble: #f2f2f2;
   --field: #fff;
   --menu: #fff;
+  --glass: rgba(255, 255, 255, 0.98);
   color-scheme: light;
 }
 body.theme-dark {
@@ -52,6 +53,7 @@ body.theme-dark {
   --bubble: #303030;
   --field: #2b2b2b;
   --menu: #2b2b2b;
+  --glass: rgba(43, 43, 43, 0.98);
   color-scheme: dark;
 }
 body.theme-warm {
@@ -64,6 +66,7 @@ body.theme-warm {
   --bubble: #eee7dc;
   --field: #fffdf9;
   --menu: #fffdf9;
+  --glass: rgba(255, 253, 249, 0.98);
   color-scheme: light;
 }
 body.theme-ocean {
@@ -76,6 +79,7 @@ body.theme-ocean {
   --bubble: #deecef;
   --field: #fff;
   --menu: #fff;
+  --glass: rgba(248, 253, 254, 0.98);
   color-scheme: light;
 }
 button,
@@ -561,6 +565,13 @@ svg {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+}
+.agent-menu,
+.settings-dialog {
+  border: 1px solid var(--line);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
 }
 .directory-row {
   display: flex;
@@ -1104,17 +1115,31 @@ svg {
   font-size: 12px;
   line-height: 1.5;
 }
-.image-save {
+.image-save,
+.video-save {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 9px;
   margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
   white-space: nowrap;
+  background: transparent;
+  color: var(--muted);
 }
-.image-save svg {
-  width: 16px;
-  height: 16px;
+.image-save:hover,
+.video-save:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.image-save svg,
+.video-save svg {
+  width: 14px;
+  height: 14px;
 }
 
 .select-control {
@@ -1153,4 +1178,119 @@ svg {
   display: none;
   width: 0;
   height: 0;
+}
+
+.video-player {
+  position: relative;
+  width: 680px;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bubble);
+}
+.video-frame {
+  display: block;
+  max-width: 100%;
+  max-height: 56vh;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.video-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(16, 20, 26, 0.72);
+  color: #fff;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+.video-play {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  color: #fff;
+}
+.video-play:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.video-seek {
+  appearance: none;
+  flex: 1;
+  min-width: 40px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.video-seek::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.32);
+}
+.video-seek::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+}
+.video-time {
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.generation-status,
+.thinking-panel {
+  color: var(--muted);
+  font-size: 13px;
+}
+.thinking-panel {
+  margin-bottom: 12px;
+}
+.generation-status,
+.thinking-panel summary {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 0;
+  font-weight: 500;
+}
+.thinking-panel summary {
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+.thinking-panel summary::-webkit-details-marker {
+  display: none;
+}
+.thinking-panel summary::after {
+  width: 6px;
+  height: 6px;
+  margin: 0 3px 3px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  content: '';
+  transform: rotate(45deg);
+}
+.thinking-panel[open] summary::after {
+  margin-bottom: -3px;
+  transform: rotate(225deg);
+}
+.thinking-content {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+  line-height: 1.6;
+  white-space: pre-wrap;
 }

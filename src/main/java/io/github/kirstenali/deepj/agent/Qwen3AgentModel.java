@@ -12,8 +12,13 @@ import java.util.function.Consumer;
 
 /** Adapts DeepJ's Qwen3 model and tokenizer to the agent's conversation format. */
 public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperature, int topK,
-                              long seed, float repetitionPenalty, ContextWindowMode mode)
+                              long seed, float repetitionPenalty, ContextWindowMode mode, boolean thinking)
         implements AgentModel {
+
+    public Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperature, int topK,
+                           long seed, float repetitionPenalty, ContextWindowMode mode) {
+        this(chat, maxTokens, temperature, topK, seed, repetitionPenalty, mode, false);
+    }
 
     public Qwen3AgentModel(Qwen3ChatModel chat) {
         this(chat, 256, 0.7f, 20, 1234L);
@@ -82,7 +87,7 @@ public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperat
     }
 
     private Prompt encode(List<Message> messages) {
-        String prompt = Qwen3Chat.format(messages.stream().map(Qwen3AgentModel::format).toList(), true, false);
+        String prompt = Qwen3Chat.format(messages.stream().map(Qwen3AgentModel::format).toList(), true, thinking);
         return new Prompt(prompt, chat.tokenizer().encode(prompt));
     }
 
@@ -100,6 +105,6 @@ public record Qwen3AgentModel(Qwen3ChatModel chat, int maxTokens, float temperat
             case ASSISTANT -> Qwen3Chat.Role.ASSISTANT;
         };
         String content = message.content().replace("<|", "< |");
-        return new Qwen3Chat.Message(role, content, role == Qwen3Chat.Role.ASSISTANT ? "" : null);
+        return new Qwen3Chat.Message(role, content);
     }
 }

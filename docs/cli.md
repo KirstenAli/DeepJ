@@ -66,3 +66,10 @@ printf 'What is Java?' | java --enable-native-access=ALL-UNNAMED -jar target/dee
 ```
 
 File and stdin prompts are limited to 1 MiB. Terminal-control characters are removed from generated text. Successful commands return status `0`, invalid arguments return `2`, and loading or runtime failures return `1`. Inspection and inference do not modify checkpoints or resume training.
+
+## Video generation
+
+`deepj video --model ./checkpoints/sana-video --backend metal --output clip.mp4 'A fox walking through snow'`
+generates a short MP4 using a local SANA-Video snapshot. Use `deepj video --help` for resolution, frames,
+sampling and FPS settings. See the [SANA-Video guide](sana-video.md) for checkpoint setup,
+desktop playback, and validation status.

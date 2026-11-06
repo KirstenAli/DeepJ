@@ -72,8 +72,13 @@ The option converts weights in memory at load time. FP32 uses twice the weight s
 can decode faster on Metal. The `--dtype` option also accepts `float16` and `bfloat16`.
 
 In the desktop chat app, choose `config.json` or a safetensors file through the model picker. Keep the configuration,
-tokenizer, index, and shards together in the snapshot directory. The CLI and desktop use the non-thinking Qwen3
-chat template, recognize both end-of-sequence IDs, and display the generated continuation. Tokenizer IDs may occupy
+tokenizer, index, and shards together in the snapshot directory. Thinking is off by default in both interfaces.
+In the desktop app, open **Chat options** beside the message field and enable **Thinking** to use Qwen3's thinking
+template, with or without Agent mode. The expandable **Thought process** appears above the answer in both modes.
+Agent mode includes reasoning across tool calls in the same panel; its tool approval flow is unchanged.
+Reasoning uses the same maximum token budget as the answer;
+increase **Settings → Generation settings → Maximum tokens** for longer reasoning. An unfinished reasoning
+response is labelled explicitly. Both interfaces recognize the model's end-of-sequence IDs. Tokenizer IDs may occupy
 fewer rows than the model's padded vocabulary. Existing DeepJ checkpoint loading remains available.
 
 ## Tokenization and conversations

@@ -47,6 +47,7 @@ public final class DeepJChatService implements ConversationChatService {
         if (model != null) model.unloadModel();
         model = null;
     }
+    @Override public boolean supportsThinking() { return model != null && model.supportsThinking(); }
     @Override public boolean supportsRollingCache() { return model == null || model.supportsRollingCache(); }
 
     @Override

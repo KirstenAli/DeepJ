@@ -15,6 +15,9 @@
     <link rel="stylesheet" href="chat.css" />
     <script defer src="chat.js"></script>
     <script defer src="images.js"></script>
+    <script defer src="thinking.js"></script>
+    <script defer src="videos.js"></script>
+    <script defer src="video-player.js"></script>
   </head>
   <body class="theme-light">
     <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -49,6 +52,12 @@
         <rect x="3" y="3" width="18" height="18" rx="3" />
         <circle cx="8" cy="8" r="1.5" />
         <path d="m3 17 5-5 4 4 4-6 5 7" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z" /></symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></symbol>
+      <symbol id="icon-video" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="3" />
+        <path d="m10 8 6 4-6 4z" />
       </symbol>
       <symbol id="icon-download" viewBox="0 0 24 24">
         <path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4" />
@@ -109,9 +118,15 @@
               <button type="button" id="menuLoadImage" class="menu-item">
                 <svg><use href="#icon-image" /></svg><span>Open image model folder…</span>
               </button>
+              <button type="button" id="menuLoadVideo" class="menu-item">
+                <svg><use href="#icon-video" /></svg><span>Open video model folder…</span>
+              </button>
               <div id="modelName" class="menu-detail">No model loaded</div>
             </div>
           </div>
+          <span id="videoModeLabel" class="mode-label" hidden>
+            <svg aria-hidden="true"><use href="#icon-video" /></svg>Video
+          </span>
           <span id="imageModeLabel" class="mode-label" hidden>
             <svg aria-hidden="true"><use href="#icon-image" /></svg>Images
           </span>
@@ -147,6 +162,10 @@
                   <svg aria-hidden="true"><use href="#icon-settings" /></svg>
                   <span id="imageSizeHint">1024 × 1024</span>
                 </button>
+                <button type="button" id="videoSettingsButton" class="composer-chip" hidden>
+                  <svg aria-hidden="true"><use href="#icon-settings" /></svg>
+                  <span id="videoSizeHint">832 × 480 · 9 frames</span>
+                </button>
                 <div id="agentControls" hidden>
                   <button
                     type="button"
@@ -156,7 +175,7 @@
                     aria-expanded="false"
                   >
                     <svg aria-hidden="true"><use href="#icon-terminal" /></svg>
-                    <span id="agentLabel">Tools</span>
+                    <span id="agentLabel">Chat options</span>
                     <svg class="chip-chevron" aria-hidden="true"><use href="#icon-chevron" /></svg>
                   </button>
                   <div
@@ -166,8 +185,8 @@
                     aria-labelledby="agentTitle"
                     hidden
                   >
-                    <h2 id="agentTitle">Chat tools</h2>
-                    <label class="toggle-row">
+                    <h2 id="agentTitle">Chat options</h2>
+                    <label id="agentModeRow" class="toggle-row">
                       <span class="control-copy">
                         <strong id="agentModeTitle">Agent mode</strong>
                         <small id="agentHelp">Ask before running terminal commands.</small>
@@ -179,6 +198,22 @@
                         role="switch"
                         aria-labelledby="agentModeTitle"
                         aria-describedby="agentHelp"
+                      />
+                    </label>
+                    <label id="thinkingRow" class="toggle-row" hidden>
+                      <span class="control-copy">
+                        <strong id="thinkingTitle">Thinking</strong>
+                        <small id="thinkingHelp"
+                          >Reason before answering. Uses your maximum tokens setting.</small
+                        >
+                      </span>
+                      <input
+                        id="thinkingMode"
+                        class="toggle"
+                        type="checkbox"
+                        role="switch"
+                        aria-labelledby="thinkingTitle"
+                        aria-describedby="thinkingHelp"
                       />
                     </label>
                     <div class="directory-row">
@@ -357,6 +392,48 @@
               <input id="imageGuidance" type="number" min="0" max="20" step="0.5" value="4.5" />
               <small>How closely the image follows your description.</small>
             </label>
+          </div>
+        </section>
+        <section id="videoSettings" aria-labelledby="videoSettingsTitle" hidden>
+          <h3 id="videoSettingsTitle">Video generation</h3>
+          <div class="settings-grid">
+            <label
+              ><span>Resolution</span
+              ><span class="select-control">
+                <select id="videoSize">
+                  <option value="832x480">832 × 480 · Landscape</option>
+                  <option value="480x832">480 × 832 · Portrait</option>
+                  <option value="192x128">192 × 128 · Test only</option>
+                </select>
+                <svg aria-hidden="true"><use href="#icon-chevron" /></svg> </span
+            ></label>
+            <label
+              ><span>Frames</span
+              ><input id="videoFrames" type="number" min="1" max="81" step="4" value="9" />
+              <small>9 frames is a short preview. Longer clips need more memory.</small></label
+            >
+            <label
+              ><span>Sampling steps</span
+              ><input id="videoSteps" type="number" min="1" max="100" step="1" value="50"
+            /></label>
+            <label
+              ><span>Frames per second</span
+              ><input id="videoFps" type="number" min="1" max="100" step="1" value="16"
+            /></label>
+            <label
+              ><span>Seed</span
+              ><input
+                id="videoSeed"
+                type="number"
+                min="0"
+                max="9007199254740991"
+                step="1"
+                value="42"
+            /></label>
+            <label
+              ><span>Prompt guidance</span
+              ><input id="videoGuidance" type="number" min="0" max="20" step="0.5" value="6"
+            /></label>
           </div>
         </section>
         <button type="button" id="doneSettings" class="done-button">Done</button>

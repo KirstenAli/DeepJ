@@ -2,6 +2,9 @@ package io.github.kirstenali.deepj.nn;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.TensorScope;
+import java.util.Arrays;
+import java.util.Objects;
 
 public final class ModelMemory {
     private ModelMemory() {}
@@ -24,21 +27,29 @@ public final class ModelMemory {
 
     public static final class Pin implements AutoCloseable {
         private final Tensor[] tensors;
-        private Pin(Tensor[] tensors) {
-            this.tensors = tensors;
-            for (Tensor tensor : tensors) { tensor.retainDeviceBuffer(); }
+        private Pin(Tensor[] values) {
+            Arrays.stream(values).forEach(Objects::requireNonNull);
+            tensors = new Tensor[values.length];
+            try (var scope = TensorScope.open()) {
+                for (int i = 0; i < values.length; i++) {
+                    tensors[i] = Tensor.backend().expand(values[i], values[i].shape()).retainDeviceBuffer();
+                }
+            } catch (RuntimeException | Error failure) {
+                close();
+                throw failure;
+            }
         }
         @Override public void close() {
-            for (Tensor tensor : tensors) { tensor.releaseDeviceBufferRetention(); }
+            for (Tensor tensor : tensors) {
+                if (tensor != null) tensor.releaseDeviceBufferRetention();
+            }
         }
     }
 
     public static Tensor finish(Tensor output) {
         if (!GradMode.isEnabled()) {
             output.materialize();
-            output.retainDeviceBuffer();
-            try { Tensor.backend().releaseTemporaryResources(); }
-            finally { output.releaseDeviceBufferRetention(); }
+            try (var pinned = retain(output)) { Tensor.backend().releaseTemporaryResources(); }
         }
         return output;
     }
