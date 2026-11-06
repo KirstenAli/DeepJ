@@ -105,7 +105,9 @@ on the active device. It does not promise that every operation uses compact arit
 
 Supported Metal devices can use fused causal attention with same-dtype FLOAT32,
 FLOAT16 or BFLOAT16 inputs, 64-wide heads and complete 32-token tiles. Automatic
-selection starts at 256 tokens; other shapes retain the separate GPU operations.
+selection for 64-wide heads starts at 256 tokens. FLOAT32 also supports 128-wide
+heads starting at 32 tokens, with the same complete-tile requirement, grouped-query
+attention and backward support. Other shapes retain the separate GPU operations.
 Compact inputs are widened only in SIMD register tiles. Fused-attention arithmetic,
 normalization, accumulation and gradients are FP32; the returned output is rounded to its input dtype.
 An unrounded FP32 output is saved for backward, avoiding gradient errors from using

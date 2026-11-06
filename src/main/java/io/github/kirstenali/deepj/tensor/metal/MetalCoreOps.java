@@ -196,6 +196,11 @@ abstract class MetalCoreOps implements TensorBackend {
         return graph.createOutputLike(output, input);
     }
 
+    @Override
+    public Tensor rotaryHalfSplit(Tensor input, Tensor cosine, Tensor sine, int length, boolean inverse) {
+        return graph.layoutRotary(input, cosine, sine, length, inverse, true);
+    }
+
     static void requireDivisible(int dimension, int divisor, String name) {
         if (divisor <= 0 || dimension % divisor != 0) {
             throw new IllegalArgumentException(name + " must be divisible by a positive batch count");

@@ -28,6 +28,13 @@ multi-position products convert bounded tiles for BLAS. Small and unsupported
 products retain Java execution. This CPU library loads independently of Metal and
 falls back to Java if unavailable. `-Ddeepj.cpu.javaOnly=true` disables it for a JVM.
 
+Batched FLOAT32 products pin their arrays once per batch operation. Compatible
+transposed inputs also use BLAS, including the products used for weight gradients.
+Dense FLOAT32 normalization uses native forward and backward loops with the same
+scalar reduction order as Java. Causal softmax uses native vector exponentials for
+4,096–262,144 elements and retains the parallel Java path for larger matrices.
+Unsupported storage and values retain their Java fallback.
+
 Large compact matrices allocated through `CpuBackend.zeros(...)` can use column-major
 storage for contiguous dot products. Checkpoint slots allocated through
 `ParameterFactory.forLoading()` also use this layout for large FLOAT32 projections.
@@ -87,6 +94,16 @@ training/evaluation mode or define the lifetime of returned tensors. Consume tem
 evaluation outputs inside `TensorScope`, close the scope, then call
 `Tensor.backend().releaseTemporaryResources()` at an appropriate cleanup boundary.
 Escape or explicitly retain a tensor that must outlive its scope.
+
+Metal keeps a bounded cache of released native scratch buffers: up to 128 buffers,
+32 MiB total, and 4 MiB per buffer. Reuse follows command completion and requires an
+exact byte-size match. The cache empties when the last native buffer is released;
+configured `deepj.metal.maxBufferBytes` budgets also clear it after releases and
+allocation rollbacks. Set `DEEPJ_METAL_DISABLE_BUFFER_REUSE=1` before launching the JVM
+to disable it for diagnosis.
+
+See [shared-operation performance measurements](benchmarks/shared-tensor-2026-11-06/REPORT.md)
+for the matched inference and training probes.
 
 See [autograd](autograd.md) for graph and mutation rules and
 [training](training.md#training-and-evaluation-mode) for dropout and BatchNorm behavior.

@@ -25,6 +25,23 @@ class CpuNativeMatmulTest {
         check(values(dtype, 1, 513), values(dtype, 1026, 1026).slice(0, 0, 1026, 2).slice(1, 0, 1026, 2));
     }
 
+    @Test void transposedLeftAndBothTransposedProductsMatchDoubleReference() {
+        check(values(DType.FLOAT32, 67, 131).transpose(), values(DType.FLOAT32, 67, 129));
+        check(values(DType.FLOAT32, 67, 131).transpose(), values(DType.FLOAT32, 129, 67).transpose());
+        Tensor left = values(DType.FLOAT32, 69, 133).slice(0, 1, 68).slice(1, 1, 132).transpose();
+        check(left, values(DType.FLOAT32, 67, 129));
+    }
+
+    @Test void batchedBroadcastProductsPreserveOffsetsAndTransposeFlags() {
+        Tensor left = values(DType.FLOAT32, 4 * 65, 65).reshape(4, 1, 65, 65).slice(0, 1, 3);
+        Tensor right = values(DType.FLOAT32, 3 * 65, 65).reshape(1, 3, 65, 65);
+        for (int flags = 0; flags < 4; flags++) {
+            Tensor a = (flags & 1) == 0 ? left : left.permute(0, 1, 3, 2);
+            Tensor b = (flags & 2) == 0 ? right : right.permute(0, 1, 3, 2);
+            io.github.kirstenali.deepj.testing.NdMatmulReference.assertProduct(a, b, 2, 3, 65, 65);
+        }
+    }
+
     @Test void mixedStorageAndOffsetViewsUseTheSamePromotionRules() {
         for (DType a : DType.values()) {
             for (DType b : DType.values()) {

@@ -140,6 +140,10 @@ public interface TensorBackend {
         return TensorBackendDefaults.rotary(input, cosine, sine, sequenceLength, inverse);
     }
 
+    default Tensor rotaryHalfSplit(Tensor input, Tensor cosine, Tensor sine, int length, boolean inverse) {
+        return CpuNdPosition.rotary(input, cosine, sine, length, inverse, true);
+    }
+
     Tensor add(Tensor a, Tensor b);
     Tensor subtract(Tensor a, Tensor b);
     Tensor multiply(Tensor a, Tensor b);

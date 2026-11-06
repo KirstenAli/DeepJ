@@ -13,7 +13,7 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
                                             int queryHeads, int keyValueHeads, float scale) {
         return denseInputs(query, key, value) && MetalNative.supportsAttention(query.dtype())
                 && tiledShape(query, queryHeads, scale)
-                && query.matrixRows() / queryHeads >= 256 && groupedShape(query, key, queryHeads, keyValueHeads)
+                && preferredLength(query, queryHeads) && groupedShape(query, key, queryHeads, keyValueHeads)
                 && sameShape(key, value);
     }
 
@@ -27,8 +27,17 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
     }
 
     private static boolean tiledShape(Tensor query, int heads, float scale) {
-        return heads > 0 && query.matrixRows() % heads == 0 && query.matrixCols() == 64
+        return heads > 0 && query.matrixRows() % heads == 0 && supportedWidth(query)
                 && query.matrixRows() / heads >= 32 && query.matrixRows() / heads % 32 == 0 && Float.isFinite(scale);
+    }
+
+    private static boolean supportedWidth(Tensor query) {
+        return query.matrixCols() == 64 || query.matrixCols() == 128 && query.dtype() == DType.FLOAT32
+                && MetalNative.supportsWideAttention();
+    }
+
+    private static boolean preferredLength(Tensor query, int heads) {
+        return query.matrixRows() / heads >= (query.matrixCols() == 128 ? 32 : 256);
     }
 
     private static boolean sameShape(Tensor left, Tensor right) {
@@ -116,7 +125,8 @@ abstract class MetalAttentionOps extends MetalCacheOps implements CausalAttentio
             throw new UnsupportedOperationException("Fused attention requires same-dtype full contiguous matrices");
         }
         if (!tiledShape(query, queryHeads, scale) || !groupedShape(query, key, queryHeads, keyValueHeads)) {
-            throw new IllegalArgumentException("Tiled attention needs complete 32-row tiles and 64-column heads");
+            throw new IllegalArgumentException(
+                    "Tiled attention needs complete 32-row tiles and a supported head width");
         }
         if (!MetalNative.supportsAttention(query.dtype())) {
             throw new UnsupportedOperationException("Block attention is not available on this Metal device");

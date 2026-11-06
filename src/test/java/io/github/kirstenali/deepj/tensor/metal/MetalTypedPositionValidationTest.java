@@ -25,7 +25,7 @@ class MetalTypedPositionValidationTest extends MetalCommandValidationSupport {
     }
 
     @Test
-    void nativeRotaryRequiresMatchingTablesIndependentOutputAndBooleanInverse() {
+    void nativeRotaryRequiresMatchingTablesIndependentOutputAndSupportedFlags() {
         int input = buffer(DType.FLOAT16, 16), cosine = buffer(DType.FLOAT32, 8);
         int sine = buffer(DType.BFLOAT16, 8), output = buffer(DType.FLOAT16, 16);
         int[] command = {ComputeGraph.OP_LAYOUT_ROTARY, input, cosine, sine, output, 0, 8, 8, 4, 0};
@@ -38,7 +38,12 @@ class MetalTypedPositionValidationTest extends MetalCommandValidationSupport {
         invalidField(command, 8, 0);
         invalidField(command, 8, 3);
         invalidField(command, 8, 8);
-        invalidField(command, 9, 2);
+        invalidRotaryFlags(command);
+    }
+
+    private void invalidRotaryFlags(int[] command) {
+        invalidField(command, 9, 4);
+        invalidField(command, 9, -1);
     }
 
     @Test

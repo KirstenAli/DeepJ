@@ -280,20 +280,31 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactProduct(
     }
 }
 
+static void denseProducts(deepj_cpu::ProductArrays& arrays, const std::vector<jint>& shape) {
+    const jint* s = shape.data();
+    auto* a = static_cast<float*>(arrays.left.data);
+    auto* b = static_cast<float*>(arrays.right.data);
+    auto* c = static_cast<float*>(arrays.output.data);
+    for (size_t offset = 10; offset < shape.size(); offset += 3) {
+        cblas_sgemm(CblasRowMajor, (s[8] & 2) ? CblasTrans : CblasNoTrans,
+                (s[8] & 1) ? CblasTrans : CblasNoTrans,
+                s[0], s[1], s[2], 1, a + s[offset], s[6], b + s[offset + 1], s[7],
+                0, c + s[offset + 2], s[1]);
+    }
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_CpuBlas_product(
         JNIEnv* env, jclass, jfloatArray left, jfloatArray right, jfloatArray output, jintArray shape) {
-    jint s[10];
-    env->GetIntArrayRegion(shape, 0, 10, s);
-    if (env->ExceptionCheck()) return;
-    deepj_cpu::SerialBlas serial(s[9] != 0);
-    deepj_cpu::ProductArrays arrays(env, left, right, output);
-    if (arrays.valid()) {
-        auto* a = static_cast<float*>(arrays.left.data);
-        auto* b = static_cast<float*>(arrays.right.data);
-        auto* c = static_cast<float*>(arrays.output.data);
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, s[8] ? CblasTrans : CblasNoTrans,
-                    s[0], s[1], s[2], 1, a + s[3], s[6], b + s[4], s[7], 0, c + s[5], s[1]);
+    try {
+        std::vector<jint> s(env->GetArrayLength(shape));
+        env->GetIntArrayRegion(shape, 0, (jsize)s.size(), s.data());
+        if (env->ExceptionCheck()) return;
+        deepj_cpu::SerialBlas serial(s[9] != 0);
+        deepj_cpu::ProductArrays arrays(env, left, right, output);
+        if (arrays.valid()) denseProducts(arrays, s);
+    } catch (const std::bad_alloc&) {
+        env->ThrowNew(env->FindClass("java/lang/OutOfMemoryError"), "CPU batch metadata allocation");
     }
 }
 
@@ -306,4 +317,151 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_swiGlu(JNIEnv* env, jclass, jfloa
     const auto* b = static_cast<const float*>(arrays.right.data) + uo;
     auto* c = static_cast<float*>(arrays.output.data) + oo;
     return deepj_cpu::activation(a, b, c, count);
+}
+
+namespace deepj_normalization {
+struct Arrays {
+    deepj_cpu::PinnedArray input, gamma, beta, output, normalized, denominator;
+    Arrays(JNIEnv* env, jfloatArray x, jfloatArray g, jfloatArray b,
+            jfloatArray y, jfloatArray n, jfloatArray d)
+        : input(env, x, JNI_ABORT), gamma(env, g, JNI_ABORT, input.data != nullptr),
+          beta(env, b, JNI_ABORT, gamma.data != nullptr), output(env, y, 0, beta.data != nullptr),
+          normalized(env, n, 0, output.data != nullptr), denominator(env, d, 0, normalized.data != nullptr) {}
+};
+
+static float mean(const float* input, int width, bool centered) {
+    #pragma clang fp contract(off)
+    if (!centered) return 0;
+    float sum = 0;
+    for (int column = 0; column < width; column++) { sum += input[column]; }
+    return sum * (1.0f / width);
+}
+
+static float denominator(const float* input, int width, float average, float epsilon) {
+    #pragma clang fp contract(off)
+    float squares = 0;
+    for (int column = 0; column < width; column++) {
+        float difference = input[column] - average;
+        squares += difference * difference;
+    }
+    float variance = squares * (1.0f / width) + epsilon;
+    return static_cast<float>(std::sqrt(static_cast<double>(variance)));
+}
+
+static void row(Arrays& arrays, const int* shape, int row, float epsilon) {
+    #pragma clang fp contract(off)
+    int width = shape[4], base = row * width;
+    const auto* input = static_cast<float*>(arrays.input.data) + shape[0] + base;
+    const auto* gamma = static_cast<float*>(arrays.gamma.data) + shape[1];
+    const auto* beta = static_cast<float*>(arrays.beta.data) + shape[2];
+    auto* output = static_cast<float*>(arrays.output.data) + base;
+    auto* normalized = static_cast<float*>(arrays.normalized.data) + base;
+    float average = mean(input, width, shape[5] != 0);
+    float scale = denominator(input, width, average, epsilon);
+    static_cast<float*>(arrays.denominator.data)[row] = scale;
+    for (int column = 0; column < width; column++) {
+        normalized[column] = (input[column] - average) / scale;
+        float value = normalized[column] * gamma[column];
+        output[column] = shape[5] ? value + beta[column] : value;
+    }
+}
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_normalize(
+        JNIEnv* env, jclass, jfloatArray input, jfloatArray gamma, jfloatArray beta, jfloatArray output,
+        jfloatArray normalized, jfloatArray denominator, jintArray shape, jfloat epsilon) {
+    jint s[6];
+    env->GetIntArrayRegion(shape, 0, 6, s);
+    if (env->ExceptionCheck()) return;
+    deepj_normalization::Arrays arrays(env, input, gamma, beta, output, normalized, denominator);
+    if (!arrays.denominator.data) return;
+    for (int row = 0; row < s[3]; row++) {
+        deepj_normalization::row(arrays, s, row, epsilon);
+    }
+}
+
+namespace deepj_normalization {
+struct Gradients {
+    deepj_cpu::PinnedArray gradient, normalized, denominator, gamma, output;
+    Gradients(JNIEnv* env, jfloatArray g, jfloatArray n, jfloatArray d, jfloatArray w, jfloatArray y)
+        : gradient(env, g, JNI_ABORT), normalized(env, n, JNI_ABORT, gradient.data != nullptr),
+          denominator(env, d, JNI_ABORT, normalized.data != nullptr),
+          gamma(env, w, JNI_ABORT, denominator.data != nullptr), output(env, y, 0, gamma.data != nullptr) {}
+};
+
+static void gradientRow(Gradients& arrays, const int* shape, int row) {
+    #pragma clang fp contract(off)
+    int width = shape[5], base = row * width;
+    const auto* g = static_cast<float*>(arrays.gradient.data) + shape[0] + base;
+    const auto* n = static_cast<float*>(arrays.normalized.data) + shape[1] + base;
+    const auto* w = static_cast<float*>(arrays.gamma.data) + shape[3];
+    float d = static_cast<float*>(arrays.denominator.data)[shape[2] + row], inverse = 1.0f / d;
+    auto* output = static_cast<float*>(arrays.output.data) + base;
+    float sum = 0, dot = 0;
+    for (int column = 0; column < width; column++) {
+        float scaled = g[column] * w[column];
+        sum += scaled;
+        dot += scaled * n[column];
+    }
+    for (int column = 0; column < width; column++) {
+        float scaled = g[column] * w[column];
+        output[column] = shape[6] ? inverse * (scaled - sum / width - n[column] * (dot / width))
+            : (scaled - n[column] * (dot * (1.0f / width))) / d;
+    }
+}
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_normalizationBackward(
+        JNIEnv* env, jclass, jfloatArray gradient, jfloatArray normalized, jfloatArray denominator,
+        jfloatArray gamma, jfloatArray output, jintArray shape) {
+    jint s[7];
+    env->GetIntArrayRegion(shape, 0, 7, s);
+    if (env->ExceptionCheck()) return;
+    deepj_normalization::Gradients arrays(env, gradient, normalized, denominator, gamma, output);
+    if (!arrays.output.data) return;
+    for (int row = 0; row < s[4]; row++) {
+        deepj_normalization::gradientRow(arrays, s, row);
+    }
+}
+
+namespace deepj_softmax {
+static bool exponentials(float* values, int width, float maximum, float& total) {
+    std::array<double, 256> input, output;
+    for (int start = 0; start < width; start += 256) {
+        int count = std::min(256, width - start);
+        for (int index = 0; index < count; index++) { input[index] = values[start + index] - maximum; }
+        vvexp(output.data(), input.data(), &count);
+        for (int index = 0; index < count; index++) {
+            if (!deepj_cpu::roundedExponential(output[index], values[start + index])) return false;
+            total += values[start + index];
+        }
+    }
+    return true;
+}
+
+static bool row(const float* input, float* output, int row, int width, float scale) {
+    float maximum = -INFINITY, total = 0;
+    for (int column = 0; column < width; column++) {
+        output[column] = column <= row % width ? input[column] * scale : -1e9f;
+        if (output[column] > maximum) maximum = output[column];
+    }
+    if (!exponentials(output, width, maximum, total)) return false;
+    for (int column = 0; column < width; column++) { output[column] /= total; }
+    return true;
+}
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_causalSoftmax(
+        JNIEnv* env, jclass, jfloatArray input, jfloatArray output, jint rows, jint width, jfloat scale) {
+    deepj_cpu::PinnedArray source(env, input, JNI_ABORT);
+    deepj_cpu::PinnedArray result(env, output, 0, source.data != nullptr);
+    if (!result.data) return false;
+    for (int row = 0; row < rows; row++) {
+        if (!deepj_softmax::row(static_cast<float*>(source.data) + row * width,
+                static_cast<float*>(result.data) + row * width, row, width, scale)) return false;
+    }
+    return true;
 }

@@ -43,24 +43,31 @@ public final class CpuNdPosition {
     }
 
     public static Tensor rotary(Tensor input, Tensor cosine, Tensor sine, int length, boolean inverse) {
+        return rotary(input, cosine, sine, length, inverse, false);
+    }
+
+    public static Tensor rotary(Tensor input, Tensor cosine, Tensor sine, int length,
+                                boolean inverse, boolean halfSplit) {
         MatrixShapeChecks.requireRotary(input, cosine, sine, length);
         input.materialize();
         cosine.materialize();
         sine.materialize();
         Tensor output = new Tensor(input.dtype(), input.shape());
         for (int index = 0; index < input.numel(); index += 2) {
-            rotatePair(input, cosine, sine, output, index, length, inverse);
+            rotatePair(input, cosine, sine, output, index, length, inverse, halfSplit);
         }
         return output;
     }
 
     private static void rotatePair(Tensor input, Tensor cosine, Tensor sine, Tensor output,
-                                    int index, int length, boolean inverse) {
+                                    int index, int length, boolean inverse, boolean halfSplit) {
         int width = input.matrixCols(), table = index / width % length * (width / 2) + index % width / 2;
-        float x = value(input, index), y = value(input, index + 1);
+        int first = halfSplit ? index / width * width + index % width / 2 : index;
+        int second = first + (halfSplit ? width / 2 : 1);
+        float x = value(input, first), y = value(input, second);
         float c = value(cosine, table), s = value(sine, table) * (inverse ? -1 : 1);
-        output.memory().set(index, x * c - y * s);
-        output.memory().set(index + 1, x * s + y * c);
+        output.memory().set(first, x * c - y * s);
+        output.memory().set(second, x * s + y * c);
     }
 
     private static float value(Tensor input, int index) {

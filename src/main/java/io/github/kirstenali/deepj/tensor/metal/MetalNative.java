@@ -47,6 +47,15 @@ final class MetalNative {
         return dtype == DType.FLOAT16 ? CompactAttention.HALF : CompactAttention.BFLOAT;
     }
 
+    static boolean supportsWideAttention() { return WideAttention.AVAILABLE; }
+
+    private static final class WideAttention {
+        private static final boolean AVAILABLE = MetalNative.AVAILABLE && nativeSupportsWideAttention();
+        private WideAttention() {}
+    }
+
+    private static native boolean nativeSupportsWideAttention();
+
     private static final class CompactAttention {
         private static final boolean HALF = AVAILABLE && nativeSupportsTypedAttention(2);
         private static final boolean BFLOAT = AVAILABLE && nativeSupportsTypedAttention(3);
@@ -70,6 +79,8 @@ final class MetalNative {
     static native void nativeDownloadBuffer(int bufId, float[] out);
     static native void nativeDownloadBuffer16(int bufId, short[] out);
     static native long nativeBufferByteLength(int bufId);
+
+    static native void nativeClearBufferCache();
 
     static native void nativeReleaseBuffers(int[] ids, int count);
 

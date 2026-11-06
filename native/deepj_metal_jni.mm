@@ -13,7 +13,7 @@
 #include <vector>
 
 struct CompactAttentionPipelines {
-    id<MTLComputePipelineState> forward, query, keyValue;
+    id<MTLComputePipelineState> forward, query, keyValue, delta;
 };
 
 struct MetalContext {
@@ -107,7 +107,8 @@ struct MetalContext {
     id<MTLComputePipelineState> attentionQueryBackwardPSO;
     id<MTLComputePipelineState> attentionKeyValueBackwardPSO;
     std::once_flag compactAttentionOnce;
-    CompactAttentionPipelines halfAttention, bfloatAttention;
+    CompactAttentionPipelines halfAttention, bfloatAttention, wideAttention;
+    std::once_flag wideAttentionOnce;
 };
 static NSString* tiledAttentionShaderSource = @R"(
 #include <metal_stdlib>
@@ -120,6 +121,10 @@ using AttentionValue = half;
 using AttentionValue = bfloat;
 #else
 using AttentionValue = float;
+#endif
+
+#ifndef HEAD_WIDTH
+#define HEAD_WIDTH 64
 #endif
 
 struct AttentionParams {
@@ -168,10 +173,10 @@ inline void attention_scores(device const Q* query, device const K* key,
                               threadgroup float* scores, uint group) {
     for (uint column = 0; column < Keys; column += 8) {
         simdgroup_float8x8 result(0.0f);
-        for (uint inner = 0; inner < 64; inner += 8) {
+        for (uint inner = 0; inner < HEAD_WIDTH; inner += 8) {
             simdgroup_float8x8 left, right;
-            attention_load(left, query + group * 8 * 64 + inner, 64);
-            attention_load(right, key + column * 64 + inner, 64, true);
+            attention_load(left, query + group * 8 * HEAD_WIDTH + inner, HEAD_WIDTH);
+            attention_load(right, key + column * HEAD_WIDTH + inner, HEAD_WIDTH, true);
             simdgroup_multiply_accumulate(result, left, right, result);
         }
         simdgroup_store(result, scores + group * 8 * Keys + column, Keys);
@@ -181,16 +186,16 @@ inline void attention_scores(device const Q* query, device const K* key,
 template<uint Keys, typename T>
 inline void attention_values(threadgroup float* probabilities, device const T* values,
                               threadgroup float* output, uint group) {
-    for (uint column = 0; column < 64; column += 8) {
+    for (uint column = 0; column < HEAD_WIDTH; column += 8) {
         simdgroup_float8x8 result;
-        simdgroup_load(result, output + group * 8 * 64 + column, 64);
+        simdgroup_load(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
         for (uint inner = 0; inner < Keys; inner += 8) {
             simdgroup_float8x8 left, right;
             simdgroup_load(left, probabilities + group * 8 * Keys + inner, Keys);
-            attention_load(right, values + inner * 64 + column, 64);
+            attention_load(right, values + inner * HEAD_WIDTH + column, HEAD_WIDTH);
             simdgroup_multiply_accumulate(result, left, right, result);
         }
-        simdgroup_store(result, output + group * 8 * 64 + column, 64);
+        simdgroup_store(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
     }
 }
 
@@ -232,8 +237,8 @@ inline void attention_online_statistics(threadgroup float* scores, threadgroup f
     float previous = maxima[row];
     attention_statistics(scores, maxima, sums, row, tile, scale);
     float correction = exp(previous - maxima[row]);
-    for (uint column = 0; column < 64; column++) {
-        output[row * 64 + column] *= correction;
+    for (uint column = 0; column < HEAD_WIDTH; column++) {
+        output[row * HEAD_WIDTH + column] *= correction;
     }
 }
 
@@ -245,7 +250,7 @@ inline void attention_zero(threadgroup float* values, uint count, uint tid, uint
 
 inline void attention_initialize(threadgroup float* output, threadgroup float* maxima,
                                   threadgroup float* sums, uint tid) {
-    attention_zero(output, 32 * 64, tid, 128);
+    attention_zero(output, 32 * HEAD_WIDTH, tid, 128);
     if (tid < 32) {
         maxima[tid] = -INFINITY;
         sums[tid] = 0.0f;
@@ -257,8 +262,8 @@ inline void attention_write(device float* output, device float* normalization,
                              threadgroup float* accumulated, threadgroup float* maxima,
                              threadgroup float* sums, AttentionTile tile, uint length, uint tid) {
     uint row = tile.head * length + tile.query;
-    for (uint index = tid; index < 32 * 64; index += 128) {
-        output[row * 64 + index] = accumulated[index] / sums[index / 64];
+    for (uint index = tid; index < 32 * HEAD_WIDTH; index += 128) {
+        output[row * HEAD_WIDTH + index] = accumulated[index] / sums[index / HEAD_WIDTH];
     }
     if (tid < 32) {
         normalization[(row + tid) * 2] = maxima[tid];
@@ -271,16 +276,17 @@ inline void attention_forward(AttentionInputs inputs, AttentionParams params, ui
                                uint tid, uint group, threadgroup float* scores,
                                threadgroup float* output, threadgroup float* maxima,
                                threadgroup float* sums) {
-    uint start = block.x * 32, base = block.y * params.length * 64;
-    uint keyBase = (block.y / params.groupSize) * params.length * 64;
+    uint start = block.x * 32, base = block.y * params.length * HEAD_WIDTH;
+    uint keyBase = (block.y / params.groupSize) * params.length * HEAD_WIDTH;
     attention_initialize(output, maxima, sums, tid);
     for (uint key = 0; key <= start; key += 32) {
-        attention_scores<32>(inputs.query + base + start * 64, inputs.key + keyBase + key * 64, scores, group);
+        attention_scores<32>(inputs.query + base + start * HEAD_WIDTH,
+            inputs.key + keyBase + key * HEAD_WIDTH, scores, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
         if (tid < 32) attention_online_statistics(scores, output, maxima, sums, tid,
                                                   AttentionTile{block.y, start, key}, params.scale);
         threadgroup_barrier(mem_flags::mem_threadgroup);
-        attention_values<32>(scores, inputs.value + keyBase + key * 64, output, group);
+        attention_values<32>(scores, inputs.value + keyBase + key * HEAD_WIDTH, output, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 }
@@ -294,7 +300,7 @@ kernel void kernel_tiled_attention(device const AttentionValue* query [[buffer(0
                                    uint2 block [[threadgroup_position_in_grid]],
                                    uint tid [[thread_index_in_threadgroup]],
                                    uint group [[simdgroup_index_in_threadgroup]]) {
-    threadgroup float scores[32 * 32], accumulated[32 * 64], maxima[32], sums[32];
+    threadgroup float scores[32 * 32], accumulated[32 * HEAD_WIDTH], maxima[32], sums[32];
     attention_forward(AttentionInputs{query, key, value}, params, block, tid, group,
                        scores, accumulated, maxima, sums);
     attention_write(output, normalization, accumulated, maxima, sums,
@@ -305,8 +311,11 @@ kernel void kernel_attention_delta(device const float* output [[buffer(0)]],
                                    device const float* gradient [[buffer(1)]],
                                    device float* delta [[buffer(2)]],
                                    uint2 position [[thread_position_in_grid]]) {
-    uint base = position.y * 64 + position.x;
-    float value = output[base] * gradient[base] + output[base + 32] * gradient[base + 32];
+    uint base = position.y * HEAD_WIDTH + position.x;
+    float value = output[base] * gradient[base];
+    for (uint column = 32; column < HEAD_WIDTH; column += 32) {
+        value += output[base + column] * gradient[base + column];
+    }
     float sum = simd_sum(value);
     if (position.x == 0) delta[position.y] = sum;
 }
@@ -331,8 +340,8 @@ inline void attention_derivatives(AttentionBackwardInputs inputs, AttentionParam
 inline void attention_backward_tile(AttentionBackwardInputs inputs, AttentionParams params,
                                      AttentionTile tile, uint tid, uint group,
                                      threadgroup float* scores, threadgroup float* derivatives) {
-    uint query = (tile.head * params.length + tile.query) * 64;
-    uint key = ((tile.head / params.groupSize) * params.length + tile.key) * 64;
+    uint query = (tile.head * params.length + tile.query) * HEAD_WIDTH;
+    uint key = ((tile.head / params.groupSize) * params.length + tile.key) * HEAD_WIDTH;
     attention_scores<16>(inputs.values.query + query, inputs.values.key + key, scores, group);
     attention_scores<16>(inputs.gradient + query, inputs.values.value + key, derivatives, group);
     threadgroup_barrier(mem_flags::mem_threadgroup);
@@ -343,37 +352,37 @@ inline void attention_backward_tile(AttentionBackwardInputs inputs, AttentionPar
 template<typename T>
 inline void attention_transposed_values(threadgroup float* left, device const T* right,
                                          threadgroup float* output, uint group) {
-    for (uint column = 0; column < 64; column += 8) {
+    for (uint column = 0; column < HEAD_WIDTH; column += 8) {
         simdgroup_float8x8 result;
-        simdgroup_load(result, output + group * 8 * 64 + column, 64);
+        simdgroup_load(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
         for (uint inner = 0; inner < 16; inner += 8) {
             simdgroup_float8x8 a, b;
             simdgroup_load(a, left + inner * 16 + group * 8, 16, ulong2(0), true);
-            attention_load(b, right + inner * 64 + column, 64);
+            attention_load(b, right + inner * HEAD_WIDTH + column, HEAD_WIDTH);
             simdgroup_multiply_accumulate(result, a, b, result);
         }
-        simdgroup_store(result, output + group * 8 * 64 + column, 64);
+        simdgroup_store(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
     }
 }
 
 inline void attention_query_gradient(AttentionBackwardInputs inputs, AttentionParams params,
                                       uint2 block, uint tid, uint group, threadgroup float* scores,
                                       threadgroup float* derivatives, threadgroup float* accumulated) {
-    uint start = block.x * 16, base = (block.y / params.groupSize) * params.length * 64;
-    attention_zero(accumulated, 16 * 64, tid, 64);
+    uint start = block.x * 16, base = (block.y / params.groupSize) * params.length * HEAD_WIDTH;
+    attention_zero(accumulated, 16 * HEAD_WIDTH, tid, 64);
     threadgroup_barrier(mem_flags::mem_threadgroup);
     for (uint key = 0; key <= start; key += 16) {
         attention_backward_tile(inputs, params, AttentionTile{block.y, start, key}, tid, group,
                                  scores, derivatives);
-        attention_values<16>(derivatives, inputs.values.key + base + key * 64, accumulated, group);
+        attention_values<16>(derivatives, inputs.values.key + base + key * HEAD_WIDTH, accumulated, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 }
 
 inline void attention_write_gradient(device float* output, threadgroup float* values,
                                       uint2 block, uint length, uint tid) {
-    uint base = (block.y * length + block.x * 16) * 64;
-    for (uint index = tid; index < 16 * 64; index += 64) {
+    uint base = (block.y * length + block.x * 16) * HEAD_WIDTH;
+    for (uint index = tid; index < 16 * HEAD_WIDTH; index += 64) {
         output[base + index] = values[index];
     }
 }
@@ -389,7 +398,7 @@ kernel void kernel_attention_query_backward(device const AttentionValue* query [
                                             uint2 block [[threadgroup_position_in_grid]],
                                             uint tid [[thread_index_in_threadgroup]],
                                             uint group [[simdgroup_index_in_threadgroup]]) {
-    threadgroup float scores[16 * 16], derivatives[16 * 16], accumulated[16 * 64];
+    threadgroup float scores[16 * 16], derivatives[16 * 16], accumulated[16 * HEAD_WIDTH];
     AttentionBackwardInputs inputs = {{query, key, value}, gradient, normalization, delta};
     attention_query_gradient(inputs, params, block, tid, group, scores, derivatives, accumulated);
     attention_write_gradient(result, accumulated, block, params.length, tid);
@@ -399,12 +408,12 @@ inline void attention_accumulate_key_value(AttentionBackwardInputs inputs, Atten
                                             AttentionTile tile, uint tid, uint group,
                                             threadgroup float* scores, threadgroup float* derivatives,
                                             threadgroup float* dk, threadgroup float* dv) {
-    uint start = tile.key, base = tile.head * params.length * 64;
+    uint start = tile.key, base = tile.head * params.length * HEAD_WIDTH;
     for (uint query = start; query < params.length; query += 16) {
         attention_backward_tile(inputs, params, AttentionTile{tile.head, query, start}, tid, group,
                                  scores, derivatives);
-        attention_transposed_values(derivatives, inputs.values.query + base + query * 64, dk, group);
-        attention_transposed_values(scores, inputs.gradient + base + query * 64, dv, group);
+        attention_transposed_values(derivatives, inputs.values.query + base + query * HEAD_WIDTH, dk, group);
+        attention_transposed_values(scores, inputs.gradient + base + query * HEAD_WIDTH, dv, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 }
@@ -413,8 +422,8 @@ inline void attention_key_value_gradients(AttentionBackwardInputs inputs, Attent
                                           uint2 block, uint tid, uint group,
                                           threadgroup float* scores, threadgroup float* derivatives,
                                           threadgroup float* dk, threadgroup float* dv) {
-    attention_zero(dk, 16 * 64, tid, 64);
-    attention_zero(dv, 16 * 64, tid, 64);
+    attention_zero(dk, 16 * HEAD_WIDTH, tid, 64);
+    attention_zero(dv, 16 * HEAD_WIDTH, tid, 64);
     threadgroup_barrier(mem_flags::mem_threadgroup);
     for (uint shared = 0; shared < params.groupSize; shared++) {
         AttentionTile tile = {block.y * params.groupSize + shared, 0, block.x * 16};
@@ -434,7 +443,7 @@ kernel void kernel_attention_key_value_backward(device const AttentionValue* que
                                                 uint2 block [[threadgroup_position_in_grid]],
                                                 uint tid [[thread_index_in_threadgroup]],
                                                 uint group [[simdgroup_index_in_threadgroup]]) {
-    threadgroup float scores[16 * 16], derivatives[16 * 16], keys[16 * 64], values[16 * 64];
+    threadgroup float scores[16 * 16], derivatives[16 * 16], keys[16 * HEAD_WIDTH], values[16 * HEAD_WIDTH];
     AttentionBackwardInputs inputs = {{query, key, value}, gradient, normalization, delta};
     attention_key_value_gradients(inputs, params, block, tid, group, scores, derivatives, keys, values);
     attention_write_gradient(dk, keys, block, params.length, tid);
@@ -1766,14 +1775,17 @@ kernel void kernel_layout_rotary(device const unsigned char* input [[buffer(0)]]
                                  device unsigned char* output [[buffer(3)]],
                                  device const ulong* words [[buffer(4)]], constant uint* params [[buffer(5)]],
                                  uint pair [[thread_position_in_grid]]) {
-    uint width = params[4], index = pair * 2, row = index / width;
+    uint width = params[4], row = pair / (width / 2);
+    bool halfSplit = (params[9] & 2) != 0;
+    uint index = row * width + pair % (width / 2) * (halfSplit ? 1 : 2);
+    uint second = index + (halfSplit ? width / 2 : 1);
     uint table = row % params[5] * (width / 2) + pair % (width / 2);
     float x = layout_value(input, words, params[0], params[6], index);
-    float y = layout_value(input, words, params[0], params[6], index + 1);
+    float y = layout_value(input, words, params[0], params[6], second);
     float c = layout_value(cosine, words, params[1], params[7], table);
-    float s = layout_value(sine, words, params[2], params[8], table) * (params[9] == 0 ? 1.0f : -1.0f);
+    float s = layout_value(sine, words, params[2], params[8], table) * ((params[9] & 1) == 0 ? 1.0f : -1.0f);
     storage_write_bits(output, index, params[6], as_type<uint>(x * c - y * s));
-    storage_write_bits(output, index + 1, params[6], as_type<uint>(x * s + y * c));
+    storage_write_bits(output, second, params[6], as_type<uint>(x * s + y * c));
 }
 
 struct RmsNormParams {
@@ -2409,7 +2421,8 @@ static bool supportsAttentionThreads(id<MTLComputePipelineState> pipeline, NSUIn
 
 static CompactAttentionPipelines compiledAttentionPipelines(id<MTLLibrary> library) {
     CompactAttentionPipelines result{makePSO(library, @"kernel_tiled_attention"),
-        makePSO(library, @"kernel_attention_query_backward"), makePSO(library, @"kernel_attention_key_value_backward")};
+        makePSO(library, @"kernel_attention_query_backward"), makePSO(library, @"kernel_attention_key_value_backward"),
+        makePSO(library, @"kernel_attention_delta")};
     if (!supportsAttentionThreads(result.forward, 128) || !supportsAttentionThreads(result.query, 64)
         || !supportsAttentionThreads(result.keyValue, 64)) return {};
     return result;
@@ -2438,6 +2451,21 @@ static CompactAttentionPipelines attentionPipelines(MetalContext* ctx, int dtype
     if (dtype == 2) return ctx->halfAttention;
     if (dtype == 3) return ctx->bfloatAttention;
     throw std::runtime_error("Invalid attention dtype");
+}
+
+static CompactAttentionPipelines wideAttentionPipelines(MetalContext* ctx) {
+    std::call_once(ctx->wideAttentionOnce, [ctx] {
+        auto options = makeCompileOptions(ctx->device);
+        options.preprocessorMacros = @{@"HEAD_WIDTH": @128};
+        auto library = [ctx->device newLibraryWithSource:tiledAttentionShaderSource options:options error:nil];
+        if (library != nil) ctx->wideAttention = compiledAttentionPipelines(library);
+    });
+    return ctx->wideAttention;
+}
+
+static CompactAttentionPipelines attentionPipelines(MetalContext* ctx, int dtype, uint32_t width) {
+    if (width == 64) return attentionPipelines(ctx, dtype);
+    return dtype == 1 ? wideAttentionPipelines(ctx) : CompactAttentionPipelines{};
 }
 
 static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -2609,6 +2637,15 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTypedAtte
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsWideAttention(JNIEnv* env, jclass) {
+    try { return wideAttentionPipelines(getContext()).forward != nil ? JNI_TRUE : JNI_FALSE; }
+    catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsCompactMatmul(
         JNIEnv* env, jclass, jint dtype) {
     try {
@@ -2636,6 +2673,64 @@ using BufferEntry = BufferPool::iterator;
 
 static BufferPool gBufferPool;
 static std::mutex gBufferMutex;
+
+// Bounded reuse only after synchronous command completion; all accesses hold gBufferMutex.
+static std::array<id<MTLBuffer>, 128> gReusableBuffers;
+static std::array<NSUInteger, 128> gReusableSizes;
+static size_t gReusableCount = 0;
+static NSUInteger gReusableBytes = 0;
+
+static bool bufferReuseEnabled() {
+    static bool enabled = std::getenv("DEEPJ_METAL_DISABLE_BUFFER_REUSE") == nullptr;
+    return enabled;
+}
+
+static void clearReusableBuffers() {
+    while (gReusableCount > 0) { gReusableBuffers[--gReusableCount] = nil; }
+    gReusableBytes = 0;
+}
+
+static id<MTLBuffer> reusableBuffer(NSUInteger bytes) {
+    for (size_t index = 0; index < gReusableCount; index++) {
+        if (gReusableSizes[index] != bytes) continue;
+        id<MTLBuffer> buffer = gReusableBuffers[index];
+        gReusableBuffers[index] = gReusableBuffers[--gReusableCount];
+        gReusableSizes[index] = gReusableSizes[gReusableCount];
+        gReusableBuffers[gReusableCount] = nil;
+        gReusableBytes -= bytes;
+        return buffer;
+    }
+    return nil;
+}
+
+static id<MTLBuffer> allocateStorage(MetalContext* ctx, NSUInteger bytes) {
+    id<MTLBuffer> buffer = reusableBuffer(bytes);
+    if (buffer != nil) return buffer;
+    buffer = [ctx->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+    if (buffer != nil) return buffer;
+    clearReusableBuffers();
+    return [ctx->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+}
+
+static void retireBuffer(int bufferId) {
+    auto entry = gBufferPool.find(bufferId);
+    if (entry == gBufferPool.end()) return;
+    id<MTLBuffer> buffer = entry->second.buffer;
+    NSUInteger bytes = [buffer length];
+    if (bufferReuseEnabled() && gReusableCount < gReusableBuffers.size()
+            && bytes <= 4 * 1024 * 1024 && gReusableBytes + bytes <= 32 * 1024 * 1024) {
+        gReusableSizes[gReusableCount] = bytes;
+        gReusableBuffers[gReusableCount++] = buffer;
+        gReusableBytes += bytes;
+    }
+    gBufferPool.erase(entry);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeClearBufferCache(JNIEnv*, jclass) {
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    clearReusableBuffers();
+}
 
 static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCaches[4];
 
@@ -2903,8 +2998,7 @@ static void allocateTypedBuffer(MetalContext* ctx, int bufferId, int elements, i
         }
         return;
     }
-    id<MTLBuffer> buffer = [ctx->device newBufferWithLength:bytes
-                                                    options:MTLResourceStorageModeShared];
+    id<MTLBuffer> buffer = allocateStorage(ctx, bytes);
     if (buffer == nil) throw std::runtime_error("Failed to allocate Metal buffer");
     gBufferPool.try_emplace(bufferId, buffer, dtype);
 }
@@ -3091,9 +3185,10 @@ static void releaseBuffers(JNIEnv* env, jintArray idsArr, jint count) {
     jint* ids = env->GetIntArrayElements(idsArr, nullptr);
     if (ids == nullptr) return;
     for (int i = 0; i < count; i++) {
-        gBufferPool.erase(ids[i]);
+        retireBuffer(ids[i]);
     }
     env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
+    if (gBufferPool.empty()) clearReusableBuffers();
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -3866,7 +3961,7 @@ static std::array<uint32_t, 10> layoutRotaryParams(GraphState& state, const jint
     auto sine = commandLayout(state, cmd, pos, 3, 7);
     uint32_t length = (uint32_t)positiveCount(cmd[pos + 8], "rotary length");
     requireRotaryLayouts(input, cosine, sine, length);
-    if (cmd[pos + 9] != 0 && cmd[pos + 9] != 1) throw std::runtime_error("Invalid inverse rotary flag");
+    if (cmd[pos + 9] < 0 || cmd[pos + 9] > 3) throw std::runtime_error("Invalid rotary flags");
     requireOutputSeparation(cmd, pos, 3, 4);
     uint32_t dtype = bufferDType(cmd[pos + 1]);
     requireTypedCount(cmd[pos + 4], dtype, input.count);
@@ -4659,21 +4754,24 @@ struct TiledAttentionShape {
     uint32_t rows;
     uint32_t heads;
     uint32_t keyValueHeads;
+    uint32_t width;
     TiledAttentionParams params;
 };
 
-static TiledAttentionShape tiledAttentionShape(GraphState& state, const jint* fields) {
+static TiledAttentionShape tiledAttentionShape(GraphState& state, const jint* fields, int queryId) {
     uint32_t rows = (uint32_t)positiveCount(fields[0], "attention rows");
     uint32_t heads = (uint32_t)positiveCount(fields[1], "attention heads");
     uint32_t keyValueHeads = (uint32_t)positiveCount(fields[2], "attention key/value heads");
     uint32_t length = rows / heads;
+    NSUInteger bytes = [requireStorageBuffer(queryId, "attention") length];
+    uint32_t width = (uint32_t)(bytes / rows / (bufferDType(queryId) == 1 ? 4 : 2));
     float scale = floatFromBits(fields[3]);
     if (rows % heads != 0 || heads % keyValueHeads != 0 || length < 32 || length % 32 != 0 ||
-        rows > INT32_MAX / 64 || !std::isfinite(scale)) {
+        (width != 64 && width != 128) || rows > INT32_MAX / width || !std::isfinite(scale)) {
         throw std::runtime_error("Invalid tiled attention shape or scale");
     }
     if (state.ctx->attentionPSO == nil) throw std::runtime_error("Tiled attention is unavailable on this GPU");
-    return {rows, heads, keyValueHeads, {length, heads / keyValueHeads, scale}};
+    return {rows, heads, keyValueHeads, width, {length, heads / keyValueHeads, scale}};
 }
 
 static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count, int dtype = 1) {
@@ -4688,9 +4786,9 @@ static void bindAttentionValues(id<MTLComputeCommandEncoder> encoder, const jint
                                  TiledAttentionShape shape) {
     NSUInteger keyValueRows = (NSUInteger)shape.keyValueHeads * shape.params.length;
     int dtype = bufferDType(ids[0]);
-    [encoder setBuffer:attentionBuffer(ids[0], (NSUInteger)shape.rows * 64, dtype) offset:0 atIndex:0];
-    [encoder setBuffer:attentionBuffer(ids[1], keyValueRows * 64, dtype) offset:0 atIndex:1];
-    [encoder setBuffer:attentionBuffer(ids[2], keyValueRows * 64, dtype) offset:0 atIndex:2];
+    [encoder setBuffer:attentionBuffer(ids[0], (NSUInteger)shape.rows * shape.width, dtype) offset:0 atIndex:0];
+    [encoder setBuffer:attentionBuffer(ids[1], keyValueRows * shape.width, dtype) offset:0 atIndex:1];
+    [encoder setBuffer:attentionBuffer(ids[2], keyValueRows * shape.width, dtype) offset:0 atIndex:2];
 }
 
 static void dispatchAttention(id<MTLComputeCommandEncoder> encoder, TiledAttentionShape shape,
@@ -4700,13 +4798,13 @@ static void dispatchAttention(id<MTLComputeCommandEncoder> encoder, TiledAttenti
 }
 
 static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
-    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6);
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6, cmd[pos + 1]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]));
+    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]), shape.width);
     if (pipelines.forward == nil) throw std::runtime_error("Attention dtype unavailable on this GPU");
     [encoder setComputePipelineState:pipelines.forward];
     bindAttentionValues(encoder, cmd + pos + 1, shape);
-    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64) offset:0 atIndex:3];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:3];
     bindValue(encoder, shape.params, 4);
     [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * 2) offset:0 atIndex:5];
     dispatchAttention(encoder, shape, 32, 128, shape.heads);
@@ -4714,9 +4812,10 @@ static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
 
 static void encodeAttentionDelta(GraphState& state, const jint* cmd, int pos, TiledAttentionShape shape) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    [encoder setComputePipelineState:state.ctx->attentionDeltaPSO];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64) offset:0 atIndex:0];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * 64) offset:0 atIndex:1];
+    [encoder setComputePipelineState:shape.width == 64 ? state.ctx->attentionDeltaPSO
+        : wideAttentionPipelines(state.ctx).delta];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:0];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:1];
     [encoder setBuffer:attentionBuffer(cmd[pos + 7], shape.rows) offset:0 atIndex:2];
     [encoder dispatchThreadgroups:MTLSizeMake(1, shape.rows, 1)
            threadsPerThreadgroup:MTLSizeMake(32, 1, 1)];
@@ -4725,26 +4824,26 @@ static void encodeAttentionDelta(GraphState& state, const jint* cmd, int pos, Ti
 static void bindAttentionBackward(id<MTLComputeCommandEncoder> encoder, const jint* ids,
                                    TiledAttentionShape shape) {
     bindAttentionValues(encoder, ids + 1, shape);
-    [encoder setBuffer:attentionBuffer(ids[5], (NSUInteger)shape.rows * 64) offset:0 atIndex:3];
+    [encoder setBuffer:attentionBuffer(ids[5], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:3];
     [encoder setBuffer:attentionBuffer(ids[6], (NSUInteger)shape.rows * 2) offset:0 atIndex:4];
     [encoder setBuffer:attentionBuffer(ids[7], shape.rows) offset:0 atIndex:5];
 }
 
 static void encodeTiledAttentionBackward(GraphState& state, const jint* cmd, int pos) {
-    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11);
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11, cmd[pos + 1]);
     encodeAttentionDelta(state, cmd, pos, shape);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     bindAttentionBackward(encoder, cmd + pos, shape);
-    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]));
+    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]), shape.width);
     if (pipelines.query == nil) throw std::runtime_error("Attention dtype unavailable on this GPU");
     [encoder setComputePipelineState:pipelines.query];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 8], (NSUInteger)shape.rows * 64) offset:0 atIndex:6];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 8], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:6];
     bindValue(encoder, shape.params, 7);
     dispatchAttention(encoder, shape, 16, 64, shape.heads);
     [encoder setComputePipelineState:pipelines.keyValue];
     NSUInteger keyValueRows = (NSUInteger)shape.keyValueHeads * shape.params.length;
-    [encoder setBuffer:attentionBuffer(cmd[pos + 9], keyValueRows * 64) offset:0 atIndex:6];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 10], keyValueRows * 64) offset:0 atIndex:7];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 9], keyValueRows * shape.width) offset:0 atIndex:6];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 10], keyValueRows * shape.width) offset:0 atIndex:7];
     bindValue(encoder, shape.params, 8);
     dispatchAttention(encoder, shape, 16, 64, shape.keyValueHeads);
 }

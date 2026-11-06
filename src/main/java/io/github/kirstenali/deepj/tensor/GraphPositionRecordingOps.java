@@ -31,6 +31,11 @@ abstract class GraphPositionRecordingOps extends GraphCrossEntropyRecordingOps {
     }
 
     public Tensor layoutRotary(Tensor input, Tensor cosine, Tensor sine, int length, boolean inverse) {
+        return layoutRotary(input, cosine, sine, length, inverse, false);
+    }
+
+    public Tensor layoutRotary(Tensor input, Tensor cosine, Tensor sine, int length,
+                                boolean inverse, boolean halfSplit) {
         MatrixShapeChecks.requireRotary(input, cosine, sine, length);
         Tensor[] sources = {input, cosine, sine};
         for (Tensor source : sources) { TensorStorage.requireSource(source); }
@@ -38,11 +43,11 @@ abstract class GraphPositionRecordingOps extends GraphCrossEntropyRecordingOps {
         requireLayoutSupport();
         GpuBuffer[] values = storageBuffers(sources);
         Tensor result = output(input.dtype(), input.shape());
-        rotaryCommand(sources, values, result, length, inverse);
+        rotaryCommand(sources, values, result, length, (inverse ? 1 : 0) | (halfSplit ? 2 : 0));
         return result;
     }
 
-    private void rotaryCommand(Tensor[] sources, GpuBuffer[] values, Tensor result, int length, boolean inverse) {
+    private void rotaryCommand(Tensor[] sources, GpuBuffer[] values, Tensor result, int length, int flags) {
         int[] offsets = layoutOffsets(sources);
         beginOp(10);
         emitInt(OP_LAYOUT_ROTARY);
@@ -50,7 +55,7 @@ abstract class GraphPositionRecordingOps extends GraphCrossEntropyRecordingOps {
         emitStorageBuffer((GpuBuffer) result.getGpuTag());
         for (int offset : offsets) { emitInt(offset); }
         emitInt(length);
-        emitInt(inverse ? 1 : 0);
+        emitInt(flags);
         endOp();
     }
 }
