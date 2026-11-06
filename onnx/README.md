@@ -9,7 +9,7 @@ This is a separate `deepj-onnx` artifact. Existing DeepJ model, checkpoint, CLI,
 Use Java 20 and install the DeepJ core from the same checkout before building the optional artifact:
 
 ```sh
-mvn -DskipTests install
+mvn install
 mvn -f onnx/pom.xml verify
 ```
 

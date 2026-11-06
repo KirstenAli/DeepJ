@@ -27,8 +27,8 @@ jobs:
           distribution: temurin
           java-version: '20'
           cache: maven
-      - name: Install the DeepJ core used by this checkout
-        run: mvn --batch-mode -DskipTests install
+      - name: Verify and install the DeepJ core used by this checkout
+        run: mvn --batch-mode install
       - name: Verify ONNX reference graphs, gradients, loader checks and code quality
         run: mvn --batch-mode -f onnx/pom.xml verify
       - uses: actions/upload-artifact@v4
@@ -48,8 +48,8 @@ jobs:
           distribution: temurin
           java-version: '20'
           cache: maven
-      - name: Install the DeepJ core used by this checkout
-        run: mvn --batch-mode -DskipTests install
+      - name: Verify and install the DeepJ core used by this checkout
+        run: mvn --batch-mode install
       - name: Require the physical Metal backend
         run: mvn --batch-mode -f onnx/pom.xml -Donnx.test.metal=true verify
       - uses: actions/upload-artifact@v4
