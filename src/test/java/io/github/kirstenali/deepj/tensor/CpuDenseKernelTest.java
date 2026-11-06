@@ -39,7 +39,7 @@ class CpuDenseKernelTest {
 
     @Test
     void denseSwiGluForwardAndAdjointsMatchIndependentScalarArithmetic() {
-        for (int[] shape : new int[][]{{}, {8193}, {3, 1, 2731}, {1, 3, 1, 2731}, {0, 3}}) {
+        for (int[] shape : new int[][]{{}, {8193}, {64, 129}, {3, 1, 2731}, {1, 3, 1, 2731}, {0, 3}}) {
             Tensor gate = input(shape, 3), up = input(shape, 4), gradient = input(shape, 5);
             assertSwiGlu(gate, up, gradient);
         }

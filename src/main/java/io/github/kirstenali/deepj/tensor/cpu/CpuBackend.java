@@ -4,7 +4,7 @@ import io.github.kirstenali.deepj.tensor.*;
 
 public final class CpuBackend extends CpuTrainingOps {
     @Override public Tensor causalSoftmax(Tensor input, int length, float scale) {
-        return CpuNdElementwise.matrix(input) ? super.causalSoftmax(input, length, scale)
+        return CpuNdElementwise.matrix(input) ? CpuCausalSoftmax.apply(input, length, scale)
                 : CpuNdPosition.softmax(input, length, scale);
     }
 
@@ -26,14 +26,29 @@ public final class CpuBackend extends CpuTrainingOps {
                 : PackedLayouts.merge(this, input, heads);
     }
 
+    @Override public Tensor matmul(Tensor left, Tensor right) {
+        Tensor result = CpuMatmul.attempt(left, right);
+        return result == null ? super.matmul(left, right) : result;
+    }
+
     @Override public Tensor batchedMatmul(Tensor left, Tensor right, int batches, boolean ta, boolean tb) {
+        Tensor result = CpuPackedProduct.attempt(left, right, batches, ta, tb);
+        if (result != null) return result;
         return CpuNdElementwise.matrix(left) && CpuNdElementwise.matrix(right)
                 ? super.batchedMatmul(left, right, batches, ta, tb)
                 : PackedLayouts.matmul(this, left, right, batches, ta, tb);
     }
 
+    @Override public Tensor headPrefixMatmul(Tensor left, Tensor cache, int heads, int length, boolean transpose) {
+        return CpuHeadPrefixProduct.apply(this, left, cache, heads, length, transpose);
+    }
+
     @Override public void copyInto(Tensor target, Tensor source) { CpuNdAssignment.apply(target, source); }
-    @Override public Tensor zeros(DType dtype, int... shape) { return new Tensor(dtype, shape); }
+    @Override public Tensor zeros(DType dtype, int... shape) { return CpuMatrixStorage.zeros(dtype, shape); }
+
+    @Override public Tensor zerosForLoading(DType dtype, int... shape) {
+        return CpuMatrixStorage.zerosForLoading(dtype, shape);
+    }
 
     @Override public Tensor cast(Tensor input, DType dtype) { return CpuNdElementwise.cast(input, dtype); }
 
@@ -98,10 +113,6 @@ public final class CpuBackend extends CpuTrainingOps {
     }
 
     @Override public RmsNormResult rmsNorm(Tensor input, Tensor gamma, float epsilon) {
-        NormalizationChecks.forward(input, gamma, null, epsilon, false);
-        if (CpuNdElementwise.matrix(input) && CpuNdElementwise.matrix(gamma)) {
-            return super.rmsNorm(input, gamma, epsilon);
-        }
         var result = normalize(input, gamma, null, epsilon, false);
         return new RmsNormResult(result.output(), result.normalized(), result.denominator());
     }
@@ -113,14 +124,10 @@ public final class CpuBackend extends CpuTrainingOps {
     }
 
     @Override public Tensor swiGlu(Tensor gate, Tensor up) {
-        Tensor.requireSameShape(gate, up, "SwiGLU");
-        return CpuNdElementwise.sameMatrices(gate, up) ? super.swiGlu(gate, up) : CpuNdSwiGlu.apply(gate, up);
+        return CpuNdSwiGlu.apply(gate, up);
     }
 
     @Override public SwiGluBackwardResult swiGluBackward(Tensor gradient, Tensor gate, Tensor up) {
-        Tensor.requireSameShape(gate, up, "SwiGLU");
-        Tensor.requireSameShape(gate, gradient, "SwiGLU gradient");
-        return CpuNdElementwise.sameMatrices(gate, up) && CpuNdElementwise.sameMatrices(gate, gradient)
-                ? super.swiGluBackward(gradient, gate, up) : CpuNdSwiGlu.backward(gradient, gate, up);
+        return CpuNdSwiGlu.backward(gradient, gate, up);
     }
 }

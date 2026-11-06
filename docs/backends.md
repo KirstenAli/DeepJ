@@ -6,8 +6,9 @@ first-order gradients.
 
 ## Backend selection
 
-The default backend is `CpuBackend`, implemented in Java. `Tensor.setBackend(...)`
-selects a backend globally. For explicit Metal execution, check
+The default backend is `CpuBackend`, with portable Java kernels and optional native
+CPU matrix acceleration on Apple Silicon running macOS 15 or newer.
+`Tensor.setBackend(...)` selects a backend globally. For explicit Metal execution, check
 `MetalBackend.isAvailable()` and select a `MetalBackend` before constructing the
 model and tensors. Explicit Metal construction fails when a device is unavailable.
 
@@ -18,6 +19,37 @@ backend selection; constructing a generic network does not select Metal automati
 Backend selection is part of tensor ownership. Do not switch backends between forward
 and backward or while GPU-backed model state is in use. A backward graph verifies
 that it is executed on the backend that recorded it.
+
+## CPU matrix execution
+
+On supported Apple Silicon Macs, large FLOAT32 products use Accelerate BLAS.
+FLOAT16 and BFLOAT16 weights use CPU SIMD kernels with FLOAT32 accumulation;
+multi-position products convert bounded tiles for BLAS. Small and unsupported
+products retain Java execution. This CPU library loads independently of Metal and
+falls back to Java if unavailable. `-Ddeepj.cpu.javaOnly=true` disables it for a JVM.
+
+Large compact matrices allocated through `CpuBackend.zeros(...)` can use column-major
+storage for contiguous dot products. Checkpoint slots allocated through
+`ParameterFactory.forLoading()` also use this layout for large FLOAT32 projections.
+Tall lookup tables retain row-major storage. Ordinary FLOAT32 zero tensors, gradient
+buffers and randomly initialized parameters retain their contiguous layout.
+Logical shapes, values, dtype promotion, gradients and checkpoint order stay the same;
+use tensor accessors rather than assuming a physical layout. `Tensor.zeros(...)`
+continues to create contiguous tensors. No expanded weight cache is retained.
+
+Compact tiles use `DeepJExecutor`; Accelerate manages its own CPU threads. Disabling
+DeepJ parallel execution, or selecting one thread, selects serial BLAS calls.
+`VECLIB_MAXIMUM_THREADS` can cap Accelerate threads before starting the JVM.
+Single CPU work items execute locally, avoiding an unnecessary worker handoff.
+
+The packaged CPU library can be rebuilt independently of Metal:
+
+```bash
+JAVA_HOME="$(/usr/libexec/java_home -v 20)" bash native/build-cpu-macos.sh
+```
+
+See [CPU performance measurements](cpu-performance.md) for the benchmark setup,
+results and precision policies.
 
 ## Shared network operations
 

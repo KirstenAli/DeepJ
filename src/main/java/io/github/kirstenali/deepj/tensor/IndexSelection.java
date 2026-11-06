@@ -22,6 +22,7 @@ final class IndexSelection {
 
     TensorShape output() { return output; }
     int axis() { return axis; }
+    int indexAt(int index) { return indices[index]; }
 
     int sourceIndex(int outputIndex) {
         long row = outputIndex / trailing;

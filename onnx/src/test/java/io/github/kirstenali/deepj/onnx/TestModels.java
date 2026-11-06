@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,7 +9,8 @@ final class TestModels {
     private TestModels() {}
 
     static Onnx.ModelProto fixture(String name) throws IOException {
-        return Onnx.ModelProto.parseFrom(Files.readAllBytes(ReferenceFixturesTest.FIXTURES.resolve(name + ".onnx")));
+        return Onnx.ModelProto.parseFrom(
+                Files.readAllBytes(ReferenceFixturesTest.FIXTURES.resolve(name + ".onnx")));
     }
 
     static Path write(Path directory, Onnx.ModelProto model) throws IOException {
@@ -20,10 +20,17 @@ final class TestModels {
     }
 
     static Onnx.ModelProto graph(Onnx.NodeProto node, int type, long... dimensions) {
-        var graph = Onnx.GraphProto.newBuilder().setName("test").addNode(node).addInput(value("X", type, dimensions))
+        var graph =
+                Onnx.GraphProto.newBuilder()
+                        .setName("test")
+                        .addNode(node)
+                        .addInput(value("X", type, dimensions))
                         .addOutput(value("Y", type, dimensions));
-        return Onnx.ModelProto.newBuilder().setIrVersion(10).setGraph(graph)
-                .addOpsetImport(Onnx.OperatorSetIdProto.newBuilder().setDomain("").setVersion(18)).build();
+        return Onnx.ModelProto.newBuilder()
+                .setIrVersion(10)
+                .setGraph(graph)
+                .addOpsetImport(Onnx.OperatorSetIdProto.newBuilder().setDomain("").setVersion(18))
+                .build();
     }
 
     static Onnx.ValueInfoProto value(String name, int type, long... dimensions) {
@@ -32,7 +39,9 @@ final class TestModels {
             shape.addDim(Onnx.TensorShapeProto.Dimension.newBuilder().setDimValue(dimension));
         }
         var tensor = Onnx.TypeProto.Tensor.newBuilder().setElemType(type).setShape(shape);
-        return Onnx.ValueInfoProto.newBuilder().setName(name).setType(Onnx.TypeProto.newBuilder().setTensorType(tensor))
+        return Onnx.ValueInfoProto.newBuilder()
+                .setName(name)
+                .setType(Onnx.TypeProto.newBuilder().setTensorType(tensor))
                 .build();
     }
 
@@ -41,7 +50,14 @@ final class TestModels {
     }
 
     static Onnx.AttributeProto integer(String name, long value) {
-        return Onnx.AttributeProto.newBuilder().setName(name).setType(Onnx.AttributeProto.AttributeType.INT).setI(value)
+        return Onnx.AttributeProto.newBuilder()
+                .setName(name)
+                .setType(Onnx.AttributeProto.AttributeType.INT)
+                .setI(value)
                 .build();
+    }
+
+    static Onnx.OperatorSetIdProto opset(String domain, long version) {
+        return Onnx.OperatorSetIdProto.newBuilder().setDomain(domain).setVersion(version).build();
     }
 }

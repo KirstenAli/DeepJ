@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -11,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -32,15 +32,18 @@ final class OnnxSchemas {
             problems.add("Invalid input/output count for ONNX " + node.getOpType());
         }
         var supplied = supplied(node, problems);
-        contract.attributes.forEach((name, attribute) -> attribute.check(name, supplied.get(name), problems));
-        supplied.forEach((name, value) -> {
+        contract.attributes.forEach(
+                (name, attribute) -> attribute.check(name, supplied.get(name), problems));
+        supplied.forEach(
+                (name, value) -> {
                     if (!contract.attributes.containsKey(name))
                         problems.add("Invalid opset attribute " + name);
                 });
         requiredInputs(node, contract, problems);
     }
 
-    private static void requiredInputs(Onnx.NodeProto node, Contract contract, List<String> problems) {
+    private static void requiredInputs(
+            Onnx.NodeProto node, Contract contract, List<String> problems) {
         for (int i = 0; i < contract.formals.size(); i++) {
             if (contract.formals.get(i).option == 0
                     && (i >= node.getInputCount() || node.getInput(i).isEmpty())) {
@@ -69,8 +72,10 @@ final class OnnxSchemas {
     private static Map<String, NavigableMap<Long, Contract>> read() {
         var result = new HashMap<String, NavigableMap<Long, Contract>>();
         try (var stream = OnnxSchemas.class.getResourceAsStream("schemas.tsv");
-                var reader = new BufferedReader(new InputStreamReader(java.util.Objects.requireNonNull(stream),
-                                        StandardCharsets.UTF_8))) {
+                var reader =
+                        new BufferedReader(
+                                new InputStreamReader(
+                                        Objects.requireNonNull(stream), StandardCharsets.UTF_8))) {
             for (String line : reader.lines().filter(l -> !l.startsWith("#")).toList()) {
                 String[] values = line.split("\\t", -1);
                 result.computeIfAbsent(values[0], ignored -> new TreeMap<>())
@@ -83,22 +88,17 @@ final class OnnxSchemas {
     }
 
     private static Contract contract(String[] values) {
-        var attributes = new HashMap<String, Attribute>();
-        for (String entry : entries(values[6], ",")) {
-            String[] fields = entry.split(":");
-            attributes.put(fields[0], new Attribute(Integer.parseInt(fields[1]), fields[2].equals("1")));
-        }
-        var formals = new ArrayList<Formal>();
-        for (String entry : entries(values[7], ";")) {
-            String[] fields = entry.split(":", -1);
-            Set<Integer> types = entries(fields[2], ",").stream().map(Integer::valueOf).collect(Collectors.toSet());
-            formals.add(new Formal(fields[0], Integer.parseInt(fields[1]), types, fields[3].equals("1")));
-        }
-        return new Contract(new Count(values[2], values[3]), new Count(values[4], values[5]), attributes, formals);
+        return new Contract(
+                new Count(values[2], values[3]),
+                new Count(values[4], values[5]),
+                schemaAttributes(values[6]),
+                schemaFormals(values[7]));
     }
 
     private static List<String> entries(String text, String delimiter) {
-        return text.isEmpty() || text.equals("-") ? List.of() : Arrays.asList(text.split(delimiter));
+        return text.isEmpty() || text.equals("-")
+                ? List.of()
+                : Arrays.asList(text.split(delimiter));
     }
 
     private record Count(int minimum, int maximum) {
@@ -111,7 +111,8 @@ final class OnnxSchemas {
         }
     }
 
-    private record Contract(Count inputs, Count outputs, Map<String, Attribute> attributes, List<Formal> formals) {}
+    private record Contract(
+            Count inputs, Count outputs, Map<String, Attribute> attributes, List<Formal> formals) {}
 
     private record Attribute(int type, boolean required) {
         void check(String name, Onnx.AttributeProto value, List<String> problems) {
@@ -124,7 +125,8 @@ final class OnnxSchemas {
     private record Formal(String variable, int option, Set<Integer> types, boolean homogeneous) {
         void check(int type, Map<String, Integer> bound) {
             if (!types.contains(type))
-                throw new IllegalArgumentException("Invalid ONNX input type " + type + " for " + variable);
+                throw new IllegalArgumentException(
+                        "Invalid ONNX input type " + type + " for " + variable);
             if (!homogeneous) return;
             Integer previous = bound.putIfAbsent(variable, type);
             if (previous != null && previous != type)
@@ -132,7 +134,8 @@ final class OnnxSchemas {
         }
     }
 
-    private static Map<String, Onnx.AttributeProto> supplied(Onnx.NodeProto node, List<String> problems) {
+    private static Map<String, Onnx.AttributeProto> supplied(
+            Onnx.NodeProto node, List<String> problems) {
         var result = new HashMap<String, Onnx.AttributeProto>();
         for (var attribute : node.getAttributeList()) {
             if (result.putIfAbsent(attribute.getName(), attribute) != null) {
@@ -140,5 +143,30 @@ final class OnnxSchemas {
             }
         }
         return result;
+    }
+
+    private static Map<String, Attribute> schemaAttributes(String text) {
+        var attributes = new HashMap<String, Attribute>();
+        for (String entry : entries(text, ",")) {
+            String[] fields = entry.split(":");
+            attributes.put(
+                    fields[0], new Attribute(Integer.parseInt(fields[1]), fields[2].equals("1")));
+        }
+        return attributes;
+    }
+
+    private static List<Formal> schemaFormals(String text) {
+        var formals = new ArrayList<Formal>();
+        for (String entry : entries(text, ";")) {
+            String[] fields = entry.split(":", -1);
+            Set<Integer> types =
+                    entries(fields[2], ",").stream()
+                            .map(Integer::valueOf)
+                            .collect(Collectors.toSet());
+            formals.add(
+                    new Formal(
+                            fields[0], Integer.parseInt(fields[1]), types, fields[3].equals("1")));
+        }
+        return formals;
     }
 }

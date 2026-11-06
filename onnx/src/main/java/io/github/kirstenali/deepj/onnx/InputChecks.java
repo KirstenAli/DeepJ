@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
-
 import java.util.Map;
 
 final class InputChecks {
@@ -22,7 +21,8 @@ final class InputChecks {
         }
     }
 
-    private static void dimension(Onnx.TensorShapeProto.Dimension dimension, int actual, Map<String, Integer> symbols) {
+    private static void dimension(
+            Onnx.TensorShapeProto.Dimension dimension, int actual, Map<String, Integer> symbols) {
         if (dimension.hasDimValue() && dimension.getDimValue() != actual) {
             throw new IllegalArgumentException("ONNX input dimension differs from declaration");
         }

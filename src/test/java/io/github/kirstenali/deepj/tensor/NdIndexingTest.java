@@ -31,6 +31,18 @@ class NdIndexingTest {
         assertEquals(6, output.storageBytes());
     }
 
+    @Test void contiguousOuterSelectionCopiesOffsetCompactBlocksWithoutConvertingNanPayloads() {
+        for (DType dtype : new DType[]{DType.FLOAT16, DType.BFLOAT16}) {
+            Tensor input = new Tensor(dtype, 4, 1, 2);
+            short[] bits = {(short) 0x7c01, (short) 0x8000, (short) 0xff81, 1, 2, 3, 4, 5};
+            System.arraycopy(bits, 0, input.memory().shorts(), 0, bits.length);
+            Tensor output = input.slice(0, 1, 4).indexSelect(0, 2, 0, 2);
+            assertArrayEquals(new short[]{4, 5, bits[2], bits[3], 4, 5}, output.memory().shorts());
+            assertArrayEquals(bits, input.memory().shorts());
+            assertEquals(0, input.indexSelect(1).numel());
+        }
+    }
+
     @Test
     void repeatedIndexedUpdatesAccumulateWithoutCrossingOuterExamples() {
         Tensor target = new Tensor(2, 3, 2);

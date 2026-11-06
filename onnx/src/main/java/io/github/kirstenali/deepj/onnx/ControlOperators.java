@@ -1,46 +1,63 @@
 package io.github.kirstenali.deepj.onnx;
 
+import io.github.kirstenali.deepj.onnx.proto.Onnx;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
-
 import java.util.List;
 import java.util.Map;
 
 final class ControlOperators {
     private ControlOperators() {}
 
-    static void register(OnnxRegistry r) {
-        r.add("If", 1, "then_branch else_branch", ControlOperators::conditional);
-        r.add("Loop", 1, "body", ControlOperators::loop);
+    static void register(OnnxRegistry registry) {
+        registry.add("If", 1, "then_branch else_branch", ControlOperators::conditional);
+        registry.add("Loop", 1, "body", ControlOperators::loop);
     }
 
-    private static List<OnnxValue> conditional(OnnxContext c) {
-        if (c.input(0).elementType() != 9)
+    private static List<OnnxValue> conditional(OnnxContext context) {
+        if (context.input(0).elementType() != 9)
             throw new IllegalArgumentException("If requires BOOL condition");
-        return c.session.run(c.graph(c.input(0).scalar() == 0 ? "else_branch" : "then_branch"), Map.of(), c.values);
+        return context.session.run(
+                context.graph(context.input(0).scalar() == 0 ? "else_branch" : "then_branch"),
+                Map.of(),
+                context.values);
     }
 
-    private static List<OnnxValue> loop(OnnxContext c) {
-        return new LoopExecution(c).run();
+    private static List<OnnxValue> loop(OnnxContext context) {
+        return new LoopExecution(context).run();
     }
 
-    static OnnxValue stackScan(List<OnnxValue> values, OnnxContext c, int index) {
-        if (!values.isEmpty()) {
-            var expanded = values.stream().map(v -> ValueOps.reshape(v, ValueOps.join(new int[] {1}, v.shape())))
-                            .toList();
-            return ValueOps.concatenate(expanded, 0);
+    static OnnxValue stackScan(List<OnnxValue> values, OnnxContext context, int index) {
+        if (values.isEmpty()) return emptyScan(context, index);
+        var expanded =
+                values.stream()
+                        .map(
+                                value ->
+                                        ValueOps.reshape(
+                                                value, ValueOps.join(new int[] {1}, value.shape())))
+                        .toList();
+        return ValueOps.concatenate(expanded, 0);
+    }
+
+    private static OnnxValue emptyScan(OnnxContext context, int index) {
+        int state = context.inputCount() - 2;
+        var type = context.graph("body").getOutput(1 + state + index).getType().getTensorType();
+        int[] shape = ValueOps.join(new int[] {0}, declaredDimensions(type.getShape()));
+        if (OnnxTensors.floating(type.getElemType())) {
+            return CastOperators.cast(
+                    OnnxValue.of(Tensor.zeros(DType.FLOAT32, shape)), type.getElemType());
         }
-        int state = c.inputCount() - 2;
-        var type = c.graph("body").getOutput(1 + state + index).getType().getTensorType();
-        int[] shape = ValueOps.join(new int[] {0}, type.getShape().getDimList().stream().mapToInt(d -> {
-                                            if (!d.hasDimValue())
-                                                throw new IllegalArgumentException(
-                                                        "Zero-iteration scan needs declared output"
-                                                                + " dimensions");
-                                            return Math.toIntExact(d.getDimValue());
-                                        }).toArray());
-        if (OnnxTensors.floating(type.getElemType()))
-            return CastOperators.cast(OnnxValue.of(
-                            Tensor.zeros(io.github.kirstenali.deepj.tensor.DType.FLOAT32, shape)), type.getElemType());
         return OnnxValue.host(new long[0], shape, type.getElemType());
+    }
+
+    private static int[] declaredDimensions(Onnx.TensorShapeProto shape) {
+        return shape.getDimList().stream().mapToInt(ControlOperators::declaredDimension).toArray();
+    }
+
+    private static int declaredDimension(Onnx.TensorShapeProto.Dimension dimension) {
+        if (!dimension.hasDimValue())
+            throw new IllegalArgumentException(
+                    "Zero-iteration scan needs declared output dimensions");
+        return Math.toIntExact(dimension.getDimValue());
     }
 }

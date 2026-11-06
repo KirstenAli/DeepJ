@@ -3,15 +3,10 @@ package io.github.kirstenali.deepj.onnx;
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 final class OnnxTensors {
     private OnnxTensors() {}
@@ -34,7 +29,9 @@ final class OnnxTensors {
         if (length > options.maxWeightBytes())
             throw new IOException("ONNX tensor exceeds weight budget");
         ByteBuffer raw = payload(tensor, directory, length);
-        return floating(type) ? floating(tensor, raw, shape, count) : integer(tensor, raw, shape, count);
+        return floating(type)
+                ? floating(tensor, raw, shape, count)
+                : integer(tensor, raw, shape, count);
     }
 
     static boolean floating(int type) {
@@ -53,7 +50,7 @@ final class OnnxTensors {
     private static ByteBuffer payload(Onnx.TensorProto tensor, Path directory, long length)
             throws IOException {
         if (tensor.getDataLocation() == Onnx.TensorProto.DataLocation.EXTERNAL) {
-            return external(tensor, directory, length);
+            return ExternalTensorData.read(tensor, directory, length);
         }
         if (tensor.getRawData().isEmpty()) return null;
         if (tensor.getRawData().size() != length)
@@ -61,60 +58,29 @@ final class OnnxTensors {
         return tensor.getRawData().asReadOnlyByteBuffer().order(ByteOrder.LITTLE_ENDIAN);
     }
 
-    private static ByteBuffer external(Onnx.TensorProto tensor, Path directory, long length)
-            throws IOException {
-        Map<String, String> data = tensor.getExternalDataList().stream().collect(Collectors.toMap(
-                                        Onnx.StringStringEntryProto::getKey, Onnx.StringStringEntryProto::getValue));
-        Path file = externalPath(directory, data.get("location"));
-        long offset = Long.parseLong(data.getOrDefault("offset", "0"));
-        long declared = Long.parseLong(data.getOrDefault("length", Long.toString(length)));
-        if (offset < 0 || declared != length)
-            throw new IOException("Invalid ONNX external tensor range");
-        try (var channel = FileChannel.open(file, StandardOpenOption.READ)) {
-            if (Math.addExact(offset, length) > channel.size())
-                throw new IOException("Truncated ONNX external tensor");
-            ByteBuffer buffer = ByteBuffer.allocate(Math.toIntExact(length)).order(ByteOrder.LITTLE_ENDIAN);
-            channel.position(offset);
-            while (buffer.hasRemaining()) {
-                if (channel.read(buffer) < 0)
-                    throw new IOException("Truncated ONNX external tensor");
-            }
-            return buffer.flip();
-        }
-    }
-
-    private static Path externalPath(Path directory, String location) throws IOException {
-        if (location == null || Path.of(location).isAbsolute())
-            throw new IOException("Invalid external data location");
-        for (Path component : Path.of(location)) {
-            if (component.toString().equals(".."))
-                throw new IOException("External ONNX data cannot use parent paths");
-        }
-        Path base = directory.toRealPath(), file = base.resolve(location).normalize().toRealPath();
-        if (!file.startsWith(base))
-            throw new IOException("External ONNX data escapes the model directory");
-        return file;
-    }
-
     private static OnnxValue floating(
             Onnx.TensorProto tensor, ByteBuffer raw, int[] shape, int count) throws IOException {
         int type = tensor.getDataType();
         if (raw == null)
-            requireCount(type == 1 ? tensor.getFloatDataCount() : tensor.getInt32DataCount(), count);
+            requireCount(
+                    type == 1 ? tensor.getFloatDataCount() : tensor.getInt32DataCount(), count);
         float[] data = new float[count];
         for (int i = 0; i < count; i++) {
             data[i] = floatingAt(tensor, raw, i);
         }
         DType dtype = type == 1 ? DType.FLOAT32 : type == 10 ? DType.FLOAT16 : DType.BFLOAT16;
         Tensor source = Tensor.from(data, dtype, shape);
-        Tensor value = Tensor.backend().usesDeviceStorage() ? Tensor.backend().copy(source) : source;
+        Tensor value =
+                Tensor.backend().usesDeviceStorage() ? Tensor.backend().copy(source) : source;
         return OnnxValue.of(value.requiresGrad(false).retainDeviceBuffer());
     }
 
     private static float floatingAt(Onnx.TensorProto tensor, ByteBuffer raw, int i) {
         if (tensor.getDataType() == 1) return raw == null ? tensor.getFloatData(i) : raw.getFloat();
         short bits = raw == null ? (short) tensor.getInt32Data(i) : raw.getShort();
-        return tensor.getDataType() == 10 ? Float.float16ToFloat(bits) : Float.intBitsToFloat((bits & 65535) << 16);
+        return tensor.getDataType() == 10
+                ? Float.float16ToFloat(bits)
+                : Float.intBitsToFloat((bits & 65535) << 16);
     }
 
     private static OnnxValue integer(

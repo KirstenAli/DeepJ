@@ -12,10 +12,19 @@ final class CpuDenseSwiGlu {
     }
 
     private static void forwardValues(CpuFloatSpan gate, CpuFloatSpan up, CpuFloatSpan output, int first, int last) {
+        if (nativeForward(gate, up, output, first, last)) return;
         for (int index = first; index < last; index++) {
             float value = gate.get(index);
             output.set(index, value * sigmoid(value) * up.get(index));
         }
+    }
+
+    private static boolean nativeForward(CpuFloatSpan gate, CpuFloatSpan up, CpuFloatSpan output,
+                                         int first, int last) {
+        if (last - first < 256 || !CpuBlas.AVAILABLE) return false;
+        if (output.values() == gate.values() || output.values() == up.values()) return false;
+        return CpuBlas.swiGlu(gate.values(), gate.offset() + first, up.values(), up.offset() + first,
+                output.values(), output.offset() + first, last - first);
     }
 
     static void backward(Tensor gradient, Tensor gate, Tensor up, SwiGluBackwardResult result) {

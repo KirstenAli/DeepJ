@@ -1,19 +1,20 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
-
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Expands model-local functions without changing graph or parameter names. */
 final class OnnxFunctions {
     private final Map<String, Onnx.FunctionProto> functions = new HashMap<>();
     private final Map<String, Long> versions = new LinkedHashMap<>();
     private int serial;
-    private final java.util.Set<String> occupied = new java.util.HashSet<>();
+    private final Set<String> occupied = new HashSet<>();
 
     private OnnxFunctions(Onnx.ModelProto model) {
         versions.putAll(OnnxLoader.opsets(model));
@@ -30,15 +31,23 @@ final class OnnxFunctions {
 
     static Onnx.ModelProto expand(Onnx.ModelProto model) {
         var expander = new OnnxFunctions(model);
-        var result = model.toBuilder().setGraph(expander.graph(model.getGraph(), Map.of(), Map.of(), 0));
+        var result =
+                model.toBuilder().setGraph(expander.graph(model.getGraph(), Map.of(), Map.of(), 0));
         result.clearOpsetImport().clearFunctions();
-        expander.versions.forEach((domain, version) -> result.addOpsetImport(Onnx.OperatorSetIdProto.newBuilder()
-                                        .setDomain(domain).setVersion(version)));
+        expander.versions.forEach(
+                (domain, version) ->
+                        result.addOpsetImport(
+                                Onnx.OperatorSetIdProto.newBuilder()
+                                        .setDomain(domain)
+                                        .setVersion(version)));
         return result.build();
     }
 
-    private Onnx.GraphProto graph(Onnx.GraphProto graph, Map<String, String> names,
-            Map<String, Onnx.AttributeProto> attributes, int depth) {
+    private Onnx.GraphProto graph(
+            Onnx.GraphProto graph,
+            Map<String, String> names,
+            Map<String, Onnx.AttributeProto> attributes,
+            int depth) {
         var result = renameGraph(graph, names).clearNode();
         for (var node : graph.getNodeList()) {
             for (var expanded : node(rename(node, names, attributes, depth), depth)) {
@@ -66,7 +75,9 @@ final class OnnxFunctions {
 
     private void mergeVersions(Onnx.FunctionProto function) {
         for (var version : function.getOpsetImportList()) {
-            Long previous = versions.putIfAbsent(OnnxRegistry.domain(version.getDomain()), version.getVersion());
+            Long previous =
+                    versions.putIfAbsent(
+                            OnnxRegistry.domain(version.getDomain()), version.getVersion());
             if (previous != null && previous != version.getVersion()) {
                 throw new IllegalArgumentException(
                         "Conflicting opset versions in local function " + function.getName());
@@ -77,7 +88,8 @@ final class OnnxFunctions {
     private Map<String, String> names(Onnx.FunctionProto function, Onnx.NodeProto call) {
         if (call.getInputCount() != function.getInputCount()
                 || call.getOutputCount() != function.getOutputCount()) {
-            throw new IllegalArgumentException("Local function argument count differs: " + function.getName());
+            throw new IllegalArgumentException(
+                    "Local function argument count differs: " + function.getName());
         }
         String prefix = freshPrefix();
         var result = new HashMap<String, String>();
@@ -86,13 +98,15 @@ final class OnnxFunctions {
         }
         for (int i = 0; i < call.getOutputCount(); i++) {
             String name = function.getOutput(i);
-            result.putIfAbsent(name, call.getOutput(i).isEmpty() ? prefix + name : call.getOutput(i));
+            result.putIfAbsent(
+                    name, call.getOutput(i).isEmpty() ? prefix + name : call.getOutput(i));
         }
         function.getNodeList().forEach(n -> collectNames(n, result, prefix));
         return result;
     }
 
-    private static Map<String, Onnx.AttributeProto> attributes(Onnx.FunctionProto function, Onnx.NodeProto call) {
+    private static Map<String, Onnx.AttributeProto> attributes(
+            Onnx.FunctionProto function, Onnx.NodeProto call) {
         var result = new HashMap<String, Onnx.AttributeProto>();
         function.getAttributeProtoList().forEach(a -> result.put(a.getName(), a));
         call.getAttributeList().forEach(a -> result.put(a.getName(), a));
@@ -103,15 +117,21 @@ final class OnnxFunctions {
         return result;
     }
 
-    private Onnx.NodeProto rename(Onnx.NodeProto node, Map<String, String> names,
-            Map<String, Onnx.AttributeProto> attributes, int depth) {
+    private Onnx.NodeProto rename(
+            Onnx.NodeProto node,
+            Map<String, String> names,
+            Map<String, Onnx.AttributeProto> attributes,
+            int depth) {
         var result = node.toBuilder().clearInput().clearOutput().clearAttribute();
         node.getInputList().forEach(v -> result.addInput(names.getOrDefault(v, v)));
         node.getOutputList().forEach(v -> result.addOutput(names.getOrDefault(v, v)));
         for (var attribute : node.getAttributeList()) {
             var value = substitute(attribute, attributes);
             if (value.hasG())
-                value = value.toBuilder().setG(graph(value.getG(), names, attributes, depth)).build();
+                value =
+                        value.toBuilder()
+                                .setG(graph(value.getG(), names, attributes, depth))
+                                .build();
             if (value.getGraphsCount() != 0)
                 throw new IllegalArgumentException("Graph-list attributes are unsupported");
             result.addAttribute(value);
@@ -124,7 +144,8 @@ final class OnnxFunctions {
         if (attribute.getRefAttrName().isEmpty()) return attribute;
         var value = values.get(attribute.getRefAttrName());
         if (value == null)
-            throw new IllegalArgumentException("Unresolved function attribute " + attribute.getRefAttrName());
+            throw new IllegalArgumentException(
+                    "Unresolved function attribute " + attribute.getRefAttrName());
         return value.toBuilder().setName(attribute.getName()).clearRefAttrName().build();
     }
 
@@ -132,30 +153,46 @@ final class OnnxFunctions {
         return OnnxRegistry.domain(domain) + ":" + name + ":" + overload;
     }
 
-    private static Onnx.GraphProto.Builder renameGraph(Onnx.GraphProto graph, Map<String, String> names) {
-        var result = graph.toBuilder().clearInput().clearOutput().clearValueInfo().clearInitializer();
+    private static Onnx.GraphProto.Builder renameGraph(
+            Onnx.GraphProto graph, Map<String, String> names) {
+        var result =
+                graph.toBuilder().clearInput().clearOutput().clearValueInfo().clearInitializer();
         graph.getInputList().forEach(v -> result.addInput(renameValue(v, names)));
         graph.getOutputList().forEach(v -> result.addOutput(renameValue(v, names)));
         graph.getValueInfoList().forEach(v -> result.addValueInfo(renameValue(v, names)));
-        graph.getInitializerList().forEach(t -> result.addInitializer(t.toBuilder().setName(names.getOrDefault(
+        graph.getInitializerList()
+                .forEach(
+                        t ->
+                                result.addInitializer(
+                                        t.toBuilder()
+                                                .setName(
+                                                        names.getOrDefault(
                                                                 t.getName(), t.getName()))));
         return result;
     }
 
-    private static Onnx.ValueInfoProto renameValue(Onnx.ValueInfoProto value, Map<String, String> names) {
-        return value.toBuilder().setName(names.getOrDefault(value.getName(), value.getName())).build();
+    private static Onnx.ValueInfoProto renameValue(
+            Onnx.ValueInfoProto value, Map<String, String> names) {
+        return value.toBuilder()
+                .setName(names.getOrDefault(value.getName(), value.getName()))
+                .build();
     }
 
-    private static void collectNames(Onnx.NodeProto node, Map<String, String> names, String prefix) {
-        node.getOutputList().stream().filter(v -> !v.isEmpty()).forEach(v -> names.putIfAbsent(v, prefix + v));
+    private static void collectNames(
+            Onnx.NodeProto node, Map<String, String> names, String prefix) {
+        node.getOutputList().stream()
+                .filter(v -> !v.isEmpty())
+                .forEach(v -> names.putIfAbsent(v, prefix + v));
         for (var attribute : node.getAttributeList()) {
             if (attribute.hasG()) collectGraphNames(attribute.getG(), names, prefix);
         }
     }
 
-    private static void collectGraphNames(Onnx.GraphProto graph, Map<String, String> names, String prefix) {
+    private static void collectGraphNames(
+            Onnx.GraphProto graph, Map<String, String> names, String prefix) {
         graph.getInputList().forEach(v -> names.putIfAbsent(v.getName(), prefix + v.getName()));
-        graph.getInitializerList().forEach(t -> names.putIfAbsent(t.getName(), prefix + t.getName()));
+        graph.getInitializerList()
+                .forEach(t -> names.putIfAbsent(t.getName(), prefix + t.getName()));
         graph.getNodeList().forEach(n -> collectNames(n, names, prefix));
     }
 
@@ -171,12 +208,19 @@ final class OnnxFunctions {
         return occupied.stream().anyMatch(n -> n.startsWith(prefix));
     }
 
-    private static void appendAliases(List<Onnx.NodeProto> result, Onnx.FunctionProto function, Onnx.NodeProto call,
+    private static void appendAliases(
+            List<Onnx.NodeProto> result,
+            Onnx.FunctionProto function,
+            Onnx.NodeProto call,
             Map<String, String> names) {
         for (int i = 0; i < call.getOutputCount(); i++) {
             String source = names.get(function.getOutput(i)), target = call.getOutput(i);
             if (!target.isEmpty() && !target.equals(source)) {
-                result.add(Onnx.NodeProto.newBuilder().setOpType("Identity").addInput(source).addOutput(target)
+                result.add(
+                        Onnx.NodeProto.newBuilder()
+                                .setOpType("Identity")
+                                .addInput(source)
+                                .addOutput(target)
                                 .build());
             }
         }

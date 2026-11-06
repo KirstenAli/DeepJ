@@ -2,7 +2,6 @@ package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
 import io.github.kirstenali.deepj.tensor.TensorScope;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -12,6 +11,8 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 
 final class OnnxSession implements AutoCloseable {
     final OnnxOptions options;
@@ -21,9 +22,13 @@ final class OnnxSession implements AutoCloseable {
     private final Map<Onnx.TensorProto, OnnxValue> tensors = new IdentityHashMap<>();
     private final Map<Onnx.GraphProto, Map<String, OnnxValue>> constants = new IdentityHashMap<>();
     private long weightBytes;
-    private final Map<Onnx.NodeProto, java.util.Random> randoms = new IdentityHashMap<>();
+    private final Map<Onnx.NodeProto, Random> randoms = new IdentityHashMap<>();
 
-    OnnxSession(Path directory, OnnxOptions options, Map<String, Long> versions, OnnxRegistry registry) {
+    OnnxSession(
+            Path directory,
+            OnnxOptions options,
+            Map<String, Long> versions,
+            OnnxRegistry registry) {
         this.directory = directory;
         this.options = options;
         this.versions = versions;
@@ -56,7 +61,8 @@ final class OnnxSession implements AutoCloseable {
         if (tensors.containsKey(tensor)) return tensors.get(tensor);
         int[] shape = tensor.getDimsList().stream().mapToInt(Math::toIntExact).toArray();
         long elements = OnnxValue.elements(shape);
-        long width = OnnxTensors.floating(tensor.getDataType()) ? tensor.getDataType() == 1 ? 4 : 2 : 8;
+        long width =
+                OnnxTensors.floating(tensor.getDataType()) ? tensor.getDataType() == 1 ? 4 : 2 : 8;
         weightBytes = Math.addExact(weightBytes, Math.multiplyExact(elements, width));
         if (weightBytes > options.maxWeightBytes())
             throw new IOException("ONNX model exceeds weight budget");
@@ -65,8 +71,8 @@ final class OnnxSession implements AutoCloseable {
         return value;
     }
 
-    java.util.Random random(Onnx.NodeProto node, long seed) {
-        return randoms.computeIfAbsent(node, ignored -> new java.util.Random(seed));
+    Random random(Onnx.NodeProto node, long seed) {
+        return randoms.computeIfAbsent(node, ignored -> new Random(seed));
     }
 
     OnnxValue constant(Onnx.TensorProto tensor) {
@@ -77,7 +83,10 @@ final class OnnxSession implements AutoCloseable {
         }
     }
 
-    List<OnnxValue> run(Onnx.GraphProto graph, Map<String, OnnxValue> arguments, Map<String, OnnxValue> captures) {
+    List<OnnxValue> run(
+            Onnx.GraphProto graph,
+            Map<String, OnnxValue> arguments,
+            Map<String, OnnxValue> captures) {
         try (var scope = TensorScope.open()) {
             var environment = environment(graph, arguments, captures);
             var values = environment.values();
@@ -95,7 +104,9 @@ final class OnnxSession implements AutoCloseable {
         }
     }
 
-    private Environment environment(Onnx.GraphProto graph, Map<String, OnnxValue> arguments,
+    private Environment environment(
+            Onnx.GraphProto graph,
+            Map<String, OnnxValue> arguments,
             Map<String, OnnxValue> captures) {
         var values = new HashMap<>(captures);
         values.putAll(constants.getOrDefault(graph, Map.of()));
@@ -112,25 +123,29 @@ final class OnnxSession implements AutoCloseable {
             String domain = OnnxRegistry.domain(node.getDomain());
             var context = new OnnxContext(node, values, this, versions.get(domain));
             OnnxSchemas.validate(context);
-            List<OnnxValue> output = registry.find(domain, node.getOpType()).operator().apply(context);
+            List<OnnxValue> output =
+                    registry.find(domain, node.getOpType()).operator().apply(context);
             bind(node, output, values);
         } catch (RuntimeException failure) {
-            throw new IllegalArgumentException("ONNX "
+            throw new IllegalArgumentException(
+                    "ONNX "
                             + node.getOpType()
                             + " ["
                             + node.getName()
                             + "]: "
-                            + failure.getMessage(), failure);
+                            + failure.getMessage(),
+                    failure);
         }
     }
 
-    private static void bind(Onnx.NodeProto node, List<OnnxValue> output, Map<String, OnnxValue> values) {
+    private static void bind(
+            Onnx.NodeProto node, List<OnnxValue> output, Map<String, OnnxValue> values) {
         for (int i = 0; i < node.getOutputCount(); i++) {
             String name = node.getOutput(i);
             if (name.isEmpty()) continue;
             if (i >= output.size())
                 throw new IllegalArgumentException("Unsupported ONNX output position " + i);
-            if (values.putIfAbsent(name, java.util.Objects.requireNonNull(output.get(i))) != null) {
+            if (values.putIfAbsent(name, Objects.requireNonNull(output.get(i))) != null) {
                 throw new IllegalArgumentException("Duplicate ONNX output: " + name);
             }
         }
@@ -144,7 +159,9 @@ final class OnnxSession implements AutoCloseable {
 
     @Override
     public void close() {
-        tensors.values().stream().filter(OnnxValue::isFloating).forEach(v -> v.tensor().releaseDeviceBufferRetention());
+        tensors.values().stream()
+                .filter(OnnxValue::isFloating)
+                .forEach(v -> v.tensor().releaseDeviceBufferRetention());
         tensors.clear();
         constants.clear();
         randoms.clear();

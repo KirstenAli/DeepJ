@@ -5,12 +5,15 @@ import io.github.kirstenali.deepj.onnx.proto.Onnx;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
-
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** An imported computation graph, executed with the currently selected DeepJ backend. */
 public final class OnnxModel implements Layer, AutoCloseable {
@@ -38,7 +41,9 @@ public final class OnnxModel implements Layer, AutoCloseable {
         var inspection = OnnxLoader.inspect(model, registry);
         if (!inspection.supported())
             throw new IOException(String.join("\n", inspection.problems()));
-        var session = new OnnxSession(path.toAbsolutePath().getParent(), options, inspection.opsets(), registry);
+        var session =
+                new OnnxSession(
+                        path.toAbsolutePath().getParent(), options, inspection.opsets(), registry);
         try {
             session.prepare(model.getGraph());
             return new OnnxModel(model, session, inspection);
@@ -49,7 +54,8 @@ public final class OnnxModel implements Layer, AutoCloseable {
     }
 
     public static OnnxInspection inspect(Path path) throws IOException {
-        return OnnxLoader.inspect(OnnxFunctions.expand(OnnxLoader.parse(path, OnnxOptions.defaults())),
+        return OnnxLoader.inspect(
+                OnnxFunctions.expand(OnnxLoader.parse(path, OnnxOptions.defaults())),
                 OnnxRegistry.standard());
     }
 
@@ -59,7 +65,7 @@ public final class OnnxModel implements Layer, AutoCloseable {
 
     public Map<String, OnnxValue> run(Map<String, OnnxValue> inputs) {
         requireOpen();
-        var declared = new java.util.HashSet<>(inspection.inputs());
+        var declared = new HashSet<>(inspection.inputs());
         if (!declared.containsAll(inputs.keySet()))
             throw new IllegalArgumentException("Unknown ONNX graph input");
         var results = session.run(model.getGraph(), Map.copyOf(inputs), Map.of());
@@ -67,15 +73,18 @@ public final class OnnxModel implements Layer, AutoCloseable {
         for (int i = 0; i < results.size(); i++) {
             output.put(inspection.outputs().get(i), results.get(i));
         }
-        return java.util.Collections.unmodifiableMap(output);
+        return Collections.unmodifiableMap(output);
     }
 
     public Tensor forward(Tensor input) {
-        var names = inspection.inputs().stream().filter(n -> !initializerNames().contains(n)).toList();
+        var names =
+                inspection.inputs().stream().filter(n -> !initializerNames().contains(n)).toList();
         if (names.size() != 1 || inspection.outputs().size() != 1) {
             throw new IllegalStateException("Use named ONNX inputs and outputs for this graph");
         }
-        return run(Map.of(names.get(0), OnnxValue.of(input))).get(inspection.outputs().get(0)).tensor();
+        return run(Map.of(names.get(0), OnnxValue.of(input)))
+                .get(inspection.outputs().get(0))
+                .tensor();
     }
 
     public List<Parameter> trainable(String... names) throws IOException {
@@ -98,9 +107,10 @@ public final class OnnxModel implements Layer, AutoCloseable {
         parameters.values().forEach(Parameter::zeroGrad);
     }
 
-    private java.util.Set<String> initializerNames() {
-        return model.getGraph().getInitializerList().stream().map(Onnx.TensorProto::getName)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    private Set<String> initializerNames() {
+        return model.getGraph().getInitializerList().stream()
+                .map(Onnx.TensorProto::getName)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     private void requireOpen() {

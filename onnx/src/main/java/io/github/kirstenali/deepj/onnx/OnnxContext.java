@@ -1,10 +1,11 @@
 package io.github.kirstenali.deepj.onnx;
 
+import com.google.protobuf.ByteString;
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
 import io.github.kirstenali.deepj.tensor.Tensor;
-
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** One node invocation. Missing optional inputs retain their ONNX positions. */
 public final class OnnxContext {
@@ -14,13 +15,16 @@ public final class OnnxContext {
     final Map<String, Onnx.AttributeProto> attributes;
     private final long version;
 
-    OnnxContext(Onnx.NodeProto node, Map<String, OnnxValue> values, OnnxSession session, long version) {
+    OnnxContext(
+            Onnx.NodeProto node, Map<String, OnnxValue> values, OnnxSession session, long version) {
         this.node = node;
         this.values = values;
         this.session = session;
         this.version = version;
-        attributes = node.getAttributeList().stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
-                                        Onnx.AttributeProto::getName, a -> a));
+        attributes =
+                node.getAttributeList().stream()
+                        .collect(
+                                Collectors.toUnmodifiableMap(Onnx.AttributeProto::getName, a -> a));
     }
 
     public String operator() {
@@ -76,13 +80,17 @@ public final class OnnxContext {
     }
 
     public int[] integers(String name, int... fallback) {
-        return hasAttribute(name) ? attributes.get(name).getIntsList().stream().mapToInt(Math::toIntExact).toArray()
+        return hasAttribute(name)
+                ? attributes.get(name).getIntsList().stream().mapToInt(Math::toIntExact).toArray()
                 : fallback.clone();
     }
 
     public List<String> strings(String name) {
-        return hasAttribute(name) ? attributes.get(name).getStringsList().stream()
-                        .map(com.google.protobuf.ByteString::toStringUtf8).toList() : List.of();
+        return hasAttribute(name)
+                ? attributes.get(name).getStringsList().stream()
+                        .map(ByteString::toStringUtf8)
+                        .toList()
+                : List.of();
     }
 
     public Onnx.TensorProto tensorAttribute(String name) {

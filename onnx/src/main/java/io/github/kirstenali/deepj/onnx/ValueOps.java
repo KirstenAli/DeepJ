@@ -2,7 +2,6 @@ package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.nn.TensorJoin;
 import io.github.kirstenali.deepj.tensor.Tensor;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.LongBinaryOperator;
@@ -20,13 +19,15 @@ final class ValueOps {
     static OnnxValue reshape(OnnxValue value, int[] shape) {
         if (OnnxValue.elements(shape) != value.size())
             throw new IllegalArgumentException("ONNX reshape changes element count");
-        return value.isFloating() ? OnnxValue.of(value.tensor().reshape(shape))
+        return value.isFloating()
+                ? OnnxValue.of(value.tensor().reshape(shape))
                 : OnnxValue.host(value.data(), shape, value.elementType());
     }
 
     static OnnxValue take(OnnxValue value, int[] indices, int[] shape) {
         if (value.isFloating())
-            return OnnxValue.of(value.tensor().reshape(value.size()).indexSelect(0, indices).reshape(shape));
+            return OnnxValue.of(
+                    value.tensor().reshape(value.size()).indexSelect(0, indices).reshape(shape));
         long[] output = new long[indices.length];
         for (int i = 0; i < indices.length; i++) {
             output[i] = value.data()[indices[i]];
@@ -77,7 +78,9 @@ final class ValueOps {
         int[] shape = broadcast(a.shape(), b.shape());
         long[] output = new long[OnnxValue.elements(shape)];
         for (int i = 0; i < output.length; i++) {
-            output[i] = operation.applyAsLong(a.data()[address(i, shape, a.shape())],
+            output[i] =
+                    operation.applyAsLong(
+                            a.data()[address(i, shape, a.shape())],
                             b.data()[address(i, shape, b.shape())]);
         }
         return OnnxValue.host(output, shape, a.elementType());
@@ -98,7 +101,8 @@ final class ValueOps {
             shape[axis] = Math.addExact(shape[axis], input.shape()[axis]);
         }
         if (first.isFloating())
-            return OnnxValue.of(TensorJoin.concatenate(
+            return OnnxValue.of(
+                    TensorJoin.concatenate(
                             axis, inputs.stream().map(OnnxValue::tensor).toArray(Tensor[]::new)));
         return concatenateHost(inputs, axis, shape);
     }

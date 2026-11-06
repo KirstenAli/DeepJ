@@ -5,12 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Path;
 import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class DynamicGraphTest {
     @TempDir Path directory;
@@ -35,7 +33,12 @@ class DynamicGraphTest {
         symbolic(model.getGraphBuilder().getInputBuilder(0), "batch");
         symbolic(model.getGraphBuilder().getInputBuilder(1), "batch");
         try (var imported = OnnxModel.load(TestModels.write(directory, model.build()))) {
-            var inputs = Map.of("X", OnnxValue.of(Tensor.ones(2, 3)), "B", OnnxValue.of(Tensor.ones(1, 3)));
+            var inputs =
+                    Map.of(
+                            "X",
+                            OnnxValue.of(Tensor.ones(2, 3)),
+                            "B",
+                            OnnxValue.of(Tensor.ones(1, 3)));
             assertThrows(IllegalArgumentException.class, () -> imported.run(inputs));
         }
     }
@@ -53,18 +56,31 @@ class DynamicGraphTest {
 
     @Test
     void functionOutputsCanAliasFormalInputs() throws Exception {
-        var function = Onnx.FunctionProto.newBuilder().setDomain("example.deepj").setName("Alias").addInput("X")
-                        .addOutput("X").addOpsetImport(Onnx.OperatorSetIdProto.newBuilder().setVersion(18));
+        var function =
+                Onnx.FunctionProto.newBuilder()
+                        .setDomain("example.deepj")
+                        .setName("Alias")
+                        .addInput("X")
+                        .addOutput("X")
+                        .addOpsetImport(Onnx.OperatorSetIdProto.newBuilder().setVersion(18));
         var node = TestModels.unary("Alias").toBuilder().setDomain("example.deepj").build();
-        var model = TestModels.graph(node, 1, 2).toBuilder().addFunctions(function).addOpsetImport(
-                                Onnx.OperatorSetIdProto.newBuilder().setDomain("example.deepj").setVersion(1));
+        var model =
+                TestModels.graph(node, 1, 2).toBuilder()
+                        .addFunctions(function)
+                        .addOpsetImport(TestModels.opset("example.deepj", 1));
         try (var imported = OnnxModel.load(TestModels.write(directory, model.build()))) {
-            assertArrayEquals(new float[] {2, 3}, imported.forward(Tensor.from(new float[] {2, 3}, 2)).toFloatArray());
+            assertArrayEquals(
+                    new float[] {2, 3},
+                    imported.forward(Tensor.from(new float[] {2, 3}, 2)).toFloatArray());
         }
     }
 
     private static void symbolic(Onnx.ValueInfoProto.Builder value, String name) {
-        value.getTypeBuilder().getTensorTypeBuilder().getShapeBuilder().getDimBuilder(0).clearDimValue()
+        value.getTypeBuilder()
+                .getTensorTypeBuilder()
+                .getShapeBuilder()
+                .getDimBuilder(0)
+                .clearDimValue()
                 .setDimParam(name);
     }
 }

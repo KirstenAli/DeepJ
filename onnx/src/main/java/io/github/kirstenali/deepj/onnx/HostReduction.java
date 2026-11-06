@@ -8,10 +8,15 @@ final class HostReduction {
 
     static OnnxValue reduce(OnnxValue input, int[] axes, boolean keep, String operation) {
         int[] shape = input.shape();
-        int[] outputShape = keep ? IntStream.range(0, shape.length)
-                                .map(i -> Arrays.binarySearch(axes, i) >= 0 ? 1 : shape[i]).toArray()
-                        : IntStream.range(0, shape.length).filter(i -> Arrays.binarySearch(axes, i) < 0)
-                                .map(i -> shape[i]).toArray();
+        int[] outputShape =
+                keep
+                        ? IntStream.range(0, shape.length)
+                                .map(i -> Arrays.binarySearch(axes, i) >= 0 ? 1 : shape[i])
+                                .toArray()
+                        : IntStream.range(0, shape.length)
+                                .filter(i -> Arrays.binarySearch(axes, i) < 0)
+                                .map(i -> shape[i])
+                                .toArray();
         long[] output = new long[OnnxValue.elements(outputShape)];
         Arrays.fill(output, initial(operation));
         for (int i = 0; i < input.size(); i++) {
@@ -39,7 +44,9 @@ final class HostReduction {
             case "ReduceMax" -> Long.MIN_VALUE;
             case "ReduceMin" -> Long.MAX_VALUE;
             case "ReduceSum", "ReduceL1", "ReduceSumSquare" -> 0;
-            default -> throw new IllegalArgumentException("Integer reduction unsupported: " + operation);
+            default ->
+                    throw new IllegalArgumentException(
+                            "Integer reduction unsupported: " + operation);
         };
     }
 

@@ -12,7 +12,7 @@ function hostMetrics(source, file, name, flags) {
     '#include <stdexcept>',
     '#line 1 ' + JSON.stringify(file),
   ].join('\n');
-  return nativeMetrics(clangAst(headers + '\n' + source, file, name, flags));
+  return nativeMetrics(clangAst(headers + '\n' + source, file, name, nativeFlags(file, flags)));
 }
 
 function shaderMetrics(shader, name) {
@@ -47,6 +47,10 @@ export function analyseNativeFile(file, index, flags) {
     metrics: shaderMetrics(shader, name + '_shader_' + number),
   }));
   return [host, ...shaders];
+}
+
+function nativeFlags(file, flags) {
+  return file === 'native/deepj_cpu_jni.cpp' ? [...flags, '-arch', 'arm64'] : flags;
 }
 
 function shaderVariants(shader) {

@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
-
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,7 +39,8 @@ final class RecurrentInputs {
     }
 
     private void validate() {
-        if (!List.of("forward", "reverse", "bidirectional").contains(context.string("direction", "forward"))) {
+        if (!List.of("forward", "reverse", "bidirectional")
+                .contains(context.string("direction", "forward"))) {
             throw new IllegalArgumentException("Unsupported RNN direction");
         }
         if (input.rank() != 3
@@ -81,20 +81,29 @@ final class RecurrentInputs {
     }
 
     Tensor activate(Tensor input, int direction, int index) {
-        List<String> defaults = gates == 4 ? List.of("Sigmoid", "Tanh", "Tanh")
+        List<String> defaults =
+                gates == 4
+                        ? List.of("Sigmoid", "Tanh", "Tanh")
                         : gates == 3 ? List.of("Sigmoid", "Tanh") : List.of("Tanh");
         int slot = direction * defaults.size() + index;
         List<String> names = context.strings("activations");
         String name = names.isEmpty() ? defaults.get(index) : names.get(slot);
-        Tensor value = context.hasAttribute("clip")
-                        ? input.clamp(-context.floating("clip", 0), context.floating("clip", 0)) : input;
-        return RecurrentActivation.apply(name, value, attribute("activation_alpha", slot),
+        Tensor value =
+                context.hasAttribute("clip")
+                        ? input.clamp(-context.floating("clip", 0), context.floating("clip", 0))
+                        : input;
+        return RecurrentActivation.apply(
+                name,
+                value,
+                attribute("activation_alpha", slot),
                 attribute("activation_beta", slot));
     }
 
     private Float attribute(String name, int index) {
         var attribute = context.attributes.get(name);
-        return attribute == null || attribute.getFloatsCount() <= index ? null : attribute.getFloats(index);
+        return attribute == null || attribute.getFloatsCount() <= index
+                ? null
+                : attribute.getFloats(index);
     }
 
     Tensor masked(Tensor selected, Tensor fallback, int time) {
@@ -104,11 +113,14 @@ final class RecurrentInputs {
             mask[i] = time < lengths[i];
             all &= mask[i];
         }
-        return all ? selected : BooleanOperators.where(OnnxValue.booleans(mask, mask.length, 1), selected, fallback);
+        return all
+                ? selected
+                : BooleanOperators.where(
+                        OnnxValue.booleans(mask, mask.length, 1), selected, fallback);
     }
 
-    private static int layout(OnnxContext c) {
-        int layout = c.integer("layout", 0);
+    private static int layout(OnnxContext context) {
+        int layout = context.integer("layout", 0);
         if (layout != 0 && layout != 1)
             throw new IllegalArgumentException("RNN layout must be zero or one");
         return layout;

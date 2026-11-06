@@ -10,7 +10,8 @@ final class IntegerValues {
         long minimum = minimum(type), maximum = maximum(type);
         for (long value : values) {
             if (value < minimum || value > maximum) {
-                throw new IllegalArgumentException("Value is outside supported ONNX integer type " + type);
+                throw new IllegalArgumentException(
+                        "Value is outside supported ONNX integer type " + type);
             }
         }
     }

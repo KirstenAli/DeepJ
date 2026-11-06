@@ -1,0 +1,663 @@
+{
+  "date": "2026-11-06",
+  "machine": {
+    "chip": "Apple M4",
+    "memory_gib": 16,
+    "macos": "15.5",
+    "jdk": "Temurin 20.0.2",
+    "pytorch": "2.8.0",
+    "transformers": "4.51.3",
+    "cpu_workers": 10,
+    "pytorch_interop_workers": 1,
+    "accelerate_thread_cap": 10
+  },
+  "baseline_jar_sha256": "69b7778f36d4655449d67c01df9be00b415ec9755a62c2b5097128778a69020b",
+  "diagnostic": {
+    "scope": "One pretrained Qwen block at original widths, reduced 25-row tied embedding/output; not full-model throughput.",
+    "prompt_tokens": 64,
+    "fixed_continuation_tokens": 16,
+    "warmups": 40,
+    "timed_trials_per_process": 9,
+    "process_order": [
+      "baseline",
+      "candidate",
+      "PyTorch",
+      "candidate",
+      "baseline"
+    ],
+    "results": {
+      "baseline": {
+        "prefill_ms": [
+          14.049875,
+          14.411542,
+          13.191791,
+          13.292542,
+          14.561584,
+          14.196,
+          14.444625,
+          13.373125,
+          14.422209,
+          14.222584,
+          14.866625,
+          13.818083,
+          13.719708,
+          13.85575,
+          14.911125,
+          14.217,
+          13.764125,
+          14.556709
+        ],
+        "decode_16_steps_ms": [
+          53.852916,
+          53.960292,
+          53.19875,
+          54.326541,
+          53.336542,
+          56.174875,
+          56.026833,
+          53.7055,
+          53.571833,
+          53.746459,
+          53.555708,
+          53.509291,
+          53.966125,
+          53.543458,
+          55.353208,
+          56.885,
+          53.523292,
+          53.753042
+        ],
+        "prefill_median_ms": 14.2065,
+        "decode_16_steps_median_ms": 53.749750500000005
+      },
+      "candidate": {
+        "prefill_ms": [
+          12.155667,
+          11.691417,
+          12.652709,
+          11.426875,
+          11.554042,
+          11.761583,
+          12.6535,
+          11.402792,
+          11.643292,
+          11.951,
+          11.707,
+          12.675791,
+          11.566084,
+          11.515708,
+          11.791334,
+          12.514167,
+          11.455334,
+          11.310541
+        ],
+        "decode_16_steps_ms": [
+          41.306458,
+          40.22375,
+          40.77425,
+          40.407083,
+          41.794375,
+          41.199584,
+          41.267333,
+          40.97725,
+          40.89525,
+          40.82775,
+          41.065458,
+          40.229916,
+          40.206708,
+          40.683333,
+          41.188708,
+          40.859125,
+          40.774625,
+          41.203917
+        ],
+        "prefill_median_ms": 11.699208500000001,
+        "decode_16_steps_median_ms": 40.8771875
+      },
+      "PyTorch": {
+        "prefill_ms": [
+          10.702208994189277,
+          11.397959009627812,
+          10.477917006937787,
+          10.936624996247701,
+          10.928000003332272,
+          10.478124997462146,
+          10.731999995186925,
+          10.954625002341345,
+          10.625499999150634
+        ],
+        "decode_16_steps_ms": [
+          56.55062499863561,
+          56.586208011140116,
+          57.247417003964074,
+          56.00762499670964,
+          56.27075000666082,
+          57.03008400450926,
+          56.017791997874156,
+          56.168124996474944,
+          57.02891699911561
+        ],
+        "prefill_median_ms": 10.731999995186925,
+        "decode_16_steps_median_ms": 56.55062499863561
+      }
+    },
+    "accuracy": {
+      "scope": "All 25 retained-vocabulary final-position logits for prompt and first cached token, five repeated profiles.",
+      "max_absolute_difference": 1.4500000000694513e-05,
+      "rms_difference": 3.7610285854269214e-06,
+      "same_top_tokens": true
+    }
+  },
+  "validation": {
+    "full_suite_tests": 2780,
+    "failures": 0,
+    "errors": 0,
+    "optional_skips": 29,
+    "command": "mvn --batch-mode -o verify -Pfull-coverage",
+    "native_targeted_tests": 23,
+    "java_only_targeted_tests": 14,
+    "training_checks": {
+      "cpu": {
+        "loop": {
+          "identical_losses": 31,
+          "parameters_sha256": "1a4b7499e579a5af590e367c176077978f4296e3121040a21be3822722418855",
+          "gradients_sha256": "cd4c9549d3c967b7d754cbdd85c3a5fd04561916e44b82285be01d9834043353"
+        },
+        "prism": {
+          "identical_losses": 31,
+          "parameters_sha256": "c6cfc5cd6837106cc31c5ce415bf31945e73a42de6d5e64b32a94c79f75288ed",
+          "gradients_sha256": "1f78fa33d595de16b31c859cd659cedfcb2a1acda652f5f8cfe0c0bff8370bde"
+        },
+        "qwen": {
+          "identical_losses": 31,
+          "parameters_sha256": "fe40a73a0d42bb7e504926f5c45d34075742c174100fe33d4e3f0345c94d90d9",
+          "gradients_sha256": "da8c9b9b45b6ef8301776b99d4b59aa6536c059d0a3ea4a42294bce0fbfea140"
+        }
+      },
+      "metal": {
+        "loop": {
+          "identical_losses": 31,
+          "parameters_sha256": "ed4d5d208083c7d398048da6af812361b42c35c6328d522fcc77b3a6a99de0d8",
+          "gradients_sha256": "d30021e901754bc86b571950812f385e577ade89f7236da167c0d7e5d472bc68"
+        },
+        "prism": {
+          "identical_losses": 31,
+          "parameters_sha256": "75d6e6ab3c927c1281b1348690f1510ac6dfee3ee228bc5939beed3f2a1b0439",
+          "gradients_sha256": "8c8f7838e70ac24a360f915858408f6a3d926caced574efd32d97f20d6175521"
+        },
+        "qwen": {
+          "identical_losses": 31,
+          "parameters_sha256": "1c36b4c9542862fd0c17d04edeeaca7adcc7a4cec10885d381b547bf561ca81b",
+          "gradients_sha256": "1e9939c58399f7ad42d5b1747ae8fa0620ec26892a3fb4858ba4ddb6911ec0f3"
+        }
+      }
+    }
+  },
+  "sources": [
+    "https://github.com/pytorch/pytorch/blob/v2.8.0/aten/src/ATen/native/Linear.cpp"
+  ],
+  "candidate_source_sha256": {
+    "src/main/java/io/github/kirstenali/deepj/tensor/CpuMatrixStorage.java": "8bd82c7513f910244125a996dd1456bea20b601a8b667fd49a4ef235caf6f2bc",
+    "src/main/java/io/github/kirstenali/deepj/tensor/TensorBackend.java": "c87f4e514133d820da1db0dc8efe9d3c35ac6231d1d8c289d653842a0d250305",
+    "src/main/java/io/github/kirstenali/deepj/tensor/cpu/CpuBackend.java": "dc18d7ae306cf608656745201953a0547715a5750bc392ace5c52049c25c5f5b",
+    "src/main/java/io/github/kirstenali/deepj/optimisers/ParameterFactory.java": "25c242dd4cc164f04825127a079ca0e0e4875866187476fa1a4debd17d8dce95",
+    "native/deepj_cpu_jni.cpp": "636adb9b609fabbeb3f4e562a6064a26f67c215d34caba58ee62e694c35974ae",
+    "src/main/resources/native/macos/libdeepj_cpu_jni.dylib": "3ce8db51c61e2988d917ada5ece8f8d4b11f95b616ee508d0238a040ac1db8f7"
+  },
+  "unchanged_source_scopes": [
+    "src/main/java/io/github/kirstenali/deepj/tensor/metal",
+    "native/deepj_metal_jni.mm",
+    "src/main/resources/native/macos/libdeepj_metal_jni.dylib",
+    "src/main/java/io/github/kirstenali/deepj/autograd",
+    "src/main/java/io/github/kirstenali/deepj/concurrent",
+    "src/main/java/io/github/kirstenali/deepj/training",
+    "src/main/java/io/github/kirstenali/deepj/nn",
+    "src/main/java/io/github/kirstenali/deepj/layers"
+  ],
+  "loading_hook": "ParameterFactory.forLoading calls a default backend allocation hook. Only CpuBackend overrides it; ordinary FLOAT32 zeros, random parameters and gradient buffers keep their layout.",
+  "raw_logs_sha256": {
+    "final-FLOAT32-2-PyTorch.jsonl": "6e706bc09399bad5da07f326a88a893d5cc5065d615d539af766ec80f023295e",
+    "final-FLOAT32-1-candidate.jsonl": "bc2a8189fff0561974a1a76aaf15dca17031ecfb7e1c28fa5333939148a92a8a",
+    "final-FLOAT32-0-baseline.jsonl": "40d5c1a358169772d925df6a0f038fccdbb65c4727ad27cbee104318dbc477c8",
+    "final-FLOAT32-4-baseline.jsonl": "51ba8a0dca8b22967774cd8abf4a64fbe4f821c49ccbfd0456fab02a968416ce",
+    "final-FLOAT32-3-candidate.jsonl": "4d2b5b159408b50f12e64ab7c72b4db9cefcd1ff7ed2d3390272cdfcd0688771"
+  },
+  "full_checkpoint": {
+    "checkpoint_revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    "scope": "Full pretrained Qwen3-1.7B; FP32 weights and activations; CPU.",
+    "prompt_tokens": 64,
+    "fixed_continuation_tokens": 16,
+    "warmups": 7,
+    "timed_trials": 3,
+    "process_order": [
+      "PyTorch",
+      "DeepJ"
+    ],
+    "excluded": "Loading, tokenization, sampling and rendering. All final-position logits read to CPU every step.",
+    "apps_closed": [
+      "IntelliJ",
+      "Chrome",
+      "Zoom"
+    ],
+    "reference_loading": "Safetensors converted to FP32 one parameter at a time, releasing each mapping before retaining the converted parameter; tied weights restored once. Compute, rotary buffers and SDPA match the existing reference.",
+    "results": {
+      "DeepJ": {
+        "trials": [
+          {
+            "prefill_seconds": 0.334828125,
+            "trial": 0,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 12.17131660926931,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.314566083,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.333943041,
+            "trial": 1,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 12.197931640644251,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.311697792,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.336540125,
+            "trial": 2,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 11.910082228882564,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.343399625,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          }
+        ],
+        "warmup_trials": [
+          {
+            "prefill_seconds": 1.188086291,
+            "trial": -7,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 11.21431853273858,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.426747417,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.851463166,
+            "trial": -6,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 8.959914675090946,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.785731291,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.522775375,
+            "trial": -5,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 11.393612026291327,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.404295667,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.471667875,
+            "trial": -4,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 11.492214012795852,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.392246958,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.655927583,
+            "trial": -3,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 12.093054917822217,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.323073459,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.337284834,
+            "trial": -2,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 12.057629055239797,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.326960709,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "prefill_seconds": 0.336500458,
+            "trial": -1,
+            "dtype": "FLOAT32",
+            "swap_out_before_mib": 12495.25,
+            "tokens_per_second": 12.13575817887166,
+            "checksum": 206.64308,
+            "backend": "cpu",
+            "decode_seconds": 1.318417833,
+            "engine": "DeepJ",
+            "swap_out_after_mib": 12495.25
+          }
+        ],
+        "prompt_median_ms": 334.828125,
+        "decode_median_tokens_per_second": 12.17131660926931,
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 49.429937375,
+          "peak_rss_kib": 8600880.0,
+          "swap_out_before_mib": 12495.25,
+          "swap_out_after_mib": 12495.25,
+          "stopped_for": null
+        }
+      },
+      "PyTorch": {
+        "trials": [
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": 0,
+            "prefill_seconds": 0.31484920799266547,
+            "decode_seconds": 1.9723597499978496,
+            "tokens_per_second": 8.11211037946675,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": 1,
+            "prefill_seconds": 0.3111217089899583,
+            "decode_seconds": 2.0020183339947835,
+            "tokens_per_second": 7.991934803151353,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": 2,
+            "prefill_seconds": 0.3112456660019234,
+            "decode_seconds": 2.0476525830017636,
+            "tokens_per_second": 7.813825515529955,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          }
+        ],
+        "warmup_trials": [
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -7,
+            "prefill_seconds": 1.4190920000110054,
+            "decode_seconds": 2.0150748339947313,
+            "tokens_per_second": 7.940151765123892,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12402.9375,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -6,
+            "prefill_seconds": 0.3136694999993779,
+            "decode_seconds": 1.9685919590119738,
+            "tokens_per_second": 8.127636571283324,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -5,
+            "prefill_seconds": 0.3118099580024136,
+            "decode_seconds": 2.0222686670022085,
+            "tokens_per_second": 7.911906197764635,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -4,
+            "prefill_seconds": 0.3153599170036614,
+            "decode_seconds": 1.9668377500056522,
+            "tokens_per_second": 8.134885554212095,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -3,
+            "prefill_seconds": 0.3160307080106577,
+            "decode_seconds": 1.9662857500079554,
+            "tokens_per_second": 8.13716927966104,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -2,
+            "prefill_seconds": 0.31261183400056325,
+            "decode_seconds": 1.9593144170066807,
+            "tokens_per_second": 8.166121711309515,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -1,
+            "prefill_seconds": 0.3116959999897517,
+            "decode_seconds": 1.9821922499977518,
+            "tokens_per_second": 8.071870929784005,
+            "checksum": 206.6430630683899,
+            "swap_out_before_mib": 12495.25,
+            "swap_out_after_mib": 12495.25
+          }
+        ],
+        "prompt_median_ms": 311.2456660019234,
+        "decode_median_tokens_per_second": 7.991934803151353,
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 36.444535208,
+          "peak_rss_kib": 7080976.0,
+          "swap_out_before_mib": 12101.25,
+          "swap_out_after_mib": 12495.25,
+          "stopped_for": null
+        }
+      }
+    },
+    "accuracy_vs_pytorch": {
+      "logits": 455808,
+      "contexts": 3,
+      "max_absolute_difference": 0.00016641616821289062,
+      "rms_difference": 2.170547920851988e-05,
+      "same_top_tokens": true
+    },
+    "initial_attempts": {
+      "guard_stops": [
+        {
+          "file": "full-startup-PyTorch.metrics.json",
+          "returncode": -15,
+          "elapsed_seconds": 11.394325584,
+          "peak_rss_kib": 6735776.0,
+          "swap_out_before_mib": 11584.6875,
+          "swap_out_after_mib": 12101.25,
+          "stopped_for": "swap growth limit"
+        },
+        {
+          "file": "full-aborted-DeepJ.metrics.json",
+          "returncode": 143,
+          "elapsed_seconds": 23.456210834,
+          "peak_rss_kib": 4743280.0,
+          "swap_out_before_mib": 10488.875,
+          "swap_out_after_mib": 10731.0,
+          "stopped_for": "swap growth limit"
+        },
+        {
+          "file": "full-initial-PyTorch.metrics.json",
+          "returncode": -15,
+          "elapsed_seconds": 6.926242332999999,
+          "peak_rss_kib": 9743344.0,
+          "swap_out_before_mib": 10731.0,
+          "swap_out_after_mib": 10940.25,
+          "stopped_for": "swap growth limit"
+        },
+        {
+          "file": "full-initial-DeepJ.metrics.json",
+          "returncode": 0,
+          "elapsed_seconds": 46.4364215,
+          "peak_rss_kib": 8577744.0,
+          "swap_out_before_mib": 10731.0,
+          "swap_out_after_mib": 10731.0,
+          "stopped_for": null
+        },
+        {
+          "file": "full-streaming-PyTorch.metrics.json",
+          "returncode": -15,
+          "elapsed_seconds": 9.490758542,
+          "peak_rss_kib": 6736608.0,
+          "swap_out_before_mib": 11201.25,
+          "swap_out_after_mib": 11584.6875,
+          "stopped_for": "swap growth limit"
+        },
+        {
+          "file": "full-conversion-PyTorch.metrics.json",
+          "returncode": -15,
+          "elapsed_seconds": 4.454372667,
+          "peak_rss_kib": 9306304.0,
+          "swap_out_before_mib": 10940.25,
+          "swap_out_after_mib": 11201.25,
+          "stopped_for": "swap growth limit"
+        }
+      ],
+      "excluded_unsettled_deepj_trials": [
+        {
+          "tokens_per_second": 11.327733690961969,
+          "prefill_seconds": 1.465389042,
+          "trial": -3,
+          "backend": "cpu",
+          "checksum": 206.64308,
+          "engine": "DeepJ",
+          "decode_seconds": 1.412462584,
+          "dtype": "FLOAT32"
+        },
+        {
+          "tokens_per_second": 6.0920691540361895,
+          "prefill_seconds": 0.982627792,
+          "trial": -2,
+          "backend": "cpu",
+          "checksum": 206.64308,
+          "engine": "DeepJ",
+          "decode_seconds": 2.626365459,
+          "dtype": "FLOAT32"
+        },
+        {
+          "tokens_per_second": 8.477063714670512,
+          "prefill_seconds": 0.931643708,
+          "trial": -1,
+          "backend": "cpu",
+          "checksum": 206.64308,
+          "engine": "DeepJ",
+          "decode_seconds": 1.887446,
+          "dtype": "FLOAT32"
+        },
+        {
+          "tokens_per_second": 11.79186256785818,
+          "prefill_seconds": 0.569793833,
+          "trial": 0,
+          "backend": "cpu",
+          "checksum": 206.64308,
+          "engine": "DeepJ",
+          "decode_seconds": 1.356867917,
+          "dtype": "FLOAT32"
+        },
+        {
+          "tokens_per_second": 11.895522738988719,
+          "prefill_seconds": 0.41606175,
+          "trial": 1,
+          "backend": "cpu",
+          "checksum": 206.64308,
+          "engine": "DeepJ",
+          "decode_seconds": 1.345043875,
+          "dtype": "FLOAT32"
+        },
+        {
+          "tokens_per_second": 12.181019858262932,
+          "prefill_seconds": 0.340948459,
+          "trial": 2,
+          "backend": "cpu",
+          "checksum": 206.64308,
+          "engine": "DeepJ",
+          "decode_seconds": 1.313518916,
+          "dtype": "FLOAT32"
+        }
+      ],
+      "warmup_change_reason": "After the initial three-warmup DeepJ run still showed declining prompt times, both final engines used seven warmups. Initial runs are excluded from the reported table."
+    },
+    "committed_reference_harness_sha256": "07e1195edc9301ce746743a1a92ed800733c8af31eca60489dd269a965465407",
+    "accuracy_vs_original_deepj": {
+      "logits": 455808,
+      "contexts": 3,
+      "max_absolute_difference": 7.772445678710938e-05,
+      "rms_difference": 1.1525485888855793e-05,
+      "same_top_tokens": true
+    },
+    "reference_logits_identical_to_previous_loader": true,
+    "raw_logs_sha256": {
+      "full-DeepJ.log": "1bb0b2306b0df073c5a7e09266ccc0330de62028ac34c51129dc966166d42e0f",
+      "full-PyTorch.log": "c190e231b5e1f5042b18190d4160658e58b5f054efaa8aca9685c05e49f5f113",
+      "full-DeepJ-logits.bin": "825f9c69d1813018c3ff7bd73354f959a45f9b1ecfc7b5209281765513ae56b4",
+      "full-PyTorch-logits.bin": "d867dc3a3f8366f945ee272239a22fb19935f19653a0a90fec6031c71648d93a",
+      "full_reference.py": "0c39fd2937c4c593b59b067bc44b2a5a466cf419f79b394c69a6018bfd9207ef",
+      "FullFp32Probe.java": "6e66d1d7746f622e558d2e2f4a4bfa22d0b91e322207d76455bcf1ce8f56b980"
+    }
+  }
+}
