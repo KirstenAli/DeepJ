@@ -54,7 +54,7 @@ java --enable-native-access=ALL-UNNAMED -jar deepj-cli.jar chat ./frisky-90m
 
 The CLI streams responses, supports selectable themes, and uses Metal when available with CPU fallback. See the [CLI guide](docs/cli.md) for commands and controls, and the [model card](https://huggingface.co/netsrik/frisky-90m) for training details.
 
-![DeepJ CLI streaming a response from Frisky 90M](docs/cli.png)
+![Frisky 90M in the DeepJ CLI, with the DeepJ wordmark and three prompt-and-answer exchanges](docs/cli.png)
 
 ## Try Qwen3-1.7B
 
