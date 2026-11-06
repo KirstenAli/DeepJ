@@ -14,6 +14,8 @@ DeepJ is a Java library for building, training, and running neural networks. It 
 
 Build feed-forward networks, convolutional networks, recurrent networks, autoencoders, and Transformers on the same tensor and autograd foundation.
 
+The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inference and training on CPU or Apple Metal.
+
 [Website](https://kirstenali.github.io/DeepJ/) · [Documentation](docs/README.md) · [API reference](https://kirstenali.github.io/DeepJ/api/)
 
 ## Supported networks
@@ -130,6 +132,7 @@ Start with the [documentation index](docs/README.md), or go directly to:
 | [Networks and layers](docs/neural-networks.md) | Composition, CNNs, recurrence, autoencoders, and encoder Transformers |
 | [Training a model](docs/training.md) | Training APIs by model type, batching, losses, optimizers, and evaluation mode |
 | [Distributed training](distributed/README.md) | Train across multiple machines with CPU or Metal workers |
+| [ONNX support](onnx/README.md) | Importing graphs, supported operators, CPU/Metal execution, and trainable weights |
 | [Saving and loading](docs/persistence.md) | Network weights, persistent buffers, and model checkpoints |
 | [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
 | <a id="desktop-chat"></a>[Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
