@@ -1,0 +1,19 @@
+DeepJ ONNX
+
+The DeepJ integration code is distributed under the repository's MIT license.
+
+src/main/proto/onnx.proto is derived from the official ONNX v1.23.2
+onnx/onnx.proto3 schema (https://github.com/onnx/onnx/tree/v1.23.2).
+The two java_* options are the only schema changes; trailing blank lines
+at the end of the file are trimmed.
+
+src/main/resources/io/github/kirstenali/deepj/onnx/schemas.tsv is generated
+from the official ONNX v1.23.2 operator schemas by tools/generate_schemas.py.
+
+ONNX schema material and generated Java bindings are licensed under
+Apache License 2.0. See LICENSE-ONNX.txt. The generated bindings are built
+by Maven and are not checked into the repository.
+
+Test fixtures are generated locally by the included scripts. Expected
+outputs use ONNX Runtime 1.31.1 on CPU; runtime libraries are not bundled
+or invoked by the Java implementation.

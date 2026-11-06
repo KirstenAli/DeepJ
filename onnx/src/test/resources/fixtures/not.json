@@ -1,0 +1,27 @@
+{
+  "engine": "ONNX Runtime 1.31.1 CPU",
+  "inputs": {
+    "X": {
+      "type": 9,
+      "shape": [
+        2
+      ],
+      "data": [
+        true,
+        false
+      ]
+    }
+  },
+  "outputs": {
+    "Y": {
+      "type": 9,
+      "shape": [
+        2
+      ],
+      "data": [
+        false,
+        true
+      ]
+    }
+  }
+}

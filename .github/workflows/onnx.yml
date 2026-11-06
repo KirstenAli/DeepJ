@@ -1,0 +1,59 @@
+name: ONNX interoperability
+
+on:
+  pull_request:
+    paths: ['onnx/**', 'src/main/**', 'pom.xml', 'config/**', '.github/workflows/onnx.yml']
+  push:
+    branches: [master, feature/onnx-support]
+    paths: ['onnx/**', 'src/main/**', 'pom.xml', 'config/**', '.github/workflows/onnx.yml']
+  workflow_dispatch:
+    inputs:
+      require_metal:
+        description: Run on a physical self-hosted Apple Silicon GPU
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '20'
+          cache: maven
+      - name: Install the DeepJ core used by this checkout
+        run: mvn --batch-mode -DskipTests install
+      - name: Verify ONNX reference graphs, gradients, loader checks and code quality
+        run: mvn --batch-mode -f onnx/pom.xml verify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: onnx-cpu-reports
+          path: onnx/target/surefire-reports/
+
+  metal:
+    if: github.event_name == 'workflow_dispatch' && inputs.require_metal
+    runs-on: [self-hosted, macOS, ARM64, deepj-metal]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '20'
+          cache: maven
+      - name: Install the DeepJ core used by this checkout
+        run: mvn --batch-mode -DskipTests install
+      - name: Require the physical Metal backend
+        run: mvn --batch-mode -f onnx/pom.xml -Donnx.test.metal=true verify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: onnx-metal-reports
+          path: onnx/target/surefire-reports/
