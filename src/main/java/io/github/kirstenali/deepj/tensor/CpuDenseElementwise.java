@@ -1,7 +1,5 @@
 package io.github.kirstenali.deepj.tensor;
 
-import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
-
 /** Pointwise kernels over contiguous storage of any rank, without per-value layout division. */
 final class CpuDenseElementwise {
     private static final int BLOCK = 4096;
@@ -50,7 +48,11 @@ final class CpuDenseElementwise {
 
     static void ranges(int count, Range operation) {
         if (count == 0) return;
-        DeepJExecutor.forRange(0, (count - 1) / BLOCK + 1, block ->
+        if (count <= 2 * BLOCK) {
+            operation.apply(0, count);
+            return;
+        }
+        CpuRanges.forRange(0, (count - 1) / BLOCK + 1, block ->
                 operation.apply(block * BLOCK, (int) Math.min(count, (long) (block + 1) * BLOCK)));
     }
 }

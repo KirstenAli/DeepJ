@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.tensor.cpu;
 
-import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
+import io.github.kirstenali.deepj.tensor.CpuRanges;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
 import io.github.kirstenali.deepj.tensor.CpuNdElementwise;
@@ -57,7 +57,7 @@ abstract class CpuElementwiseOps implements TensorBackend {
         prepare(a, out);
         float[] input = a.rawData(), output = out.rawData();
         int columns = a.matrixCols();
-        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+        CpuRanges.forRange(0, a.matrixRows(), r -> {
             int base = r * columns;
             for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(input[base + c]);
@@ -80,7 +80,7 @@ abstract class CpuElementwiseOps implements TensorBackend {
         prepare(a, b, out);
         float[] left = a.rawData(), right = b.rawData(), output = out.rawData();
         int columns = a.matrixCols();
-        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+        CpuRanges.forRange(0, a.matrixRows(), r -> {
             int base = r * columns;
             for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(left[base + c], right[base + c]);
@@ -103,7 +103,7 @@ abstract class CpuElementwiseOps implements TensorBackend {
         prepare(a, out);
         float[] input = a.rawData(), output = out.rawData();
         int columns = a.matrixCols();
-        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+        CpuRanges.forRange(0, a.matrixRows(), r -> {
             int base = r * columns;
             for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(input[base + c], s);
@@ -122,7 +122,7 @@ abstract class CpuElementwiseOps implements TensorBackend {
         prepare(a, col, out);
         float[] input = a.rawData(), column = col.rawData(), output = out.rawData();
         int columns = a.matrixCols();
-        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+        CpuRanges.forRange(0, a.matrixRows(), r -> {
             float v = column[r];
             int base = r * columns;
             for (int c = 0; c < columns; c++) {
@@ -144,7 +144,7 @@ abstract class CpuElementwiseOps implements TensorBackend {
         prepare(a, row, out);
         float[] input = a.rawData(), vector = row.rawData(), output = out.rawData();
         int columns = a.matrixCols();
-        DeepJExecutor.forRange(0, a.matrixRows(), r -> {
+        CpuRanges.forRange(0, a.matrixRows(), r -> {
             int base = r * columns;
             for (int c = 0; c < columns; c++) {
                 output[base + c] = fn.apply(input[base + c], vector[c]);
@@ -185,7 +185,7 @@ abstract class CpuElementwiseOps implements TensorBackend {
 
     public Tensor causalMask(int size) {
         Tensor mask = new Tensor(size, size);
-        DeepJExecutor.forRange(0, size, r -> {
+        CpuRanges.forRange(0, size, r -> {
             int base = r * size;
             for (int c = 0; c < size; c++) {
                 mask.rawData()[base + c] = (c > r) ? -1e9f : 0.0f;
@@ -201,7 +201,7 @@ abstract class CpuElementwiseOps implements TensorBackend {
         requireMatmulCompatible(a, b);
         Tensor result = new Tensor(a.matrixRows(), b.matrixCols());
         float[] left = a.rawData(), right = b.rawData(), output = result.rawData();
-        DeepJExecutor.forRange(0, a.matrixRows(),
+        CpuRanges.forRange(0, a.matrixRows(),
                 row -> matmulRow(left, right, output, row, a.matrixCols(), b.matrixCols()));
         return result;
     }

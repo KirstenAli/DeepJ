@@ -26,14 +26,25 @@ public final class CpuBackend extends CpuTrainingOps {
                 : PackedLayouts.merge(this, input, heads);
     }
 
+    @Override public Tensor matmul(Tensor left, Tensor right) {
+        Tensor result = CpuMatmul.attempt(left, right);
+        return result == null ? super.matmul(left, right) : result;
+    }
+
     @Override public Tensor batchedMatmul(Tensor left, Tensor right, int batches, boolean ta, boolean tb) {
+        Tensor result = CpuPackedProduct.attempt(left, right, batches, ta, tb);
+        if (result != null) return result;
         return CpuNdElementwise.matrix(left) && CpuNdElementwise.matrix(right)
                 ? super.batchedMatmul(left, right, batches, ta, tb)
                 : PackedLayouts.matmul(this, left, right, batches, ta, tb);
     }
 
+    @Override public Tensor headPrefixMatmul(Tensor left, Tensor cache, int heads, int length, boolean transpose) {
+        return CpuHeadPrefixProduct.apply(this, left, cache, heads, length, transpose);
+    }
+
     @Override public void copyInto(Tensor target, Tensor source) { CpuNdAssignment.apply(target, source); }
-    @Override public Tensor zeros(DType dtype, int... shape) { return new Tensor(dtype, shape); }
+    @Override public Tensor zeros(DType dtype, int... shape) { return CpuMatrixStorage.zeros(dtype, shape); }
 
     @Override public Tensor cast(Tensor input, DType dtype) { return CpuNdElementwise.cast(input, dtype); }
 

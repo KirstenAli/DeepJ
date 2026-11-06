@@ -20,14 +20,19 @@ public final class Qwen3Benchmark {
         Tensor.setBackend(metal ? new MetalBackend() : new CpuBackend());
         DeepJExecutor.setNumThreads(args.length > 4 ? Integer.parseInt(args[4]) : 10);
         Qwen3 model = Qwen3Pretrained.load(Path.of(args[0]), DType.valueOf(args[2]));
-        var input = Qwen3Json.read(Path.of(args[3]));
-        try {
-            for (int iteration = -1; iteration < 3; iteration++) {
-                trial(model, ids(input.get("prompt")), ids(input.get("decode")), iteration, args[1], args[2]);
-            }
-        } finally {
+        try { measure(model, args); }
+        finally {
             Tensor.backend().releaseResources();
             DeepJExecutor.shutdown();
+        }
+    }
+
+    private static void measure(Qwen3 model, String[] args) throws Exception {
+        var input = Qwen3Json.read(Path.of(args[3]));
+        int warmups = args.length > 5 ? Integer.parseInt(args[5]) : 1;
+        int runs = args.length > 6 ? Integer.parseInt(args[6]) : 3;
+        for (int iteration = -warmups; iteration < runs; iteration++) {
+            trial(model, ids(input.get("prompt")), ids(input.get("decode")), iteration, args[1], args[2]);
         }
     }
 

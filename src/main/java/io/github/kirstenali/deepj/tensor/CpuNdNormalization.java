@@ -12,10 +12,16 @@ public final class CpuNdNormalization {
         Tensor denominator = new Tensor(DType.FLOAT32, NormalizationChecks.statisticsShape(input));
         var result = new NormalizationResult(output, normalized, denominator);
         int width = input.size(-1);
+        Tensor gain = gain(gamma, input.numel() / width);
         for (int row = 0; row < input.numel() / width; row++) {
-            normalizeRow(input, gamma, beta, result, row, width, epsilon, centered);
+            normalizeRow(input, gain, beta, result, row, width, epsilon, centered);
         }
         return result;
+    }
+
+    private static Tensor gain(Tensor gamma, int rows) {
+        return rows > 1 && gamma.dtype() != DType.FLOAT32
+                ? Tensor.from(gamma.toFloatArray(), gamma.shape()) : gamma;
     }
 
     private static void normalizeRow(Tensor input, Tensor gamma, Tensor beta, NormalizationResult result,
@@ -76,6 +82,10 @@ public final class CpuNdNormalization {
     }
 
     private static float value(Tensor tensor, int index) {
+        if (tensor.dtype() == DType.FLOAT32 && tensor.isContiguous()) {
+            return tensor.memory().floats()[tensor.storageOffset() + index];
+        }
+        if (tensor.isContiguous()) return tensor.memory().get(tensor.storageOffset() + index);
         return tensor.memory().get(tensor.layout().addressAt(index));
     }
 

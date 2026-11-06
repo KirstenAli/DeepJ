@@ -1,0 +1,547 @@
+{
+  "hardware": {
+    "chip": "Apple M4",
+    "memory_gib": 16,
+    "macos": "15.5",
+    "java": "20.0.2"
+  },
+  "reference": {
+    "torch": "2.8.0",
+    "transformers": "4.51.3"
+  },
+  "checkpoint": {
+    "model": "Qwen/Qwen3-1.7B",
+    "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
+  },
+  "protocol": {
+    "batch": 1,
+    "prompt_tokens": 64,
+    "fixed_decode_tokens": 16,
+    "warmups": 3,
+    "timed_runs": 3,
+    "threads": 10,
+    "blas_thread_cap": 10,
+    "reference_interop_threads": 1,
+    "logit_readback": "full final-position FLOAT32 array every step"
+  },
+  "results": {
+    "FLOAT32": {
+      "DeepJ": {
+        "median_tokens_per_second": 8.985110270043766,
+        "range_tokens_per_second": [8.690520516010519, 9.070465112900717],
+        "median_prefill_seconds": 0.594958125,
+        "trials": [
+          {
+            "tokens_per_second": 5.021202419497769,
+            "prefill_seconds": 2.214891,
+            "trial": -3,
+            "backend": "cpu",
+            "checksum": 206.64307,
+            "engine": "DeepJ",
+            "decode_seconds": 3.18648775,
+            "dtype": "FLOAT32"
+          },
+          {
+            "tokens_per_second": 5.9378257686051565,
+            "prefill_seconds": 2.185582708,
+            "trial": -2,
+            "backend": "cpu",
+            "checksum": 206.64307,
+            "engine": "DeepJ",
+            "decode_seconds": 2.694589,
+            "dtype": "FLOAT32"
+          },
+          {
+            "tokens_per_second": 8.606436019908198,
+            "prefill_seconds": 0.680505666,
+            "trial": -1,
+            "backend": "cpu",
+            "checksum": 206.64307,
+            "engine": "DeepJ",
+            "decode_seconds": 1.859073833,
+            "dtype": "FLOAT32"
+          },
+          {
+            "tokens_per_second": 8.690520516010519,
+            "prefill_seconds": 0.654375958,
+            "trial": 0,
+            "backend": "cpu",
+            "checksum": 206.64307,
+            "engine": "DeepJ",
+            "decode_seconds": 1.8410865,
+            "dtype": "FLOAT32"
+          },
+          {
+            "tokens_per_second": 9.070465112900717,
+            "prefill_seconds": 0.594958125,
+            "trial": 1,
+            "backend": "cpu",
+            "checksum": 206.64307,
+            "engine": "DeepJ",
+            "decode_seconds": 1.763966875,
+            "dtype": "FLOAT32"
+          },
+          {
+            "tokens_per_second": 8.985110270043766,
+            "prefill_seconds": 0.580346125,
+            "trial": 2,
+            "backend": "cpu",
+            "checksum": 206.64307,
+            "engine": "DeepJ",
+            "decode_seconds": 1.780723833,
+            "dtype": "FLOAT32"
+          }
+        ],
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 43.54814420900948,
+          "peak_rss_kib": 8569472.0,
+          "swap_out_before_mib": 10139.625,
+          "swap_out_after_mib": 10139.625,
+          "stopped_for": null
+        }
+      },
+      "PyTorch": {
+        "median_tokens_per_second": 9.000132612969026,
+        "range_tokens_per_second": [8.988720914242574, 9.049844352648712],
+        "median_prefill_seconds": 0.29259250000177417,
+        "trials": [
+          {
+            "torch": "2.8.0",
+            "transformers": "4.51.3",
+            "threads": 10,
+            "interop": 1,
+            "dtype": "FLOAT32"
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -3,
+            "prefill_seconds": 1.3624637499888195,
+            "decode_seconds": 1.8495125409972388,
+            "tokens_per_second": 8.650928093395333,
+            "checksum": 206.6430630683899
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -2,
+            "prefill_seconds": 0.29433391700149514,
+            "decode_seconds": 1.8136788330011768,
+            "tokens_per_second": 8.821848559330691,
+            "checksum": 206.6430630683899
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": -1,
+            "prefill_seconds": 0.2911532919970341,
+            "decode_seconds": 1.7797185839881422,
+            "tokens_per_second": 8.990185383211465,
+            "checksum": 206.6430630683899
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": 0,
+            "prefill_seconds": 0.302879082999425,
+            "decode_seconds": 1.7800085409980966,
+            "tokens_per_second": 8.988720914242574,
+            "checksum": 206.6430630683899
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": 1,
+            "prefill_seconds": 0.2910731250012759,
+            "decode_seconds": 1.7777515830093762,
+            "tokens_per_second": 9.000132612969026,
+            "checksum": 206.6430630683899
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT32",
+            "trial": 2,
+            "prefill_seconds": 0.29259250000177417,
+            "decode_seconds": 1.767986207996728,
+            "tokens_per_second": 9.049844352648712,
+            "checksum": 206.6430630683899
+          }
+        ],
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 20.642263832996832,
+          "peak_rss_kib": 9326496.0,
+          "swap_out_before_mib": 10139.625,
+          "swap_out_after_mib": 10483.6875,
+          "stopped_for": null
+        }
+      }
+    },
+    "FLOAT16": {
+      "DeepJ": {
+        "median_tokens_per_second": 16.60121723237476,
+        "range_tokens_per_second": [16.44728953222352, 16.610635342776256],
+        "median_prefill_seconds": 1.038523917,
+        "trials": [
+          {
+            "decode_seconds": 1.035158917,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 15.456563950943583,
+            "prefill_seconds": 1.068023542,
+            "trial": -3,
+            "backend": "cpu",
+            "checksum": 206.64304,
+            "engine": "DeepJ"
+          },
+          {
+            "decode_seconds": 0.993688083,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 16.101632165795028,
+            "prefill_seconds": 0.998860084,
+            "trial": -2,
+            "backend": "cpu",
+            "checksum": 206.64304,
+            "engine": "DeepJ"
+          },
+          {
+            "decode_seconds": 0.978609625,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 16.34972678712413,
+            "prefill_seconds": 1.053849666,
+            "trial": -1,
+            "backend": "cpu",
+            "checksum": 206.64304,
+            "engine": "DeepJ"
+          },
+          {
+            "decode_seconds": 0.972804666,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 16.44728953222352,
+            "prefill_seconds": 1.069783458,
+            "trial": 0,
+            "backend": "cpu",
+            "checksum": 206.64304,
+            "engine": "DeepJ"
+          },
+          {
+            "decode_seconds": 0.963238291,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 16.610635342776256,
+            "prefill_seconds": 1.038523917,
+            "trial": 1,
+            "backend": "cpu",
+            "checksum": 206.64304,
+            "engine": "DeepJ"
+          },
+          {
+            "decode_seconds": 0.96378475,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 16.60121723237476,
+            "prefill_seconds": 1.005094959,
+            "trial": 2,
+            "backend": "cpu",
+            "checksum": 206.64304,
+            "engine": "DeepJ"
+          }
+        ],
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 41.47957399999723,
+          "peak_rss_kib": 6333280.0,
+          "swap_out_before_mib": 10139.625,
+          "swap_out_after_mib": 10139.625,
+          "stopped_for": null
+        }
+      },
+      "PyTorch": {
+        "median_tokens_per_second": 20.65836598442951,
+        "range_tokens_per_second": [20.560288208028595, 20.664767274880735],
+        "median_prefill_seconds": 0.6892816670006141,
+        "trials": [
+          {
+            "torch": "2.8.0",
+            "transformers": "4.51.3",
+            "threads": 10,
+            "interop": 1,
+            "dtype": "FLOAT16"
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT16",
+            "trial": -3,
+            "prefill_seconds": 0.6915582919900771,
+            "decode_seconds": 0.7781138330028625,
+            "tokens_per_second": 20.562544092364362,
+            "checksum": 206.6484375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT16",
+            "trial": -2,
+            "prefill_seconds": 0.6627605420071632,
+            "decode_seconds": 0.7719829999987269,
+            "tokens_per_second": 20.725844999211624,
+            "checksum": 206.6484375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT16",
+            "trial": -1,
+            "prefill_seconds": 0.6662165419984376,
+            "decode_seconds": 0.7701139580021845,
+            "tokens_per_second": 20.776145963523252,
+            "checksum": 206.6484375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT16",
+            "trial": 0,
+            "prefill_seconds": 0.6786578329920303,
+            "decode_seconds": 0.7781992080126656,
+            "tokens_per_second": 20.560288208028595,
+            "checksum": 206.6484375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT16",
+            "trial": 1,
+            "prefill_seconds": 0.6892816670006141,
+            "decode_seconds": 0.7745046250056475,
+            "tokens_per_second": 20.65836598442951,
+            "checksum": 206.6484375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "FLOAT16",
+            "trial": 2,
+            "prefill_seconds": 0.693889832997229,
+            "decode_seconds": 0.774264708001283,
+            "tokens_per_second": 20.664767274880735,
+            "checksum": 206.6484375
+          }
+        ],
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 12.1608342089894,
+          "peak_rss_kib": 7004560.0,
+          "swap_out_before_mib": 10483.6875,
+          "swap_out_after_mib": 10483.6875,
+          "stopped_for": null
+        }
+      }
+    },
+    "BFLOAT16": {
+      "DeepJ": {
+        "median_tokens_per_second": 16.381577443051935,
+        "range_tokens_per_second": [16.370437780119484, 16.58326665478199],
+        "median_prefill_seconds": 1.025844416,
+        "trials": [
+          {
+            "checksum": 206.64308,
+            "engine": "DeepJ",
+            "decode_seconds": 1.013911583,
+            "dtype": "BFLOAT16",
+            "tokens_per_second": 15.780468699902405,
+            "prefill_seconds": 1.072468917,
+            "trial": -3,
+            "backend": "cpu"
+          },
+          {
+            "checksum": 206.64308,
+            "engine": "DeepJ",
+            "decode_seconds": 0.989070667,
+            "dtype": "BFLOAT16",
+            "tokens_per_second": 16.17680165213109,
+            "prefill_seconds": 1.022869333,
+            "trial": -2,
+            "backend": "cpu"
+          },
+          {
+            "checksum": 206.64308,
+            "engine": "DeepJ",
+            "decode_seconds": 0.987243958,
+            "dtype": "BFLOAT16",
+            "tokens_per_second": 16.2067337767389,
+            "prefill_seconds": 1.027158791,
+            "trial": -1,
+            "backend": "cpu"
+          },
+          {
+            "checksum": 206.64308,
+            "engine": "DeepJ",
+            "decode_seconds": 0.964828,
+            "dtype": "BFLOAT16",
+            "tokens_per_second": 16.58326665478199,
+            "prefill_seconds": 1.122059167,
+            "trial": 0,
+            "backend": "cpu"
+          },
+          {
+            "checksum": 206.64308,
+            "engine": "DeepJ",
+            "decode_seconds": 0.976706917,
+            "dtype": "BFLOAT16",
+            "tokens_per_second": 16.381577443051935,
+            "prefill_seconds": 1.025844416,
+            "trial": 1,
+            "backend": "cpu"
+          },
+          {
+            "checksum": 206.64308,
+            "engine": "DeepJ",
+            "decode_seconds": 0.977371541,
+            "dtype": "BFLOAT16",
+            "tokens_per_second": 16.370437780119484,
+            "prefill_seconds": 0.997818709,
+            "trial": 2,
+            "backend": "cpu"
+          }
+        ],
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 43.43661949998932,
+          "peak_rss_kib": 6417680.0,
+          "swap_out_before_mib": 10139.625,
+          "swap_out_after_mib": 10139.625,
+          "stopped_for": null
+        }
+      },
+      "PyTorch": {
+        "median_tokens_per_second": 20.03765827421133,
+        "range_tokens_per_second": [19.933699667708954, 20.1217618111307],
+        "median_prefill_seconds": 1.0087793749989942,
+        "trials": [
+          {
+            "torch": "2.8.0",
+            "transformers": "4.51.3",
+            "threads": 10,
+            "interop": 1,
+            "dtype": "BFLOAT16"
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "BFLOAT16",
+            "trial": -3,
+            "prefill_seconds": 0.991017041989835,
+            "decode_seconds": 0.7985375410062261,
+            "tokens_per_second": 20.036628434323354,
+            "checksum": 206.375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "BFLOAT16",
+            "trial": -2,
+            "prefill_seconds": 0.9946411669952795,
+            "decode_seconds": 0.7983181250019697,
+            "tokens_per_second": 20.042135458167785,
+            "checksum": 206.375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "BFLOAT16",
+            "trial": -1,
+            "prefill_seconds": 0.9795135419990402,
+            "decode_seconds": 0.7999117080034921,
+            "tokens_per_second": 20.00220754354823,
+            "checksum": 206.375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "BFLOAT16",
+            "trial": 0,
+            "prefill_seconds": 1.0087793749989942,
+            "decode_seconds": 0.798496499992325,
+            "tokens_per_second": 20.03765827421133,
+            "checksum": 206.375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "BFLOAT16",
+            "trial": 1,
+            "prefill_seconds": 0.9968628339993302,
+            "decode_seconds": 0.7951590000011493,
+            "tokens_per_second": 20.1217618111307,
+            "checksum": 206.375
+          },
+          {
+            "engine": "PyTorch",
+            "backend": "cpu",
+            "dtype": "BFLOAT16",
+            "trial": 2,
+            "prefill_seconds": 1.0137945409951499,
+            "decode_seconds": 0.8026608340005623,
+            "tokens_per_second": 19.933699667708954,
+            "checksum": 206.375
+          }
+        ],
+        "process_metrics": {
+          "returncode": 0,
+          "elapsed_seconds": 13.174744291987736,
+          "peak_rss_kib": 3663040.0,
+          "swap_out_before_mib": 10483.6875,
+          "swap_out_after_mib": 10483.6875,
+          "stopped_for": null
+        }
+      }
+    }
+  },
+  "accuracy": {
+    "FLOAT32": {
+      "logits_compared": 455808,
+      "max_abs": 7.772445678710938e-5,
+      "mean_abs": 8.530433867658026e-6,
+      "rms": 1.1191467512414478e-5,
+      "all_finite": true,
+      "argmax_baseline": [14155, 29728, 1459],
+      "argmax_candidate": [14155, 29728, 1459]
+    },
+    "FLOAT16": {
+      "logits_compared": 455808,
+      "max_abs": 9.918212890625e-5,
+      "mean_abs": 1.0201149243090743e-5,
+      "rms": 1.3419154094150935e-5,
+      "all_finite": true,
+      "argmax_baseline": [14155, 29728, 1459],
+      "argmax_candidate": [14155, 29728, 1459]
+    },
+    "BFLOAT16": {
+      "logits_compared": 455808,
+      "max_abs": 7.772445678710938e-5,
+      "mean_abs": 8.856122431866668e-6,
+      "rms": 1.1525485888855793e-5,
+      "all_finite": true,
+      "argmax_baseline": [14155, 29728, 1459],
+      "argmax_candidate": [14155, 29728, 1459]
+    },
+    "PyTorch_FLOAT32_vs_baseline": {
+      "max_abs": 0.00023090839385986328,
+      "mean_abs": 1.8224433151322736e-5,
+      "rms": 2.936624340490648e-5,
+      "argmax_same": true
+    },
+    "PyTorch_FLOAT32_vs_candidate": {
+      "max_abs": 0.00016641616821289062,
+      "mean_abs": 1.4815131660416928e-5,
+      "rms": 2.237453955463051e-5,
+      "argmax_same": true
+    }
+  }
+}

@@ -8,14 +8,15 @@ from safetensors.torch import load_file
 from transformers import AutoTokenizer, Qwen3Config, Qwen3ForCausalLM
 
 
-def load_model(root, device, attention="sdpa"):
+def load_model(root, device, attention="sdpa", dtype=torch.float32):
     config = Qwen3Config.from_pretrained(root, local_files_only=True)
     config._attn_implementation = attention
     with torch.device("meta"):
         model = Qwen3ForCausalLM(config)
     restore_shards(model, root)
+    model.requires_grad_(False).to(dtype=dtype).eval()
     model.model.rotary_emb = type(model.model.rotary_emb)(config=config, device="cpu")
-    model.requires_grad_(False).float().eval().to(device)
+    model.to(device)
     model.tie_weights()
     return model
 
