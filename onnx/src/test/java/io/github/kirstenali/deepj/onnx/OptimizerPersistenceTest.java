@@ -8,13 +8,11 @@ import io.github.kirstenali.deepj.optimisers.AdamW;
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorScope;
-
+import java.nio.file.Path;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Path;
 
 class OptimizerPersistenceTest {
     @TempDir Path directory;
@@ -35,7 +33,9 @@ class OptimizerPersistenceTest {
         try (var scope = TensorScope.open();
                 var model = OnnxModel.load(path)) {
             Tensor input = input();
-            assertTrue(model.parameters().isEmpty(), "Inference must not allocate trainable parameters");
+            assertTrue(
+                    model.parameters().isEmpty(),
+                    "Inference must not allocate trainable parameters");
             model.trainable("W", "B");
             float before = loss(model, input).item();
             loss(model, input).backward();
@@ -54,7 +54,8 @@ class OptimizerPersistenceTest {
                 var ignored = GradMode.noGrad()) {
             restored.trainable("W", "B");
             NetworkWeights.load(weights, restored);
-            assertArrayEquals(model.forward(input).toFloatArray(), restored.forward(input).toFloatArray());
+            assertArrayEquals(
+                    model.forward(input).toFloatArray(), restored.forward(input).toFloatArray());
         }
     }
 
@@ -65,6 +66,7 @@ class OptimizerPersistenceTest {
 
     private static Tensor input() throws Exception {
         var fixture = Qwen3Json.read(ReferenceFixturesTest.FIXTURES.resolve("mlp.json"));
-        return ReferenceFixturesTest.input(Qwen3Json.object(fixture.get("inputs")).get("X")).tensor();
+        return ReferenceFixturesTest.input(Qwen3Json.object(fixture.get("inputs")).get("X"))
+                .tensor();
     }
 }

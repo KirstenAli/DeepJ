@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.onnx.proto.Onnx;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,7 +25,8 @@ final class GraphChecks {
         }
     }
 
-    private static void checkNode(Onnx.NodeProto node, Set<String> available, List<String> problems) {
+    private static void checkNode(
+            Onnx.NodeProto node, Set<String> available, List<String> problems) {
         for (String input : node.getInputList()) {
             if (!input.isEmpty() && !available.contains(input))
                 problems.add("Undefined ONNX input " + input);

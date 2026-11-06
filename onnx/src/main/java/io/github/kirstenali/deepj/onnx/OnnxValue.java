@@ -1,7 +1,6 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
-
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -21,7 +20,8 @@ public final class OnnxValue {
 
     public static OnnxValue of(Tensor tensor) {
         Objects.requireNonNull(tensor, "tensor");
-        int type = switch (tensor.dtype()) {
+        int type =
+                switch (tensor.dtype()) {
                     case FLOAT32 -> 1;
                     case FLOAT16 -> 10;
                     case BFLOAT16 -> 16;

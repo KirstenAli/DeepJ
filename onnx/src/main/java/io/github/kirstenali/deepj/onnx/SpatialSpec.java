@@ -1,46 +1,62 @@
 package io.github.kirstenali.deepj.onnx;
 
 import java.util.Arrays;
+import java.util.Set;
 
-record SpatialSpec(int[] input, int[] kernel, int[] stride, int[] dilation, int[] before, int[] after, int[] output) {
-    static SpatialSpec read(OnnxContext c, int[] input, int[] kernel) {
+record SpatialSpec(
+        int[] input,
+        int[] kernel,
+        int[] stride,
+        int[] dilation,
+        int[] before,
+        int[] after,
+        int[] output) {
+    static SpatialSpec read(OnnxContext context, int[] input, int[] kernel) {
         int rank = input.length;
-        int[] stride = c.integers("strides", ones(rank)), dilation = c.integers("dilations", ones(rank));
-        int[] pads = c.integers("pads", new int[2 * rank]);
+        int[] stride = context.integers("strides", ones(rank)),
+                dilation = context.integers("dilations", ones(rank));
+        int[] pads = context.integers("pads", new int[2 * rank]);
         if (kernel.length != rank
                 || stride.length != rank
                 || dilation.length != rank
                 || pads.length != 2 * rank) {
             throw new IllegalArgumentException("Spatial attribute ranks differ");
         }
-        String auto = c.string("auto_pad", "NOTSET");
+        String auto = context.string("auto_pad", "NOTSET");
         if (!auto.equals("NOTSET")) autoPad(input, kernel, stride, dilation, pads, auto);
-        return create(input, kernel, stride, dilation, Arrays.copyOf(pads, rank),
-                Arrays.copyOfRange(pads, rank, 2 * rank), c.integer("ceil_mode", 0) != 0);
+        return padded(input, kernel, stride, dilation, pads, context.integer("ceil_mode", 0) != 0);
     }
 
-    static SpatialSpec create(int[] input, int[] kernel, int[] stride, int[] dilation, int[] before, int[] after,
+    static SpatialSpec create(
+            int[] input,
+            int[] kernel,
+            int[] stride,
+            int[] dilation,
+            int[] before,
+            int[] after,
             boolean ceil) {
-        int[] output = new int[input.length];
-        for (int i = 0; i < input.length; i++) {
-            requirePositive(kernel[i], stride[i], dilation[i]);
-            long available = input[i] + (long) before[i] + after[i] - effective(kernel[i], dilation[i]);
-            output[i] = Math.toIntExact((ceil ? -Math.floorDiv(-available, stride[i])
-                                            : Math.floorDiv(available, stride[i]))
-                                    + 1);
-            if (ceil && (output[i] - 1L) * stride[i] >= input[i] + (long) before[i]) output[i]--;
-            if (output[i] < 0)
-                throw new IllegalArgumentException("Spatial kernel exceeds the padded input");
-        }
-        return new SpatialSpec(input.clone(), kernel.clone(), stride.clone(), dilation.clone(), before.clone(),
-                after.clone(), output);
+        int[] output = outputShape(input, kernel, stride, dilation, before, after, ceil);
+        return new SpatialSpec(
+                input.clone(),
+                kernel.clone(),
+                stride.clone(),
+                dilation.clone(),
+                before.clone(),
+                after.clone(),
+                output);
     }
 
-    private static void autoPad(int[] input, int[] kernel, int[] stride, int[] dilation, int[] pads, String mode) {
-        if (!java.util.Set.of("VALID", "SAME_UPPER", "SAME_LOWER").contains(mode))
+    private static void autoPad(
+            int[] input, int[] kernel, int[] stride, int[] dilation, int[] pads, String mode) {
+        if (!Set.of("VALID", "SAME_UPPER", "SAME_LOWER").contains(mode))
             throw new IllegalArgumentException("Invalid auto_pad");
         for (int i = 0; i < input.length; i++) {
-            int count = mode.equals("VALID") ? 0 : Math.max(0, (int)
+            int count =
+                    mode.equals("VALID")
+                            ? 0
+                            : Math.max(
+                                    0,
+                                    (int)
                                             (((input[i] + (long) stride[i] - 1) / stride[i] - 1)
                                                             * stride[i]
                                                     + effective(kernel[i], dilation[i])
@@ -81,7 +97,8 @@ record SpatialSpec(int[] input, int[] kernel, int[] stride, int[] dilation, int[
     int index(int position, int tap, boolean padded) {
         int address = 0, multiplier = 1;
         for (int axis = input.length - 1; axis >= 0; axis--) {
-            int coordinate = position % output[axis] * stride[axis]
+            int coordinate =
+                    position % output[axis] * stride[axis]
                             - before[axis]
                             + tap % kernel[axis] * dilation[axis];
             position /= output[axis];
@@ -108,5 +125,44 @@ record SpatialSpec(int[] input, int[] kernel, int[] stride, int[] dilation, int[
         if (kernel < 1 || stride < 1 || dilation < 1) {
             throw new IllegalArgumentException("Spatial sizes must be positive");
         }
+    }
+
+    private static int[] outputShape(
+            int[] input,
+            int[] kernel,
+            int[] stride,
+            int[] dilation,
+            int[] before,
+            int[] after,
+            boolean ceil) {
+        int[] output = new int[input.length];
+        for (int i = 0; i < input.length; i++) {
+            requirePositive(kernel[i], stride[i], dilation[i]);
+            long available =
+                    input[i] + (long) before[i] + after[i] - effective(kernel[i], dilation[i]);
+            output[i] =
+                    Math.toIntExact(
+                            (ceil
+                                            ? -Math.floorDiv(-available, stride[i])
+                                            : Math.floorDiv(available, stride[i]))
+                                    + 1);
+            if (ceil && (output[i] - 1L) * stride[i] >= input[i] + (long) before[i]) output[i]--;
+            if (output[i] < 0)
+                throw new IllegalArgumentException("Spatial kernel exceeds the padded input");
+        }
+        return output;
+    }
+
+    private static SpatialSpec padded(
+            int[] input, int[] kernel, int[] stride, int[] dilation, int[] pads, boolean ceil) {
+        int rank = input.length;
+        return create(
+                input,
+                kernel,
+                stride,
+                dilation,
+                Arrays.copyOf(pads, rank),
+                Arrays.copyOfRange(pads, rank, 2 * rank),
+                ceil);
     }
 }

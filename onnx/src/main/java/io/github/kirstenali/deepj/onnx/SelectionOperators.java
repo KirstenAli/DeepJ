@@ -8,30 +8,43 @@ import java.util.stream.IntStream;
 final class SelectionOperators {
     private SelectionOperators() {}
 
-    static void register(OnnxRegistry r) {
-        r.add("ArgMax", 1, "axis keepdims select_last_index", c -> List.of(arg(c, true)));
-        r.add("ArgMin", 1, "axis keepdims select_last_index", c -> List.of(arg(c, false)));
-        r.add("TopK", 10, "axis largest sorted", SelectionOperators::top);
+    static void register(OnnxRegistry registry) {
+        registry.add(
+                "ArgMax",
+                1,
+                "axis keepdims select_last_index",
+                context -> List.of(arg(context, true)));
+        registry.add(
+                "ArgMin",
+                1,
+                "axis keepdims select_last_index",
+                context -> List.of(arg(context, false)));
+        registry.add("TopK", 10, "axis largest sorted", SelectionOperators::top);
     }
 
-    private static OnnxValue arg(OnnxContext c, boolean maximum) {
-        OnnxValue input = c.input(0);
-        int axis = ValueOps.axis(c.integer("axis", 0), input.shape().length);
+    private static OnnxValue arg(OnnxContext context, boolean maximum) {
+        OnnxValue input = context.input(0);
+        int axis = ValueOps.axis(context.integer("axis", 0), input.shape().length);
         int[] shape = input.shape();
         int size = shape[axis], inner = ValueOps.product(shape, axis + 1, shape.length);
         if (size == 0) throw new IllegalArgumentException("Arg reduction needs a nonempty axis");
         long[] output = new long[input.size() / size];
         float[] floats = input.isFloating() ? input.tensor().toFloatArray() : null;
+        boolean last = context.integer("select_last_index", 0) != 0;
         for (int i = 0; i < output.length; i++) {
-            output[i] = best(input, floats, i, size, inner, maximum, c.integer("select_last_index", 0) != 0);
+            output[i] = best(input, floats, i, size, inner, maximum, last);
         }
-        shape[axis] = 1;
-        if (c.integer("keepdims", 1) == 0)
-            shape = IntStream.range(0, shape.length).filter(i -> i != axis).map(i -> input.shape()[i]).toArray();
-        return OnnxValue.integers(output, shape);
+        return OnnxValue.integers(
+                output, reducedShape(input.shape(), axis, context.integer("keepdims", 1) != 0));
     }
 
-    private static int best(OnnxValue input, float[] floats, int index, int size, int inner, boolean maximum,
+    private static int best(
+            OnnxValue input,
+            float[] floats,
+            int index,
+            int size,
+            int inner,
+            boolean maximum,
             boolean last) {
         int base = index / inner * size * inner + index % inner, chosen = 0;
         for (int i = 1; i < size; i++) {
@@ -42,31 +55,43 @@ final class SelectionOperators {
     }
 
     private static int compare(OnnxValue value, float[] floats, int a, int b) {
-        return floats == null ? Long.compare(value.data()[a], value.data()[b]) : Float.compare(floats[a], floats[b]);
+        return floats == null
+                ? Long.compare(value.data()[a], value.data()[b])
+                : Float.compare(floats[a], floats[b]);
     }
 
-    private static List<OnnxValue> top(OnnxContext c) {
-        OnnxValue input = c.input(0);
+    private static List<OnnxValue> top(OnnxContext context) {
+        OnnxValue input = context.input(0);
         int[] shape = input.shape();
-        int axis = ValueOps.axis(c.integer("axis", -1), shape.length), size = shape[axis];
-        int count = Math.toIntExact(c.input(1).scalar());
+        int axis = ValueOps.axis(context.integer("axis", -1), shape.length), size = shape[axis];
+        int count = Math.toIntExact(context.input(1).scalar());
         if (count < 0 || count > size) throw new IllegalArgumentException("Invalid TopK count");
-        int inner = ValueOps.product(shape, axis + 1, shape.length), outer = ValueOps.product(shape, 0, axis);
+        int inner = ValueOps.product(shape, axis + 1, shape.length),
+                outer = ValueOps.product(shape, 0, axis);
         shape[axis] = count;
         long[] selected = new long[OnnxValue.elements(shape)];
         int[] addresses = new int[selected.length];
         float[] floats = input.isFloating() ? input.tensor().toFloatArray() : null;
         for (int i = 0; i < outer * inner; i++) {
-            fillTop(c, input, floats, i, size, inner, count, selected, addresses);
+            fillTop(context, input, floats, i, size, inner, count, selected, addresses);
         }
         return List.of(ValueOps.take(input, addresses, shape), OnnxValue.integers(selected, shape));
     }
 
-    private static void fillTop(OnnxContext c, OnnxValue input, float[] floats, int group, int size, int inner,
-            int count, long[] selected, int[] addresses) {
+    private static void fillTop(
+            OnnxContext context,
+            OnnxValue input,
+            float[] floats,
+            int group,
+            int size,
+            int inner,
+            int count,
+            long[] selected,
+            int[] addresses) {
         int base = group / inner * size * inner + group % inner;
-        Comparator<Integer> order = (a, b) -> compare(input, floats, base + a * inner, base + b * inner);
-        if (c.integer("largest", 1) != 0) order = order.reversed();
+        Comparator<Integer> order =
+                (a, b) -> compare(input, floats, base + a * inner, base + b * inner);
+        if (context.integer("largest", 1) != 0) order = order.reversed();
         Integer[] indices = IntStream.range(0, size).boxed().toArray(Integer[]::new);
         Arrays.sort(indices, order.thenComparingInt(Integer::intValue));
         for (int i = 0; i < count; i++) {
@@ -74,5 +99,15 @@ final class SelectionOperators {
             selected[output] = indices[i];
             addresses[output] = base + indices[i] * inner;
         }
+    }
+
+    private static int[] reducedShape(int[] shape, int axis, boolean keepDimensions) {
+        shape[axis] = 1;
+        return keepDimensions
+                ? shape
+                : IntStream.range(0, shape.length)
+                        .filter(i -> i != axis)
+                        .map(i -> shape[i])
+                        .toArray();
     }
 }

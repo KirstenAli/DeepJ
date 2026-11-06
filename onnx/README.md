@@ -15,6 +15,12 @@ mvn -f onnx/pom.xml verify
 
 The artifact coordinates are `io.github.kirstenali:deepj-onnx:0.1.0-alpha-SNAPSHOT`. Add it alongside DeepJ after installing it with `mvn -f onnx/pom.xml install`. Maven generates the Java protobuf bindings from the pinned official ONNX schema.
 
+## Code quality
+
+`mvn -f onnx/pom.xml verify` enforces the shared Java standards in production and test code: 20 non-empty lines and 15 executable statements per function, complexity and nesting limits, 120-character lines, and copy/paste detection from 100 tokens. Spotless also checks a pinned four-space Java format. Use `mvn -f onnx/pom.xml spotless:apply` to apply that format before verification.
+
+JaCoCo enforces at least 85% line coverage and 70% branch coverage for the handwritten ONNX implementation. The generated protobuf bindings are the only Java code excluded from formatting, style and coverage analysis; they are generated from the pinned official schema. PMD and duplication checks fail the build on violations or analysis errors.
+
 ## Import and execution
 
 `OnnxModel.load(Path)` reads a `.onnx` graph and its embedded or external weights. Choose the DeepJ tensor backend before loading, and keep that backend selected while using the model. Close the model when finished to release its retained weight buffers.
@@ -81,6 +87,8 @@ mvn -f onnx/pom.xml -Donnx.test.metal=true verify
 ```
 
 This option fails if Metal is unavailable. The ONNX CI workflow also provides an optional self-hosted Metal job. The ordinary CPU suite reads the checked-in oracles and needs no Python installation.
+
+The Python files under `tools/` are development-only reference generators. Maven tests read their checked-in outputs; neither building the Java artifact nor running an imported model starts Python or ONNX Runtime.
 
 To regenerate reference data, use an isolated Python environment with the versions in `tools/requirements.txt`, then run `generate_fixtures.py`, `generate_gradients.py` and `generate_schemas.py` from `onnx/tools`. Python and ONNX Runtime are used for reference generation; Java execution uses DeepJ.
 

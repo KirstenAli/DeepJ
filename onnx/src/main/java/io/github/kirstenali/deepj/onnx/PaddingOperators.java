@@ -1,43 +1,50 @@
 package io.github.kirstenali.deepj.onnx;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
-
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 final class PaddingOperators {
     private PaddingOperators() {}
 
-    static OnnxValue pad(OnnxContext c) {
-        OnnxValue value = c.input(0);
-        int[] pads = c.hasInput(1) ? c.input(1).ints() : c.integers("pads");
-        int[] axes = c.hasInput(3) ? c.input(3).ints() : IntStream.range(0, value.shape().length).toArray();
+    static OnnxValue pad(OnnxContext context) {
+        OnnxValue value = context.input(0);
+        int[] pads = context.hasInput(1) ? context.input(1).ints() : context.integers("pads");
+        int[] axes = paddingAxes(context, value.shape().length);
         if (pads.length != axes.length * 2)
             throw new IllegalArgumentException("Pad lengths differ from axes");
-        OnnxValue fill = fill(c);
-        var seen = new java.util.HashSet<Integer>();
+        OnnxValue fill = fill(context);
+        String mode = context.string("mode", "constant");
+        var seen = new HashSet<Integer>();
         for (int i = 0; i < axes.length; i++) {
             int axis = ValueOps.axis(axes[i], value.shape().length);
             if (!seen.add(axis)) throw new IllegalArgumentException("Duplicate Pad axis");
-            value = axis(value, axis, pads[i], pads[i + axes.length], fill, c.string("mode", "constant"));
+            value = axis(value, axis, pads[i], pads[i + axes.length], fill, mode);
         }
         return value;
     }
 
-    private static OnnxValue fill(OnnxContext c) {
-        if (c.hasInput(2)) {
-            ValueOps.sameType(c.input(0), c.input(2));
-            if (c.input(2).size() != 1)
+    private static OnnxValue fill(OnnxContext context) {
+        if (context.hasInput(2)) {
+            ValueOps.sameType(context.input(0), context.input(2));
+            if (context.input(2).size() != 1)
                 throw new IllegalArgumentException("Pad constant must be scalar");
-            return ValueOps.reshape(c.input(2), new int[0]);
+            return ValueOps.reshape(context.input(2), new int[0]);
         }
-        if (!c.input(0).isFloating())
-            return OnnxValue.host(new long[] {0}, new int[0], c.input(0).elementType());
-        return OnnxValue.of(Tensor.from(new float[] {c.floating("value", 0)}, c.tensor(0).dtype(), new int[0]));
+        if (!context.input(0).isFloating())
+            return OnnxValue.host(new long[] {0}, new int[0], context.input(0).elementType());
+        return OnnxValue.of(
+                Tensor.from(
+                        new float[] {context.floating("value", 0)},
+                        context.tensor(0).dtype(),
+                        new int[0]));
     }
 
-    private static OnnxValue axis(OnnxValue input, int axis, int before, int after, OnnxValue fill, String mode) {
-        if (!java.util.Set.of("constant", "edge", "reflect", "wrap").contains(mode)) {
+    private static OnnxValue axis(
+            OnnxValue input, int axis, int before, int after, OnnxValue fill, String mode) {
+        if (!Set.of("constant", "edge", "reflect", "wrap").contains(mode)) {
             throw new IllegalArgumentException("Unsupported Pad mode " + mode);
         }
         int start = Math.max(0, -before), stop = input.shape()[axis] + Math.min(0, after);
@@ -79,5 +86,9 @@ final class PaddingOperators {
         if (size == 1) return 0;
         int cycle = Math.multiplyExact(size - 1, 2), position = Math.floorMod(index, cycle);
         return position < size ? position : cycle - position;
+    }
+
+    private static int[] paddingAxes(OnnxContext context, int rank) {
+        return context.hasInput(3) ? context.input(3).ints() : IntStream.range(0, rank).toArray();
     }
 }

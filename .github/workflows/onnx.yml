@@ -35,7 +35,12 @@ jobs:
         if: always()
         with:
           name: onnx-cpu-reports
-          path: onnx/target/surefire-reports/
+          path: |
+            onnx/target/surefire-reports/
+            onnx/target/site/jacoco/
+            onnx/target/checkstyle-result.xml
+            onnx/target/pmd.xml
+            onnx/target/cpd.xml
 
   metal:
     if: github.event_name == 'workflow_dispatch' && inputs.require_metal
@@ -56,4 +61,9 @@ jobs:
         if: always()
         with:
           name: onnx-metal-reports
-          path: onnx/target/surefire-reports/
+          path: |
+            onnx/target/surefire-reports/
+            onnx/target/site/jacoco/
+            onnx/target/checkstyle-result.xml
+            onnx/target/pmd.xml
+            onnx/target/cpd.xml
