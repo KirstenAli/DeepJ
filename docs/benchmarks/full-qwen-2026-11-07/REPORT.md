@@ -117,3 +117,8 @@ accepted and excluded logs, the fixed input and verification output. Substitute
 local checkout, checkpoint and virtual-environment paths when replaying scripts.
 Build the recorded DeepJ revisions separately; run each engine in a fresh process.
 The optional Python files are reference/testing tools, not DeepJ runtime code.
+
+The later [CPU softmax follow-up](../cpu-softmax-2026-11-07/REPORT.md) measures
+lower prompt time in a full-width decoder block while preserving exact scalar
+results. Its full-model retry is memory-limited, so it does not replace the
+full-model measurements in this report.

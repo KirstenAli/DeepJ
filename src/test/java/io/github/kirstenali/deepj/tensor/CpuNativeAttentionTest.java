@@ -7,6 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class CpuNativeAttentionTest {
@@ -37,6 +39,28 @@ class CpuNativeAttentionTest {
             float[] values = Tensor.random(1024, 64, new Random(88)).toFloatArray();
             compare(values, 64, .125f);
         } finally { DeepJExecutor.setParallelEnabled(previous); }
+    }
+
+    @ParameterizedTest @ValueSource(ints = {1, 4})
+    void fallbackRetainsNativeRowsAndGlobalCausalPositions(int workers) {
+        float[] values = new float[128 * 64], output = new float[values.length];
+        values[3 * 64] = Float.NaN;
+        values[70 * 64] = Float.POSITIVE_INFINITY;
+        int[] fallback = new int[128], expected = new int[128];
+        expected[3] = expected[70] = 1;
+        assertTrue(CpuBlas.causalSoftmax(values, output, 128, 64, .125f, workers, fallback));
+        assertArrayEquals(expected, fallback);
+        compare(values, 64, .125f);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void callerWithoutRowFallbackRetainsItsAcceptanceContract(boolean sensitive) {
+        float[] values = new float[64 * 64];
+        if (sensitive) values[0] = Float.NaN;
+        Tensor input = Tensor.from(values, 64, 64), output = new Tensor(64, 64);
+        boolean accepted = CpuNativeAttention.softmax(input, output, 64, .125f);
+        if (sensitive) assertFalse(accepted);
+        else assertTrue(accepted);
     }
 
     private static void compare(float[] values, int width, float scale) {
