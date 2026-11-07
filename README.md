@@ -40,33 +40,12 @@ Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an 
 | CPU prompt processing | 292.8 ms | **286.5 ms** |
 | Metal / MPS cached decoding | **12.69 tokens/s** | 12.05 tokens/s |
 | Metal / MPS prompt processing | **119.7 ms** | 132.3 ms |
+| CPU training step (FNN) | 1.526, 1.491 ms/step | **1.456, 1.445 ms/step** |
+| Metal / MPS training step (FNN) | **2.257, 1.248 ms/step** | 2.591, 2.967 ms/step |
 
-Both engines used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling.
+Inference used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling. Training rows show two process medians for an FP32 FNN with batch size 64, MSE loss and AdamW.
 
-[Measurements, setup and validation](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Individual trials](docs/benchmarks/full-qwen-2026-11-07/results.json)
-
-### Training step time
-
-Separate **FP32 training tests on the same Apple M4** measured complete steps, including forward, loss, backward, optimizer updates and synchronization. Lower milliseconds per step means faster training.
-
-For an FNN with 64 examples per step, MSE loss and AdamW, the two fresh-process medians were:
-
-| Backend | DeepJ (ms/step) | PyTorch (ms/step) |
-|---|---:|---:|
-| CPU | 1.526, 1.491 | **1.456, 1.445** |
-| Metal / MPS | **2.257, 1.248** | 2.591, 2.967 |
-
-DeepJ's Metal step times were lower in both runs; GPU timings varied between runs. [FNN setup and results](docs/benchmarks/shared-tensor-2026-11-06/REPORT.md#pytorch-reference).
-
-Small decoder configurations with width 256 and 64-token sequences also measured:
-
-| DeepJ model | CPU (ms/step) | Metal (ms/step) |
-|---|---:|---:|
-| Qwen | 11.500 | 3.962 |
-| Loop | 10.379 | 4.230 |
-| Prism | 9.688 | 4.590 |
-
-These steps include gradient clipping and AdamW. The training checks preserved identical loss sequences and final parameter/gradient hashes across the latest CPU optimization. [Training configurations and validation](docs/benchmarks/full-qwen-2026-11-07/REPORT.md#training-and-correctness-controls).
+[Inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Training measurements](docs/benchmarks/shared-tensor-2026-11-06/REPORT.md#pytorch-reference)
 
 ## Install
 
