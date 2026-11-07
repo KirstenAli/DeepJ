@@ -13,8 +13,9 @@ final class CpuCausalSoftmax {
         MatrixShapeChecks.requireCausal(input, width);
         input.materialize();
         Tensor output = new Tensor(input.matrixRows(), width);
-        if (CpuNativeAttention.softmax(input, output, width, scale)) return output;
         float[] source = input.rawData(), result = output.rawData();
+        if (CpuNativeAttention.softmax(input, output, width, scale,
+                row -> row(source, result, row, width, scale))) return output;
         CpuRanges.forRange(0, input.matrixRows(), row -> row(source, result, row, width, scale));
         return output;
     }

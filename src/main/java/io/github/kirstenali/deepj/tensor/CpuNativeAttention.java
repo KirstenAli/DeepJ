@@ -1,15 +1,31 @@
 package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
+import java.util.function.IntConsumer;
 
 /** Dense causal softmax uses native vector exponentials with the scalar Java fallback at rounding boundaries. */
 public final class CpuNativeAttention {
     private CpuNativeAttention() {}
 
     public static boolean softmax(Tensor input, Tensor output, int width, float scale) {
-        return supported(input, output, width)
-                && CpuBlas.causalSoftmax(input.rawData(), output.rawData(), input.matrixRows(), width, scale,
-                    workers(input.numel()));
+        return softmax(input, output, width, scale, null);
+    }
+
+    public static boolean softmax(Tensor input, Tensor output, int width, float scale, IntConsumer scalarRow) {
+        if (!supported(input, output, width)) return false;
+        int[] fallback = new int[input.matrixRows()];
+        if (!CpuBlas.causalSoftmax(input.rawData(), output.rawData(), input.matrixRows(), width, scale,
+                workers(input.numel()), fallback)) return false;
+        return completeRows(fallback, scalarRow);
+    }
+
+    private static boolean completeRows(int[] fallback, IntConsumer scalarRow) {
+        for (int row = 0; row < fallback.length; row++) {
+            if (fallback[row] == 0) continue;
+            if (scalarRow == null) return false;
+            scalarRow.accept(row);
+        }
+        return true;
     }
 
     public static boolean compactSoftmax(Tensor input, Tensor output, int width, float scale, boolean causal) {
