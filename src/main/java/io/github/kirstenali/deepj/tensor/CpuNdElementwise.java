@@ -77,7 +77,7 @@ public final class CpuNdElementwise {
         }
     }
 
-    private static Tensor readable(Tensor input, Tensor output) {
+    static Tensor readable(Tensor input, Tensor output) {
         if (input.memory() != output.memory()) return input;
         boolean same = input.layout().shape().equals(output.layout().shape())
                 && input.storageOffset() == output.storageOffset() && Arrays.equals(input.strides(), output.strides());

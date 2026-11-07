@@ -743,3 +743,175 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactSoftmax(
     });
     return true;
 }
+
+namespace deepj_addition {
+static float32x4x4_t transpose(float32x4x4_t input) {
+    auto low01 = vtrn1q_f32(input.val[0], input.val[1]), high01 = vtrn2q_f32(input.val[0], input.val[1]);
+    auto low23 = vtrn1q_f32(input.val[2], input.val[3]), high23 = vtrn2q_f32(input.val[2], input.val[3]);
+    return {{vcombine_f32(vget_low_f32(low01), vget_low_f32(low23)),
+             vcombine_f32(vget_low_f32(high01), vget_low_f32(high23)),
+             vcombine_f32(vget_high_f32(low01), vget_high_f32(low23)),
+             vcombine_f32(vget_high_f32(high01), vget_high_f32(high23))}};
+}
+
+static float32x4x4_t block(const float* input, int rowStride, int columnStride) {
+    int stride = columnStride == 1 ? rowStride : columnStride;
+    float32x4x4_t values{{vld1q_f32(input), vld1q_f32(input + stride),
+                        vld1q_f32(input + 2 * stride), vld1q_f32(input + 3 * stride)}};
+    return columnStride == 1 ? values : transpose(values);
+}
+
+static void rows(const float* a, const float* b, float* output, const int* s, int row, int first, int last) {
+    int column = first;
+    for (; last - column >= 4; column += 4) {
+        auto left = block(a + row * s[5] + column * s[6], s[5], s[6]);
+        auto right = block(b + row * s[7] + column * s[8], s[7], s[8]);
+        for (int r = 0; r < 4; r++) {
+            vst1q_f32(output + (row + r) * s[4] + column, vaddq_f32(left.val[r], right.val[r]));
+        }
+    }
+    for (; column < last; column++) {
+        for (int r = 0; r < 4; r++) {
+            output[(row + r) * s[4] + column] = a[(row + r) * s[5] + column * s[6]]
+                                              + b[(row + r) * s[7] + column * s[8]];
+        }
+    }
+}
+
+static void tile(const float* a, const float* b, float* output, const int* s, int firstRow, int firstColumn) {
+    int lastRow = firstRow + std::min(64, s[3] - firstRow);
+    int lastColumn = firstColumn + std::min(64, s[4] - firstColumn);
+    int row = firstRow;
+    for (; lastRow - row >= 4; row += 4) {
+        rows(a, b, output, s, row, firstColumn, lastColumn);
+    }
+    for (; row < lastRow; row++) {
+        for (int column = firstColumn; column < lastColumn; column++) {
+            output[row * s[4] + column] = a[row * s[5] + column * s[6]] + b[row * s[7] + column * s[8]];
+        }
+    }
+}
+
+static void apply(const float* a, const float* b, float* output, const int* shape) {
+    for (int row = 0; row < shape[3]; row += std::min(64, shape[3] - row)) {
+        for (int column = 0; column < shape[4]; column += std::min(64, shape[4] - column)) {
+            tile(a, b, output, shape, row, column);
+        }
+    }
+}
+
+struct Arrays {
+    deepj_cpu::PinnedArray output, left, right;
+    const float* a;
+    const float* b;
+    Arrays(JNIEnv* env, jfloatArray av, jfloatArray bv, jfloatArray result, bool aliasA, bool aliasB)
+        : output(env, result, 0), left(env, av, JNI_ABORT, output.data && !aliasA),
+          right(env, bv, JNI_ABORT, output.data && (aliasA || left.data) && !aliasB),
+          a(static_cast<const float*>(aliasA ? output.data : left.data)),
+          b(static_cast<const float*>(aliasB ? output.data : right.data)) {}
+    bool valid() const { return output.data && a && b; }
+};
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_matrixAdd(
+        JNIEnv* env, jclass, jfloatArray left, jfloatArray right, jfloatArray output, jintArray shape) {
+    jint s[9];
+    env->GetIntArrayRegion(shape, 0, 9, s);
+    if (env->ExceptionCheck()) return false;
+    bool aliasA = env->IsSameObject(left, output), aliasB = env->IsSameObject(right, output);
+    deepj_addition::Arrays arrays(env, left, right, output, aliasA, aliasB);
+    if (!arrays.valid()) return false;
+    deepj_addition::apply(arrays.a + s[0], arrays.b + s[1], static_cast<float*>(arrays.output.data) + s[2], s);
+    return true;
+}
+
+namespace deepj_optimizer {
+struct Adam {
+    float learningRate, beta1, beta2, epsilon, decay, bc1, bc2;
+};
+
+static void vectorUpdate(float* weight, const float* gradient, float* first, float* second, const Adam& p) {
+    #pragma clang fp contract(off)
+    auto g = vld1q_f32(gradient), w = vld1q_f32(weight);
+    auto m = vaddq_f32(vmulq_n_f32(vld1q_f32(first), p.beta1), vmulq_n_f32(g, 1.0f - p.beta1));
+    auto v = vaddq_f32(vmulq_n_f32(vld1q_f32(second), p.beta2), vmulq_n_f32(vmulq_f32(g, g), 1.0f - p.beta2));
+    vst1q_f32(first, m);
+    vst1q_f32(second, v);
+    auto mHat = vdivq_f32(m, vdupq_n_f32(p.bc1)), vHat = vdivq_f32(v, vdupq_n_f32(p.bc2));
+    auto update = vdivq_f32(vmulq_n_f32(mHat, p.learningRate),
+                           vaddq_f32(vsqrtq_f32(vHat), vdupq_n_f32(p.epsilon)));
+    if (p.decay != 0) update = vaddq_f32(update, vmulq_n_f32(w, p.learningRate * p.decay));
+    vst1q_f32(weight, vsubq_f32(w, update));
+}
+
+static void scalarUpdate(float* weight, const float* gradient, float* first, float* second, const Adam& p) {
+    #pragma clang fp contract(off)
+    float g = *gradient;
+    float m = p.beta1 * (*first) + (1.0f - p.beta1) * g;
+    float v = p.beta2 * (*second) + (1.0f - p.beta2) * (g * g);
+    *first = m;
+    *second = v;
+    float update = (p.learningRate * (m / p.bc1))
+                 / (static_cast<float>(std::sqrt(double(v / p.bc2))) + p.epsilon);
+    if (p.decay != 0) update += p.learningRate * p.decay * (*weight);
+    *weight -= update;
+}
+
+static void apply(float* w, const float* g, float* m, float* v, int count, const Adam& p) {
+    int index = 0;
+    for (; count - index >= 4; index += 4) {
+        vectorUpdate(w + index, g + index, m + index, v + index, p);
+    }
+    for (; index < count; index++) {
+        scalarUpdate(w + index, g + index, m + index, v + index, p);
+    }
+}
+
+static float squareBlock(const float* values, int count) {
+    #pragma clang fp contract(off)
+    float32x4_t sums[4] = {};
+    int index = 0;
+    for (; index + 16 <= count; index += 16) {
+        for (int lane = 0; lane < 4; lane++) {
+            auto value = vld1q_f32(values + index + 4 * lane);
+            sums[lane] = vaddq_f32(sums[lane], vmulq_f32(value, value));
+        }
+    }
+    float total = vaddvq_f32(vaddq_f32(vaddq_f32(sums[0], sums[1]), vaddq_f32(sums[2], sums[3])));
+    for (; index < count; index++) {
+        total += values[index] * values[index];
+    }
+    return total;
+}
+
+static float sumSquares(const float* values, int count, float initial) {
+    double total = initial;
+    for (int first = 0; first < count; first += std::min(1024, count - first)) {
+        total += squareBlock(values + first, std::min(1024, count - first));
+    }
+    return static_cast<float>(total);
+}
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_adamW(
+        JNIEnv* env, jclass, jfloatArray weight, jint wo, jfloatArray gradient, jint go,
+        jfloatArray first, jint mo, jfloatArray second, jint vo, jint count,
+        jfloat lr, jfloat beta1, jfloat beta2, jfloat epsilon, jfloat decay, jfloat bc1, jfloat bc2) {
+    deepj_cpu::PinnedArray w(env, weight, 0), g(env, gradient, JNI_ABORT, w.data != nullptr);
+    deepj_cpu::PinnedArray m(env, first, 0, g.data != nullptr), v(env, second, 0, m.data != nullptr);
+    if (!v.data) return false;
+    deepj_optimizer::apply(static_cast<float*>(w.data) + wo, static_cast<const float*>(g.data) + go,
+                          static_cast<float*>(m.data) + mo, static_cast<float*>(v.data) + vo, count,
+                          {lr, beta1, beta2, epsilon, decay, bc1, bc2});
+    return true;
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_sumSquares(JNIEnv* env, jclass, jfloatArray values, jfloat initial) {
+    int count = env->GetArrayLength(values);
+    deepj_cpu::PinnedArray input(env, values, JNI_ABORT);
+    if (!input.data) return initial;
+    return deepj_optimizer::sumSquares(static_cast<const float*>(input.data), count, initial);
+}

@@ -46,4 +46,9 @@ final class CpuBlas {
                                                 float[] gateGradient, float[] upGradient, int[] shape);
     static native boolean compactPointwise(Object left, Object right, Object output, int[] shape);
     static native boolean swiGlu(float[] gate, int go, float[] up, int uo, float[] output, int oo, int count);
+    static native boolean matrixAdd(float[] left, float[] right, float[] output, int[] shape);
+    static native float sumSquares(float[] values, float initial);
+    static native boolean adamW(float[] weight, int wo, float[] gradient, int go, float[] first, int mo,
+                                 float[] second, int vo, int count, float learningRate, float beta1, float beta2,
+                                 float epsilon, float decay, float bc1, float bc2);
 }

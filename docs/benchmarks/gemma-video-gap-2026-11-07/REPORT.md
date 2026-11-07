@@ -40,6 +40,9 @@ These short runs establish results for this small configuration. GPU timing
 varies between fresh processes; every step and process median is retained in
 [results.json](results.json).
 
+A [subsequent CPU follow-up](../gemma-cpu-followup-2026-11-07/REPORT.md) reduces
+DeepJ step time further and reports each process separately.
+
 Both engines start at loss 5.5921097 and finish near 0.2493 after 130 steps.
 The maximum loss-sequence difference is 0.000381 on CPU and 0.000040 on Metal.
 The independent Transformers embedding-gradient oracle also passes. Floating-point

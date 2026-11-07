@@ -2,7 +2,7 @@ package io.github.kirstenali.deepj.tensor;
 
 import java.util.List;
 
-/** CPU scalar norm retains the old dense FLOAT32 order and decodes other logical layouts without a shadow. */
+/** CPU norms use bounded vector reductions for dense FLOAT32 storage and visit other layouts logically. */
 final class CpuNdNorm {
     private CpuNdNorm() {}
 
@@ -23,6 +23,7 @@ final class CpuNdNorm {
     }
 
     private static float dense(float[] values, float squares) {
+        if (CpuBlas.AVAILABLE && values.length >= 4096) return CpuBlas.sumSquares(values, squares);
         for (float value : values) { squares += value * value; }
         return squares;
     }
