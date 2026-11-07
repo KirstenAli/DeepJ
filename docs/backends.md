@@ -32,8 +32,13 @@ Batched FLOAT32 products pin their arrays once per batch operation. Compatible
 transposed inputs also use BLAS, including the products used for weight gradients.
 Dense FLOAT32 normalization uses native forward and backward loops with the same
 scalar reduction order as Java. Causal softmax uses native vector exponentials for
-4,096–262,144 elements and retains the parallel Java path for larger matrices.
+4,096–262,144 elements, distributes independent rows within the configured thread
+limit, and retains the parallel Java path for larger matrices.
 Unsupported storage and values retain their Java fallback.
+
+Dense FLOAT32 rotary positions share an array-based CPU implementation for
+interleaved and half-split pairs, including backward. Large inputs use the CPU
+executor; small inputs execute directly. Typed and strided inputs keep their fallback.
 
 Large compact matrices allocated through `CpuBackend.zeros(...)` can use column-major
 storage for contiguous dot products. Checkpoint slots allocated through
@@ -56,7 +61,8 @@ JAVA_HOME="$(/usr/libexec/java_home -v 20)" bash native/build-cpu-macos.sh
 ```
 
 See [CPU performance measurements](cpu-performance.md) for the benchmark setup,
-results and precision policies.
+results and precision policies. The [full Qwen3 follow-up](benchmarks/full-qwen-2026-11-07/REPORT.md)
+records the current FP32 CPU/Metal comparison and training regression controls.
 
 ## Shared network operations
 

@@ -32,18 +32,18 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 
 ## Serious inference speed, in Java
 
-Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an Apple M4**, CPU cached decoding was faster than PyTorch, CPU prompt processing was within 8%, and Metal decode throughput was close to PyTorch MPS.
+Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an Apple M4**, CPU cached decoding was faster than PyTorch, CPU prompt processing was within 3%, and Metal was faster in both prompt processing and cached decoding than PyTorch MPS.
 
 | Measurement | DeepJ | PyTorch |
 |---|---:|---:|
-| CPU cached decoding | **12.17 tokens/s** | 7.99 tokens/s |
-| CPU prompt processing | **334.8 ms** | 311.2 ms |
-| Metal / MPS cached decoding | **11.77 tokens/s** | 11.82 tokens/s |
-| Metal / MPS prompt processing | **152.2 ms** | 132.9 ms |
+| CPU cached decoding | **12.72 tokens/s** | 9.02 tokens/s |
+| CPU prompt processing | 292.8 ms | **286.5 ms** |
+| Metal / MPS cached decoding | **12.69 tokens/s** | 12.05 tokens/s |
+| Metal / MPS prompt processing | **119.7 ms** | 132.3 ms |
 
 Both engines used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling.
 
-[CPU measurements and validation](docs/cpu-performance.md) · [Metal/MPS trials and setup](docs/benchmarks/qwen3-metal-m4.json)
+[Measurements, setup and validation](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Individual trials](docs/benchmarks/full-qwen-2026-11-07/results.json)
 
 ## Install
 
