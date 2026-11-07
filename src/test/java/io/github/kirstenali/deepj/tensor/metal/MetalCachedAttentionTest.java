@@ -1,8 +1,10 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
+import io.github.kirstenali.deepj.tensor.CachedAttentionBackend;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import java.util.Arrays;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,6 +12,49 @@ import org.junit.jupiter.params.provider.EnumSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MetalCachedAttentionTest extends MetalDifferentialTestSupport {
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void softcapsAndLocalWindowsMatchRoundedScoresWithFloat32Softmax(DType dtype) {
+        try (var ignored = GradMode.noGrad()) {
+            for (int length : new int[]{1, 47}) {
+                for (int width : new int[]{64, 256}) {
+                    compareSoftcap(dtype, length, width, .125f);
+                    compareSoftcap(dtype, length, width, 50);
+                }
+            }
+        }
+    }
+
+    private void compareSoftcap(DType dtype, int length, int width, float cap) {
+        Tensor q = values(dtype, 4, width), k = cache(dtype, length, width, 17);
+        Tensor v = cache(dtype, length, width, 29);
+        int first = Math.min(7, length - 1);
+        var options = new CachedAttentionBackend.Options(.125f, cap, first);
+        Tensor scores = metal.headPrefixMatmul(q, k, 2, length, true).multiplyScalar(.125f);
+        scores = scores.divideScalar(cap).tanhActivation().multiplyScalar(cap);
+        float[] mask = new float[length];
+        Arrays.fill(mask, 0, first, -1e30f);
+        scores = scores.add(Tensor.from(mask, dtype, 1, length));
+        Tensor probabilities = scores.to(DType.FLOAT32).softmax(-1).to(dtype);
+        Tensor expected = metal.headPrefixMatmul(probabilities, v, 2, length, false);
+        assertTrue(metal.supportsCachedAttention(q, k, v, 2, length, options));
+        assertTensorClose(expected, metal.cachedAttention(q, k, v, 2, length, options),
+                .0002f, dtype == DType.BFLOAT16 ? .02f : .003f);
+    }
+
+    @Test void softcapPoliciesValidateArgumentsAndKeepTrainingOnAutograd() {
+        Tensor q = values(DType.FLOAT16, 4, 256), k = cache(DType.FLOAT16, 17, 256, 3);
+        var options = new CachedAttentionBackend.Options(.125f, 50, 0);
+        assertFalse(metal.supportsCachedAttention(q, k, k, 2, 17, options));
+        assertThrows(IllegalArgumentException.class, () -> new CachedAttentionBackend.Options(.125f, -1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new CachedAttentionBackend.Options(Float.NaN, 50, 0));
+        assertThrows(IllegalArgumentException.class, () -> new CachedAttentionBackend.Options(.125f, 50, -1));
+        try (var ignored = GradMode.noGrad()) {
+            var invalid = new CachedAttentionBackend.Options(.125f, 50, 17);
+            assertFalse(metal.supportsCachedAttention(q, k, k, 2, 17, invalid));
+            assertThrows(IllegalArgumentException.class, () -> metal.cachedAttention(q, k, k, 2, 17, invalid));
+        }
+    }
+
     @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
     void shortGroupedCacheAttentionMatchesTheSameRoundedUnfusedOperations(DType dtype) {
         try (var ignored = GradMode.noGrad()) {

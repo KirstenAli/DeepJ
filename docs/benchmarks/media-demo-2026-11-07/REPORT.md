@@ -1,5 +1,8 @@
 # Gemma, image and video demo checks on Apple M4
 
+Follow-up [training, inference and video comparisons](../gemma-video-gap-2026-11-07/REPORT.md)
+include the restored original FP32 fox and later loading improvements.
+
 7 November 2026. Apple M4, 16 GiB unified memory, macOS 15.5,
 Temurin 20.0.2, PyTorch 2.8.0 and Transformers 4.51.3. These checks follow
 `0eccc7c1` on `feature/shared-tensor-performance`.

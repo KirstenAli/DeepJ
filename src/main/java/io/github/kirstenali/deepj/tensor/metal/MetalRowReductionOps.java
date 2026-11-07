@@ -82,11 +82,11 @@ abstract class MetalRowReductionOps extends MetalAxisOps {
     @Override
     public float l2Norm(List<Tensor> tensors) {
         if (tensors.isEmpty()) return 0.0f;
-        if (!tensors.stream().allMatch(MetalDenseOps::matrix)) return MetalNdReductions.norm(graph, tensors);
+        if (!tensors.stream().allMatch(MetalDenseOps::dense)) return MetalNdReductions.norm(graph, tensors);
         Tensor total = new Tensor(1, 1);
         GpuBuffer output = gpuIn(total);
         for (Tensor tensor : tensors) {
-            graph.recordSumSquaresScalar(gpuIn(tensor), output);
+            graph.recordSumSquaresScalar(graph.ensureStorageBuffer(tensor), output);
         }
         output.cpuStale = true;
         total.materialize();

@@ -7,6 +7,19 @@ import org.junit.jupiter.api.Test;
 class MetalCachedAttentionValidationTest extends MetalCommandValidationSupport {
     @Override protected long[] words() { return new long[0]; }
 
+    @Test void malformedSoftcapsAndLocalWindowsAreRejectedBeforeDispatch() {
+        int[] original = command(), command = java.util.Arrays.copyOf(original, 13);
+        command[0] = ComputeGraph.OP_CACHED_ATTENTION_SOFTCAP;
+        command[11] = bits(50);
+        command[12] = 7;
+        invalidField(command, 11, bits(-1));
+        invalidField(command, 11, bits(Float.NaN));
+        invalidField(command, 11, bits(Float.POSITIVE_INFINITY));
+        invalidField(command, 12, -1);
+        invalidField(command, 12, command[9]);
+        invalidField(command, 6, 257);
+    }
+
     @Test void malformedShapesAndScalesAreRejectedBeforeDispatch() {
         int[] command = command();
         for (int field : new int[]{5, 6, 7, 8, 9}) { invalidField(command, field, 0); }

@@ -9,6 +9,12 @@ import io.github.kirstenali.deepj.autograd.GradMode;
 /** General normalization never falls back to CPU numerical evaluation. */
 abstract class MetalGeneralNormalizationOps extends MetalInPlaceOps implements InferenceNormalizationBackend {
     @Override
+    public Tensor affineRmsForInference(Tensor input, Tensor gamma, float epsilon, boolean unitOffset) {
+        if (GradMode.isEnabled()) throw new IllegalStateException("Inference normalization requires noGrad");
+        return graph.layoutAffineRmsInference(input, gamma, epsilon, unitOffset);
+    }
+
+    @Override
     public Tensor normalizeForInference(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
         if (GradMode.isEnabled()) throw new IllegalStateException("Inference normalization requires noGrad");
         return graph.layoutNormalizeInference(input, gamma, beta, epsilon, centered);

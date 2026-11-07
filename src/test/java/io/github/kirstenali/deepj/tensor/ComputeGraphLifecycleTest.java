@@ -110,9 +110,12 @@ class ComputeGraphLifecycleTest extends ComputeGraphTestSupport {
         for (int index = 0; index < fields.size(); index++) {
             codes[index] = fields.get(index).getInt(null);
         }
-        assertEquals(80, fields.size());
+        assertEquals(GraphOpMetadata.OP_METADATA.length - 1, fields.size());
         assertEquals(fields.size(), java.util.Arrays.stream(codes).distinct().count(),
                 "all op codes must be unique");
+        assertTrue(java.util.Arrays.stream(codes).allMatch(code -> code > 0
+                && code < GraphOpMetadata.OP_METADATA.length && GraphOpMetadata.OP_METADATA[code] != null),
+                "all op codes must have registered command metadata");
     }
 
     @Test

@@ -80,7 +80,24 @@ public final class CpuBackend extends CpuTrainingOps {
         return CpuNdReduction.sliceGradient(gradient, shape, axis, start, step);
     }
 
-    @Override public Tensor softmaxAxis(Tensor input, int axis) { return CpuNdSoftmax.apply(input, axis); }
+    @Override public Tensor softmaxAxis(Tensor input, int axis) {
+        if (!matrixAxis(input, axis)) return CpuNdSoftmax.apply(input, axis);
+        return reshape(softmaxRows(reshape(input, -1, input.size(-1))), input.shape());
+    }
+
+    @Override public Tensor softmaxAxisBackward(Tensor gradient, Tensor output, int axis) {
+        if (!matrixAxis(output, axis) || !matrixAxis(gradient, axis) || !output.hasSameShape(gradient)) {
+            return super.softmaxAxisBackward(gradient, output, axis);
+        }
+        Tensor result = softmaxBackward(reshape(gradient, -1, output.size(-1)),
+                reshape(output, -1, output.size(-1)));
+        return reshape(result, output.shape());
+    }
+
+    private static boolean matrixAxis(Tensor input, int axis) {
+        return input.rank() > 0 && input.numel() > 0 && (axis == -1 || axis == input.rank() - 1)
+                && input.dtype() == DType.FLOAT32 && input.coversStorage();
+    }
 
     @Override public Tensor indexSelect(Tensor input, int axis, int[] indices) {
         return CpuNdIndexing.select(input, axis, indices);

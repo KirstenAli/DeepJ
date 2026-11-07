@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.tensor.metal;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -11,6 +12,17 @@ import java.util.Random;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class MetalNormRepeatabilityTest extends MetalDifferentialTestSupport {
+    @Test void denseVectorsAndHigherRanksUseTheSameReductionAsMatrices() {
+        List<Tensor> matrices = gradients(65_537);
+        int expected = Float.floatToRawIntBits(metal.l2Norm(matrices));
+        List<Tensor> vectors = matrices.stream().map(tensor -> tensor.reshape(tensor.numel())).toList();
+        List<Tensor> cubes = matrices.stream().map(tensor -> tensor.reshape(1, 1, tensor.numel())).toList();
+        assertEquals(expected, Float.floatToRawIntBits(metal.l2Norm(vectors)));
+        assertEquals(expected, Float.floatToRawIntBits(metal.l2Norm(cubes)));
+        assertEquals(expected, Float.floatToRawIntBits(metal.l2Norm(
+                List.of(matrices.get(0), vectors.get(1), cubes.get(2), matrices.get(3), vectors.get(4)))));
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {17, 65_537, 1_048_576})
     void identicalGradientsProduceIdenticalClippingNorms(int count) {

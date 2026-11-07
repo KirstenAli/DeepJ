@@ -67,6 +67,7 @@ public final class CpuNdElementwise {
             CpuDenseElementwise.binary(left, right, output, operation);
             return;
         }
+        if (CpuStridedElementwise.binary(left, right, output, operation)) return;
         TensorLayout a = LayoutTransforms.expand(left.layout(), output.shape());
         TensorLayout b = LayoutTransforms.expand(right.layout(), output.shape());
         for (int index = 0; index < output.numel(); index++) {

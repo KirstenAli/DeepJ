@@ -21,13 +21,19 @@ class ModelRmsTest {
         Tensor gain = values(dtype, 2304), bias = values(DType.FLOAT32, 2304);
         try (var ignored = GradMode.noGrad()) {
             for (boolean gemma : new boolean[]{false, true}) {
-                Tensor expected = composed(input, gain, bias, gemma);
-                Tensor actual = ModelOps.rms(input, gain, bias, 1e-6f, gemma);
-                assertCompactRounding(expected.toFloatArray(), actual.toFloatArray(), dtype);
-                assertEquals(dtype, actual.dtype());
-                assertFalse(actual.requiresGrad());
+                checkInference(input, gain, bias, gemma);
+                checkInference(input, gain, null, gemma);
             }
         }
+    }
+
+    private static void checkInference(Tensor input, Tensor gain, Tensor bias, boolean gemma) {
+        Tensor expected = composed(input, gain, bias, gemma);
+        assertArrayEquals(expected.toFloatArray(), ModelOps.rms(input, gain, bias, 1e-6f, gemma).toFloatArray());
+        Tensor actual = ModelInference.batch(() -> ModelOps.rms(input, gain, bias, 1e-6f, gemma));
+        assertCompactRounding(expected.toFloatArray(), actual.toFloatArray(), input.dtype());
+        assertEquals(input.dtype(), actual.dtype());
+        assertFalse(actual.requiresGrad());
     }
 
     @ParameterizedTest @EnumSource(DType.class)
@@ -61,7 +67,8 @@ class ModelRmsTest {
     private static Tensor composed(Tensor input, Tensor gain, Tensor bias, boolean gemma) {
         Tensor value = input.to(DType.FLOAT32);
         Tensor result = value.divide(value.multiply(value).mean(-1, true).addScalar(1e-6f).sqrt());
-        return result.multiply(gemma ? gain.to(DType.FLOAT32).addScalar(1) : gain).add(bias).to(input.dtype());
+        result = result.multiply(gemma ? gain.to(DType.FLOAT32).addScalar(1) : gain);
+        return (bias == null ? result : result.add(bias)).to(input.dtype());
     }
 
     private static Tensor values(DType dtype, int... shape) {

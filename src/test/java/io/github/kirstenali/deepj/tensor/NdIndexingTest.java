@@ -54,6 +54,16 @@ class NdIndexingTest {
         assertArrayEquals(new float[]{3, 3}, alias.toFloatArray());
     }
 
+    @Test void offsetIndexedBlocksAccumulateRepeatedHeadsInOrder() {
+        Tensor storage = new Tensor(4, 3, 2), target = storage.slice(0, 1, 3);
+        Tensor updates = Tensor.from(new float[]{1, 2, 3, 4, 5, 6, 7, 8, 9,
+                10, 11, 12, 13, 14, 15, 16, 17, 18}, 3, 3, 2).slice(0, 1, 3);
+        target.indexAddInPlace(1, new int[]{2, 0, 2}, updates);
+        assertArrayEquals(new float[]{9, 10, 0, 0, 18, 20, 15, 16, 0, 0, 30, 32}, target.toFloatArray());
+        assertArrayEquals(new float[6], storage.slice(0, 0, 1).toFloatArray());
+        assertArrayEquals(new float[6], storage.slice(0, 3, 4).toFloatArray());
+    }
+
     @Test
     void compactIndexedUpdatesAccumulateInFloat32AndRoundOnce() {
         Tensor target = Tensor.from(new float[]{2048}, DType.FLOAT16);

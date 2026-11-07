@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.nn.transformer.gemma2;
 
 import io.github.kirstenali.deepj.layers.transformer.qwen3.Qwen3Rotary;
+import io.github.kirstenali.deepj.layers.transformer.qwen3.Qwen3RotaryTables;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.stream.IntStream;
@@ -25,10 +26,9 @@ final class Gemma2Rotary {
             throw new IllegalArgumentException("Invalid Gemma rotary input or positions");
         }
         Math.addExact(offset, length);
-        Tensor[] tables = tables(length, offset);
-        float[] signs = new float[width];
-        for (int i = 0; i < width; i++) { signs[i] = i < width / 2 ? -1 : 1; }
-        Tensor rotated = input.indexSelect(-1, partners).multiply(Tensor.from(signs, input.dtype(), width));
+        Tensor[] tables = Qwen3RotaryTables.get("gemma2-bfloat16", width, theta, length, offset,
+                () -> tables(length, offset));
+        Tensor rotated = input.indexSelect(-1, partners).multiply(tables[2]);
         return input.multiply(tables[0]).add(rotated.multiply(tables[1]));
     }
 
@@ -43,6 +43,12 @@ final class Gemma2Rotary {
             }
         }
         return new Tensor[]{Tensor.from(cosine, DType.BFLOAT16, 1, 1, length, width),
-                Tensor.from(sine, DType.BFLOAT16, 1, 1, length, width)};
+                Tensor.from(sine, DType.BFLOAT16, 1, 1, length, width), signs()};
+    }
+
+    private Tensor signs() {
+        float[] values = new float[width];
+        for (int index = 0; index < width; index++) { values[index] = index < width / 2 ? -1 : 1; }
+        return Tensor.from(values, DType.BFLOAT16, width);
     }
 }

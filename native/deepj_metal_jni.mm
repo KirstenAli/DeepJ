@@ -86,6 +86,7 @@ struct MetalContext {
     id<MTLComputePipelineState> gatherRowsPSO;
     id<MTLComputePipelineState> headCacheWritePSO;
     id<MTLComputePipelineState> cachedAttentionPSO;
+    id<MTLComputePipelineState> cachedSoftcapAttentionPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
     id<MTLComputePipelineState> expPSO;
@@ -929,6 +930,11 @@ inline float2 layout_normalization_statistics(device const unsigned char* input,
     return float2(mean, sqrt(squares + as_type<float>(params[10])));
 }
 
+inline float unit_offset_gain(float gain) {
+    volatile float shifted = gain + 1.0f;
+    return shifted;
+}
+
 inline void write_layout_normalization(LayoutNormInputs inputs, device unsigned char* output,
                                        device float* normalized, device const ulong* layouts,
                                        constant uint* params, NormWork work, float2 statistics) {
@@ -936,8 +942,10 @@ inline void write_layout_normalization(LayoutNormInputs inputs, device unsigned 
     for (uint column = work.lane; column < width; column += work.threads) {
         float value = (layout_value(inputs.input, layouts, params[0], params[5], base + column)
                         - statistics.x) / statistics.y;
-        if (params[11] == 0) normalized[base + column] = value;
-        float scaled = value * layout_value(inputs.gamma, layouts, params[1], params[6], column);
+        if ((params[11] & 1) == 0) normalized[base + column] = value;
+        float gain = layout_value(inputs.gamma, layouts, params[1], params[6], column);
+        if ((params[11] & 4) != 0) gain = unit_offset_gain(gain);
+        float scaled = value * gain;
         if (params[9] != 0) scaled += layout_value(inputs.beta, layouts, params[2], params[7], column);
         storage_write_bits(output, base + column, params[8], as_type<uint>(scaled));
     }
@@ -955,7 +963,7 @@ kernel void kernel_layout_normalize(device const unsigned char* input [[buffer(0
     threadgroup float scratch[128];
     NormWork work{row, lane, threads, scratch};
     float2 statistics = layout_normalization_statistics(input, layouts, params, work);
-    if (lane == 0 && params[11] == 0) denominator[row] = statistics.y;
+    if (lane == 0 && (params[11] & 1) == 0) denominator[row] = statistics.y;
     write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, work, statistics);
 }
 
@@ -1127,18 +1135,30 @@ inline float cached_dot(device const unsigned char* query, device const unsigned
     return cached_round(cached_round(sum, p[5]) * as_type<float>(p[6]), p[5]);
 }
 
-inline void cached_probabilities(threadgroup float* scores, constant uint* p) {
+inline float cached_softcap_score(device const unsigned char* query, device const unsigned char* keys,
+                                   constant uint* p, uint row, uint position) {
+    float score = cached_dot(query, keys, p, row, position), cap = as_type<float>(p[7]);
+    if (cap > 0.0f) {
+        score = cached_round(score / cap, p[5]);
+        score = cached_round(layout_tanh(score), p[5]);
+        score = cached_round(score * cap, p[5]);
+    }
+    if (position < p[8]) score = cached_round(score + cached_round(-1e30f, p[5]), p[5]);
+    return score;
+}
+
+inline void cached_probabilities(threadgroup float* scores, constant uint* p, uint mathType) {
     float maximum = -INFINITY, total = 0.0f;
     for (uint i = 0; i < p[4]; i++) {
         maximum = layout_maximum(maximum, scores[i]);
     }
     for (uint i = 0; i < p[4]; i++) {
-        total += layout_exponential(scores[i] - maximum, p[5]);
+        total += layout_exponential(scores[i] - maximum, mathType);
     }
     bool invalid = (as_type<uint>(maximum) & 0x7fffffffu) >= 0x7f800000u;
     for (uint i = 0; i < p[4]; i++) {
         scores[i] = invalid ? as_type<float>(0x7fc00000u)
-            : cached_round(layout_probability(scores[i] - maximum, total, p[5]), p[5]);
+            : cached_round(layout_probability(scores[i] - maximum, total, mathType), p[5]);
     }
 }
 
@@ -1152,6 +1172,22 @@ inline float cached_value(device const unsigned char* values, threadgroup const 
     return sum;
 }
 
+template<bool softcap>
+inline void cached_attention_product(device const unsigned char* query, device const unsigned char* keys,
+                                      device const unsigned char* values, device unsigned char* output,
+                                      constant uint* p, threadgroup float* scores, uint row, uint lane) {
+    for (uint i = lane; i < p[4]; i += 128) {
+        scores[i] = softcap ? cached_softcap_score(query, keys, p, row, i) : cached_dot(query, keys, p, row, i);
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (lane == 0) cached_probabilities(scores, p, softcap ? 1 : p[5]);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint column = lane; column < p[1]; column += 128) {
+        storage_write_bits(output, row * p[1] + column, p[5],
+            as_type<uint>(cached_value(values, scores, p, row, column)));
+    }
+}
+
 kernel void kernel_cached_attention(device const unsigned char* query [[buffer(0)]],
                                      device const unsigned char* keys [[buffer(1)]],
                                      device const unsigned char* values [[buffer(2)]],
@@ -1159,16 +1195,17 @@ kernel void kernel_cached_attention(device const unsigned char* query [[buffer(0
                                      uint row [[threadgroup_position_in_grid]],
                                      uint lane [[thread_index_in_threadgroup]]) {
     threadgroup float scores[512];
-    for (uint i = lane; i < p[4]; i += 128) {
-        scores[i] = cached_dot(query, keys, p, row, i);
-    }
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    if (lane == 0) cached_probabilities(scores, p);
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    for (uint column = lane; column < p[1]; column += 128) {
-        storage_write_bits(output, row * p[1] + column, p[5],
-            as_type<uint>(cached_value(values, scores, p, row, column)));
-    }
+    cached_attention_product<false>(query, keys, values, output, p, scores, row, lane);
+}
+
+kernel void kernel_cached_attention_softcap(device const unsigned char* query [[buffer(0)]],
+                                             device const unsigned char* keys [[buffer(1)]],
+                                             device const unsigned char* values [[buffer(2)]],
+                                             device unsigned char* output [[buffer(3)]], constant uint* p [[buffer(4)]],
+                                             uint row [[threadgroup_position_in_grid]],
+                                             uint lane [[thread_index_in_threadgroup]]) {
+    threadgroup float scores[512];
+    cached_attention_product<true>(query, keys, values, output, p, scores, row, lane);
 }
 
 inline float layout_softmax_sum(device const unsigned char* input, device const ulong* layouts,
@@ -2637,6 +2674,7 @@ static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutCausalSoftmaxPSO = makePSO(library, @"kernel_layout_causal_softmax");
     ctx->layoutRotaryPSO = makePSO(library, @"kernel_layout_rotary");
     ctx->cachedAttentionPSO = makePSO(library, @"kernel_cached_attention");
+    ctx->cachedSoftcapAttentionPSO = makePSO(library, @"kernel_cached_attention_softcap");
 }
 
 static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -3013,6 +3051,7 @@ static constexpr int OP_LAYOUT_CROSS_ENTROPY = 77;
 static constexpr int OP_LAYOUT_CAUSAL = 78;
 static constexpr int OP_LAYOUT_ROTARY = 79;
 static constexpr int OP_CACHED_ATTENTION = 80;
+static constexpr int OP_CACHED_ATTENTION_SOFTCAP = 81;
 
 static BufferEntry requireStorageEntry(int id, const char* opName) {
     auto entry = gBufferPool.find(id);
@@ -3948,7 +3987,9 @@ static uint32_t normalizationMode(int mode) {
 }
 
 static uint32_t normalizationFlags(int flags) {
-    if (flags < 0 || flags > 3) throw std::runtime_error("Invalid normalization flags");
+    if (flags < 0 || (flags > 3 && flags != 6 && flags != 14)) {
+        throw std::runtime_error("Invalid normalization flags");
+    }
     return (uint32_t)flags;
 }
 
@@ -3971,6 +4012,7 @@ static std::array<uint32_t, 12> layoutNormalizationParams(GraphState& state, con
     if (!std::isfinite(epsilon) || epsilon <= 0) throw std::runtime_error("Invalid normalization epsilon");
     uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
     uint32_t c = bufferDType(cmd[pos + 3]), output = a == b && (mode == 0 || a == c) ? a : 1;
+    if ((flags & 4) != 0) output = a;
     requireNormalizationOutputs(cmd, pos, output, input.count, rows, flags < 2);
     return {(uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8], (uint32_t)cmd[pos + 9], width,
             rows, a, b, c, output, mode, (uint32_t)cmd[pos + 10], flags >> 1};
@@ -4988,17 +5030,35 @@ static MPSMatrix* headPrefixMatrix(id<MTLBuffer> buffer, int heads, int length, 
     return matrixBatch(buffer, (int)(buffer.length / perRow), width, heads);
 }
 
-static std::array<uint32_t, 7> cachedAttentionParams(const jint* cmd, int pos) {
-    std::array<uint32_t, 7> p;
+static uint32_t cachedAttentionPolicy(std::array<uint32_t, 9>& p, const jint* cmd, int pos) {
+    if (cmd[pos] != OP_CACHED_ATTENTION_SOFTCAP) return 128;
+    p[7] = uint32_t(cmd[pos + 11]);
+    p[8] = uint32_t(cmd[pos + 12]);
+    uint32_t magnitude = p[7] & 0x7fffffffu;
+    if (p[8] >= p[4] || magnitude >= 0x7f800000u || ((p[7] >> 31) != 0 && magnitude != 0)) {
+        throw std::runtime_error("Invalid cached attention softcap or window");
+    }
+    return 256;
+}
+
+static void cachedAttentionAliases(const jint* cmd, int pos) {
+    for (int index : {1, 2, 3}) {
+        if (cmd[pos + 4] == cmd[pos + index]) {
+            throw std::runtime_error("Cached attention output aliases an input");
+        }
+    }
+}
+
+static std::array<uint32_t, 9> cachedAttentionParams(const jint* cmd, int pos) {
+    std::array<uint32_t, 9> p{};
     for (int i = 0; i < 5; i++) {
         p[i] = positiveCount(cmd[pos + 5 + i], "cached attention shape");
     }
     p[5] = bufferDType(cmd[pos + 1]);
     p[6] = uint32_t(cmd[pos + 10]);
-    if (cmd[pos + 4] == cmd[pos + 1] || cmd[pos + 4] == cmd[pos + 2] || cmd[pos + 4] == cmd[pos + 3]) {
-        throw std::runtime_error("Cached attention output aliases an input");
-    }
-    if (p[0] % p[2] != 0 || p[1] > 128 || p[4] > 512 || p[4] > p[3]
+    uint32_t limit = cachedAttentionPolicy(p, cmd, pos);
+    cachedAttentionAliases(cmd, pos);
+    if (p[0] % p[2] != 0 || p[1] > limit || p[4] > 512 || p[4] > p[3]
         || p[5] == 1 || (p[6] & 0x7fffffffu) >= 0x7f800000u) {
         throw std::runtime_error("Invalid compact cached attention");
     }
@@ -5018,7 +5078,9 @@ static void encodeCachedAttention(GraphState& state, const jint* cmd, int pos) {
     uint64_t query = cacheElementCount(1, p[0], p[1]), cache = cacheElementCount(p[2], p[3], p[1]);
     auto encoder = graphEncoder(state);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
-    [encoder setComputePipelineState:state.ctx->cachedAttentionPSO];
+    auto pipeline = cmd[pos] == OP_CACHED_ATTENTION_SOFTCAP
+        ? state.ctx->cachedSoftcapAttentionPSO : state.ctx->cachedAttentionPSO;
+    [encoder setComputePipelineState:pipeline];
     for (int index = 0; index < 4; index++) {
         uint64_t count = index == 0 || index == 3 ? query : cache;
         [encoder setBuffer:cachedAttentionBuffer(cmd[pos + index + 1], count, p[5], index == 3) offset:0 atIndex:index];
@@ -5355,6 +5417,7 @@ static int layoutTrainingCommandWidth(int op) {
 
 static int layoutCommandWidth(int op) {
     if (op == OP_CACHED_ATTENTION) return 11;
+    if (op == OP_CACHED_ATTENTION_SOFTCAP) return 13;
     if (op == OP_STORAGE_COPY) return 6;
     if (op == OP_LAYOUT_TRANSFER) return 4;
     if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY || op == OP_LAYOUT_REDUCE) return 7;
@@ -5417,7 +5480,9 @@ static bool encodeTrainingCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
     else if (op == OP_HEAD_CACHE_WRITE) encodeHeadCacheWrite(state, cmd, pos);
     else if (op == OP_HEAD_PREFIX_MATMUL) encodeHeadPrefixMatmul(state, cmd, pos);
-    else if (op == OP_CACHED_ATTENTION) encodeCachedAttention(state, cmd, pos);
+    else if (op == OP_CACHED_ATTENTION || op == OP_CACHED_ATTENTION_SOFTCAP) {
+        encodeCachedAttention(state, cmd, pos);
+    }
     else return false;
     return true;
 }

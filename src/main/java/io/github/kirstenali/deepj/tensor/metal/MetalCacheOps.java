@@ -11,6 +11,16 @@ abstract class MetalCacheOps extends MetalTrainingOps implements CachedAttention
         return MetalCachedAttention.apply(graph, q, k, v, heads, length, scale);
     }
 
+    @Override public boolean supportsCachedAttention(Tensor q, Tensor k, Tensor v, int heads, int length,
+                                                     CachedAttentionBackend.Options options) {
+        return MetalCachedAttention.supports(q, k, v, heads, length, options);
+    }
+
+    @Override public Tensor cachedAttention(Tensor q, Tensor k, Tensor v, int heads, int length,
+                                            CachedAttentionBackend.Options options) {
+        return MetalCachedAttention.apply(graph, q, k, v, heads, length, options);
+    }
+
     @Override
     public void writeHeadCache(Tensor cache, Tensor update, int heads, int offset) {
         HeadCacheOps.requireWrite(cache, update, heads, offset);

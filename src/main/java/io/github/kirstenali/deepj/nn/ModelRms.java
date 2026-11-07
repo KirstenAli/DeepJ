@@ -10,7 +10,7 @@ final class ModelRms {
     private ModelRms() {}
 
     static boolean supports(Tensor input, Tensor gain, float epsilon) {
-        return compactInference(input, epsilon) && parameterShape(input, gain)
+        return ModelInference.active() && compactInference(input, epsilon) && parameterShape(input, gain)
                 && Tensor.backend() instanceof InferenceNormalizationBackend;
     }
 
@@ -25,11 +25,11 @@ final class ModelRms {
     }
 
     static Tensor inference(Tensor input, Tensor gain, Tensor bias, float epsilon, boolean gemma) {
+        var backend = (InferenceNormalizationBackend) Tensor.backend();
+        if (bias == null) return backend.affineRmsForInference(input, gain, epsilon, gemma);
         Tensor scale = gain.to(DType.FLOAT32);
         if (gemma) scale = scale.addScalar(1);
-        var backend = (InferenceNormalizationBackend) Tensor.backend();
         Tensor result = backend.normalizeForInference(input, scale, null, epsilon, false);
-        if (bias != null) result = result.add(bias);
-        return result.to(input.dtype());
+        return result.add(bias).to(input.dtype());
     }
 }

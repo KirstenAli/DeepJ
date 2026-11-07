@@ -1,5 +1,8 @@
 package io.github.kirstenali.deepj.nn.transformer.gemma2;
 
+import io.github.kirstenali.deepj.autograd.GradMode;
+import io.github.kirstenali.deepj.autograd.NormalizationOps;
+import io.github.kirstenali.deepj.layers.transformer.qwen3.Qwen3RotaryTables;
 import io.github.kirstenali.deepj.nn.ModelMemory;
 import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.tensor.DType;
@@ -24,7 +27,7 @@ public final class Gemma2Backbone {
 
     Tensor forward(int[] tokens, int[] valid, Gemma2Cache cache) {
         requireInput(tokens, valid, cache == null ? 0 : cache.position());
-        try (var scope = TensorScope.open()) {
+        try (var scope = TensorScope.open(); var tables = Qwen3RotaryTables.open()) {
             Tensor input = weights.apply("embed_tokens.weight").indexSelect(0, tokens).unsqueeze(0);
             Tensor scale = Tensor.from(new float[]{(float) Math.sqrt(config.dModel())}, input.dtype(), 1);
             input = input.multiply(scale);
@@ -79,11 +82,18 @@ public final class Gemma2Backbone {
     }
 
     private Tensor normalize(Tensor input, String name) {
-        return ModelOps.rms(input, weights.apply(name + ".weight"), null, config.epsilon(), true);
+        Tensor gain = weights.apply(name + ".weight");
+        if (!GradMode.isEnabled()) return ModelOps.rms(input, gain, null, config.epsilon(), true);
+        Tensor matrix = input.to(DType.FLOAT32).reshape(-1, input.size(-1));
+        Tensor scale = gain.to(DType.FLOAT32).addScalar(1).reshape(1, -1);
+        return NormalizationOps.rmsNorm(matrix, scale, config.epsilon()).reshape(input.shape()).to(input.dtype());
     }
 
     private Tensor linear(Tensor input, String name) {
-        return input.matmul(weights.apply(name + ".weight").transpose(-1, -2));
+        Tensor weight = weights.apply(name + ".weight").transpose(-1, -2);
+        if (!GradMode.isEnabled()) return input.matmul(weight);
+        return input.reshape(-1, input.size(-1)).matmul(weight)
+                .reshape(input.size(0), input.size(1), weight.size(-1));
     }
 
     private Tensor mask(int[] valid, int layer) {

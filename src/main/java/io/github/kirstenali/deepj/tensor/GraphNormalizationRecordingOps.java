@@ -15,7 +15,7 @@ abstract class GraphNormalizationRecordingOps extends GraphIndexRecordingOps {
         GpuBuffer[] values = storageBuffers(sources);
         var result = new NormalizationResult(output(dtype, input.shape()), output(DType.FLOAT32, input.shape()),
                 output(DType.FLOAT32, NormalizationChecks.statisticsShape(input)));
-        normalizeCommand(sources, values, result, epsilon, centered, true);
+        normalizeCommand(sources, values, result, epsilon, centered ? 1 : 0);
         return result;
     }
 
@@ -27,12 +27,24 @@ abstract class GraphNormalizationRecordingOps extends GraphIndexRecordingOps {
         Tensor[] sources = {input, gamma, centered ? beta : gamma};
         GpuBuffer[] values = storageBuffers(sources);
         Tensor result = output(dtype, input.shape());
-        normalizeCommand(sources, values, new NormalizationResult(result, result, result), epsilon, centered, false);
+        normalizeCommand(sources, values, new NormalizationResult(result, result, result), epsilon, centered ? 3 : 2);
+        return result;
+    }
+
+    public Tensor layoutAffineRmsInference(Tensor input, Tensor gamma, float epsilon, boolean unitOffset) {
+        NormalizationChecks.forward(input, gamma, null, epsilon, false);
+        if (input.numel() == 0) return Tensor.deviceOnly(input.dtype(), input.shape());
+        requireLayoutSupport();
+        Tensor[] sources = {input, gamma, gamma};
+        GpuBuffer[] values = storageBuffers(sources);
+        Tensor result = output(input.dtype(), input.shape());
+        normalizeCommand(sources, values, new NormalizationResult(result, result, result),
+                epsilon, unitOffset ? 14 : 6);
         return result;
     }
 
     private void normalizeCommand(Tensor[] sources, GpuBuffer[] values, NormalizationResult result,
-                                  float epsilon, boolean centered, boolean statistics) {
+                                  float epsilon, int flags) {
         int[] offsets = layoutOffsets(sources);
         beginOp(12);
         emitInt(OP_LAYOUT_NORMALIZE);
@@ -42,7 +54,7 @@ abstract class GraphNormalizationRecordingOps extends GraphIndexRecordingOps {
         emitStorageBuffer((GpuBuffer) result.denominator().getGpuTag());
         for (int offset : offsets) { emitInt(offset); }
         emitFloatBits(epsilon);
-        emitInt((centered ? 1 : 0) | (statistics ? 0 : 2));
+        emitInt(flags);
         endOp();
     }
 

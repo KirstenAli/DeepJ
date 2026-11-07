@@ -32,6 +32,7 @@ public final class CpuNdIndexing {
             addMatrixRows(target, indices, source);
             return;
         }
+        if (CpuContiguousSelection.add(target, selection, source)) return;
         if (target.dtype() == DType.FLOAT32) addFloat32(target, source, selection);
         else addCompact(target, source, selection);
     }
