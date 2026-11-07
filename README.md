@@ -42,10 +42,12 @@ Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an 
 | Metal / MPS prompt processing | **119.7 ms** | 132.3 ms |
 | CPU training step (FNN) | 1.508 ms/step | **1.451 ms/step** |
 | Metal / MPS training step (FNN) | **1.753 ms/step** | 2.779 ms/step |
+| CPU training step (small Qwen) | 11.500 ms/step | Not measured |
+| Metal training step (small Qwen) | 3.962 ms/step | Not measured |
 
-Inference used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling. Training figures summarize two FP32 FNN runs with batch size 64, MSE loss and AdamW.
+Inference used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling. FNN training figures summarize two FP32 runs with batch size 64, MSE loss and AdamW. Qwen training uses a small width-256 configuration with 64-token sequences, gradient clipping and AdamW.
 
-[Inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Training measurements](docs/benchmarks/shared-tensor-2026-11-06/REPORT.md#pytorch-reference)
+[Inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [FNN training](docs/benchmarks/shared-tensor-2026-11-06/REPORT.md#pytorch-reference) · [Qwen training](docs/benchmarks/full-qwen-2026-11-07/REPORT.md#training-and-correctness-controls)
 
 ## Install
 
