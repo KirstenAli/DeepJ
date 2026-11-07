@@ -32,7 +32,7 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 
 ## Fast inference and training, in Java
 
-Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an Apple M4**, CPU cached decoding was faster than PyTorch, CPU prompt processing was within 3%, and Metal was faster in both prompt processing and cached decoding than PyTorch MPS.
+In **FP32 tests on an Apple M4**, DeepJ was faster for CPU decoding and Metal inference and training; PyTorch was faster for CPU training.
 
 | Measurement | DeepJ | PyTorch |
 |---|---:|---:|
@@ -40,14 +40,10 @@ Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an 
 | CPU prompt processing | 292.8 ms | **286.5 ms** |
 | Metal / MPS cached decoding | **12.69 tokens/s** | 12.05 tokens/s |
 | Metal / MPS prompt processing | **119.7 ms** | 132.3 ms |
-| CPU training step (FNN) | 1.508 ms/step | **1.451 ms/step** |
-| Metal / MPS training step (FNN) | **1.753 ms/step** | 2.779 ms/step |
 | CPU training step (small Qwen) | 11.729 ms/step | **9.133 ms/step** |
 | Metal / MPS training step (small Qwen) | **4.320 ms/step** | 16.964 ms/step |
 
-Inference used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling. Training figures summarize two FP32 runs per engine. FNN uses batch size 64, MSE loss and AdamW; small Qwen uses width 256, batch size one, 64-token sequences, cross-entropy, gradient clipping and AdamW.
-
-[Inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [FNN training](docs/benchmarks/shared-tensor-2026-11-06/REPORT.md#pytorch-reference) · [Qwen training](docs/benchmarks/qwen-training-2026-11-07/REPORT.md)
+[Qwen3-1.7B inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Small Qwen training measurements](docs/benchmarks/qwen-training-2026-11-07/REPORT.md)
 
 ## Install
 
