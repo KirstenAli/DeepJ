@@ -86,6 +86,10 @@ and GPU synchronization.
 | CPU | 1.526, 1.491 | 1.456, 1.445 |
 | METAL | 2.257, 1.248 | 2.591, 2.967 |
 
+The README reports the median of each pair of process medians: CPU 1.508 ms/step
+for DeepJ and 1.451 for PyTorch; Metal/MPS 1.753 and 2.779 ms/step respectively.
+These summaries use the unrounded samples; both process medians remain above.
+
 CPU training was close but remained slower in this probe. DeepJ's two final Metal
 training process medians were lower; the variation is large enough that this is
 exploratory evidence, not a general claim of beating PyTorch. The initial CPU FNN
