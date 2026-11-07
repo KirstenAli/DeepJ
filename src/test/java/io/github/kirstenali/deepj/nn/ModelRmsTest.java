@@ -16,7 +16,7 @@ class ModelRmsTest {
     }
 
     @ParameterizedTest @EnumSource(DType.class)
-    void inferenceRetainsFp32StatisticsAndCompactOutput(DType dtype) {
+    void inferenceRetainsFp32StatisticsAndModelSpecificAffinePrecision(DType dtype) {
         Tensor input = values(dtype, 4, 2304).slice(0, 1, 4);
         Tensor gain = values(dtype, 2304), bias = values(DType.FLOAT32, 2304);
         try (var ignored = GradMode.noGrad()) {
@@ -31,7 +31,7 @@ class ModelRmsTest {
         Tensor expected = composed(input, gain, bias, gemma);
         assertArrayEquals(expected.toFloatArray(), ModelOps.rms(input, gain, bias, 1e-6f, gemma).toFloatArray());
         Tensor actual = ModelInference.batch(() -> ModelOps.rms(input, gain, bias, 1e-6f, gemma));
-        assertCompactRounding(expected.toFloatArray(), actual.toFloatArray(), input.dtype());
+        assertCompactRounding(expected.toFloatArray(), actual.toFloatArray(), input, gain, gemma);
         assertEquals(input.dtype(), actual.dtype());
         assertFalse(actual.requiresGrad());
     }
@@ -55,18 +55,35 @@ class ModelRmsTest {
         return java.util.Arrays.stream(inputs).map(input -> input.grad().toFloatArray()).toArray(float[][]::new);
     }
 
-    private static void assertCompactRounding(float[] expected, float[] actual, DType dtype) {
-        int mantissa = dtype == DType.BFLOAT16 ? 7 : 10, minimum = dtype == DType.BFLOAT16 ? -126 : -14;
+    private static void assertCompactRounding(float[] expected, float[] actual, Tensor input, Tensor gain,
+                                               boolean gemma) {
+        DType dtype = input.dtype();
+        float[] values = normalized(input).toFloatArray(), weights = gain.toFloatArray();
         for (int index = 0; index < expected.length; index++) {
-            float ulp = Math.scalb(1f, Math.max(minimum, Math.getExponent(expected[index])) - mantissa);
-            // Bias cancellation near zero also exposes the FP32 reduction's small absolute rounding error.
-            assertEquals(expected[index], actual[index], dtype == DType.FLOAT32 ? 0 : Math.max(2e-6f, ulp));
+            float tolerance = compactUlp(expected[index], dtype);
+            if (!gemma && dtype != DType.FLOAT32) {
+                // Early compact rounding is scaled before bias cancellation, so bound that intermediate too.
+                float weight = weights[index % weights.length];
+                tolerance += compactUlp(values[index], dtype) * Math.abs(weight)
+                        + compactUlp(values[index] * weight, dtype);
+            }
+            assertEquals(expected[index], actual[index], dtype == DType.FLOAT32 ? 0 : Math.max(2e-6f, tolerance));
         }
     }
 
-    private static Tensor composed(Tensor input, Tensor gain, Tensor bias, boolean gemma) {
+    private static float compactUlp(float value, DType dtype) {
+        int mantissa = dtype == DType.BFLOAT16 ? 7 : 10, minimum = dtype == DType.BFLOAT16 ? -126 : -14;
+        return Math.scalb(1f, Math.max(minimum, Math.getExponent(value)) - mantissa);
+    }
+
+    private static Tensor normalized(Tensor input) {
         Tensor value = input.to(DType.FLOAT32);
-        Tensor result = value.divide(value.multiply(value).mean(-1, true).addScalar(1e-6f).sqrt());
+        return value.divide(value.multiply(value).mean(-1, true).addScalar(1e-6f).sqrt());
+    }
+
+    private static Tensor composed(Tensor input, Tensor gain, Tensor bias, boolean gemma) {
+        Tensor result = normalized(input);
+        if (!gemma && gain.dtype() != DType.FLOAT32) result = result.to(gain.dtype());
         result = result.multiply(gemma ? gain.to(DType.FLOAT32).addScalar(1) : gain);
         return (bias == null ? result : result.add(bias)).to(input.dtype());
     }

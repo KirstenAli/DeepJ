@@ -7,6 +7,7 @@ import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.persistence.HuggingFaceConfig;
 import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -58,8 +59,8 @@ final class SanaVideoBlocks implements AutoCloseable {
             Tensor parts = weights.tensor(name + ".scale_shift_table").unsqueeze(0)
                     .add(time.reshape(1, 6, channels));
             try (var fixed = ModelMemory.retain(parts)) {
-                Tensor hidden = VideoMemory.finish(input.add(attention.self(condition(input, parts, 0),
-                        name + ".attn1", rotary).multiply(parts.slice(1, 2, 3))));
+                Tensor hidden = VideoMemory.finish(gated(input, attention.self(condition(input, parts, 0),
+                        name + ".attn1", rotary), parts.slice(1, 2, 3)));
                 try (var residual = ModelMemory.retain(hidden)) {
                     hidden = VideoMemory.finish(hidden.add(attention.cross(hidden, caption, mask, name + ".attn2")));
                 }
@@ -71,10 +72,17 @@ final class SanaVideoBlocks implements AutoCloseable {
     private Tensor feed(Tensor hidden, Tensor parts, TensorWeights weights, String name, int[] shape) {
         try (var scope = TensorScope.open(); var residual = ModelMemory.retain(hidden)) {
             Tensor feed = VideoLayout.volume(condition(hidden, parts, 3), shape[0], shape[1], shape[2]);
-            Tensor output = hidden.add(VideoLayout.tokens(SanaVideoFeedForward.apply(feed, weights, name + ".ff"))
-                    .multiply(parts.slice(1, 5, 6)));
+            Tensor output = gated(hidden, VideoLayout.tokens(SanaVideoFeedForward.apply(feed, weights,
+                    name + ".ff")), parts.slice(1, 5, 6));
             return scope.escape(VideoMemory.finish(output));
         }
+    }
+
+    static Tensor gated(Tensor input, Tensor output, Tensor gate) {
+        if (gate.dtype() == DType.FLOAT16) {
+            return input.to(DType.FLOAT32).add(output.to(DType.FLOAT32).multiply(gate.to(DType.FLOAT32)));
+        }
+        return input.add(output.multiply(gate));
     }
 
     private Tensor condition(Tensor input, Tensor parts, int first) {
@@ -85,7 +93,7 @@ final class SanaVideoBlocks implements AutoCloseable {
     private Tensor modulate(Tensor input, Tensor parts, int first) {
         Tensor norm = ModelOps.norm(input, config.decimal("norm_eps"));
         return norm.multiply(parts.slice(1, first + 1, first + 2).addScalar(1))
-                .add(parts.slice(1, first, first + 1));
+                .add(parts.slice(1, first, first + 1)).to(parts.dtype());
     }
 
 }

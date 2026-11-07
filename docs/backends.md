@@ -73,7 +73,8 @@ records the current FP32 CPU/Metal comparison and training regression controls.
 ## Shared network operations
 
 - Dense layers and MLPs use the existing projections and matrix products.
-- Convolution uses gathered windows and matrix multiplication.
+- Convolution uses native Metal execution for supported inference shapes and
+  differentiable window gathering and matrix multiplication for training and fallback.
 - Pooling and BatchNorm use tensor reductions.
 - Recurrent cells use linear projections, tensor gates, and activations.
 - Transformer encoders use batched products, softmax, normalization, and residual operations.
@@ -82,9 +83,10 @@ These operations dispatch through the selected backend. Metadata indices, sequen
 masks, attention masks, and dropout masks are constructed on the host; network
 activations are not read into Java arrays to calculate layer outputs or gradients.
 
-Convolution materializes gathered windows, so its temporary memory depends on batch
-size, output positions, channels, and kernel size. It does not use a new fused native
-convolution kernel. Transformer-specific fused attention support has separate shape
+Metal inference supports same-padded NCHW grouped and depthwise convolution through
+MPSGraph in FP32, FP16 and supported BF16 configurations. Gradient-enabled execution
+keeps the differentiable composition, whose gathered-window memory depends on batch
+size, output positions, channels, and kernel size. Transformer-specific fused attention support has separate shape
 and device requirements. See [tensors and precision](tensors.md) for the detailed
 Metal matrix and attention paths.
 
@@ -100,6 +102,10 @@ products in one Metal dispatch. This shared inference path supports FP16/BF16
 head widths up to 128 and valid cache prefixes up to 512 positions, including
 grouped-query heads. Other shapes and FP32 use the existing cache operations.
 Gradient-enabled execution never selects this inference kernel.
+
+Captured model inference reuses scratch within bounded blocks and keeps block
+outputs on the device. Channel RMS normalization preserves channel-first storage;
+compact diffusion normalization rounds its affine operations in the parameter dtype.
 
 Eligible compact MPSGraph products use the GPU compilation setting and submit
 ordered batches while the host prepares later work. Every submitted batch is

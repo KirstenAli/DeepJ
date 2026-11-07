@@ -41,6 +41,8 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutIndexSelectPSO;
     id<MTLComputePipelineState> layoutIndexAddPSO;
     id<MTLComputePipelineState> layoutNormalizePSO;
+    id<MTLComputePipelineState> composedRmsPSO;
+    id<MTLComputePipelineState> storedRmsPSO;
     id<MTLComputePipelineState> layoutNormalizationBackwardPSO;
     id<MTLComputePipelineState> layoutSwiGluBackwardPSO;
     id<MTLComputePipelineState> layoutAdamWPSO;
@@ -657,10 +659,8 @@ inline uint layout_address(device const ulong* words, uint start, uint logical) 
 
 inline void layout_raw_copy(device const unsigned char* input, device unsigned char* output,
                             uint source, uint target, uint dtype) {
-    uint width = dtype == 1 ? 4u : 2u;
-    for (uint byte = 0; byte < width; byte++) {
-        output[ulong(target) * width + byte] = input[ulong(source) * width + byte];
-    }
+    if (dtype == 1) ((device uint*)output)[target] = ((device const uint*)input)[source];
+    else ((device ushort*)output)[target] = ((device const ushort*)input)[source];
 }
 
 kernel void kernel_layout_transfer(device const unsigned char* input [[buffer(0)]],
@@ -760,7 +760,8 @@ kernel void kernel_layout_index_select(device const unsigned char* input [[buffe
                                        constant uint* params [[buffer(3)]], uint index [[thread_position_in_grid]]) {
     uint row = index / params[3], selected = uint(layouts[params[1] + 2 + row % params[4]]);
     uint logical = (row / params[4] * params[2] + selected) * params[3] + index % params[3];
-    layout_raw_copy(input, output, layout_address(layouts, params[0], logical), index, params[5]);
+    uint source = params[7] == 0 ? layout_address(layouts, params[0], logical) : params[7] - 1 + logical;
+    layout_raw_copy(input, output, source, index, params[5]);
 }
 
 inline float layout_index_sum(device const unsigned char* updates, device const ulong* layouts,
@@ -910,7 +911,9 @@ inline float norm_sum(float value, NormWork work) {
     }
     if (work.lane == 0) work.scratch[0] = value;
     threadgroup_barrier(mem_flags::mem_threadgroup);
-    return work.scratch[0];
+    float total = work.scratch[0];
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    return total;
 }
 
 inline float layout_norm_moment(device const unsigned char* input, device const ulong* layouts,
@@ -965,6 +968,109 @@ kernel void kernel_layout_normalize(device const unsigned char* input [[buffer(0
     float2 statistics = layout_normalization_statistics(input, layouts, params, work);
     if (lane == 0 && (params[11] & 1) == 0) denominator[row] = statistics.y;
     write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, work, statistics);
+}
+
+inline uint layout_last_stride(device const ulong* words, uint start) {
+    return uint(words[start + 3 + 2 * uint(words[start])]);
+}
+
+inline float composed_rms_denominator(device const unsigned char* input, constant uint* params,
+                                      uint first, uint step) {
+    float sum = 0.0f;
+    for (uint column = 0; column < params[3]; column++) {
+        float value = as_type<float>(storage_float_bits(input, first + column * step, params[5]));
+        volatile float squared = value * value;
+        sum += squared;
+    }
+    volatile float mean = sum / float(params[3]);
+    volatile float shifted = mean + as_type<float>(params[10]);
+    return sqrt(shifted);
+}
+
+inline float composed_rms_value(device const unsigned char* input, device const ulong* words,
+                                uint layout, uint dtype, uint column) {
+    uint address = uint(words[layout + 3]) + column * layout_last_stride(words, layout);
+    return as_type<float>(storage_float_bits(input, address, dtype));
+}
+
+inline uint composed_rms_address(device const ulong* words, constant uint* params, uint row, uint column) {
+    if ((params[11] & 32) == 0) return row * params[3] + column;
+    uint pixels = uint(words[params[0] + 5] * words[params[0] + 6]);
+    return (row / pixels * params[3] + column) * pixels + row % pixels;
+}
+
+inline float round_stored_float(float value, uint dtype) {
+    uint bits = as_type<uint>(value);
+    if (dtype == 1) return value;
+    return as_type<float>(dtype == 2 ? storage_decode_half(storage_encode_half(bits))
+                                     : uint(storage_encode_bfloat(bits)) << 16);
+}
+
+inline float stored_rms_affine(float value, LayoutNormInputs inputs, device const ulong* words,
+                               constant uint* params, uint column) {
+    float rounded = round_stored_float(value, params[6]);
+    float gain = composed_rms_value(inputs.gamma, words, params[1], params[6], column);
+    float result = round_stored_float(rounded * gain, params[6]);
+    if ((params[11] & 16) != 0) {
+        result += composed_rms_value(inputs.beta, words, params[2], params[7], column);
+        if (params[6] == params[7]) result = round_stored_float(result, params[6]);
+    }
+    return result;
+}
+
+inline void write_stored_rms(LayoutNormInputs inputs, device unsigned char* output, device const ulong* words,
+                             constant uint* params, NormWork work, float denominator) {
+    for (uint column = work.lane; column < params[3]; column += work.threads) {
+        float value = layout_value(inputs.input, words, params[0], params[5], work.row * params[3] + column);
+        float result = stored_rms_affine(value / denominator, inputs, words, params, column);
+        storage_write_bits(output, work.row * params[3] + column, params[8], as_type<uint>(result));
+    }
+}
+
+kernel void kernel_stored_rms(device const unsigned char* input [[buffer(0)]],
+                              device const unsigned char* gamma [[buffer(1)]],
+                              device const unsigned char* beta [[buffer(2)]],
+                              device unsigned char* output [[buffer(3)]],
+                              device float* normalized [[buffer(4)]], device float* denominator [[buffer(5)]],
+                              device const ulong* layouts [[buffer(6)]], constant uint* params [[buffer(7)]],
+                              uint row [[threadgroup_position_in_grid]], uint lane [[thread_index_in_threadgroup]],
+                              uint threads [[threads_per_threadgroup]]) {
+    threadgroup float scratch[128];
+    NormWork work{row, lane, threads, scratch};
+    float2 statistics = layout_normalization_statistics(input, layouts, params, work);
+    write_stored_rms({input, gamma, beta}, output, layouts, params, work, statistics.y);
+}
+
+inline float composed_rms_affine(float value, LayoutNormInputs inputs, device const ulong* words,
+                                 constant uint* params, uint column) {
+    if ((params[11] & 64) != 0) return stored_rms_affine(value, inputs, words, params, column);
+    volatile float scaled = value * composed_rms_value(inputs.gamma, words, params[1], params[6], column);
+    float result = scaled;
+    if ((params[11] & 16) != 0) result += composed_rms_value(inputs.beta, words, params[2], params[7], column);
+    return result;
+}
+
+inline void write_composed_rms(LayoutNormInputs inputs, device unsigned char* output,
+                               device const ulong* words, constant uint* params, uint row) {
+    uint base = row * params[3], first = layout_address(words, params[0], base);
+    uint step = layout_last_stride(words, params[0]);
+    volatile float denominator = composed_rms_denominator(inputs.input, params, first, step);
+    for (uint column = 0; column < params[3]; column++) {
+        float value = as_type<float>(storage_float_bits(inputs.input, first + column * step, params[5]));
+        volatile float normalized = value / denominator;
+        float result = composed_rms_affine(normalized, inputs, words, params, column);
+        storage_write_bits(output, composed_rms_address(words, params, row, column), params[8], as_type<uint>(result));
+    }
+}
+
+kernel void kernel_composed_rms(device const unsigned char* input [[buffer(0)]],
+                                device const unsigned char* gamma [[buffer(1)]],
+                                device const unsigned char* beta [[buffer(2)]],
+                                device unsigned char* output [[buffer(3)]],
+                                device float* normalized [[buffer(4)]], device float* denominator [[buffer(5)]],
+                                device const ulong* layouts [[buffer(6)]], constant uint* params [[buffer(7)]],
+                                uint row [[thread_position_in_grid]]) {
+    write_composed_rms({input, gamma, beta}, output, layouts, params, row);
 }
 
 struct LayoutNormBackwardInputs {
@@ -2677,6 +2783,13 @@ static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->cachedSoftcapAttentionPSO = makePSO(library, @"kernel_cached_attention_softcap");
 }
 
+static void initNormalizationPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->layoutNormalizePSO = makePSO(library, @"kernel_layout_normalize");
+    ctx->composedRmsPSO = makePSO(library, @"kernel_composed_rms");
+    ctx->storedRmsPSO = makePSO(library, @"kernel_stored_rms");
+    ctx->layoutNormalizationBackwardPSO = makePSO(library, @"kernel_layout_normalization_backward");
+}
+
 static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     initPositionPipelines(ctx, library);
     ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
@@ -2691,8 +2804,7 @@ static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->compactMatvecPSO = makePSO(library, @"kernel_compact_matvec");
     ctx->layoutIndexSelectPSO = makePSO(library, @"kernel_layout_index_select");
     ctx->layoutIndexAddPSO = makePSO(library, @"kernel_layout_index_add");
-    ctx->layoutNormalizePSO = makePSO(library, @"kernel_layout_normalize");
-    ctx->layoutNormalizationBackwardPSO = makePSO(library, @"kernel_layout_normalization_backward");
+    initNormalizationPipelines(ctx, library);
     ctx->layoutSwiGluBackwardPSO = makePSO(library, @"kernel_layout_swiglu_backward");
     ctx->layoutAdamWPSO = makePSO(library, @"kernel_layout_adamw");
     ctx->layoutCrossEntropyPSO = makePSO(library, @"kernel_layout_cross_entropy");
@@ -3052,6 +3164,7 @@ static constexpr int OP_LAYOUT_CAUSAL = 78;
 static constexpr int OP_LAYOUT_ROTARY = 79;
 static constexpr int OP_CACHED_ATTENTION = 80;
 static constexpr int OP_CACHED_ATTENTION_SOFTCAP = 81;
+static constexpr int OP_CONVOLUTION_2D = 82;
 
 static BufferEntry requireStorageEntry(int id, const char* opName) {
     auto entry = gBufferPool.find(id);
@@ -3891,7 +4004,17 @@ static uint32_t indexTrailing(const LogicalLayout& layout, int axis) {
     return trailing;
 }
 
-static std::array<uint32_t, 7> layoutIndexSelectParams(GraphState& state, const jint* cmd, int pos) {
+static uint32_t denseIndexOffset(const LogicalLayout& layout) {
+    uint64_t step = 1;
+    for (int axis = (int)layout.rank - 1; axis >= 0; axis--) {
+        uint32_t size = (uint32_t)layout.axes[axis];
+        if (size > 1 && (uint64_t)layout.axes[layout.rank + axis] != step) return 0;
+        step *= size;
+    }
+    return layout.offset + 1;
+}
+
+static std::array<uint32_t, 8> layoutIndexSelectParams(GraphState& state, const jint* cmd, int pos) {
     int input = cmd[pos + 1], output = cmd[pos + 2], dtype = bufferDType(input);
     auto source = requireLogicalLayout(state.layouts, cmd[pos + 3], requireStorageBuffer(input, "gather"), dtype);
     uint32_t trailing = indexTrailing(source, cmd[pos + 5]), width = source.axes[cmd[pos + 5]];
@@ -3902,7 +4025,7 @@ static std::array<uint32_t, 7> layoutIndexSelectParams(GraphState& state, const 
         throw std::runtime_error("Invalid typed GPU gather output");
     }
     return {(uint32_t)cmd[pos + 3], (uint32_t)cmd[pos + 4], width, trailing, plan.count,
-            (uint32_t)dtype, (uint32_t)count};
+            (uint32_t)dtype, (uint32_t)count, denseIndexOffset(source)};
 }
 
 static void encodeLayoutIndexSelect(GraphState& state, const jint* cmd, int pos) {
@@ -3987,7 +4110,8 @@ static uint32_t normalizationMode(int mode) {
 }
 
 static uint32_t normalizationFlags(int flags) {
-    if (flags < 0 || (flags > 3 && flags != 6 && flags != 14)) {
+    bool composed = (flags & ~224) == 22, stored = (flags & 128) != 0 && (flags & ~160) == 6;
+    if (flags < 0 || (flags > 3 && flags != 6 && flags != 14 && !composed && !stored)) {
         throw std::runtime_error("Invalid normalization flags");
     }
     return (uint32_t)flags;
@@ -4008,6 +4132,7 @@ static std::array<uint32_t, 12> layoutNormalizationParams(GraphState& state, con
     requireNormalizationParameter(commandLayout(state, cmd, pos, 2, 8), width);
     requireNormalizationParameter(commandLayout(state, cmd, pos, 3, 9), width);
     uint32_t flags = normalizationFlags(cmd[pos + 11]), mode = flags & 1;
+    if ((flags & 64) != 0 && input.rank != 4) throw std::runtime_error("Channel RMS requires rank four");
     float epsilon = floatFromBits(cmd[pos + 10]);
     if (!std::isfinite(epsilon) || epsilon <= 0) throw std::runtime_error("Invalid normalization epsilon");
     uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
@@ -4049,9 +4174,14 @@ static void encodeLayoutMany(GraphState& state, id<MTLComputePipelineState> pipe
 
 static void encodeLayoutNormalization(GraphState& state, const jint* cmd, int pos) {
     auto params = layoutNormalizationParams(state, cmd, pos);
+    if ((params[11] & 8) != 0) {
+        encodeLayoutMany(state, state.ctx->composedRmsPSO, cmd, pos, 6, params, params[4]);
+        return;
+    }
     bool compact = params[5] != 1 || params[6] != 1 || params[7] != 1;
-    uint32_t threads = compact && params[3] >= 128 ? 128 : 1;
-    encodeLayoutMany(state, state.ctx->layoutNormalizePSO, cmd, pos, 6, params, params[4], threads);
+    uint32_t threads = (compact || (params[11] & 1) != 0) && params[3] >= 128 ? 128 : 1;
+    auto pipeline = (params[11] & 64) != 0 ? state.ctx->storedRmsPSO : state.ctx->layoutNormalizePSO;
+    encodeLayoutMany(state, pipeline, cmd, pos, 6, params, params[4], threads);
 }
 
 static void encodeLayoutNormalizationBackward(GraphState& state, const jint* cmd, int pos) {
@@ -4923,6 +5053,132 @@ static bool compactGraphShape(MetalContext* ctx, const LayoutMatmulSpec& spec) {
         && spec.inner >= 256 && spec.columns >= 256 && spec.columns % 8 == 0 && supportsCompactGraph(ctx);
 }
 
+struct ConvolutionGraph {
+    MPSGraph* graph;
+    MPSGraphTensor* input;
+    MPSGraphTensor* weight;
+    MPSGraphTensor* output;
+    MPSGraphExecutionDescriptor* execution;
+};
+
+using ConvolutionShape = std::array<uint32_t, 9>;
+
+static MPSDataType convolutionType(uint32_t dtype) {
+    if (dtype == 1) return MPSDataTypeFloat32;
+    return dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeBFloat16;
+}
+
+static NSArray<NSNumber*>* convolutionInput(const ConvolutionShape& s) {
+    return @[@(s[0]), @(s[1]), @(s[2]), @(s[3])];
+}
+
+static NSArray<NSNumber*>* convolutionWeight(const ConvolutionShape& s) {
+    return @[@(s[4]), @(s[1] / s[7]), @(s[5]), @(s[6])];
+}
+
+static NSArray<NSNumber*>* convolutionOutput(const ConvolutionShape& s) {
+    return @[@(s[0]), @(s[4]), @(s[2]), @(s[3])];
+}
+
+static MPSGraphConvolution2DOpDescriptor* convolutionDescriptor(const ConvolutionShape& s) {
+    return [MPSGraphConvolution2DOpDescriptor descriptorWithStrideInX:1 strideInY:1
+        dilationRateInX:1 dilationRateInY:1 groups:s[7] paddingLeft:s[6] / 2
+        paddingRight:s[6] / 2 paddingTop:s[5] / 2 paddingBottom:s[5] / 2
+        paddingStyle:MPSGraphPaddingStyleExplicit dataLayout:MPSGraphTensorNamedDataLayoutNCHW
+        weightsLayout:MPSGraphTensorNamedDataLayoutOIHW];
+}
+
+static MPSGraphTensor* depthwiseConvolution(MPSGraph* graph, MPSGraphTensor* input,
+                                           MPSGraphTensor* weight, const ConvolutionShape& s) {
+    auto descriptor = [MPSGraphDepthwiseConvolution3DOpDescriptor new];
+    descriptor.strides = @[@1, @1, @1];
+    descriptor.dilationRates = @[@1, @1, @1];
+    descriptor.paddingStyle = MPSGraphPaddingStyleExplicit;
+    descriptor.paddingValues = @[@0, @0, @(s[5] / 2), @(s[5] / 2), @(s[6] / 2), @(s[6] / 2)];
+    descriptor.channelDimensionIndex = -3;
+    auto kernel = [graph transposeTensor:weight dimension:0 withDimension:1 name:nil];
+    return [graph depthwiseConvolution3DWithSourceTensor:input weightsTensor:kernel descriptor:descriptor name:nil];
+}
+
+static MPSGraphTensor* convolutionOperation(MPSGraph* graph, MPSGraphTensor* input,
+                                           MPSGraphTensor* weight, const ConvolutionShape& s) {
+    if (s[7] > 1 && s[7] == s[1] && s[4] == s[1]) return depthwiseConvolution(graph, input, weight, s);
+    return [graph convolution2DWithSourceTensor:input weightsTensor:weight
+        descriptor:convolutionDescriptor(s) name:nil];
+}
+
+static ConvolutionGraph makeConvolutionGraph(const ConvolutionShape& s) {
+    auto graph = [MPSGraph new];
+    graph.options = MPSGraphOptionsNone;
+    auto input = [graph placeholderWithShape:convolutionInput(s) dataType:convolutionType(s[8]) name:nil];
+    auto weight = [graph placeholderWithShape:convolutionWeight(s) dataType:convolutionType(s[8]) name:nil];
+    auto output = convolutionOperation(graph, input, weight, s);
+    auto compilation = [MPSGraphCompilationDescriptor new];
+    compilation.optimizationLevel = MPSGraphOptimizationLevel0;
+    auto execution = [MPSGraphExecutionDescriptor new];
+    execution.compilationDescriptor = compilation;
+    return {graph, input, weight, output, execution};
+}
+
+static const ConvolutionGraph& convolutionGraph(const ConvolutionShape& s) {
+    if (s[8] == 3 && !supportsCompactGraph(getContext())) {
+        throw std::runtime_error("BF16 convolution requires Apple Silicon and macOS 14 or later");
+    }
+    static std::map<ConvolutionShape, ConvolutionGraph> cache;
+    auto found = cache.find(s);
+    if (found != cache.end()) return found->second;
+    if (cache.size() >= 128) cache.clear();
+    return cache.emplace(s, makeConvolutionGraph(s)).first->second;
+}
+
+static ConvolutionShape convolutionShape(const jint* cmd, int pos) {
+    ConvolutionShape shape;
+    for (int i = 0; i < 9; i++) {
+        if (cmd[pos + 4 + i] <= 0) throw std::runtime_error("Convolution dimensions must be positive");
+        shape[i] = (uint32_t)cmd[pos + 4 + i];
+    }
+    if (shape[8] > 3 || shape[1] % shape[7] || shape[4] % shape[7]
+        || shape[5] % 2 != 1 || shape[6] % 2 != 1) {
+        throw std::runtime_error("Invalid convolution dtype, channels or padding");
+    }
+    return shape;
+}
+
+static uint32_t convolutionElements(NSArray<NSNumber*>* shape) {
+    uint64_t count = 1;
+    for (NSNumber* size in shape) {
+        count *= size.unsignedIntValue;
+        if (count > INT32_MAX) throw std::runtime_error("Convolution tensor is too large");
+    }
+    return (uint32_t)count;
+}
+
+static MPSGraphTensorData* convolutionData(int id, NSArray<NSNumber*>* shape, uint32_t dtype) {
+    auto buffer = requireStorageBuffer(id, "convolution");
+    if (bufferDType(id) != (int)dtype || buffer.length != storageBytes(convolutionElements(shape), dtype)) {
+        throw std::runtime_error("Convolution buffer must match shape and dtype");
+    }
+    return [[MPSGraphTensorData alloc] initWithMTLBuffer:buffer shape:shape dataType:convolutionType(dtype)];
+}
+
+static void encodeConvolution2D(GraphState& state, const jint* cmd, int pos) {
+    auto s = convolutionShape(cmd, pos);
+    if (cmd[pos + 3] == cmd[pos + 1] || cmd[pos + 3] == cmd[pos + 2]) {
+        throw std::runtime_error("Convolution output must not alias inputs");
+    }
+    auto input = convolutionData(cmd[pos + 1], convolutionInput(s), s[8]);
+    auto weight = convolutionData(cmd[pos + 2], convolutionWeight(s), s[8]);
+    auto output = convolutionData(cmd[pos + 3], convolutionOutput(s), s[8]);
+    const auto& operation = convolutionGraph(s);
+    endGraphEncoder(state);
+    if (![state.commandBuffer isKindOfClass:[MPSCommandBuffer class]]) {
+        state.commandBuffer = [MPSCommandBuffer commandBufferWithCommandBuffer:state.commandBuffer];
+    }
+    [operation.graph encodeToCommandBuffer:(MPSCommandBuffer*)state.commandBuffer
+        feeds:@{operation.input:input, operation.weight:weight} targetOperations:nil
+        resultsDictionary:@{operation.output:output} executionDescriptor:operation.execution];
+}
+
 static void encodeCompactGraphProduct(GraphState& state, const jint* cmd, int pos,
                                       const LayoutMatmulSpec& spec,
                                       const MpsLayoutMatrix& a, const MpsLayoutMatrix& b) {
@@ -5416,6 +5672,7 @@ static int layoutTrainingCommandWidth(int op) {
 }
 
 static int layoutCommandWidth(int op) {
+    if (op == OP_CONVOLUTION_2D) return 13;
     if (op == OP_CACHED_ATTENTION) return 11;
     if (op == OP_CACHED_ATTENTION_SOFTCAP) return 13;
     if (op == OP_STORAGE_COPY) return 6;
@@ -5519,7 +5776,8 @@ static bool encodeLayoutTrainingCommand(GraphState& state, const jint* cmd, int 
 
 static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
     int op = cmd[pos];
-    if (op == OP_STORAGE_COPY) encodeStorageCopy(state, cmd, pos);
+    if (op == OP_CONVOLUTION_2D) encodeConvolution2D(state, cmd, pos);
+    else if (op == OP_STORAGE_COPY) encodeStorageCopy(state, cmd, pos);
     else if (op == OP_LAYOUT_TRANSFER) encodeLayoutTransfer(state, cmd, pos);
     else if (op == OP_LAYOUT_BINARY) encodeLayoutBinary(state, cmd, pos);
     else if (op == OP_LAYOUT_UNARY) encodeLayoutUnary(state, cmd, pos);

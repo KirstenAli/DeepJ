@@ -43,6 +43,38 @@ abstract class GraphNormalizationRecordingOps extends GraphIndexRecordingOps {
         return result;
     }
 
+    public Tensor layoutComposedRmsInference(Tensor input, Tensor gamma, Tensor beta, float epsilon) {
+        return rmsInference(input, gamma, beta, epsilon, false);
+    }
+
+    public Tensor layoutStoredRmsInference(Tensor input, Tensor gamma, Tensor beta, float epsilon) {
+        return rmsInference(input, gamma, beta, epsilon, true);
+    }
+
+    private Tensor rmsInference(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean stored) {
+        NormalizationChecks.forward(input, gamma, null, epsilon, false);
+        if (beta != null) NormalizationChecks.parameter(beta, input.size(-1));
+        if (input.numel() == 0) return Tensor.deviceOnly(input.dtype(), input.shape());
+        requireLayoutSupport();
+        Tensor[] sources = {input, gamma, beta == null ? gamma : beta};
+        GpuBuffer[] values = storageBuffers(sources);
+        boolean channels = input.rank() == 4 && input.strides()[3] != 1;
+        Tensor result = channels ? channelOutput(input) : output(input.dtype(), input.shape());
+        int flags = rmsFlags(stored, channels, beta != null);
+        normalizeCommand(sources, values, new NormalizationResult(result, result, result), epsilon, flags);
+        return result;
+    }
+
+    private static int rmsFlags(boolean stored, boolean channels, boolean bias) {
+        int mode = stored && !channels ? 6 : 22;
+        return mode | (bias ? 32 : 0) | (channels ? 64 : 0) | (stored ? 128 : 0);
+    }
+
+    private Tensor channelOutput(Tensor input) {
+        Tensor storage = output(input.dtype(), new int[]{input.size(0), input.size(3), input.size(1), input.size(2)});
+        return TensorViews.permute(storage, new int[]{0, 2, 3, 1});
+    }
+
     private void normalizeCommand(Tensor[] sources, GpuBuffer[] values, NormalizationResult result,
                                   float epsilon, int flags) {
         int[] offsets = layoutOffsets(sources);

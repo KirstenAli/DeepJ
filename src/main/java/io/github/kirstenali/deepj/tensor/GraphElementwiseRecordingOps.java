@@ -1,7 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
 /** General GPU arithmetic uses logical layouts and retains genuine typed allocations. */
-abstract class GraphElementwiseRecordingOps extends GraphLayoutRecordingOps {
+abstract class GraphElementwiseRecordingOps extends GraphConvolutionRecordingOps {
     GraphElementwiseRecordingOps(GpuRuntime runtime) { super(runtime); }
 
     public void recordMultiplyScalar(GpuBuffer in, GpuBuffer out, float scalar) {

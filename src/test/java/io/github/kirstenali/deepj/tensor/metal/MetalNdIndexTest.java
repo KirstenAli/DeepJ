@@ -10,6 +10,21 @@ import org.junit.jupiter.params.provider.EnumSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MetalNdIndexTest extends MetalDifferentialTestSupport {
+    @ParameterizedTest @EnumSource(DType.class)
+    void denseHigherRankOffsetGathersPreserveValuesAndRepeatedIndexGradients(DType dtype) {
+        float[] values = new float[36];
+        for (int index = 0; index < values.length; index++) { values[index] = index - 12; }
+        Tensor source = Tensor.from(values, dtype, 3, 2, 2, 3).requiresGrad(true);
+        Tensor view = source.slice(0, 1, 3);
+        Tensor expected = cpu.indexSelect(view, 2, new int[]{1, 0, 1});
+        Tensor output = view.indexSelect(2, 1, 0, 1);
+        assertTensorClose(expected, output, 0, 0);
+        output.sumTensor().backward();
+        float[] gradient = source.grad().toFloatArray();
+        for (int index = 0; index < 12; index++) { assertEquals(0, gradient[index]); }
+        for (int index = 12; index < 36; index++) { assertEquals(index / 3 % 2 + 1, gradient[index]); }
+    }
+
     @ParameterizedTest
     @EnumSource(DType.class)
     void repeatedSelectionAndUpdatesRespectStridesAndOuterSequences(DType dtype) {

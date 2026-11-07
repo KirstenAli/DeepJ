@@ -4,11 +4,13 @@ import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.autograd.NormalizationOps;
 import io.github.kirstenali.deepj.layers.transformer.qwen3.Qwen3RotaryTables;
 import io.github.kirstenali.deepj.nn.ModelMemory;
+import io.github.kirstenali.deepj.nn.ModelInference;
 import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 import java.util.function.Function;
+import java.util.Arrays;
 import java.util.stream.IntStream;
 
 /** Shared Gemma 2 computation for SANA prompt features and standalone causal language modeling. */
@@ -25,10 +27,32 @@ public final class Gemma2Backbone {
 
     public Tensor forward(int[] tokens, int[] valid) { return forward(tokens, valid, null); }
 
+    /** Encodes equal-length padded sequences together, keeping each row's causal mask independent. */
+    public Tensor forward(int[][] tokens, int[][] valid) {
+        if (tokens.length == 0 || valid.length != tokens.length) {
+            throw new IllegalArgumentException("Gemma batches require matching token and mask rows");
+        }
+        int length = tokens[0].length;
+        for (int row = 0; row < tokens.length; row++) {
+            requireInput(tokens[row], valid[row], 0);
+            if (tokens[row].length != length) throw new IllegalArgumentException("Gemma rows must have equal length");
+        }
+        return evaluate(flatten(tokens), flatten(valid), null, tokens.length);
+    }
+
+    private static int[] flatten(int[][] rows) {
+        return Arrays.stream(rows).flatMapToInt(Arrays::stream).toArray();
+    }
+
     Tensor forward(int[] tokens, int[] valid, Gemma2Cache cache) {
         requireInput(tokens, valid, cache == null ? 0 : cache.position());
+        return evaluate(tokens, valid, cache, 1);
+    }
+
+    private Tensor evaluate(int[] tokens, int[] valid, Gemma2Cache cache, int batch) {
         try (var scope = TensorScope.open(); var tables = Qwen3RotaryTables.open()) {
-            Tensor input = weights.apply("embed_tokens.weight").indexSelect(0, tokens).unsqueeze(0);
+            Tensor input = weights.apply("embed_tokens.weight").indexSelect(0, tokens)
+                    .reshape(batch, tokens.length / batch, config.dModel());
             Tensor scale = Tensor.from(new float[]{(float) Math.sqrt(config.dModel())}, input.dtype(), 1);
             input = input.multiply(scale);
             for (int layer = 0; layer < config.nLayers(); layer++) {
@@ -49,6 +73,11 @@ public final class Gemma2Backbone {
     }
 
     private Tensor block(Tensor input, int[] valid, int layer, Gemma2Cache cache) {
+        if (cache == null) return ModelInference.evaluate(() -> blockValues(input, valid, layer, null));
+        return blockValues(input, valid, layer, cache);
+    }
+
+    private Tensor blockValues(Tensor input, int[] valid, int layer, Gemma2Cache cache) {
         String name = "layers." + layer;
         try (var scope = TensorScope.open()) {
             Tensor attended = attention(normalize(input, name + ".input_layernorm"), valid, layer, name, cache);
@@ -78,7 +107,8 @@ public final class Gemma2Backbone {
         int[] repeated = IntStream.range(0, config.nHeads())
                 .map(i -> i / (config.nHeads() / config.kvHeads())).toArray();
         return Gemma2Attention.apply(query, key.indexSelect(1, repeated), value.indexSelect(1, repeated),
-                mask(valid, layer), (float) (1 / Math.sqrt(config.queryScalar())), config.attentionSoftcap());
+                mask(valid, layer, query.size(0)), (float) (1 / Math.sqrt(config.queryScalar())),
+                config.attentionSoftcap());
     }
 
     private Tensor normalize(Tensor input, String name) {
@@ -96,14 +126,20 @@ public final class Gemma2Backbone {
                 .reshape(input.size(0), input.size(1), weight.size(-1));
     }
 
-    private Tensor mask(int[] valid, int layer) {
-        int length = valid.length, window = layer % 2 == 0 ? config.slidingWindow() : Integer.MAX_VALUE;
-        float[] bias = new float[Math.multiplyExact(length, length)];
+    private Tensor mask(int[] valid, int layer, int batch) {
+        int length = valid.length / batch, window = layer % 2 == 0 ? config.slidingWindow() : Integer.MAX_VALUE;
+        float[] bias = new float[Math.multiplyExact(batch, Math.multiplyExact(length, length))];
+        for (int row = 0; row < batch; row++) { maskRow(bias, valid, row, length, window); }
+        return Tensor.from(bias, DType.FLOAT32, batch, 1, length, length);
+    }
+
+    private static void maskRow(float[] bias, int[] valid, int batch, int length, int window) {
         for (int query = 0; query < length; query++) {
             for (int key = 0; key < length; key++) {
-                if (key > query || valid[key] == 0 || query - key >= window) bias[query * length + key] = -1e30f;
+                if (key > query || valid[batch * length + key] == 0 || query - key >= window) {
+                    bias[(batch * length + query) * length + key] = -1e30f;
+                }
             }
         }
-        return Tensor.from(bias, DType.FLOAT32, 1, 1, length, length);
     }
 }

@@ -89,13 +89,14 @@ abstract class GraphOpMetadata {
 
     public static final int OP_CACHED_ATTENTION = 80;
     public static final int OP_CACHED_ATTENTION_SOFTCAP = 81;
+    public static final int OP_CONVOLUTION_2D = 82;
 
     record OpMeta(int stride, int[] bufferArgOffsets) {}
 
     static final OpMeta[] OP_METADATA = buildOpMetadata();
 
     static OpMeta[] buildOpMetadata() {
-        OpMeta[] meta = new OpMeta[OP_CACHED_ATTENTION_SOFTCAP + 1];
+        OpMeta[] meta = new OpMeta[OP_CONVOLUTION_2D + 1];
         registerUnaryMeta(meta);
         registerBinaryMeta(meta);
         registerReductionMeta(meta);
@@ -108,6 +109,7 @@ abstract class GraphOpMetadata {
     }
 
     private static void registerLayoutMeta(OpMeta[] meta) {
+        registerMeta(meta, OP_CONVOLUTION_2D, 13, 1, 2, 3);
         registerMeta(meta, OP_STORAGE_COPY, 6, 1, 2);
         registerMeta(meta, OP_LAYOUT_TRANSFER, 4, 1, 2);
         registerMeta(meta, OP_LAYOUT_BINARY, 7, 1, 2, 3);

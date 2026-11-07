@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
 import io.github.kirstenali.deepj.persistence.HuggingFaceConfig;
 import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.nn.ModelMemory;
+import io.github.kirstenali.deepj.nn.ModelInference;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 import java.io.IOException;
@@ -71,6 +72,11 @@ public final class SanaTransformer {
     }
 
     private Tensor block(Tensor input, Tensor text, Tensor mask, Tensor time, int layer, int height, int imageWidth) {
+        return ModelInference.evaluate(() -> blockValues(input, text, mask, time, layer, height, imageWidth));
+    }
+
+    private Tensor blockValues(Tensor input, Tensor text, Tensor mask, Tensor time, int layer, int height,
+                               int imageWidth) {
         String name = "transformer_blocks." + layer;
         try (var scope = TensorScope.open()) {
             Tensor parts = weights.tensor(name + ".scale_shift_table").unsqueeze(0).add(time.reshape(1, 6, width));
@@ -80,7 +86,7 @@ public final class SanaTransformer {
             Tensor feed = ModelOps.image(modulate(hidden, parts, 3, 4), height, imageWidth);
             feed = SanaConvolution.gated(feed, weights, name + ".ff", false);
             Tensor output = hidden.add(ModelOps.imageTokens(feed).multiply(parts.slice(1, 5, 6)));
-            return scope.escape(ModelMemory.finish(output));
+            return scope.escape(output);
         }
     }
 

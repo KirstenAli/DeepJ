@@ -17,6 +17,13 @@ class MetalCompactNormalizationTest extends MetalDifferentialTestSupport {
         }
     }
 
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void repeatedCenteredReductionsPreserveRowStatistics(DType type) {
+        for (int repetition = 0; repetition < 12; repetition++) {
+            compare(type, type, 2048, true);
+        }
+    }
+
     private void compare(DType inputType, DType parameterType, int width, boolean centered) {
         Tensor input = values(inputType, 3, width * 2).slice(1, 0, width * 2, 2);
         Tensor gain = values(parameterType, 1, width), bias = values(parameterType, 1, width);

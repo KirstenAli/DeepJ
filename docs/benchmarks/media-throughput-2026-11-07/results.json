@@ -1,0 +1,1243 @@
+{
+  "baseline": "aa38704ad63ec90b2536900ae93385dc251748a9",
+  "candidate_jar_sha256": "901c920ae0766911e8244e7262020a18fb9ac14a06b8de05c20eb2bdabe1090d",
+  "native_sha256": "e5e9bfd9e0afce3988351f71b6467de727f70c9f5b5a1ea2f270426a7c00ab74",
+  "images": {
+    "FP32": {
+      "trials": {
+        "deepj": [
+          {
+            "kind": "image",
+            "stages": [
+              {
+                "next": "Encoding prompt with Gemma 2",
+                "elapsed_seconds": 0.001840584,
+                "stage": "setup",
+                "seconds": 0.001840584
+              },
+              {
+                "next": "Loading SANA-Sprint transformer",
+                "elapsed_seconds": 7.448359084,
+                "stage": "Encoding prompt with Gemma 2",
+                "seconds": 7.4465185
+              },
+              {
+                "next": "Denoising step 1/2",
+                "elapsed_seconds": 7.462106959,
+                "stage": "Loading SANA-Sprint transformer",
+                "seconds": 0.013747875
+              },
+              {
+                "next": "Denoising step 2/2",
+                "elapsed_seconds": 10.958443209,
+                "stage": "Denoising step 1/2",
+                "seconds": 3.49633625
+              },
+              {
+                "next": "Decoding image with DC-AE",
+                "elapsed_seconds": 12.741804542,
+                "stage": "Denoising step 2/2",
+                "seconds": 1.783361333
+              },
+              {
+                "next": "complete",
+                "elapsed_seconds": 19.291201375,
+                "stage": "Decoding image with DC-AE",
+                "seconds": 6.549396833
+              }
+            ],
+            "frames": 1,
+            "width": 1024,
+            "generation_seconds": 19.291331625,
+            "height": 1024,
+            "save_seconds": 0.105181042,
+            "dtype": "FLOAT32"
+          },
+          {
+            "height": 1024,
+            "generation_seconds": 17.822749958,
+            "width": 1024,
+            "frames": 1,
+            "stages": [
+              {
+                "elapsed_seconds": 0.002033958,
+                "next": "Encoding prompt with Gemma 2",
+                "seconds": 0.002033958,
+                "stage": "setup"
+              },
+              {
+                "elapsed_seconds": 6.281997667,
+                "next": "Loading SANA-Sprint transformer",
+                "seconds": 6.279963709,
+                "stage": "Encoding prompt with Gemma 2"
+              },
+              {
+                "elapsed_seconds": 6.289021333,
+                "next": "Denoising step 1/2",
+                "seconds": 0.007023666,
+                "stage": "Loading SANA-Sprint transformer"
+              },
+              {
+                "elapsed_seconds": 9.680725208,
+                "next": "Denoising step 2/2",
+                "seconds": 3.391703875,
+                "stage": "Denoising step 1/2"
+              },
+              {
+                "elapsed_seconds": 11.458825583,
+                "next": "Decoding image with DC-AE",
+                "seconds": 1.778100375,
+                "stage": "Denoising step 2/2"
+              },
+              {
+                "elapsed_seconds": 17.822592167,
+                "next": "complete",
+                "seconds": 6.363766584,
+                "stage": "Decoding image with DC-AE"
+              }
+            ],
+            "kind": "image",
+            "dtype": "FLOAT32",
+            "save_seconds": 0.111059417
+          }
+        ],
+        "python": [
+          {
+            "engine": "PyTorch/Diffusers",
+            "torch": "2.8.0",
+            "transformers": "5.22.1",
+            "diffusers": "0.42.1",
+            "backend": "mps",
+            "dtype": "FLOAT32",
+            "width": 1024,
+            "height": 1024,
+            "steps": 2,
+            "guidance": 4.5,
+            "stages": [
+              {
+                "stage": "Gemma load and encode",
+                "seconds": 6.531459708989132
+              },
+              {
+                "stage": "Transformer load and two steps",
+                "seconds": 6.875577750004595
+              },
+              {
+                "stage": "DC-AE load and decode",
+                "seconds": 7.1299666249833535
+              }
+            ],
+            "generation_seconds": 20.537873541994486
+          },
+          {
+            "engine": "PyTorch/Diffusers",
+            "torch": "2.8.0",
+            "transformers": "5.22.1",
+            "diffusers": "0.42.1",
+            "backend": "mps",
+            "dtype": "FLOAT32",
+            "width": 1024,
+            "height": 1024,
+            "steps": 2,
+            "guidance": 4.5,
+            "stages": [
+              {
+                "stage": "Gemma load and encode",
+                "seconds": 6.215632874984294
+              },
+              {
+                "stage": "Transformer load and two steps",
+                "seconds": 6.23800924999523
+              },
+              {
+                "stage": "DC-AE load and decode",
+                "seconds": 7.065333417005604
+              }
+            ],
+            "generation_seconds": 19.520557833020575
+          }
+        ]
+      },
+      "median_seconds": {
+        "deepj": 18.5570407915,
+        "python": 20.02921568750753
+      }
+    },
+    "FP16": {
+      "trials": {
+        "deepj": [
+          {
+            "stages": [
+              {
+                "seconds": 0.002148833,
+                "stage": "setup",
+                "elapsed_seconds": 0.002148833,
+                "next": "Encoding prompt with Gemma 2"
+              },
+              {
+                "seconds": 6.534324167,
+                "stage": "Encoding prompt with Gemma 2",
+                "elapsed_seconds": 6.536473,
+                "next": "Loading SANA-Sprint transformer"
+              },
+              {
+                "seconds": 0.012493375,
+                "stage": "Loading SANA-Sprint transformer",
+                "elapsed_seconds": 6.548966375,
+                "next": "Denoising step 1/2"
+              },
+              {
+                "seconds": 3.061072708,
+                "stage": "Denoising step 1/2",
+                "elapsed_seconds": 9.610039083,
+                "next": "Denoising step 2/2"
+              },
+              {
+                "seconds": 1.5251675,
+                "stage": "Denoising step 2/2",
+                "elapsed_seconds": 11.135206583,
+                "next": "Decoding image with DC-AE"
+              },
+              {
+                "seconds": 6.35374025,
+                "stage": "Decoding image with DC-AE",
+                "elapsed_seconds": 17.488946833,
+                "next": "complete"
+              }
+            ],
+            "kind": "image",
+            "dtype": "FLOAT16",
+            "save_seconds": 0.106727917,
+            "height": 1024,
+            "generation_seconds": 17.489067916,
+            "width": 1024,
+            "frames": 1
+          },
+          {
+            "save_seconds": 0.107810375,
+            "dtype": "FLOAT16",
+            "kind": "image",
+            "stages": [
+              {
+                "seconds": 0.00225625,
+                "next": "Encoding prompt with Gemma 2",
+                "elapsed_seconds": 0.00225625,
+                "stage": "setup"
+              },
+              {
+                "seconds": 6.644994166,
+                "next": "Loading SANA-Sprint transformer",
+                "elapsed_seconds": 6.647250416,
+                "stage": "Encoding prompt with Gemma 2"
+              },
+              {
+                "seconds": 0.011643084,
+                "next": "Denoising step 1/2",
+                "elapsed_seconds": 6.6588935,
+                "stage": "Loading SANA-Sprint transformer"
+              },
+              {
+                "seconds": 2.990649125,
+                "next": "Denoising step 2/2",
+                "elapsed_seconds": 9.649542625,
+                "stage": "Denoising step 1/2"
+              },
+              {
+                "seconds": 1.537127458,
+                "next": "Decoding image with DC-AE",
+                "elapsed_seconds": 11.186670083,
+                "stage": "Denoising step 2/2"
+              },
+              {
+                "seconds": 6.340748917,
+                "next": "complete",
+                "elapsed_seconds": 17.527419,
+                "stage": "Decoding image with DC-AE"
+              }
+            ],
+            "frames": 1,
+            "width": 1024,
+            "generation_seconds": 17.527536791,
+            "height": 1024
+          }
+        ],
+        "python": [
+          {
+            "engine": "PyTorch/Diffusers",
+            "torch": "2.8.0",
+            "transformers": "5.22.1",
+            "diffusers": "0.42.1",
+            "backend": "mps",
+            "dtype": "FLOAT16",
+            "width": 1024,
+            "height": 1024,
+            "steps": 2,
+            "guidance": 4.5,
+            "stages": [
+              {
+                "stage": "Gemma load and encode",
+                "seconds": 5.3378480410028715
+              },
+              {
+                "stage": "Transformer load and two steps",
+                "seconds": 5.752404083992587
+              },
+              {
+                "stage": "DC-AE load and decode",
+                "seconds": 7.144621582992841
+              }
+            ],
+            "generation_seconds": 18.23584162502084
+          },
+          {
+            "engine": "PyTorch/Diffusers",
+            "torch": "2.8.0",
+            "transformers": "5.22.1",
+            "diffusers": "0.42.1",
+            "backend": "mps",
+            "dtype": "FLOAT16",
+            "width": 1024,
+            "height": 1024,
+            "steps": 2,
+            "guidance": 4.5,
+            "stages": [
+              {
+                "stage": "Gemma load and encode",
+                "seconds": 5.588321707997238
+              },
+              {
+                "stage": "Transformer load and two steps",
+                "seconds": 5.774958291003713
+              },
+              {
+                "stage": "DC-AE load and decode",
+                "seconds": 7.162233125010971
+              }
+            ],
+            "generation_seconds": 18.525899208005285
+          }
+        ]
+      },
+      "median_seconds": {
+        "deepj": 17.5083023535,
+        "python": 18.380870416513062
+      }
+    },
+    "BF16": {
+      "trials": {
+        "deepj": [
+          {
+            "height": 1024,
+            "generation_seconds": 16.384665125,
+            "width": 1024,
+            "frames": 1,
+            "stages": [
+              {
+                "elapsed_seconds": 0.002119042,
+                "next": "Encoding prompt with Gemma 2",
+                "seconds": 0.002119042,
+                "stage": "setup"
+              },
+              {
+                "elapsed_seconds": 5.76617875,
+                "next": "Loading SANA-Sprint transformer",
+                "seconds": 5.764059708,
+                "stage": "Encoding prompt with Gemma 2"
+              },
+              {
+                "elapsed_seconds": 5.780931209,
+                "next": "Denoising step 1/2",
+                "seconds": 0.014752459,
+                "stage": "Loading SANA-Sprint transformer"
+              },
+              {
+                "elapsed_seconds": 8.741294417,
+                "next": "Denoising step 2/2",
+                "seconds": 2.960363208,
+                "stage": "Denoising step 1/2"
+              },
+              {
+                "elapsed_seconds": 10.221910792,
+                "next": "Decoding image with DC-AE",
+                "seconds": 1.480616375,
+                "stage": "Denoising step 2/2"
+              },
+              {
+                "elapsed_seconds": 16.384544209,
+                "next": "complete",
+                "seconds": 6.162633417,
+                "stage": "Decoding image with DC-AE"
+              }
+            ],
+            "kind": "image",
+            "dtype": "BFLOAT16",
+            "save_seconds": 0.1180165
+          },
+          {
+            "width": 1024,
+            "frames": 1,
+            "stages": [
+              {
+                "next": "Encoding prompt with Gemma 2",
+                "seconds": 0.003134833,
+                "stage": "setup",
+                "elapsed_seconds": 0.003134833
+              },
+              {
+                "next": "Loading SANA-Sprint transformer",
+                "seconds": 6.095108167,
+                "stage": "Encoding prompt with Gemma 2",
+                "elapsed_seconds": 6.098243
+              },
+              {
+                "next": "Denoising step 1/2",
+                "seconds": 0.009883458,
+                "stage": "Loading SANA-Sprint transformer",
+                "elapsed_seconds": 6.108126458
+              },
+              {
+                "next": "Denoising step 2/2",
+                "seconds": 2.887797834,
+                "stage": "Denoising step 1/2",
+                "elapsed_seconds": 8.995924292
+              },
+              {
+                "next": "Decoding image with DC-AE",
+                "seconds": 1.475310916,
+                "stage": "Denoising step 2/2",
+                "elapsed_seconds": 10.471235208
+              },
+              {
+                "next": "complete",
+                "seconds": 6.16775975,
+                "stage": "Decoding image with DC-AE",
+                "elapsed_seconds": 16.638994958
+              }
+            ],
+            "kind": "image",
+            "dtype": "BFLOAT16",
+            "save_seconds": 0.12361275,
+            "height": 1024,
+            "generation_seconds": 16.639114958
+          }
+        ],
+        "python": [
+          {
+            "engine": "PyTorch/Diffusers",
+            "torch": "2.8.0",
+            "transformers": "5.22.1",
+            "diffusers": "0.42.1",
+            "backend": "mps",
+            "dtype": "BFLOAT16",
+            "width": 1024,
+            "height": 1024,
+            "steps": 2,
+            "guidance": 4.5,
+            "stages": [
+              {
+                "stage": "Gemma load and encode",
+                "seconds": 5.18867966599646
+              },
+              {
+                "stage": "Transformer load and two steps",
+                "seconds": 4.372409792005783
+              },
+              {
+                "stage": "DC-AE load and decode",
+                "seconds": 7.5489517920068465
+              }
+            ],
+            "generation_seconds": 17.11046370799886
+          },
+          {
+            "engine": "PyTorch/Diffusers",
+            "torch": "2.8.0",
+            "transformers": "5.22.1",
+            "diffusers": "0.42.1",
+            "backend": "mps",
+            "dtype": "BFLOAT16",
+            "width": 1024,
+            "height": 1024,
+            "steps": 2,
+            "guidance": 4.5,
+            "stages": [
+              {
+                "stage": "Gemma load and encode",
+                "seconds": 5.213077749998774
+              },
+              {
+                "stage": "Transformer load and two steps",
+                "seconds": 4.402172083006008
+              },
+              {
+                "stage": "DC-AE load and decode",
+                "seconds": 7.556192499992903
+              }
+            ],
+            "generation_seconds": 17.17234437499428
+          }
+        ]
+      },
+      "median_seconds": {
+        "deepj": 16.511890041500003,
+        "python": 17.14140404149657
+      }
+    }
+  },
+  "videos": {
+    "FP32": {
+      "deepj": {
+        "kind": "video",
+        "stages": [
+          {
+            "next": "Encoding video prompt with Gemma 2",
+            "elapsed_seconds": 0.024287125,
+            "stage": "setup",
+            "seconds": 0.024287125
+          },
+          {
+            "next": "Loading SANA-Video transformer",
+            "elapsed_seconds": 8.007273041,
+            "stage": "Encoding video prompt with Gemma 2",
+            "seconds": 7.982985916
+          },
+          {
+            "next": "Video denoising step 1/1",
+            "elapsed_seconds": 8.061823375,
+            "stage": "Loading SANA-Video transformer",
+            "seconds": 0.054550334
+          },
+          {
+            "next": "Decoding frames with Wan video VAE",
+            "elapsed_seconds": 12.475403041,
+            "stage": "Video denoising step 1/1",
+            "seconds": 4.413579666
+          },
+          {
+            "next": "complete",
+            "elapsed_seconds": 14.620645583,
+            "stage": "Decoding frames with Wan video VAE",
+            "seconds": 2.145242542
+          }
+        ],
+        "frames": 5,
+        "width": 192,
+        "generation_seconds": 14.620758291,
+        "height": 128,
+        "save_seconds": 0.098531791,
+        "dtype": "FLOAT32"
+      },
+      "python": {
+        "engine": "PyTorch/Diffusers",
+        "torch": "2.8.0",
+        "transformers": "5.22.1",
+        "diffusers": "0.42.1",
+        "backend": "mps",
+        "dtype": "FLOAT32",
+        "frames": 5,
+        "width": 192,
+        "height": 128,
+        "steps": 1,
+        "guidance": 6,
+        "stages": [
+          {
+            "stage": "Gemma load and encode",
+            "seconds": 12.375925708009163,
+            "load_seconds": 0.07103150000330061
+          },
+          {
+            "stage": "Transformer load and one guided step",
+            "seconds": 8.415373041993007,
+            "load_seconds": 0.20816691700019874
+          },
+          {
+            "stage": "Wan load and decode",
+            "seconds": 2.7943382500088774,
+            "load_seconds": 0.6967174159944989
+          }
+        ],
+        "generation_seconds": 23.588206083979458,
+        "guidance_batch": 2,
+        "caption_batch": 2,
+        "vae_dtype": "FLOAT32",
+        "sampler_dtype": "FLOAT32",
+        "fp16_stability": "upstream"
+      }
+    },
+    "FP16": {
+      "deepj": {
+        "width": 192,
+        "generation_seconds": 12.870802208,
+        "height": 128,
+        "save_seconds": 0.101958167,
+        "dtype": "FLOAT16",
+        "kind": "video",
+        "stages": [
+          {
+            "elapsed_seconds": 0.023902041,
+            "stage": "setup",
+            "seconds": 0.023902041,
+            "next": "Encoding video prompt with Gemma 2"
+          },
+          {
+            "elapsed_seconds": 6.581957958,
+            "stage": "Encoding video prompt with Gemma 2",
+            "seconds": 6.558055917,
+            "next": "Loading SANA-Video transformer"
+          },
+          {
+            "elapsed_seconds": 6.642407916,
+            "stage": "Loading SANA-Video transformer",
+            "seconds": 0.060449958,
+            "next": "Video denoising step 1/1"
+          },
+          {
+            "elapsed_seconds": 11.059385958,
+            "stage": "Video denoising step 1/1",
+            "seconds": 4.416978042,
+            "next": "Decoding frames with Wan video VAE"
+          },
+          {
+            "elapsed_seconds": 12.870694708,
+            "stage": "Decoding frames with Wan video VAE",
+            "seconds": 1.81130875,
+            "next": "complete"
+          }
+        ],
+        "frames": 5
+      },
+      "python": {
+        "engine": "PyTorch/Diffusers",
+        "torch": "2.8.0",
+        "transformers": "5.22.1",
+        "diffusers": "0.42.1",
+        "backend": "mps",
+        "dtype": "FLOAT16",
+        "frames": 5,
+        "width": 192,
+        "height": 128,
+        "steps": 1,
+        "guidance": 6,
+        "stages": [
+          {
+            "stage": "Gemma load and encode",
+            "seconds": 13.564711666986113,
+            "load_seconds": 10.6234084579919
+          },
+          {
+            "stage": "Transformer load and one guided step",
+            "seconds": 8.5617715420085,
+            "load_seconds": 7.093226291995961
+          },
+          {
+            "stage": "Wan load and decode",
+            "seconds": 2.754496833018493,
+            "load_seconds": 0.6392212499922607
+          }
+        ],
+        "generation_seconds": 24.8827582920203,
+        "guidance_batch": 2,
+        "caption_batch": 2,
+        "vae_dtype": "FLOAT32",
+        "sampler_dtype": "FLOAT32",
+        "fp16_stability": "FP32 QK projection, normalization, denominator and gated residual"
+      }
+    },
+    "BF16": {
+      "deepj": {
+        "save_seconds": 0.097778542,
+        "dtype": "BFLOAT16",
+        "kind": "video",
+        "stages": [
+          {
+            "seconds": 0.023069167,
+            "next": "Encoding video prompt with Gemma 2",
+            "elapsed_seconds": 0.023069167,
+            "stage": "setup"
+          },
+          {
+            "seconds": 7.20856525,
+            "next": "Loading SANA-Video transformer",
+            "elapsed_seconds": 7.231634417,
+            "stage": "Encoding video prompt with Gemma 2"
+          },
+          {
+            "seconds": 0.0594805,
+            "next": "Video denoising step 1/1",
+            "elapsed_seconds": 7.291114917,
+            "stage": "Loading SANA-Video transformer"
+          },
+          {
+            "seconds": 4.672731417,
+            "next": "Decoding frames with Wan video VAE",
+            "elapsed_seconds": 11.963846334,
+            "stage": "Video denoising step 1/1"
+          },
+          {
+            "seconds": 1.775792375,
+            "next": "complete",
+            "elapsed_seconds": 13.739638709,
+            "stage": "Decoding frames with Wan video VAE"
+          }
+        ],
+        "frames": 5,
+        "width": 192,
+        "generation_seconds": 13.739777917,
+        "height": 128
+      },
+      "python": {
+        "engine": "PyTorch/Diffusers",
+        "torch": "2.8.0",
+        "transformers": "5.22.1",
+        "diffusers": "0.42.1",
+        "backend": "mps",
+        "dtype": "BFLOAT16",
+        "frames": 5,
+        "width": 192,
+        "height": 128,
+        "steps": 1,
+        "guidance": 6,
+        "stages": [
+          {
+            "stage": "Gemma load and encode",
+            "seconds": 6.462456542009022,
+            "load_seconds": 4.023907333990792
+          },
+          {
+            "stage": "Transformer load and one guided step",
+            "seconds": 5.418855666008312,
+            "load_seconds": 4.204702500021085
+          },
+          {
+            "stage": "Wan load and decode",
+            "seconds": 2.7568439159949776,
+            "load_seconds": 0.6213421660067979
+          }
+        ],
+        "generation_seconds": 14.63867533399025,
+        "guidance_batch": 2,
+        "caption_batch": 2,
+        "vae_dtype": "FLOAT32",
+        "sampler_dtype": "FLOAT32",
+        "fp16_stability": "upstream"
+      }
+    }
+  },
+  "numerics": {
+    "image-FP32": {
+      "mean_rgb_level": 0.5994319915771484,
+      "maximum_rgb_level": 124,
+      "different_components": 1060877,
+      "components": 3145728
+    },
+    "image-FP16": {
+      "mean_rgb_level": 18.4692440032959,
+      "maximum_rgb_level": 235,
+      "different_components": 3078436,
+      "components": 3145728
+    },
+    "image-BF16": {
+      "mean_rgb_level": 18.5617249806722,
+      "maximum_rgb_level": 245,
+      "different_components": 3080051,
+      "components": 3145728
+    },
+    "video-FP32": [
+      {
+        "mean_rgb_level": 9.494357638888889e-05,
+        "maximum_rgb_level": 1,
+        "different_components": 7,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 9.494357638888889e-05,
+        "maximum_rgb_level": 1,
+        "different_components": 7,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 4.0690104166666664e-05,
+        "maximum_rgb_level": 1,
+        "different_components": 3,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 5.425347222222222e-05,
+        "maximum_rgb_level": 1,
+        "different_components": 4,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 6.781684027777778e-05,
+        "maximum_rgb_level": 1,
+        "different_components": 5,
+        "components": 73728
+      }
+    ],
+    "video-FP16": [
+      {
+        "mean_rgb_level": 0.04237196180555555,
+        "maximum_rgb_level": 1,
+        "different_components": 3124,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.031575520833333336,
+        "maximum_rgb_level": 1,
+        "different_components": 2328,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.034111870659722224,
+        "maximum_rgb_level": 1,
+        "different_components": 2515,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.037272135416666664,
+        "maximum_rgb_level": 1,
+        "different_components": 2748,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.03636338975694445,
+        "maximum_rgb_level": 1,
+        "different_components": 2681,
+        "components": 73728
+      }
+    ],
+    "video-BF16": [
+      {
+        "mean_rgb_level": 0.4652099609375,
+        "maximum_rgb_level": 7,
+        "different_components": 23330,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.3001844618055556,
+        "maximum_rgb_level": 5,
+        "different_components": 18455,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.3026394314236111,
+        "maximum_rgb_level": 4,
+        "different_components": 18473,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.3135308159722222,
+        "maximum_rgb_level": 4,
+        "different_components": 18537,
+        "components": 73728
+      },
+      {
+        "mean_rgb_level": 0.3195936414930556,
+        "maximum_rgb_level": 4,
+        "different_components": 18975,
+        "components": 73728
+      }
+    ]
+  },
+  "guards": {
+    "accepted-image-BFLOAT16-deepj-1.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 17.180920209008036,
+      "peak_rss_kib": 5050688.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-BFLOAT16-deepj-2.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 18.186020334018394,
+      "peak_rss_kib": 5460624.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-BFLOAT16-python-1.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 20.195607083005598,
+      "peak_rss_kib": 586544.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-BFLOAT16-python-2.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 20.216177666996373,
+      "peak_rss_kib": 591872.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT16-deepj-1.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 18.18290879201959,
+      "peak_rss_kib": 5546352.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT16-deepj-2.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 18.176860459003365,
+      "peak_rss_kib": 4656384.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT16-python-1.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 21.20921054200153,
+      "peak_rss_kib": 589632.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT16-python-2.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 21.310378499998478,
+      "peak_rss_kib": 588112.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT32-deepj-1.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 20.220966583990958,
+      "peak_rss_kib": 4805328.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT32-deepj-2.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 19.21544987501693,
+      "peak_rss_kib": 5781488.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT32-python-1.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 23.277041542023653,
+      "peak_rss_kib": 549104.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-image-FLOAT32-python-2.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 22.234591874992475,
+      "peak_rss_kib": 549344.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-video-BFLOAT16-deepj.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 15.155307500011986,
+      "peak_rss_kib": 3668752.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-video-BFLOAT16-python.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 17.174876042001415,
+      "peak_rss_kib": 525712.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.5625,
+      "stopped_for": null
+    },
+    "accepted-video-FLOAT16-deepj.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 14.222718665987486,
+      "peak_rss_kib": 2868064.0,
+      "swap_out_before_mib": 20006.625,
+      "swap_out_after_mib": 20006.625,
+      "stopped_for": null
+    },
+    "accepted-video-FLOAT16-python.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 27.534799040993676,
+      "peak_rss_kib": 2631360.0,
+      "swap_out_before_mib": 20006.5625,
+      "swap_out_after_mib": 20006.625,
+      "stopped_for": null
+    },
+    "accepted-video-FLOAT32-deepj.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 15.2148659999948,
+      "peak_rss_kib": 2865728.0,
+      "swap_out_before_mib": 20006.625,
+      "swap_out_after_mib": 20006.625,
+      "stopped_for": null
+    },
+    "accepted-video-FLOAT32-python.metrics": {
+      "returncode": 0,
+      "elapsed_seconds": 26.376604083023267,
+      "peak_rss_kib": 3738016.0,
+      "swap_out_before_mib": 20006.625,
+      "swap_out_after_mib": 20006.625,
+      "stopped_for": null
+    }
+  },
+  "training_controls": {
+    "training": {
+      "cpu-qwen": {
+        "losses": true,
+        "parameters_sha256": true,
+        "gradients_sha256": true
+      },
+      "cpu-loop": {
+        "losses": true,
+        "parameters_sha256": true,
+        "gradients_sha256": true
+      },
+      "cpu-prism": {
+        "losses": true,
+        "parameters_sha256": true,
+        "gradients_sha256": true
+      },
+      "metal-qwen": {
+        "losses": true,
+        "parameters_sha256": true,
+        "gradients_sha256": true
+      },
+      "metal-loop": {
+        "losses": true,
+        "parameters_sha256": true,
+        "gradients_sha256": true
+      },
+      "metal-prism": {
+        "losses": true,
+        "parameters_sha256": true,
+        "gradients_sha256": true
+      }
+    },
+    "gemma": {
+      "cpu": {
+        "losses_identical": true,
+        "named_parameters_identical": true
+      },
+      "metal": {
+        "losses_identical": true,
+        "named_parameters_identical": true
+      }
+    }
+  },
+  "gemma_named_state_sha256": {
+    "ordered-cpu-baseline": "b98b3e84a803b28028a8053400f99fef445863c22a7aeca90e3a61aed96e9cdf",
+    "ordered-metal-baseline": "d59ac928b22360dc64091f3a0ffdd3c53d23a9f30afa93515d0889f6ad638c03",
+    "ordered-cpu-candidate": "b98b3e84a803b28028a8053400f99fef445863c22a7aeca90e3a61aed96e9cdf",
+    "ordered-metal-candidate": "d59ac928b22360dc64091f3a0ffdd3c53d23a9f30afa93515d0889f6ad638c03"
+  },
+  "validation": {
+    "full_profile": {
+      "tests": 3073,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 29
+    },
+    "focused": [
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalDenseLayoutAddressTest",
+        "tests": "14",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalLayoutCopyTest",
+        "tests": "9",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sanavideo.VideoPrecisionTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sanavideo.VideoWeightCacheTest",
+        "tests": "4",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2BatchTest",
+        "tests": "5",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalNdIndexTest",
+        "tests": "16",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.ModelNormTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sana.SanaCompactReferenceTest",
+        "tests": "4",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalCompactNormalizationTest",
+        "tests": "4",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.ModelSiluTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sana.SanaAutogradTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sana.SanaReferenceTest",
+        "tests": "8",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sanavideo.VideoGuidanceTest",
+        "tests": "6",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.ModelRmsTest",
+        "tests": "6",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalStorageCopyTest",
+        "tests": "11",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sanavideo.SanaVideoReferenceTest",
+        "tests": "8",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalConvolutionTest",
+        "tests": "11",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.ModelInferenceTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalConvolutionValidationTest",
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.diffusion.sanavideo.SanaVideoPipelineTest",
+        "tests": "5",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.tensor.metal.MetalComposedRmsTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2ReferenceTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.DepthwiseConv2DTest",
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "io.github.kirstenali.deepj.nn.ModelLinearAttentionTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      }
+    ],
+    "java_coverage": {
+      "portableJava": {
+        "LINE": 94.69271758436945,
+        "BRANCH": 84.93827160493828
+      },
+      "coreJava": {
+        "LINE": 96.16660239105283,
+        "BRANCH": 85.87846573768137
+      },
+      "fullJava": {
+        "LINE": 94.12903628755231,
+        "BRANCH": 83.67587999055044
+      },
+      "metalJava": {
+        "LINE": 97.08542713567839,
+        "BRANCH": 84.82384823848238
+      },
+      "autogradJava": {
+        "LINE": 99.65457685664938,
+        "BRANCH": 96.08938547486034
+      }
+    },
+    "native_kernels": {
+      "total": 87,
+      "covered": 87,
+      "missing": []
+    }
+  }
+}

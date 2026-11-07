@@ -81,7 +81,7 @@ public final class SanaVideoTransformer implements AutoCloseable {
                     weights.tensor("patch_embedding.bias"));
             Tensor embedding = conditioning.time(timestep);
             Tensor modulation = conditioning.modulation(embedding);
-            Tensor caption = conditioning.caption(text), mask = SanaVideoConditioning.mask(valid);
+            Tensor caption = conditioning.caption(text), mask = SanaVideoConditioning.mask(valid, text);
             try (var positions = ModelMemory.retain(rotary.buffers());
                  var fixed = ModelMemory.retain(embedding, modulation, caption, mask)) {
                 for (int index = 0; index < config.integer("num_layers"); index++) {
@@ -96,26 +96,27 @@ public final class SanaVideoTransformer implements AutoCloseable {
         Tensor affine = weights.tensor("scale_shift_table").unsqueeze(0)
                 .add(embedding.unsqueeze(1));
         Tensor normalized = ModelOps.norm(input, 1e-6f).multiply(affine.slice(1, 1, 2).addScalar(1))
-                .add(affine.slice(1, 0, 1));
+                .add(affine.slice(1, 0, 1)).to(weights.tensor("proj_out.weight").dtype());
         return ModelOps.linear(normalized, weights, "proj_out")
-                .reshape(1, t, h, w, patch[0], patch[1], patch[2], config.integer("out_channels"))
+                .reshape(input.size(0), t, h, w, patch[0], patch[1], patch[2], config.integer("out_channels"))
                 .permute(0, 7, 1, 4, 2, 5, 3, 6)
-                .reshape(1, config.integer("out_channels"), t * patch[0], h * patch[1], w * patch[2]);
+                .reshape(input.size(0), config.integer("out_channels"), t * patch[0], h * patch[1], w * patch[2]);
     }
 
     private void validate(Tensor latent, Tensor text, int[] mask, float time) {
         if (latent.dtype() != weights.tensor("patch_embedding.weight").dtype() || text.dtype() != latent.dtype()) {
             throw new IllegalArgumentException("Video Transformer inputs must match its weight dtype");
         }
-        if (latent.rank() != 5 || latent.size(0) != 1 || latent.size(1) != config.integer("in_channels")) {
-            throw new IllegalArgumentException("Expected one channel-first video latent");
+        if (latent.rank() != 5 || latent.size(0) < 1 || latent.size(1) != config.integer("in_channels")) {
+            throw new IllegalArgumentException("Expected channel-first video latents");
         }
         validateCaption(text, mask, time);
+        if (latent.size(0) != text.size(0)) throw new IllegalArgumentException("Video and caption batches differ");
         validateGrid(latent);
     }
 
     private void validateCaption(Tensor text, int[] mask, float time) {
-        if (text.rank() != 3 || text.size(0) != 1 || text.size(1) != mask.length
+        if (text.rank() != 3 || (long) text.size(0) * text.size(1) != mask.length
                 || text.size(2) != config.integer("caption_channels") || !Float.isFinite(time)) {
             throw new IllegalArgumentException("Invalid video caption, mask, or timestep");
         }

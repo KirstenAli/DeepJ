@@ -11,6 +11,16 @@ public final class ModelInference {
 
     private ModelInference() {}
 
+    /** Completes one bounded inference block while keeping its result on the selected backend. */
+    public static Tensor evaluate(Supplier<Tensor> operation) {
+        if (GradMode.isEnabled()) return operation.get();
+        Tensor output = batch(operation);
+        if (!active()) {
+            try (var fixed = ModelMemory.retain(output)) { Tensor.backend().releaseTemporaryResources(); }
+        }
+        return output;
+    }
+
     public static Tensor batch(Supplier<Tensor> operation) {
         if (GradMode.isEnabled()) throw new IllegalStateException("Batched inference requires noGrad");
         boolean previous = active();
