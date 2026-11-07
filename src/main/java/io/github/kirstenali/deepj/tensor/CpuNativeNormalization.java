@@ -1,5 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
+import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
+
 /** Dense FLOAT32 normalization keeps scalar reduction order in the native CPU implementation. */
 final class CpuNativeNormalization {
     private CpuNativeNormalization() {}
@@ -13,7 +15,7 @@ final class CpuNativeNormalization {
                 result.output().memory().floats(), result.normalized().memory().floats(),
                 result.denominator().memory().floats(),
                 new int[]{input.storageOffset(), gamma.storageOffset(), bias.storageOffset(),
-                    input.numel() / width, width, centered ? 1 : 0}, epsilon);
+                    input.numel() / width, width, centered ? 1 : 0, workers(input)}, epsilon);
         return true;
     }
 
@@ -24,7 +26,7 @@ final class CpuNativeNormalization {
         CpuBlas.normalizationBackward(gradient.memory().floats(), normalized.memory().floats(),
                 denominator.memory().floats(), gamma.memory().floats(), output.memory().floats(),
                 new int[]{gradient.storageOffset(), normalized.storageOffset(), denominator.storageOffset(),
-                    gamma.storageOffset(), gradient.numel() / width, width, centered ? 1 : 0});
+                    gamma.storageOffset(), gradient.numel() / width, width, centered ? 1 : 0, workers(gradient)});
         return true;
     }
 
@@ -34,5 +36,10 @@ final class CpuNativeNormalization {
 
     private static boolean dense(Tensor tensor) {
         return tensor.dtype() == DType.FLOAT32 && tensor.isContiguous();
+    }
+
+    private static int workers(Tensor input) {
+        if (!DeepJExecutor.isParallelEnabled()) return 1;
+        return Math.max(1, Math.min(DeepJExecutor.getNumThreads(), input.numel() / 32768));
     }
 }

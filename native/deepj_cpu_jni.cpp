@@ -12,6 +12,26 @@
 #include <vector>
 
 namespace deepj_cpu {
+template<class Body> struct RowTask {
+    int count, workers;
+    Body body;
+    static void partition(void* context, size_t worker) {
+        auto& task = *static_cast<RowTask*>(context);
+        int first = int(worker * task.count / task.workers);
+        int last = int((worker + 1) * task.count / task.workers);
+        for (int row = first; row < last; row++) {
+            task.body(row);
+        }
+    }
+};
+
+template<class Body> void parallelRows(int count, int workers, Body body) {
+    RowTask<Body> task{count, std::max(1, std::min(count, workers)), body};
+    if (task.workers == 1) RowTask<Body>::partition(&task, 0);
+    else dispatch_apply_f(task.workers, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0),
+            &task, RowTask<Body>::partition);
+}
+
 template<int Type> inline float read(const void* data, int index) {
     if constexpr (Type == 1) return static_cast<const float*>(data)[index];
     if constexpr (Type == 2) return static_cast<const _Float16*>(data)[index];
@@ -373,14 +393,14 @@ extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_CpuBlas_normalize(
         JNIEnv* env, jclass, jfloatArray input, jfloatArray gamma, jfloatArray beta, jfloatArray output,
         jfloatArray normalized, jfloatArray denominator, jintArray shape, jfloat epsilon) {
-    jint s[6];
-    env->GetIntArrayRegion(shape, 0, 6, s);
+    jint s[7];
+    env->GetIntArrayRegion(shape, 0, 7, s);
     if (env->ExceptionCheck()) return;
     deepj_normalization::Arrays arrays(env, input, gamma, beta, output, normalized, denominator);
     if (!arrays.denominator.data) return;
-    for (int row = 0; row < s[3]; row++) {
+    deepj_cpu::parallelRows(s[3], s[6], [&](int row) {
         deepj_normalization::row(arrays, s, row, epsilon);
-    }
+    });
 }
 
 namespace deepj_normalization {
@@ -418,14 +438,14 @@ extern "C" JNIEXPORT void JNICALL
 Java_io_github_kirstenali_deepj_tensor_CpuBlas_normalizationBackward(
         JNIEnv* env, jclass, jfloatArray gradient, jfloatArray normalized, jfloatArray denominator,
         jfloatArray gamma, jfloatArray output, jintArray shape) {
-    jint s[7];
-    env->GetIntArrayRegion(shape, 0, 7, s);
+    jint s[8];
+    env->GetIntArrayRegion(shape, 0, 8, s);
     if (env->ExceptionCheck()) return;
     deepj_normalization::Gradients arrays(env, gradient, normalized, denominator, gamma, output);
     if (!arrays.output.data) return;
-    for (int row = 0; row < s[4]; row++) {
+    deepj_cpu::parallelRows(s[4], s[7], [&](int row) {
         deepj_normalization::gradientRow(arrays, s, row);
-    }
+    });
 }
 
 namespace deepj_softmax {
