@@ -47,7 +47,12 @@ public final class SanaVideoTransformer implements AutoCloseable {
 
     /** Loads FP32 working weights with a separate checkpoint-cache budget. Inference only. */
     public static SanaVideoTransformer load(Path directory, long cacheBytes) throws IOException {
-        var source = new VideoWeightCache(directory, cacheBytes);
+        return load(directory, cacheBytes, DType.FLOAT32);
+    }
+
+    /** Streams or caches weights in the selected working dtype. Normalization statistics remain FLOAT32. */
+    public static SanaVideoTransformer load(Path directory, long cacheBytes, DType dtype) throws IOException {
+        var source = new VideoWeightCache(directory, cacheBytes, dtype);
         TensorWeights base = null;
         try {
             base = source.select(name -> !name.startsWith("transformer_blocks."));
@@ -99,8 +104,8 @@ public final class SanaVideoTransformer implements AutoCloseable {
     }
 
     private void validate(Tensor latent, Tensor text, int[] mask, float time) {
-        if (latent.dtype() != DType.FLOAT32 || text.dtype() != DType.FLOAT32) {
-            throw new IllegalArgumentException("Video Transformer inputs must use FLOAT32");
+        if (latent.dtype() != weights.tensor("patch_embedding.weight").dtype() || text.dtype() != latent.dtype()) {
+            throw new IllegalArgumentException("Video Transformer inputs must match its weight dtype");
         }
         if (latent.rank() != 5 || latent.size(0) != 1 || latent.size(1) != config.integer("in_channels")) {
             throw new IllegalArgumentException("Expected one channel-first video latent");

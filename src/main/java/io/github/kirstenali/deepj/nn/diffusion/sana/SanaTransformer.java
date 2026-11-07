@@ -65,7 +65,8 @@ public final class SanaTransformer {
             features[index] = (float) Math.cos(angle);
             features[index + 128] = (float) Math.sin(angle);
         }
-        Tensor hidden = ModelOps.linear(Tensor.from(features, 1, 256), weights, name + ".linear_1");
+        Tensor hidden = ModelOps.linear(Tensor.from(features, 1, 256)
+                .to(weights.tensor(name + ".linear_1.weight").dtype()), weights, name + ".linear_1");
         return ModelOps.linear(ModelOps.silu(hidden), weights, name + ".linear_2");
     }
 

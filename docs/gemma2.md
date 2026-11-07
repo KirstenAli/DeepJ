@@ -38,7 +38,10 @@ Choose **Open local model…** and select `config.json` from the Gemma checkpoin
 
 Gemma uses the existing chat composer, response streaming, themes, and optional conversation-history control. Its standard KV cache is automatic. The separate rolling-cache option is hidden for Gemma.
 
-Set `-Ddeepj.chat.gemma2.dtype=float32` through `JAVA_TOOL_OPTIONS` to request FP32 desktop weights when sufficient memory is available.
+Set `-Ddeepj.chat.gemma2.dtype=float32` through `JAVA_TOOL_OPTIONS` to request FP32 desktop weights when sufficient memory is available. Explicit
+`float16` and `bfloat16` values keep embedding activations and projections compact
+and use the shared CPU/Metal matmul paths; normalization and softmax retain their
+upstream wider calculations.
 
 ![Gemma 2 chat in the DeepJ desktop application](gemma2-chat-ui.png)
 

@@ -39,7 +39,8 @@ final class VideoRotary {
     }
 
     Tensor apply(Tensor input) {
-        return input.multiply(cosine).add(input.indexSelect(-1, partners).multiply(signs).multiply(sine));
+        return input.multiply(cosine).add(input.indexSelect(-1, partners).multiply(signs).multiply(sine))
+                .to(input.dtype());
     }
 
     Tensor[] buffers() { return new Tensor[]{cosine, sine, signs}; }

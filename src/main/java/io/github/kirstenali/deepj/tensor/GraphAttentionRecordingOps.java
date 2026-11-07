@@ -40,6 +40,23 @@ abstract class GraphAttentionRecordingOps extends GraphAdvancedRecordingOps {
         endOp();
     }
 
+    public void recordCachedAttention(GpuBuffer q, GpuBuffer k, GpuBuffer v, GpuBuffer output,
+                                       int rows, int width, int heads, int capacity, int length, float scale) {
+        beginOp(11);
+        emitInt(OP_CACHED_ATTENTION);
+        emitStorageBuffer(q);
+        emitStorageBuffer(k);
+        emitStorageBuffer(v);
+        emitStorageBuffer(output);
+        emitInt(rows);
+        emitInt(width);
+        emitInt(heads);
+        emitInt(capacity);
+        emitInt(length);
+        emitFloatBits(scale);
+        endOp();
+    }
+
     public void recordCausalAttention(GpuBuffer query, GpuBuffer key, GpuBuffer value,
                                       GpuBuffer output, GpuBuffer normalization, int heads, float scale) {
         recordCausalAttention(query, key, value, output, normalization, heads, heads, scale);

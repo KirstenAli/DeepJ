@@ -29,8 +29,12 @@ public final class SanaVideo {
         this.progress = Objects.requireNonNull(progress);
     }
 
-    public record Options(int width, int height, int frames, int steps, float guidance, long seed) {
+    public record Options(int width, int height, int frames, int steps, float guidance, long seed, DType dtype) {
+        public Options(int width, int height, int frames, int steps, float guidance, long seed) {
+            this(width, height, frames, steps, guidance, seed, DType.FLOAT32);
+        }
         public Options {
+            Objects.requireNonNull(dtype, "dtype");
             dimension(width);
             dimension(height);
             if (frames < 1 || frames > 81 || (frames - 1) % 4 != 0) {
@@ -55,18 +59,18 @@ public final class SanaVideo {
         try (var ignored = GradMode.noGrad(); var scope = TensorScope.open()) {
             ModelMemory.checkCancelled();
             SanaVideoSnapshot.validate(directory);
-            Features[] captions = encode(prompt, options.guidance() > 1);
+            Features[] captions = encode(prompt, options.guidance() > 1, options.dtype());
             return decode(sample(captions, options));
         } finally {
             Tensor.backend().releaseTemporaryResources();
         }
     }
 
-    private Features[] encode(String prompt, boolean guidance) throws IOException {
+    private Features[] encode(String prompt, boolean guidance, DType dtype) throws IOException {
         stage("Encoding video prompt with Gemma 2");
         var tokenizer = new GemmaTokenizer(directory.resolve("tokenizer"));
         Path stage = directory.resolve("text_encoder");
-        try (var scope = TensorScope.open(); var weights = new VideoTextWeights(stage)) {
+        try (var scope = TensorScope.open(); var weights = new VideoTextWeights(stage, dtype)) {
             var encoder = new Gemma2Backbone(Gemma2Config.read(stage.resolve("config.json")), weights::tensor);
             Features positive = encode(encoder, new SanaVideoPrompt(tokenizer, prompt, true));
             Features negative = guidance ? encode(encoder, new SanaVideoPrompt(tokenizer, "", false)) : positive;
@@ -85,14 +89,15 @@ public final class SanaVideo {
         stage("Loading SANA-Video transformer");
         Path stage = directory.resolve("transformer");
         try (var scope = TensorScope.open(); var transformer = SanaVideoTransformer.load(stage,
-                VideoWeightCache.defaultBudget());
+                VideoWeightCache.defaultBudget(), options.dtype());
              var solver = FlowDpmSolver.read(directory.resolve("scheduler/scheduler_config.json"), options.steps())) {
             Tensor text = features[0].tensor(), negative = features[1].tensor();
             Tensor latent = noise(options);
             try (var pinned = ModelMemory.retain(text, negative)) {
                 for (int step = 0; step < options.steps(); step++) {
                     stage("Video denoising step " + (step + 1) + "/" + options.steps());
-                    latent = advance(transformer, solver, text, negative, features, latent, options.guidance());
+                    latent = advance(transformer, solver, text, negative, features, latent,
+                            options.guidance(), options.dtype());
                 }
                 return scope.escape(Tensor.from(ModelMemory.finite(latent, "SANA-Video"), latent.shape()));
             }
@@ -109,12 +114,15 @@ public final class SanaVideo {
     }
 
     private static Tensor advance(SanaVideoTransformer model, FlowDpmSolver solver, Tensor text,
-                                  Tensor negative, Features[] features, Tensor latent, float guidance) {
+                                  Tensor negative, Features[] features, Tensor latent, float guidance, DType dtype) {
         try (var scope = TensorScope.open(); var pinned = ModelMemory.retain(latent)) {
-            Tensor flow = model.forward(latent, text, features[0].mask(), solver.timestep());
+            Tensor flow = model.forward(latent.to(dtype), text.to(dtype), features[0].mask(), solver.timestep())
+                    .to(DType.FLOAT32);
             if (guidance > 1) {
                 try (var fixed = ModelMemory.retain(flow)) {
-                    Tensor unconditional = model.forward(latent, negative, features[1].mask(), solver.timestep());
+                    Tensor unconditional = model.forward(latent.to(dtype), negative.to(dtype),
+                            features[1].mask(), solver.timestep())
+                            .to(DType.FLOAT32);
                     flow = unconditional.add(flow.subtract(unconditional).multiplyScalar(guidance));
                 }
             }

@@ -94,8 +94,9 @@ training checkpoints. Restore into a model constructed with the same factory pol
 Automatic DeepJ model loading retains the established FLOAT32 embedding-output policy.
 
 On supported Apple Silicon CPUs, compact matrix-vector products read two-byte weights
-directly with SIMD and accumulate in FLOAT32. Matrix-matrix products convert bounded
-tiles to FLOAT32 for Accelerate BLAS, then round the output once. Portable Java products
+directly with SIMD and accumulate in FLOAT32. Eligible FP16 matrix-matrix products
+use Accelerate BNNS directly with compact operands and bounded workspace. BF16, mixed and unsupported matrix products convert
+bounded tiles to FLOAT32 for Accelerate BLAS, then round the output once. Portable Java products
 use temporary contiguous FLOAT32 arrays where necessary. No expanded model copy is
 retained. Contiguous compact addition, SwiGLU, normalization and softmax also have
 native CPU paths; unsupported layouts and numerical edge cases retain Java execution.

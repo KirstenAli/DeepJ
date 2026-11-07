@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.chatui;
 
 import io.github.kirstenali.deepj.nn.diffusion.sana.SanaSprint;
+import io.github.kirstenali.deepj.tensor.DType;
 import javafx.application.Platform;
 import javafx.scene.web.WebView;
 import netscape.javascript.JSObject;
@@ -23,15 +24,17 @@ class ImageWorkspaceTest extends ChatDesktopTestSupport {
 
     @Test void imageBridgeLoadsAndRendersARealPngInTheExistingWindow() throws Exception {
         var fixture = open();
-        try (var state = attach(fixture, new Service(false))) {
+        Service generator = new Service(false);
+        try (var state = attach(fixture, generator)) {
             state.load(temporary);
             awaitScript(fixture, "!element('imageSettings').hidden && !element('prompt').disabled");
             verifyWithoutClosing(fixture, view -> {
                 assertTrue(state.service.unloaded.get());
-                script(view, "element('prompt').value='A fox'; submitPrompt()");
+                script(view, "element('imageDtype').value='BFLOAT16'; element('prompt').value='A fox'; submitPrompt()");
             });
             awaitScript(fixture, "document.querySelector('.image-save') !== null");
             verify(fixture, view -> {
+                assertEquals(DType.BFLOAT16, generator.options.get().dtype());
                 assertEquals("1024 × 1024 · 2 steps",
                         script(view, "document.querySelector('.image-meta').textContent"));
                 assertEquals(false, script(view, "element('prompt').disabled"));
@@ -137,10 +140,12 @@ class ImageWorkspaceTest extends ChatDesktopTestSupport {
         final CountDownLatch started = new CountDownLatch(1), interrupted = new CountDownLatch(1);
         final CountDownLatch cleanup = new CountDownLatch(1);
         private final boolean blocking;
+        final AtomicReference<SanaSprint.Options> options = new AtomicReference<>();
         Service(boolean blocking) { this.blocking = blocking; }
         @Override public Path resolve(Path path) { return path; }
         @Override public BufferedImage generate(Path path, String prompt, SanaSprint.Options options,
                                                 Consumer<String> progress) throws Exception {
+            this.options.set(options);
             progress.accept("Denoising step 1/2");
             started.countDown();
             if (blocking) block();

@@ -85,6 +85,7 @@ struct MetalContext {
     id<MTLComputePipelineState> orderedScatterPSO;
     id<MTLComputePipelineState> gatherRowsPSO;
     id<MTLComputePipelineState> headCacheWritePSO;
+    id<MTLComputePipelineState> cachedAttentionPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
     id<MTLComputePipelineState> expPSO;
@@ -1084,6 +1085,76 @@ inline float layout_probability(float value, float total, uint dtype) {
     // Compatibility devices can cross compact rounding midpoints with fast reciprocal math.
     return dtype == 1 || !COMPACT_PRECISE_NORMALIZATION ? exp(value) / total
             : precise::divide(precise::exp(value), total);
+}
+
+inline float cached_round(float value, uint dtype) {
+    if (dtype == 2 && abs(value) >= 6.103515625e-5f && abs(value) <= 65504.0f) return float(half(value));
+    uint bits = as_type<uint>(value);
+    ushort compact = dtype == 2 ? storage_encode_half(bits) : storage_encode_bfloat(bits);
+    return as_type<float>(dtype == 2 ? storage_decode_half(compact) : uint(compact) << 16);
+}
+
+inline float cached_read(device const unsigned char* input, uint index, uint dtype) {
+    ushort bits = ((device const ushort*)input)[index];
+    if (dtype == 3) return as_type<float>(uint(bits) << 16);
+    if ((bits & 0x7c00u) == 0) return as_type<float>(storage_decode_half(bits));
+    return float(as_type<half>(bits));
+}
+
+inline float cached_dot(device const unsigned char* query, device const unsigned char* keys,
+                         constant uint* p, uint row, uint position) {
+    uint head = row / (p[0] / p[2]), base = (head * p[3] + position) * p[1];
+    float sum = 0.0f;
+    for (uint column = 0; column < p[1]; column++) {
+        float q = cached_read(query, row * p[1] + column, p[5]);
+        float k = cached_read(keys, base + column, p[5]);
+        sum += q * k;
+    }
+    return cached_round(cached_round(sum, p[5]) * as_type<float>(p[6]), p[5]);
+}
+
+inline void cached_probabilities(threadgroup float* scores, constant uint* p) {
+    float maximum = -INFINITY, total = 0.0f;
+    for (uint i = 0; i < p[4]; i++) {
+        maximum = layout_maximum(maximum, scores[i]);
+    }
+    for (uint i = 0; i < p[4]; i++) {
+        total += layout_exponential(scores[i] - maximum, p[5]);
+    }
+    bool invalid = (as_type<uint>(maximum) & 0x7fffffffu) >= 0x7f800000u;
+    for (uint i = 0; i < p[4]; i++) {
+        scores[i] = invalid ? as_type<float>(0x7fc00000u)
+            : cached_round(layout_probability(scores[i] - maximum, total, p[5]), p[5]);
+    }
+}
+
+inline float cached_value(device const unsigned char* values, threadgroup const float* scores,
+                           constant uint* p, uint row, uint column) {
+    uint head = row / (p[0] / p[2]), base = head * p[3] * p[1] + column;
+    float sum = 0.0f;
+    for (uint i = 0; i < p[4]; i++) {
+        sum += scores[i] * cached_read(values, base + i * p[1], p[5]);
+    }
+    return sum;
+}
+
+kernel void kernel_cached_attention(device const unsigned char* query [[buffer(0)]],
+                                     device const unsigned char* keys [[buffer(1)]],
+                                     device const unsigned char* values [[buffer(2)]],
+                                     device unsigned char* output [[buffer(3)]], constant uint* p [[buffer(4)]],
+                                     uint row [[threadgroup_position_in_grid]],
+                                     uint lane [[thread_index_in_threadgroup]]) {
+    threadgroup float scores[512];
+    for (uint i = lane; i < p[4]; i += 128) {
+        scores[i] = cached_dot(query, keys, p, row, i);
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (lane == 0) cached_probabilities(scores, p);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint column = lane; column < p[1]; column += 128) {
+        storage_write_bits(output, row * p[1] + column, p[5],
+            as_type<uint>(cached_value(values, scores, p, row, column)));
+    }
 }
 
 inline float layout_softmax_sum(device const unsigned char* input, device const ulong* layouts,
@@ -2551,6 +2622,7 @@ static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutCausalMaskPSO = makePSO(library, @"kernel_layout_causal_mask");
     ctx->layoutCausalSoftmaxPSO = makePSO(library, @"kernel_layout_causal_softmax");
     ctx->layoutRotaryPSO = makePSO(library, @"kernel_layout_rotary");
+    ctx->cachedAttentionPSO = makePSO(library, @"kernel_cached_attention");
 }
 
 static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -2926,6 +2998,7 @@ static constexpr int OP_LAYOUT_ADAMW = 76;
 static constexpr int OP_LAYOUT_CROSS_ENTROPY = 77;
 static constexpr int OP_LAYOUT_CAUSAL = 78;
 static constexpr int OP_LAYOUT_ROTARY = 79;
+static constexpr int OP_CACHED_ATTENTION = 80;
 
 static BufferEntry requireStorageEntry(int id, const char* opName) {
     auto entry = gBufferPool.find(id);
@@ -3304,11 +3377,25 @@ struct GraphState {
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
     GraphLayoutWords layouts;
+    uint32_t compactProducts = 0;
+    std::vector<id<MTLCommandBuffer>> submitted;
+    bool completed = false;
 
     ~GraphState() {
         if (encoder != nil) [encoder endEncoding];
+        if (!completed) {
+            for (auto commands : submitted) { [commands waitUntilCompleted]; }
+        }
     }
 };
+
+// Keep compact GPU work moving while the host encodes later matrix products.
+static void submitCompactPrefix(GraphState& state) {
+    if (++state.compactProducts % 8 != 0) return;
+    auto commands = (MPSCommandBuffer*)state.commandBuffer;
+    state.submitted.push_back(commands.rootCommandBuffer);
+    [commands commitAndContinue];
+}
 
 static id<MTLCommandBuffer> graphCommands(id<MTLCommandQueue> queue) {
     id<MTLCommandBuffer> commands = [queue commandBuffer];
@@ -4720,6 +4807,7 @@ struct CompactGraph {
     MPSGraphTensor* left;
     MPSGraphTensor* right;
     MPSGraphTensor* output;
+    MPSGraphExecutionDescriptor* execution;
 };
 
 static MPSGraphTensor* compactGraphOperand(MPSGraph* graph, MPSGraphTensor* input, bool transpose) {
@@ -4734,7 +4822,11 @@ static CompactGraph makeCompactGraph(const MpsLayoutMatrix& a, const MpsLayoutMa
     auto right = [graph placeholderWithShape:@[@(b.rows), @(b.columns)] dataType:type name:nil];
     auto output = [graph matrixMultiplicationWithPrimaryTensor:compactGraphOperand(graph, left, a.transposed)
         secondaryTensor:compactGraphOperand(graph, right, b.transposed) name:nil];
-    return {graph, left, right, output};
+    auto compilation = [MPSGraphCompilationDescriptor new];
+    compilation.optimizationLevel = MPSGraphOptimizationLevel0;
+    auto execution = [MPSGraphExecutionDescriptor new];
+    execution.compilationDescriptor = compilation;
+    return {graph, left, right, output, execution};
 }
 
 static const CompactGraph& compactGraph(const MpsLayoutMatrix& a, const MpsLayoutMatrix& b, uint32_t dtype) {
@@ -4750,6 +4842,8 @@ static const CompactGraph& compactGraph(const MpsLayoutMatrix& a, const MpsLayou
 static MPSGraphTensorData* compactGraphData(id<MTLBuffer> buffer, const MpsLayoutMatrix& matrix,
                                           NSUInteger offset, uint32_t dtype) {
     MPSDataType type = dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeBFloat16;
+    if (offset == 0) return [[MPSGraphTensorData alloc] initWithMTLBuffer:buffer
+        shape:@[@(matrix.rows), @(matrix.columns)] dataType:type];
     auto descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:matrix.rows columns:matrix.columns
         rowBytes:matrix.rowStride * sizeof(uint16_t) dataType:type];
     auto storage = [[MPSMatrix alloc] initWithBuffer:buffer offset:offset * sizeof(uint16_t) descriptor:descriptor];
@@ -4778,7 +4872,8 @@ static void encodeCompactGraphProduct(GraphState& state, const jint* cmd, int po
     }
     [operation.graph encodeToCommandBuffer:(MPSCommandBuffer*)state.commandBuffer
         feeds:@{operation.left:left, operation.right:right} targetOperations:nil
-        resultsDictionary:@{operation.output:output} executionDescriptor:nil];
+        resultsDictionary:@{operation.output:output} executionDescriptor:operation.execution];
+    submitCompactPrefix(state);
 }
 
 static bool compactGraphMatrix(const MpsLayoutMatrix& matrix, NSUInteger offset) {
@@ -4866,6 +4961,45 @@ static MPSMatrix* headPrefixMatrix(id<MTLBuffer> buffer, int heads, int length, 
     // Describe the full storage; the GEMM dimensions select only the valid prefix.
     // Full descriptor rows keep multi-head GEMV strides consistent on physical Metal devices.
     return matrixBatch(buffer, (int)(buffer.length / perRow), width, heads);
+}
+
+static std::array<uint32_t, 7> cachedAttentionParams(const jint* cmd, int pos) {
+    std::array<uint32_t, 7> p;
+    for (int i = 0; i < 5; i++) {
+        p[i] = positiveCount(cmd[pos + 5 + i], "cached attention shape");
+    }
+    p[5] = bufferDType(cmd[pos + 1]);
+    p[6] = uint32_t(cmd[pos + 10]);
+    if (cmd[pos + 4] == cmd[pos + 1] || cmd[pos + 4] == cmd[pos + 2] || cmd[pos + 4] == cmd[pos + 3]) {
+        throw std::runtime_error("Cached attention output aliases an input");
+    }
+    if (p[0] % p[2] != 0 || p[1] > 128 || p[4] > 512 || p[4] > p[3]
+        || p[5] == 1 || (p[6] & 0x7fffffffu) >= 0x7f800000u) {
+        throw std::runtime_error("Invalid compact cached attention");
+    }
+    return p;
+}
+
+static id<MTLBuffer> cachedAttentionBuffer(int id, uint64_t elements, uint32_t dtype, bool output) {
+    auto buffer = requireStorageBuffer(id, "cached attention");
+    if (bufferDType(id) != (int)dtype || (output ? buffer.length != elements * 2 : buffer.length < elements * 2)) {
+        throw std::runtime_error("Cached attention storage mismatch");
+    }
+    return buffer;
+}
+
+static void encodeCachedAttention(GraphState& state, const jint* cmd, int pos) {
+    auto p = cachedAttentionParams(cmd, pos);
+    uint64_t query = cacheElementCount(1, p[0], p[1]), cache = cacheElementCount(p[2], p[3], p[1]);
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:state.ctx->cachedAttentionPSO];
+    for (int index = 0; index < 4; index++) {
+        uint64_t count = index == 0 || index == 3 ? query : cache;
+        [encoder setBuffer:cachedAttentionBuffer(cmd[pos + index + 1], count, p[5], index == 3) offset:0 atIndex:index];
+    }
+    bindValue(encoder, p, 4);
+    [encoder dispatchThreadgroups:MTLSizeMake(p[0], 1, 1) threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
 }
 
 static void encodeHeadPrefixMatmul(GraphState& state, const jint* cmd, int pos) {
@@ -5195,6 +5329,7 @@ static int layoutTrainingCommandWidth(int op) {
 }
 
 static int layoutCommandWidth(int op) {
+    if (op == OP_CACHED_ATTENTION) return 11;
     if (op == OP_STORAGE_COPY) return 6;
     if (op == OP_LAYOUT_TRANSFER) return 4;
     if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY || op == OP_LAYOUT_REDUCE) return 7;
@@ -5257,6 +5392,7 @@ static bool encodeTrainingCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
     else if (op == OP_HEAD_CACHE_WRITE) encodeHeadCacheWrite(state, cmd, pos);
     else if (op == OP_HEAD_PREFIX_MATMUL) encodeHeadPrefixMatmul(state, cmd, pos);
+    else if (op == OP_CACHED_ATTENTION) encodeCachedAttention(state, cmd, pos);
     else return false;
     return true;
 }
@@ -5335,6 +5471,11 @@ static void finishCommandBuffer(GraphState& state) {
     endGraphEncoder(state);
     [state.commandBuffer commit];
     [state.commandBuffer waitUntilCompleted];
+    for (auto commands : state.submitted) { [commands waitUntilCompleted]; }
+    state.completed = true;
+    for (auto commands : state.submitted) {
+        checkCommandBuffer(commands);
+    }
     checkCommandBuffer(state.commandBuffer);
 }
 

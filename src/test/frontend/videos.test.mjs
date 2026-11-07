@@ -36,16 +36,17 @@ function assertVideoDefaults(ui) {
     fps: 16,
     seed: 42,
     guidance: 6,
+    dtype: 'FLOAT32',
   });
 }
 
-test('video generation has no precision selector or dtype request field', (context) => {
+test('video precision is explicitly selected and included in the worker request', (context) => {
   const ui = videos(context);
-  assert.equal(ui.element('videoPrecision'), null);
+  ui.element('videoDtype').value = 'BFLOAT16';
   ui.element('prompt').value = 'A fox walking';
   ui.window.submitPrompt();
   const request = JSON.parse(ui.calls[0][2]);
-  assert.equal('dtype' in request, false);
+  assert.equal(request.dtype, 'BFLOAT16');
   assert.equal(request.width, 832);
   assert.equal(request.height, 480);
 });

@@ -35,6 +35,18 @@ class MetalCompactVectorTest extends MetalDifferentialTestSupport {
         assertIdentityGradients(left, right, input[0]);
     }
 
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void compactVectorProjectionsPreserveFloat32Gradients(DType dtype) {
+        float[] identity = new float[256 * 256];
+        for (int index = 0; index < 256; index++) { identity[index * 257] = 1; }
+        Tensor left = Tensor.ones(dtype, 1, 256).requiresGrad(true);
+        Tensor right = Tensor.from(identity, dtype, 256, 256).requiresGrad(true);
+        Tensor output = left.matmul(right);
+        assertArrayEquals(left.toFloatArray(), output.toFloatArray());
+        output.sumTensor().backward();
+        assertIdentityGradients(left, right, 1);
+    }
+
     private static void assertIdentityGradients(Tensor left, Tensor right, float expected) {
         assertEquals(DType.FLOAT32, left.grad().dtype());
         assertEquals(DType.FLOAT32, right.grad().dtype());

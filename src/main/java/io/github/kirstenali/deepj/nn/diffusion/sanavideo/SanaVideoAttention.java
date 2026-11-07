@@ -6,6 +6,7 @@ import io.github.kirstenali.deepj.nn.ModelMemory;
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 
 final class SanaVideoAttention {
@@ -44,18 +45,18 @@ final class SanaVideoAttention {
         try (var fixed = ModelMemory.retain(numerator)) {
             Tensor divisor = VideoMemory.stage(() -> k.sum(-2, true).matmul(q.transpose(-1, -2)).addScalar(1e-15f));
             Tensor output = VideoMemory.stage(() -> numerator.multiply(Tensor.from(new float[]{1}, 1)
-                    .divide(divisor)).transpose(-1, -2));
+                    .divide(divisor).to(divisor.dtype())).transpose(-1, -2));
             return VideoMemory.stage(() -> finish(output, name));
         }
     }
 
     private Tensor stagedNumerator(Tensor q, Tensor k, Tensor v, VideoRotary rotary) {
         try (var scope = TensorScope.open(); var value = ModelMemory.retain(v)) {
-            Tensor qr = VideoMemory.stage(() -> rotary.apply(q));
+            Tensor qr = VideoMemory.stage(() -> rotary.apply(q).to(DType.FLOAT32));
             try (var query = ModelMemory.retain(qr)) {
-                Tensor kr = VideoMemory.stage(() -> rotary.apply(k));
+                Tensor kr = VideoMemory.stage(() -> rotary.apply(k).to(DType.FLOAT32));
                 try (var key = ModelMemory.retain(kr)) {
-                    return scope.escape(VideoMemory.stage(() -> v.transpose(-1, -2)
+                    return scope.escape(VideoMemory.stage(() -> v.to(DType.FLOAT32).transpose(-1, -2)
                             .matmul(kr).matmul(qr.transpose(-1, -2))));
                 }
             }
@@ -63,11 +64,11 @@ final class SanaVideoAttention {
     }
 
     private Tensor selfValues(Tensor q, Tensor k, Tensor v, String name, VideoRotary rotary) {
-        Tensor qr = rotary.apply(q), kr = rotary.apply(k);
+        Tensor qr = rotary.apply(q).to(DType.FLOAT32), kr = rotary.apply(k).to(DType.FLOAT32);
         // Keep the upstream multiplication layout to limit rounding drift across denoising steps.
-        Tensor numerator = v.transpose(-1, -2).matmul(kr).matmul(qr.transpose(-1, -2));
+        Tensor numerator = v.to(DType.FLOAT32).transpose(-1, -2).matmul(kr).matmul(qr.transpose(-1, -2));
         Tensor divisor = k.sum(-2, true).matmul(q.transpose(-1, -2)).addScalar(1e-15f);
-        Tensor reciprocal = Tensor.from(new float[]{1}, 1).divide(divisor);
+        Tensor reciprocal = Tensor.from(new float[]{1}, 1).divide(divisor).to(divisor.dtype());
         return finish(numerator.multiply(reciprocal).transpose(-1, -2), name);
     }
 
@@ -101,6 +102,7 @@ final class SanaVideoAttention {
     }
 
     private Tensor finish(Tensor input, String name) {
-        return ModelOps.linear(ModelOps.mergeHeads(input), weights, name + ".to_out.0");
+        return ModelOps.linear(ModelOps.mergeHeads(input).to(weights.tensor(name + ".to_out.0.weight").dtype()),
+                weights, name + ".to_out.0");
     }
 }

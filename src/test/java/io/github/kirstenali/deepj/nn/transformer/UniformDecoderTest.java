@@ -15,12 +15,40 @@ import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import io.github.kirstenali.deepj.training.CausalLMTraining;
 import java.util.Random;
+import java.util.Arrays;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class UniformDecoderTest {
+    @Test void compactMetalCachesPreserveFullForwardOutputsAcrossModelFamilies() {
+        Assumptions.assumeTrue(MetalBackend.isAvailable());
+        Tensor.setBackend(new MetalBackend());
+        try {
+            for (DType dtype : new DType[]{DType.FLOAT16, DType.BFLOAT16}) {
+                for (String family : new String[]{"qwen", "loop", "prism"}) { cache(model(family, dtype), dtype); }
+            }
+        } finally {
+            Tensor.backend().releaseResources();
+            Tensor.setBackend(new CpuBackend());
+        }
+    }
+
+    private static void cache(CausalLM model, DType dtype) {
+        int[] tokens = new Random(3).ints(8, 0, 32).toArray();
+        try (var ignored = GradMode.noGrad(); var session = model.openGeneration()) {
+            for (int length = 4; length <= tokens.length; length++) {
+                int[] prefix = Arrays.copyOf(tokens, length);
+                Tensor cached = session.apply(prefix);
+                assertEquals(dtype, cached.dtype());
+                assertArrayEquals(model.forward(prefix).select(0, length - 1).toFloatArray(),
+                        cached.toFloatArray(), dtype == DType.FLOAT16 ? .001f : .008f);
+            }
+        }
+    }
+
     @ParameterizedTest @ValueSource(strings = {"cpu", "metal"})
     void compactModelsTrainThroughSharedTensorsAndPreserveFloat32Gradients(String backend) {
         if (backend.equals("metal")) Assumptions.assumeTrue(MetalBackend.isAvailable());

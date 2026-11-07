@@ -23,9 +23,9 @@ that it is executed on the backend that recorded it.
 ## CPU matrix execution
 
 On supported Apple Silicon Macs, large FLOAT32 products use Accelerate BLAS.
-FLOAT16 and BFLOAT16 weights use CPU SIMD kernels with FLOAT32 accumulation;
-multi-position products convert bounded tiles for BLAS. Small and unsupported
-products retain Java execution. This CPU library loads independently of Metal and
+FLOAT16 and BFLOAT16 matrix-vector products use CPU SIMD kernels with FLOAT32 accumulation;
+eligible FP16 matrix-matrix products use BNNS with compact operands and bounded workspace.
+Other compact matrix products convert bounded tiles for BLAS. Small products retain their existing native or Java routes. This CPU library loads independently of Metal and
 falls back to Java if unavailable. `-Ddeepj.cpu.javaOnly=true` disables it for a JVM.
 
 Batched FLOAT32 products pin their arrays once per batch operation. Compatible
@@ -94,6 +94,17 @@ FLOAT32 is the default. FLOAT16 and BFLOAT16 provide optional compact storage wi
 explicit promotion and FLOAT32 gradients/optimizer state. Storage width does not
 promise native compact arithmetic for every operation, faster training, or a fixed
 total-memory reduction. See [precision](tensors.md#storage-is-not-the-same-as-calculation-precision).
+
+Compact cached decoding can combine score products, scaling, softmax and value
+products in one Metal dispatch. This shared inference path supports FP16/BF16
+head widths up to 128 and valid cache prefixes up to 512 positions, including
+grouped-query heads. Other shapes and FP32 use the existing cache operations.
+Gradient-enabled execution never selects this inference kernel.
+
+Eligible compact MPSGraph products use the GPU compilation setting and submit
+ordered batches while the host prepares later work. Every submitted batch is
+finished and checked before a flush returns, including failure cleanup. See the
+[compact execution measurements](benchmarks/compact-followup-2026-11-07/REPORT.md).
 
 Explicit value reads such as `get(...)`, `toFloatArray()`, and `item()` can materialize
 host data. Loss reporting and persistence use such transfers where needed. Keep model

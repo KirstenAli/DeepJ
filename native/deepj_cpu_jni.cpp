@@ -196,8 +196,51 @@ inline const float* leftValues(const void* a, float* packed, const int* s) {
     return packed;
 }
 
+inline bool packedMatrix(int rows, int columns, int rs, int cs) {
+    return (cs == 1 && (rows == 1 || rs >= columns))
+        || (rs == 1 && (columns == 1 || cs >= rows));
+}
+
+inline BNNSNDArrayDescriptor halfMatrix(void* data, int rows, int columns, int rs, int cs) {
+    BNNSNDArrayDescriptor result{};
+    bool rowMajor = cs == 1;
+    result.layout = rowMajor ? BNNSDataLayoutRowMajorMatrix : BNNSDataLayoutColumnMajorMatrix;
+    result.size[0] = rowMajor ? columns : rows;
+    result.size[1] = rowMajor ? rows : columns;
+    result.stride[0] = 1;
+    result.stride[1] = rowMajor ? rs : cs;
+    result.data = data;
+    result.data_type = BNNSDataTypeFloat16;
+    return result;
+}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+inline bool halfMatrixApply(const BNNSNDArrayDescriptor& a, const BNNSNDArrayDescriptor& b,
+                             const BNNSNDArrayDescriptor& output) {
+    BNNSFilterParameters parameters{};
+    parameters.n_threads = 1;
+    ssize_t bytes = BNNSMatMulWorkspaceSize(false, false, 1, &a, &b, &output, &parameters);
+    if (bytes < 0 || bytes > 4 * 1024 * 1024) return false;
+    std::vector<char> workspace(bytes);
+    return BNNSMatMul(false, false, 1, &a, &b, &output, workspace.data(), &parameters) == 0;
+}
+#pragma clang diagnostic pop
+
+inline bool halfMatrixProduct(const void* a, const void* b, void* c, const int* s) {
+    // Keep tiny grouped-attention products on their lower-overhead route.
+    if (s[11] != 2 || s[12] != 2 || s[13] != 2 || s[0] < 16) return false;
+    if (uint64_t(s[0]) * s[1] * s[2] < 1024 * 1024) return false;
+    if (!packedMatrix(s[0], s[2], s[6], s[7]) || !packedMatrix(s[2], s[1], s[8], s[9])) return false;
+    auto left = halfMatrix((void*)(static_cast<const uint16_t*>(a) + s[3]), s[0], s[2], s[6], s[7]);
+    auto right = halfMatrix((void*)(static_cast<const uint16_t*>(b) + s[4]), s[2], s[1], s[8], s[9]);
+    auto output = halfMatrix(static_cast<uint16_t*>(c) + s[5], s[0], s[1], s[10], 1);
+    return halfMatrixApply(left, right, output);
+}
+
 inline void compactProduct(const void* a, const void* b, void* c, const int* s,
                            float* left, float* right, float* result) {
+    if (halfMatrixProduct(a, b, c, s)) return;
     const float* input = leftValues(a, left, s);
     if (!vectorProduct(input, b, result, s)) {
         matrixProduct(input, b, right, result, s);

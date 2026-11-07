@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.nn.diffusion.sanavideo;
 
 import io.github.kirstenali.deepj.persistence.qwen3.Qwen3Json;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import java.io.IOException;
@@ -17,7 +18,7 @@ public final class SanaVideoWorker {
     public static void writeRequest(Path path, String prompt, SanaVideo.Options options) throws IOException {
         Files.writeString(path, Qwen3Json.stringify(Map.of("prompt", prompt, "width", options.width(),
                 "height", options.height(), "frames", options.frames(), "steps", options.steps(),
-                "guidance", options.guidance(), "seed", options.seed())));
+                "guidance", options.guidance(), "seed", options.seed(), "dtype", options.dtype().name())));
     }
 
     public static void main(String[] arguments) {
@@ -45,7 +46,8 @@ public final class SanaVideoWorker {
     private static SanaVideo.Options options(Map<String, Object> values) {
         return new SanaVideo.Options(Qwen3Json.integer(values, "width"), Qwen3Json.integer(values, "height"),
                 Qwen3Json.integer(values, "frames"), Qwen3Json.integer(values, "steps"),
-                ((Number) values.get("guidance")).floatValue(), Qwen3Json.integer(values.get("seed")));
+                ((Number) values.get("guidance")).floatValue(), Qwen3Json.integer(values.get("seed")),
+                DType.valueOf((String) values.getOrDefault("dtype", "FLOAT32")));
     }
 
     private static String message(Throwable failure) {

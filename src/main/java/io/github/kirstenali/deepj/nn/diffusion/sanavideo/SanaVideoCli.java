@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.nn.diffusion.sanavideo;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import java.nio.file.Path;
@@ -25,13 +26,16 @@ public final class SanaVideoCli implements Callable<Integer> {
     @Option(names = "--guidance", defaultValue = "6") private float guidance;
     @Option(names = "--seed", defaultValue = "42") private long seed;
     @Option(names = "--fps", defaultValue = "16") private int fps;
+    @Option(names = "--dtype", defaultValue = "FLOAT32") private DType dtype;
     @Parameters(arity = "1", description = "Video description") private String prompt;
 
     private final Supplier<String> backend;
 
     public SanaVideoCli(Supplier<String> backend) { this.backend = backend; }
 
-    public static CommandLine command() { return new CommandLine(new Standalone()); }
+    public static CommandLine command() {
+        return new CommandLine(new Standalone()).setCaseInsensitiveEnumValuesAllowed(true);
+    }
 
     public static void main(String[] args) { System.exit(command().execute(args)); }
 
@@ -39,7 +43,7 @@ public final class SanaVideoCli implements Callable<Integer> {
         if (!output.toString().toLowerCase(Locale.ROOT).matches(".*\\.(mp4|gif)$") || fps < 1 || fps > 100) {
             throw new IllegalArgumentException("Use a .mp4 or .gif output path and FPS from 1 to 100");
         }
-        var options = new SanaVideo.Options(width, height, frames, steps, guidance, seed);
+        var options = new SanaVideo.Options(width, height, frames, steps, guidance, seed, dtype);
         backend();
         long start = System.nanoTime();
         var images = new SanaVideo(model, System.out::println).generate(prompt, options);
