@@ -41,7 +41,11 @@ A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use diffe
 
 Start the desktop app and choose **Open video model folder…** from the model menu. Select the complete
 SANA-Video snapshot, then describe a scene and its movement in the composer. The settings chip opens
-resolution, frame count, sampling steps, FPS, seed, and guidance controls. Video generation uses FP32.
+resolution, frame count, sampling steps, FPS, seed, guidance, and precision controls.
+FP32 is the default. FP16/BF16 select compact Gemma and video-denoiser execution;
+the sampler and Wan frame decoder continue to use FP32. The published
+[Diffusers example](https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/sana_video/pipeline_sana_video.py)
+also combines a BF16 text encoder/denoiser with an FP32 Wan decoder; its sampler keeps FP32 latent state.
 
 The resolution menu also offers **192 × 128 · Test only** for execution checks.
 Its output does not establish full-resolution video quality.
@@ -53,13 +57,19 @@ for worker cleanup before enabling another request, and starting a new conversat
 
 ## Execution and tensor APIs
 
-The pipeline loads Gemma, samples video latents, and decodes video in separate stages. The text encoder, video Transformer, sampler, and video decoder use FP32 working weights and activations. Positive and unconditional predictions run sequentially for classifier-free guidance.
+The pipeline loads Gemma, samples video latents, and decodes video in separate stages. By default the text encoder, video Transformer, sampler, and video decoder use FP32
+working weights and activations. `--dtype float16` or `--dtype bfloat16` selects
+compact text-encoder and Transformer weights and activations. The sampler and video
+decoder retain FP32, while attention and normalization follow the upstream precision policy. Positive and unconditional predictions run sequentially for classifier-free guidance.
 
-Gemma and the video Transformer use the same budgeted weight loader. Each caches its weights when their original checkpoint storage fits the cache budget; otherwise it streams groups of weights. Cached values retain their original storage dtype, and active groups are expanded to FP32 for calculation. Compact checkpoint files remain supported and are never overwritten. Expanding a BF16 checkpoint to FP32 preserves its stored values; it cannot recover information lost before that checkpoint was saved. The decoder uses its stage loader.
+Gemma and the video Transformer use the same budgeted weight loader. Each caches its weights when their original checkpoint storage fits the cache budget; otherwise it streams groups of weights. Cached values retain their original storage dtype, and active groups are converted to the selected working dtype for calculation. Compact checkpoint files remain supported and are never overwritten. Expanding a BF16 checkpoint to FP32 preserves its stored values; it cannot recover information lost before that checkpoint was saved. The decoder uses its stage loader.
 
 The automatic Metal weight-cache budget is half the managed Metal buffer budget, capped at 4 GiB. The default 6 GiB managed budget therefore permits a 3 GiB weight cache and reserves the remaining space for activations and expanded working weights. On CPU, the automatic cache budget is one quarter of the maximum JVM heap. Override the cache using `-Ddeepj.video.weightCacheBytes=BYTES`; zero forces streaming. The managed Metal guard continues to enforce the total native buffer budget.
 
-`SanaVideo.generate(prompt, options)` returns `List<BufferedImage>`. `VideoMp4.write(frames, path, fps)` exports H.264 MP4; `VideoGif.write(...)` remains available for animated GIFs. `SanaVideoTransformer` and `WanVideoDecoder` also expose FP32 tensor-level forward methods; constructing the Transformer with `TensorWeights` supports DeepJ autograd. `SanaVideoTransformer.load(directory, cacheBytes)` selects the weight-cache budget, and `streamed(directory)` disables caching. Loaded Transformers own their weights, implement `AutoCloseable`, and require `GradMode.noGrad()`.
+`SanaVideo.generate(prompt, options)` returns `List<BufferedImage>`. `VideoMp4.write(frames, path, fps)` exports H.264 MP4; `VideoGif.write(...)` remains available for animated GIFs. `SanaVideoTransformer` accepts matching FP32, FP16 or BF16 inputs and weights;
+`WanVideoDecoder` exposes an FP32 tensor-level forward method; constructing the Transformer with `TensorWeights` supports DeepJ autograd. `SanaVideoTransformer.load(directory, cacheBytes)` selects the weight-cache budget, and `streamed(directory)` disables caching.
+`load(directory, cacheBytes, dtype)` selects compact execution. The seven-argument
+`SanaVideo.Options` constructor accepts a final `DType`; existing constructors retain FP32. Loaded Transformers own their weights, implement `AutoCloseable`, and require `GradMode.noGrad()`.
 
 End-to-end generation disables gradient recording and releases per-video causal caches. The Wan decoder processes the first latent frame into one RGB frame, then each later latent frame into four RGB frames. A VAE encoder and pretrained fine-tuning workflow are not included.
 
@@ -131,3 +141,16 @@ Compile DeepJ before the Java input exporter. The exporter supplies inputs only;
 ## References and attribution
 
 Architecture and sampling behavior follow the [SANA-Video project](https://nvlabs.github.io/Sana/docs/sana_video/), [Diffusers video Transformer](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/models/transformers/transformer_sana_video.py), [Wan video autoencoder](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/models/autoencoders/autoencoder_kl_wan.py), and [DPM-Solver++ scheduler](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/schedulers/scheduling_dpmsolver_multistep.py). Adapted portions, including the prompt instruction, retain Apache-2.0 attribution in `META-INF/licenses/sana-video-NOTICE.txt` and the accompanying license.
+
+## Compact execution checks
+
+`scripts/compact-model-reference.py` generates independent FP16/BF16 Gemma and
+SANA denoiser outputs. CPU and Metal tests cover those predictions, matching input
+and weight dtypes, streamed compact weights, and tiny two-step pipelines through
+FP32 sampling and frame decoding. Full pretrained 16-bit video quality has not
+been established by these small checks; the full-resolution comparisons above
+measure FP32. Compact modes are explicit selections rather than new defaults.
+
+[Apple M4 demo checks](benchmarks/media-demo-2026-11-07/REPORT.md#sana-video-small-execution-check)
+record a small pretrained 192 × 128, five-frame, one-step execution check and
+its stage timings. No long video generation was run for that check.

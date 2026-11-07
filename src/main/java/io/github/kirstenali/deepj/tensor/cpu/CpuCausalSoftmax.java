@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.tensor.cpu;
 
 import io.github.kirstenali.deepj.tensor.CpuRanges;
+import io.github.kirstenali.deepj.tensor.CpuNativeAttention;
 import io.github.kirstenali.deepj.tensor.MatrixShapeChecks;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
@@ -12,6 +13,7 @@ final class CpuCausalSoftmax {
         MatrixShapeChecks.requireCausal(input, width);
         input.materialize();
         Tensor output = new Tensor(input.matrixRows(), width);
+        if (CpuNativeAttention.softmax(input, output, width, scale)) return output;
         float[] source = input.rawData(), result = output.rawData();
         CpuRanges.forRange(0, input.matrixRows(), row -> row(source, result, row, width, scale));
         return output;

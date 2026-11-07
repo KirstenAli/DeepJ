@@ -2,11 +2,17 @@ package io.github.kirstenali.deepj.autograd;
 
 import io.github.kirstenali.deepj.tensor.NormalizationResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
+import io.github.kirstenali.deepj.tensor.InferenceNormalizationBackend;
 
 final class NdNormalizationOps {
     private NdNormalizationOps() {}
 
     static Tensor apply(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
+        if (input.dtype() != DType.FLOAT32 && !GradMode.isEnabled()
+                && Tensor.backend() instanceof InferenceNormalizationBackend inference) {
+            return inference.normalizeForInference(input, gamma, beta, epsilon, centered);
+        }
         var result = Tensor.backend().normalize(input, gamma, beta, epsilon, centered);
         boolean dx = input.requiresGrad(), dg = gamma.requiresGrad(), db = centered && beta.requiresGrad();
         Tensor[] parents = centered ? new Tensor[]{input, gamma, beta} : new Tensor[]{input, gamma};

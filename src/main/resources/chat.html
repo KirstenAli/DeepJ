@@ -392,6 +392,18 @@
               <input id="imageGuidance" type="number" min="0" max="20" step="0.5" value="4.5" />
               <small>How closely the image follows your description.</small>
             </label>
+            <label>
+              <span>Precision</span>
+              <span class="select-control">
+                <select id="imageDtype">
+                  <option value="FLOAT32">FP32 · Default</option>
+                  <option value="FLOAT16">FP16</option>
+                  <option value="BFLOAT16">BF16</option>
+                </select>
+                <svg aria-hidden="true"><use href="#icon-chevron" /></svg>
+              </span>
+              <small>The image model and decoder use this precision.</small>
+            </label>
           </div>
         </section>
         <section id="videoSettings" aria-labelledby="videoSettingsTitle" hidden>
@@ -434,6 +446,18 @@
               ><span>Prompt guidance</span
               ><input id="videoGuidance" type="number" min="0" max="20" step="0.5" value="6"
             /></label>
+            <label>
+              <span>Precision</span>
+              <span class="select-control">
+                <select id="videoDtype">
+                  <option value="FLOAT32">FP32 · Default</option>
+                  <option value="FLOAT16">FP16</option>
+                  <option value="BFLOAT16">BF16</option>
+                </select>
+                <svg aria-hidden="true"><use href="#icon-chevron" /></svg>
+              </span>
+              <small>Frame decoding stays in FP32.</small>
+            </label>
           </div>
         </section>
         <button type="button" id="doneSettings" class="done-button">Done</button>

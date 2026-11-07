@@ -20,6 +20,7 @@ public final class CpuNdPosition {
         requireScale(scale);
         input.materialize();
         Tensor output = new Tensor(input.dtype(), input.shape());
+        if (CpuNativeAttention.compactSoftmax(input, output, length, scale, true)) return output;
         for (int row = 0; row < input.matrixRows(); row++) { softmaxRow(input, output, row, length, scale); }
         return output;
     }
@@ -28,7 +29,7 @@ public final class CpuNdPosition {
         if (!Float.isFinite(scale)) throw new IllegalArgumentException("Attention scale must be finite");
     }
 
-    private static void softmaxRow(Tensor input, Tensor output, int row, int width, float scale) {
+    static void softmaxRow(Tensor input, Tensor output, int row, int width, float scale) {
         int count = row % width + 1, base = row * width;
         float maximum = Float.NEGATIVE_INFINITY, total = 0;
         for (int column = 0; column < count; column++) {
@@ -43,24 +44,33 @@ public final class CpuNdPosition {
     }
 
     public static Tensor rotary(Tensor input, Tensor cosine, Tensor sine, int length, boolean inverse) {
+        return rotary(input, cosine, sine, length, inverse, false);
+    }
+
+    public static Tensor rotary(Tensor input, Tensor cosine, Tensor sine, int length,
+                                boolean inverse, boolean halfSplit) {
         MatrixShapeChecks.requireRotary(input, cosine, sine, length);
         input.materialize();
         cosine.materialize();
         sine.materialize();
         Tensor output = new Tensor(input.dtype(), input.shape());
+        if (CpuDenseRotary.apply(input, cosine, sine, output, length, inverse, halfSplit)) return output;
+        if (CpuCompactRotary.apply(input, cosine, sine, output, length, inverse, halfSplit)) return output;
         for (int index = 0; index < input.numel(); index += 2) {
-            rotatePair(input, cosine, sine, output, index, length, inverse);
+            rotatePair(input, cosine, sine, output, index, length, inverse, halfSplit);
         }
         return output;
     }
 
     private static void rotatePair(Tensor input, Tensor cosine, Tensor sine, Tensor output,
-                                    int index, int length, boolean inverse) {
+                                    int index, int length, boolean inverse, boolean halfSplit) {
         int width = input.matrixCols(), table = index / width % length * (width / 2) + index % width / 2;
-        float x = value(input, index), y = value(input, index + 1);
+        int first = halfSplit ? index / width * width + index % width / 2 : index;
+        int second = first + (halfSplit ? width / 2 : 1);
+        float x = value(input, first), y = value(input, second);
         float c = value(cosine, table), s = value(sine, table) * (inverse ? -1 : 1);
-        output.memory().set(index, x * c - y * s);
-        output.memory().set(index + 1, x * s + y * c);
+        output.memory().set(first, x * c - y * s);
+        output.memory().set(second, x * s + y * c);
     }
 
     private static float value(Tensor input, int index) {

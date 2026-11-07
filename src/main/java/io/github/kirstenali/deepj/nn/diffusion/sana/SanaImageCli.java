@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.nn.diffusion.sana;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 import java.nio.file.Path;
@@ -22,13 +23,16 @@ public final class SanaImageCli implements Callable<Integer> {
     @Option(names = "--steps", defaultValue = "2") private int steps;
     @Option(names = "--guidance", defaultValue = "4.5") private float guidance;
     @Option(names = "--seed", defaultValue = "42") private long seed;
+    @Option(names = "--dtype", defaultValue = "FLOAT32") private DType dtype;
     @Parameters(arity = "1", description = "Image description") private String prompt;
 
-    public static void main(String[] args) { System.exit(new CommandLine(new SanaImageCli()).execute(args)); }
+    public static void main(String[] args) {
+        System.exit(new CommandLine(new SanaImageCli()).setCaseInsensitiveEnumValuesAllowed(true).execute(args));
+    }
 
     @Override public Integer call() throws Exception {
         selectBackend();
-        var options = new SanaSprint.Options(width, height, steps, guidance, seed);
+        var options = new SanaSprint.Options(width, height, steps, guidance, seed, dtype);
         var pipeline = new SanaSprint(model, System.out::println);
         var image = pipeline.generate(prompt, options);
         if (!ImageIO.write(image, "png", output.toFile())) throw new IllegalStateException("PNG writer unavailable");

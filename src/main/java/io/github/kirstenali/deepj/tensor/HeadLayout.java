@@ -11,16 +11,17 @@ public final class HeadLayout {
             throw new IllegalArgumentException("Head splitting requires[batch,time,heads*width]");
         }
         int batch = input.size(0), time = input.size(1), width = input.size(2) / heads;
-        if (batch == 1 && fullFloat32(input)) {
+        if (directCpu(input, batch)) {
             return LayoutOps.splitHeads(input.reshape(time, input.size(2)), heads).reshape(1, heads, time, width);
         }
-        return input.reshape(batch, time, heads, width).permute(0, 2, 1, 3).contiguous();
+        Tensor layout = input.reshape(batch, time, heads, width).permute(0, 2, 1, 3);
+        return Tensor.backend().usesDeviceStorage() ? layout : layout.contiguous();
     }
 
     public static Tensor merge(Tensor input, int heads) {
         require(input, heads);
         int batch = input.size(0), time = input.size(2), width = Math.multiplyExact(heads, input.size(3));
-        if (batch == 1 && fullFloat32(input)) {
+        if (directCpu(input, batch)) {
             return LayoutOps.mergeHeads(pack(input), heads).reshape(1, time, width);
         }
         return input.permute(0, 2, 1, 3).reshape(batch, time, width);
@@ -40,6 +41,10 @@ public final class HeadLayout {
     public static int totalHeads(Tensor input, int heads) {
         require(input, heads);
         return Math.multiplyExact(input.size(0), heads);
+    }
+
+    private static boolean directCpu(Tensor input, int batch) {
+        return !Tensor.backend().usesDeviceStorage() && batch == 1 && fullFloat32(input);
     }
 
     private static boolean fullFloat32(Tensor input) {

@@ -51,6 +51,22 @@ public final class HeadCacheOps {
         if (cache.getGpuTag() instanceof GpuBuffer buffer && !buffer.cpuStale) buffer.needsUpload = true;
     }
 
+    /** Multiplies a capacity-strided cache view without gathering its valid prefix. */
+    public static Tensor product(TensorBackend backend, Tensor left, Tensor cache,
+                                  int heads, int length, boolean transpose) {
+        requirePrefix(cache, heads, length);
+        if (left.matrixRows() % heads != 0) throw new IllegalArgumentException("Invalid head query rows");
+        int rows = left.matrixRows() / heads, capacity = cache.matrixRows() / heads;
+        try (var scope = TensorScope.open()) {
+            Tensor query = backend.reshape(left, heads, rows, left.matrixCols());
+            Tensor full = backend.reshape(cache, heads, capacity, cache.matrixCols());
+            Tensor prefix = backend.slice(full, 1, 0, length, 1);
+            Tensor keys = transpose ? backend.permute(prefix, 0, 2, 1) : prefix;
+            Tensor result = backend.matmul(query, keys);
+            return scope.escape(backend.reshape(result, heads * rows, result.size(-1)));
+        }
+    }
+
     public static Tensor prefix(TensorBackend backend, Tensor cache, int heads, int length) {
         requirePrefix(cache, heads, length);
         int[] rows = new int[heads * length];

@@ -11,6 +11,7 @@ public final class CpuNdSoftmax {
         input.materialize();
         int inner = Math.toIntExact(input.layout().shape().denseStrides()[axis]);
         int width = input.size(axis);
+        if (inner == 1 && CpuNativeAttention.compactSoftmax(input, output, width, 1, false)) return output;
         for (int group = 0; group < input.numel() / width; group++) {
             int base = group / inner * width * inner + group % inner;
             row(input, output, base, width, inner);
@@ -18,7 +19,7 @@ public final class CpuNdSoftmax {
         return output;
     }
 
-    private static void row(Tensor input, Tensor output, int base, int width, int stride) {
+    static void row(Tensor input, Tensor output, int base, int width, int stride) {
         float max = Float.NEGATIVE_INFINITY;
         for (int index = 0; index < width; index++) {
             max = Math.max(max, value(input, base + index * stride));

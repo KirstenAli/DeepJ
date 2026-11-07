@@ -62,8 +62,7 @@ public final class TensorWeights implements AutoCloseable {
         var entry = entries.get(name);
         if (entry == null) throw new IllegalArgumentException("Missing model weight: " + name);
         try {
-            Tensor target = Tensor.backend().zeros(dtype, entry.descriptor().shape());
-            TensorEncoding.restoreWeight(target, SafeTensorFile.read(entry), false);
+            Tensor target = TensorEncoding.weightToBackend(SafeTensorFile.read(entry), dtype);
             return parameter(name, target);
         } catch (IOException failure) {
             throw new UncheckedIOException(failure);

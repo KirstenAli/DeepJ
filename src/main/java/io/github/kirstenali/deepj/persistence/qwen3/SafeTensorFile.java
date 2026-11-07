@@ -4,11 +4,10 @@ import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorDescriptor;
 import io.github.kirstenali.deepj.tensor.TensorEncoding;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -88,23 +87,9 @@ public final class SafeTensorFile {
         Tensor result = new Tensor(entry.descriptor().dtype(), entry.descriptor().shape());
         try (var file = new RandomAccessFile(entry.file().toFile(), "r")) {
             file.seek(entry.offset());
-            readChunks(file, result);
+            TensorEncoding.readValues(file, result, ByteOrder.LITTLE_ENDIAN);
         }
         return result;
-    }
-
-    private static void readChunks(RandomAccessFile file, Tensor target) throws IOException {
-        int chunk = 1 << 18;
-        byte[] bytes = new byte[chunk * target.dtype().bytes()];
-        Tensor flat = target.reshape(target.numel());
-        for (int start = 0; start < target.numel(); start += chunk) {
-            int count = Math.min(chunk, target.numel() - start);
-            int length = count * target.dtype().bytes();
-            file.readFully(bytes, 0, length);
-            EndianWords.reverse(bytes, length, target.dtype().bytes());
-            var input = new DataInputStream(new ByteArrayInputStream(bytes, 0, length));
-            TensorEncoding.readValues(input, flat.slice(0, start, start + count));
-        }
     }
 
     public static void requireIdentical(Entry left, Entry right) throws IOException {

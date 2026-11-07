@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.nn.diffusion.sanavideo;
 
 import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -13,7 +14,11 @@ final class VideoTextWeights implements AutoCloseable {
     private String group = "";
 
     VideoTextWeights(Path directory) throws IOException {
-        source = new VideoWeightCache(directory, VideoWeightCache.defaultBudget());
+        this(directory, DType.FLOAT32);
+    }
+
+    VideoTextWeights(Path directory, DType dtype) throws IOException {
+        source = new VideoWeightCache(directory, VideoWeightCache.defaultBudget(), dtype);
     }
 
     Tensor tensor(String name) {

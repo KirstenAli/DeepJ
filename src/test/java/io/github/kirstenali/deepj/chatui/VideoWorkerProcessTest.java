@@ -10,17 +10,21 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import io.github.kirstenali.deepj.tensor.DType;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VideoWorkerProcessTest {
     private static final Path MODEL = Path.of("src/test/resources/sana-video/pipeline");
 
-    @Test void workerMatchesThePipelineWithoutReplacingTheParentBackend() throws Exception {
+    @ParameterizedTest @EnumSource(DType.class)
+    void workerMatchesThePipelineWithoutReplacingTheParentBackend(DType dtype) throws Exception {
         var backend = Boolean.getBoolean("sanavideo.test.metal") ? new MetalBackend() : new CpuBackend();
         Tensor.setBackend(backend);
         var progress = new ArrayList<String>();
-        var options = new SanaVideo.Options(16, 16, 5, 1, 1, 4294967338L);
+        var options = new SanaVideo.Options(16, 16, 5, 1, 1, 4294967338L, dtype);
         var frames = new SanaVideoService().generate(MODEL, "A fox", options, progress::add);
         assertEquals(5, frames.size());
         assertEquals(16, frames.get(0).getWidth());

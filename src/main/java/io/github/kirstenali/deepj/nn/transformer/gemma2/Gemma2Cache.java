@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn.transformer.gemma2;
 
+import io.github.kirstenali.deepj.tensor.CachedAttentionBackend;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.HeadLayout;
 import io.github.kirstenali.deepj.tensor.Tensor;
@@ -39,6 +40,8 @@ final class Gemma2Cache implements AutoCloseable {
 
     Tensor attend(int layer, Tensor query) {
         Tensor grouped = query.reshape(1, config.kvHeads(), config.nHeads() / config.kvHeads(), config.headDim());
+        Tensor fused = fused(layer, HeadLayout.pack(grouped));
+        if (fused != null) return fused.reshape(query.shape());
         Tensor scores = Tensor.backend().headPrefixMatmul(HeadLayout.pack(grouped),
                 HeadLayout.pack(keys[layer]), config.kvHeads(), length, true);
         Tensor mask = layer % 2 == 0 && length > config.slidingWindow() ? localMask() : null;
@@ -46,6 +49,16 @@ final class Gemma2Cache implements AutoCloseable {
                 (float) (1 / Math.sqrt(config.queryScalar())), config.attentionSoftcap()).to(values[layer].dtype());
         return Tensor.backend().headPrefixMatmul(probabilities, HeadLayout.pack(values[layer]),
                 config.kvHeads(), length, false).reshape(query.shape());
+    }
+
+    private Tensor fused(int layer, Tensor query) {
+        if (!(Tensor.backend() instanceof CachedAttentionBackend backend)) return null;
+        int first = layer % 2 == 0 ? Math.max(0, length - config.slidingWindow()) : 0;
+        var options = new CachedAttentionBackend.Options((float) (1 / Math.sqrt(config.queryScalar())),
+                config.attentionSoftcap(), first);
+        Tensor key = HeadLayout.pack(keys[layer]), value = HeadLayout.pack(values[layer]);
+        return backend.supportsCachedAttention(query, key, value, config.kvHeads(), length, options)
+                ? backend.cachedAttention(query, key, value, config.kvHeads(), length, options) : null;
     }
 
     private Tensor localMask() {

@@ -9,6 +9,6 @@ resource_dir="$project_dir/src/main/resources/native/macos"
 mkdir -p "$output_dir" "$resource_dir"
 xcrun clang++ -std=c++17 -O3 -DNDEBUG -fobjc-arc -dynamiclib \
   -I"$jdk_dir/include" -I"$jdk_dir/include/darwin" \
-  -framework Foundation -framework Metal -framework MetalPerformanceShaders \
+  -framework Foundation -framework Metal -framework MetalPerformanceShaders -framework MetalPerformanceShadersGraph \
   "$project_dir/native/deepj_metal_jni.mm" -o "$output_dir/libdeepj_metal_jni.dylib"
 cp "$output_dir/libdeepj_metal_jni.dylib" "$resource_dir/libdeepj_metal_jni.dylib"

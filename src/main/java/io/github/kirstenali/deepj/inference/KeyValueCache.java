@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.inference;
 
 import io.github.kirstenali.deepj.autograd.AttentionOps;
 import io.github.kirstenali.deepj.tensor.DType;
+import io.github.kirstenali.deepj.tensor.CachedAttentionBackend;
 import io.github.kirstenali.deepj.tensor.HeadLayout;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
@@ -67,11 +68,31 @@ final class KeyValueCache implements AutoCloseable {
     }
 
     private Tensor decode(Tensor query, float scale) {
-        Tensor scores = Tensor.backend().headPrefixMatmul(HeadLayout.pack(query), HeadLayout.pack(keys),
+        Tensor q = HeadLayout.pack(query), k = HeadLayout.pack(keys), v = HeadLayout.pack(values);
+        if (Tensor.backend() instanceof CachedAttentionBackend fast
+                && fast.supportsCachedAttention(q, k, v, heads, length, scale)) {
+            return fast.cachedAttention(q, k, v, heads, length, scale).reshape(query.shape());
+        }
+        Tensor scores = Tensor.backend().headPrefixMatmul(q, k,
                 heads, length, true);
         Tensor probabilities = Tensor.backend().softmaxRows(scores.multiplyScalar(scale));
-        return Tensor.backend().headPrefixMatmul(probabilities, HeadLayout.pack(values), heads, length, false)
+        return Tensor.backend().headPrefixMatmul(probabilities, v, heads, length, false)
                 .reshape(query.shape());
+    }
+
+    KeyValueCache grown(int target) {
+        if (target <= capacity || processed > capacity) throw new IllegalArgumentException("Invalid cache growth");
+        var result = new KeyValueCache(target, keys.size(0), keys.size(1), keys.size(3), keys.dtype(), values.dtype());
+        try {
+            Tensor.backend().writeHeadCache(HeadLayout.pack(result.keys), HeadLayout.pack(keys), heads, 0);
+            Tensor.backend().writeHeadCache(HeadLayout.pack(result.values), HeadLayout.pack(values), heads, 0);
+            result.length = length;
+            result.processed = processed;
+            return result;
+        } catch (RuntimeException | Error failure) {
+            result.close();
+            throw failure;
+        }
     }
 
     @Override

@@ -63,6 +63,24 @@ public final class InferenceContext implements AutoCloseable {
         if (cursor != entries.size()) throw new IllegalStateException("Incomplete attention cache traversal");
     }
 
+    /** Returns an independently owned larger cache; the caller still owns and must close this context. */
+    public InferenceContext grown(int target) {
+        if (target <= capacity) throw new IllegalArgumentException("Cache growth requires a larger capacity");
+        finish();
+        var result = new InferenceContext(target, rolling);
+        try {
+            for (Entry entry : entries) {
+                result.entries.add(new Entry(entry.owner(), entry.cache().grown(target)));
+            }
+            result.position = position;
+            result.cursor = cursor;
+            return result;
+        } catch (RuntimeException | Error failure) {
+            result.close();
+            throw failure;
+        }
+    }
+
     @Override
     public void close() {
         entries.forEach(entry -> entry.cache().close());

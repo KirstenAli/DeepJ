@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.chatui;
 import static io.github.kirstenali.deepj.chatui.DesktopErrors.message;
 import io.github.kirstenali.deepj.nn.diffusion.sana.SanaSprint;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.stage.DirectoryChooser;
@@ -96,9 +97,15 @@ public final class ImageWorkspace {
     }
 
     public void generate(String prompt, int width, int height, int steps, long seed, double guidance) {
+        generateWithPrecision(prompt, width, height, steps, seed, guidance, "FLOAT32");
+    }
+
+    public void generateWithPrecision(String prompt, int width, int height, int steps, long seed,
+                                        double guidance, String dtype) {
         if (model == null || events.busy().getAsBoolean() || prompt == null || prompt.isBlank()) return;
         try {
-            start(prompt.strip(), new SanaSprint.Options(width, height, steps, (float) guidance, seed));
+            start(prompt.strip(), new SanaSprint.Options(width, height, steps, (float) guidance, seed,
+                    DType.valueOf(dtype.toUpperCase(java.util.Locale.ROOT))));
         } catch (IllegalArgumentException error) {
             show("toast", error.getMessage());
         }

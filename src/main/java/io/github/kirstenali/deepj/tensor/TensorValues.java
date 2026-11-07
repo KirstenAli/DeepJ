@@ -43,6 +43,7 @@ final class TensorValues {
 
     static float[] toFloatArray(TensorStorageAccess tensor) {
         tensor.materialize();
+        if (tensor.layout().contiguous()) return tensor.memory().copyFloats(tensor.layout().offset(), tensor.numel());
         float[] result = new float[tensor.numel()];
         for (int index = 0; index < result.length; index++) {
             result[index] = tensor.memory().get(tensor.layout().addressAt(index));
@@ -72,9 +73,21 @@ final class TensorValues {
             return source.memory().copy();
         }
         TensorMemory result = new TensorMemory(source.dtype(), source.numel());
-        for (int index = 0; index < source.numel(); index++) {
-            source.memory().copyTo(result, layout.addressAt(index), index, 1);
+        int block = contiguousBlock(layout);
+        for (int index = 0; index < source.numel(); index += block) {
+            source.memory().copyTo(result, layout.addressAt(index), index, block);
         }
         return result;
+    }
+
+    private static int contiguousBlock(TensorLayout layout) {
+        int block = 1;
+        for (int axis = layout.shape().rank() - 1; axis >= 0; axis--) {
+            int size = layout.shape().size(axis);
+            if (size == 1) continue;
+            if (size == 0 || layout.stride(axis) != block) break;
+            block *= size;
+        }
+        return block;
     }
 }

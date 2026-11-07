@@ -1,0 +1,656 @@
+{
+  "environment": {
+    "date": "2026-11-07",
+    "hardware": "Apple M4",
+    "memory_gib": 16,
+    "macos": "15.5",
+    "java": "Temurin 20.0.2",
+    "torch": "2.8.0",
+    "transformers": "4.51.3",
+    "deepj_heap": "-Xmx3g",
+    "warmup_trials": 3,
+    "timed_trials": 3,
+    "threads": 10
+  },
+  "gemma": {
+    "FLOAT16": {
+      "deepj": {
+        "median_tokens_per_second": 15.41402740905591,
+        "median_prefill_ms": 107.241583,
+        "trials": [
+          {
+            "dtype": "FLOAT16",
+            "load_seconds": 13.919962083,
+            "backend": "metal"
+          },
+          {
+            "decode_seconds": 1.106187041,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 14.464100018325922,
+            "prefill_seconds": 0.616295166,
+            "trial": -3,
+            "checksum": -368.82812
+          },
+          {
+            "decode_seconds": 1.057238208,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 15.133770118152976,
+            "prefill_seconds": 0.105794417,
+            "trial": -2,
+            "checksum": -368.82812
+          },
+          {
+            "decode_seconds": 1.087193333,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 14.716793705724461,
+            "prefill_seconds": 0.108407792,
+            "trial": -1,
+            "checksum": -368.82812
+          },
+          {
+            "decode_seconds": 1.038015541,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 15.41402740905591,
+            "prefill_seconds": 0.106296417,
+            "trial": 0,
+            "checksum": -368.82812
+          },
+          {
+            "decode_seconds": 1.014576125,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 15.77013257630126,
+            "prefill_seconds": 0.110065667,
+            "trial": 1,
+            "checksum": -368.82812
+          },
+          {
+            "decode_seconds": 1.171826708,
+            "dtype": "FLOAT16",
+            "tokens_per_second": 13.653895999100236,
+            "prefill_seconds": 0.107241583,
+            "trial": 2,
+            "checksum": -368.82812
+          },
+          {
+            "tokens_per_second": 15.398851176920667,
+            "first_token_ms": 111.582584,
+            "reply": "A neural network learns by adjusting its internal connections (weights) based on the difference between its predictions and the actual outcomes of the examples it's trained on.  This adjustment process, called backpropagation, allows the network to improve its accuracy over time, effectively \"learning\" from the data it's exposed to.",
+            "tokens": 64,
+            "kind": "chat"
+          }
+        ],
+        "guard": {
+          "returncode": 0,
+          "elapsed_seconds": 28.30067045899341,
+          "peak_rss_kib": 5291552.0,
+          "swap_out_before_mib": 17710.625,
+          "swap_out_after_mib": 17710.625,
+          "stopped_for": null
+        }
+      },
+      "pytorch": {
+        "median_tokens_per_second": 15.526152191092107,
+        "median_prefill_ms": 96.68824999243952,
+        "trials": [
+          {
+            "engine": "PyTorch",
+            "torch": "2.8.0",
+            "transformers": "4.51.3",
+            "dtype": "FLOAT16",
+            "load_seconds": 9.73199320898857,
+            "parameters": 2614341888,
+            "attention": "eager"
+          },
+          {
+            "trial": -3,
+            "dtype": "FLOAT16",
+            "prefill_seconds": 0.6652386669884436,
+            "decode_seconds": 1.2113708330143709,
+            "tokens_per_second": 13.208176690358028,
+            "checksum": -368.78125
+          },
+          {
+            "trial": -2,
+            "dtype": "FLOAT16",
+            "prefill_seconds": 0.09609829098917544,
+            "decode_seconds": 1.0378245000028983,
+            "tokens_per_second": 15.416864797425111,
+            "checksum": -368.78125
+          },
+          {
+            "trial": -1,
+            "dtype": "FLOAT16",
+            "prefill_seconds": 0.10373079200508073,
+            "decode_seconds": 1.0689292080060113,
+            "tokens_per_second": 14.968250357613973,
+            "checksum": -368.78125
+          },
+          {
+            "trial": 0,
+            "dtype": "FLOAT16",
+            "prefill_seconds": 0.09796937499777414,
+            "decode_seconds": 1.0391861250100192,
+            "tokens_per_second": 15.396664384684446,
+            "checksum": -368.78125
+          },
+          {
+            "trial": 1,
+            "dtype": "FLOAT16",
+            "prefill_seconds": 0.09668824999243952,
+            "decode_seconds": 1.030519332998665,
+            "tokens_per_second": 15.526152191092107,
+            "checksum": -368.78125
+          },
+          {
+            "trial": 2,
+            "dtype": "FLOAT16",
+            "prefill_seconds": 0.09445299999788404,
+            "decode_seconds": 1.0237733749963809,
+            "tokens_per_second": 15.628458788603055,
+            "checksum": -368.78125
+          }
+        ],
+        "guard": {
+          "returncode": 0,
+          "elapsed_seconds": 21.348890332999872,
+          "peak_rss_kib": 2595856.0,
+          "swap_out_before_mib": 17710.625,
+          "swap_out_after_mib": 17710.625,
+          "stopped_for": null
+        }
+      },
+      "logits": {
+        "rows": 17,
+        "vocabulary": 256000,
+        "mean_absolute_error": 0.005684324074536562,
+        "maximum_absolute_error": 0.046875,
+        "matching_argmax_rows": 17,
+        "prefill_mean_absolute_error": 0.010330726392567158,
+        "prefill_maximum_absolute_error": 0.046875,
+        "deepj_sha256": "26680f37d71b661404a0a5d3077716dad343b8f3ebaa816bcb319c1094a51f4f",
+        "pytorch_sha256": "06fd0889e959fef889f6ad11ac198d004ce89ab48c00b83f4a6b33bfe31da844"
+      }
+    },
+    "BFLOAT16": {
+      "deepj": {
+        "median_tokens_per_second": 15.04152400721241,
+        "median_prefill_ms": 131.727917,
+        "trials": [
+          {
+            "load_seconds": 14.023477833,
+            "dtype": "BFLOAT16",
+            "backend": "metal"
+          },
+          {
+            "tokens_per_second": 13.483569796171613,
+            "dtype": "BFLOAT16",
+            "decode_seconds": 1.186629375,
+            "checksum": -368.75,
+            "trial": -3,
+            "prefill_seconds": 0.747534125
+          },
+          {
+            "tokens_per_second": 14.386679553235155,
+            "dtype": "BFLOAT16",
+            "decode_seconds": 1.112139875,
+            "checksum": -368.75,
+            "trial": -2,
+            "prefill_seconds": 0.139991834
+          },
+          {
+            "tokens_per_second": 14.590443953897708,
+            "dtype": "BFLOAT16",
+            "decode_seconds": 1.096608167,
+            "checksum": -368.75,
+            "trial": -1,
+            "prefill_seconds": 0.136904458
+          },
+          {
+            "tokens_per_second": 14.088734084148625,
+            "dtype": "BFLOAT16",
+            "decode_seconds": 1.135659166,
+            "checksum": -368.75,
+            "trial": 0,
+            "prefill_seconds": 0.131727917
+          },
+          {
+            "tokens_per_second": 15.122801276782573,
+            "dtype": "BFLOAT16",
+            "decode_seconds": 1.058005042,
+            "checksum": -368.75,
+            "trial": 1,
+            "prefill_seconds": 0.131909292
+          },
+          {
+            "tokens_per_second": 15.04152400721241,
+            "dtype": "BFLOAT16",
+            "decode_seconds": 1.063722,
+            "checksum": -368.75,
+            "trial": 2,
+            "prefill_seconds": 0.129157708
+          },
+          {
+            "first_token_ms": 144.351208,
+            "tokens_per_second": 14.772870356635417,
+            "kind": "chat",
+            "tokens": 58,
+            "reply": "A neural network learns by adjusting its internal connections (weights) based on the relationship between input data and desired output.  Through repeated exposure to examples, the network iteratively refines its weights to minimize the difference between its predictions and the actual outcomes, effectively learning the underlying patterns. \n"
+          }
+        ],
+        "guard": {
+          "returncode": 0,
+          "elapsed_seconds": 28.288131625013193,
+          "peak_rss_kib": 5524784.0,
+          "swap_out_before_mib": 17710.625,
+          "swap_out_after_mib": 17710.625,
+          "stopped_for": null
+        }
+      },
+      "pytorch": {
+        "median_tokens_per_second": 15.36875711778689,
+        "median_prefill_ms": 97.25650001200847,
+        "trials": [
+          {
+            "engine": "PyTorch",
+            "torch": "2.8.0",
+            "transformers": "4.51.3",
+            "dtype": "BFLOAT16",
+            "load_seconds": 4.242712583014509,
+            "parameters": 2614341888,
+            "attention": "eager"
+          },
+          {
+            "trial": -3,
+            "dtype": "BFLOAT16",
+            "prefill_seconds": 0.37658295800792985,
+            "decode_seconds": 1.1296142919745762,
+            "tokens_per_second": 14.164126741024011,
+            "checksum": -368.75
+          },
+          {
+            "trial": -2,
+            "dtype": "BFLOAT16",
+            "prefill_seconds": 0.09504995899624191,
+            "decode_seconds": 1.039199999999255,
+            "tokens_per_second": 15.39645881448371,
+            "checksum": -368.75
+          },
+          {
+            "trial": -1,
+            "dtype": "BFLOAT16",
+            "prefill_seconds": 0.09554954100167379,
+            "decode_seconds": 1.0253645000047982,
+            "tokens_per_second": 15.60420708921084,
+            "checksum": -368.75
+          },
+          {
+            "trial": 0,
+            "dtype": "BFLOAT16",
+            "prefill_seconds": 0.09654425000189804,
+            "decode_seconds": 1.0416614160058089,
+            "tokens_per_second": 15.360077424535014,
+            "checksum": -368.75
+          },
+          {
+            "trial": 1,
+            "dtype": "BFLOAT16",
+            "prefill_seconds": 0.0982355419837404,
+            "decode_seconds": 1.041073125001276,
+            "tokens_per_second": 15.36875711778689,
+            "checksum": -368.75
+          },
+          {
+            "trial": 2,
+            "dtype": "BFLOAT16",
+            "prefill_seconds": 0.09725650001200847,
+            "decode_seconds": 1.034862999978941,
+            "tokens_per_second": 15.46098372473032,
+            "checksum": -368.75
+          }
+        ],
+        "guard": {
+          "returncode": 0,
+          "elapsed_seconds": 15.164358167006867,
+          "peak_rss_kib": 406176.0,
+          "swap_out_before_mib": 17710.625,
+          "swap_out_after_mib": 17710.625,
+          "stopped_for": null
+        }
+      },
+      "logits": {
+        "rows": 17,
+        "vocabulary": 256000,
+        "mean_absolute_error": 0.033512797206640244,
+        "maximum_absolute_error": 0.375,
+        "matching_argmax_rows": 16,
+        "prefill_mean_absolute_error": 0.028243456035852432,
+        "prefill_maximum_absolute_error": 0.25,
+        "deepj_sha256": "097d8798b0135276192d952c628288bad5c317829e88539cabf12f8b9453dc61",
+        "pytorch_sha256": "8a1a74ead25428e60b80089d961b79378866fb68706ba1e4963a43101d510d02"
+      }
+    }
+  },
+  "media": {
+    "image-verified-fp32": {
+      "height": 1024,
+      "generation_seconds": 89.048280083,
+      "width": 1024,
+      "frames": 1,
+      "stages": [
+        {
+          "elapsed_seconds": 0.001717583,
+          "next": "Encoding prompt with Gemma 2",
+          "seconds": 0.001717583,
+          "stage": "setup"
+        },
+        {
+          "elapsed_seconds": 16.732029583,
+          "next": "Loading SANA-Sprint transformer",
+          "seconds": 16.730312,
+          "stage": "Encoding prompt with Gemma 2"
+        },
+        {
+          "elapsed_seconds": 16.740981458,
+          "next": "Denoising step 1/2",
+          "seconds": 0.008951875,
+          "stage": "Loading SANA-Sprint transformer"
+        },
+        {
+          "elapsed_seconds": 26.025936292,
+          "next": "Denoising step 2/2",
+          "seconds": 9.284954834,
+          "stage": "Denoising step 1/2"
+        },
+        {
+          "elapsed_seconds": 30.19486175,
+          "next": "Decoding image with DC-AE",
+          "seconds": 4.168925458,
+          "stage": "Denoising step 2/2"
+        },
+        {
+          "elapsed_seconds": 89.047513167,
+          "next": "complete",
+          "seconds": 58.852651417,
+          "stage": "Decoding image with DC-AE"
+        }
+      ],
+      "kind": "image",
+      "dtype": "FLOAT32",
+      "save_seconds": 0.107586333,
+      "guard": {
+        "returncode": 0,
+        "elapsed_seconds": 89.9033058329951,
+        "peak_rss_kib": 5452208.0,
+        "swap_out_before_mib": 17710.625,
+        "swap_out_after_mib": 17710.625,
+        "stopped_for": null
+      },
+      "frames_sha256": [
+        "b6e40c11fce6503d6edff6b0427c3ba1a6a292b48431aa184a5fa6cc63d9935f"
+      ]
+    },
+    "image-verified-bf16": {
+      "width": 1024,
+      "frames": 1,
+      "stages": [
+        {
+          "next": "Encoding prompt with Gemma 2",
+          "seconds": 0.002781333,
+          "stage": "setup",
+          "elapsed_seconds": 0.002781333
+        },
+        {
+          "next": "Loading SANA-Sprint transformer",
+          "seconds": 16.829359,
+          "stage": "Encoding prompt with Gemma 2",
+          "elapsed_seconds": 16.832140333
+        },
+        {
+          "next": "Denoising step 1/2",
+          "seconds": 0.008220375,
+          "stage": "Loading SANA-Sprint transformer",
+          "elapsed_seconds": 16.840360708
+        },
+        {
+          "next": "Denoising step 2/2",
+          "seconds": 8.7394255,
+          "stage": "Denoising step 1/2",
+          "elapsed_seconds": 25.579786208
+        },
+        {
+          "next": "Decoding image with DC-AE",
+          "seconds": 3.7436665,
+          "stage": "Denoising step 2/2",
+          "elapsed_seconds": 29.323452708
+        },
+        {
+          "next": "complete",
+          "seconds": 51.917865708,
+          "stage": "Decoding image with DC-AE",
+          "elapsed_seconds": 81.241318416
+        }
+      ],
+      "kind": "image",
+      "dtype": "BFLOAT16",
+      "save_seconds": 0.105421333,
+      "height": 1024,
+      "generation_seconds": 81.241446833,
+      "guard": {
+        "returncode": 0,
+        "elapsed_seconds": 82.76628391700797,
+        "peak_rss_kib": 4927056.0,
+        "swap_out_before_mib": 17710.625,
+        "swap_out_after_mib": 17710.625,
+        "stopped_for": null
+      },
+      "frames_sha256": [
+        "bc320a7aa860648bf0cf5f68dda2ede40170064cfd2e1e9b28ed84dec7273a21"
+      ]
+    },
+    "video-verified-bf16": {
+      "width": 192,
+      "generation_seconds": 63.092389416,
+      "height": 128,
+      "save_seconds": 0.096578667,
+      "dtype": "BFLOAT16",
+      "kind": "video",
+      "stages": [
+        {
+          "elapsed_seconds": 0.028264416,
+          "stage": "setup",
+          "seconds": 0.028264416,
+          "next": "Encoding video prompt with Gemma 2"
+        },
+        {
+          "elapsed_seconds": 29.434224416,
+          "stage": "Encoding video prompt with Gemma 2",
+          "seconds": 29.40596,
+          "next": "Loading SANA-Video transformer"
+        },
+        {
+          "elapsed_seconds": 29.664570125,
+          "stage": "Loading SANA-Video transformer",
+          "seconds": 0.230345709,
+          "next": "Video denoising step 1/1"
+        },
+        {
+          "elapsed_seconds": 54.410814833,
+          "stage": "Video denoising step 1/1",
+          "seconds": 24.746244708,
+          "next": "Decoding frames with Wan video VAE"
+        },
+        {
+          "elapsed_seconds": 63.091575375,
+          "stage": "Decoding frames with Wan video VAE",
+          "seconds": 8.680760542,
+          "next": "complete"
+        }
+      ],
+      "frames": 5,
+      "guard": {
+        "returncode": 0,
+        "elapsed_seconds": 63.56824329198571,
+        "peak_rss_kib": 4071680.0,
+        "swap_out_before_mib": 17710.625,
+        "swap_out_after_mib": 17710.625,
+        "stopped_for": null
+      },
+      "frames_sha256": [
+        "19b75a3605b1a11bb3362e8a8b24a1cc6f3c4eb322ac186bb0c82769c4d94560",
+        "191d090deca14e282ad2698d62c7a5fb261d52be643a03dc29300d0b21b3e54f",
+        "004150ddb44161becd5b8391ef342202e76709113ddd0be1bc1f83319cfbd862",
+        "e771a7e95c394a5cc4a0c11e70d5a2e51193b2281ee6f4caf1a1e7a6a0898215",
+        "cce401e0f19d90ef02dfc63b7241a0d4b26ac04e7d4ffec74baa120cb8220aee"
+      ]
+    },
+    "video-current-fp32": {
+      "width": 192,
+      "generation_seconds": 63.256674625,
+      "height": 128,
+      "save_seconds": 0.09850525,
+      "dtype": "FLOAT32",
+      "kind": "video",
+      "stages": [
+        {
+          "elapsed_seconds": 0.027105042,
+          "stage": "setup",
+          "seconds": 0.027105042,
+          "next": "Encoding video prompt with Gemma 2"
+        },
+        {
+          "elapsed_seconds": 29.529546542,
+          "stage": "Encoding video prompt with Gemma 2",
+          "seconds": 29.5024415,
+          "next": "Loading SANA-Video transformer"
+        },
+        {
+          "elapsed_seconds": 29.767657583,
+          "stage": "Loading SANA-Video transformer",
+          "seconds": 0.238111041,
+          "next": "Video denoising step 1/1"
+        },
+        {
+          "elapsed_seconds": 54.6393985,
+          "stage": "Video denoising step 1/1",
+          "seconds": 24.871740917,
+          "next": "Decoding frames with Wan video VAE"
+        },
+        {
+          "elapsed_seconds": 63.256529792,
+          "stage": "Decoding frames with Wan video VAE",
+          "seconds": 8.617131292,
+          "next": "complete"
+        }
+      ],
+      "frames": 5,
+      "guard": {
+        "returncode": 0,
+        "elapsed_seconds": 64.59551141699194,
+        "peak_rss_kib": 4645392.0,
+        "swap_out_before_mib": 17710.625,
+        "swap_out_after_mib": 17710.625,
+        "stopped_for": null
+      },
+      "frames_sha256": [
+        "301d8f15fc8cc2567ed4cbb9441d10a43bdcf56905981d3bf933728d847143d7",
+        "b4df98a2552ca1390b238b250107afa35f8fdfb604dfefd05e026ca717a9aa6a",
+        "d68981953eece919421593b98c518e0efbdbd5eb7af32a8ca0cf4ad45d39778c",
+        "e4194948739c00bfe5b3a19d3663f7919cf74d8f1c73fbb99eea741ea9e171d6",
+        "9da2eea1b86102fc34b620185ed8866abd4e00f5deb588ca11fa6e09448fe995"
+      ]
+    }
+  },
+  "hashes": {
+    "fixed-candidate.jar": "512b2b38c6e8b3ef4546ee742109376353e4aa873412ffe0a6629551bdf48465",
+    "GemmaDemoProbe.java": "98bcbcd4da02e0195cd848980ca4ca288fc2ffc3339c011a3aa0ea3c8ab88dc0",
+    "gemma_reference.py": "8f4779776197b3c5d17ece95e79de044a37e3995bc705680f60dc463bbd798e2",
+    "MediaDemoProbe.java": "abd57b021f154233fd82a2353cc42db33f0de55b099b68cd2e22b34f18f915c1",
+    "gemma-input-BFLOAT16.json": "85a414965bf4a4cbc180a53733c9c4d366db89509e22e9599a25bff4fd2fe9cb",
+    "gemma-input-FLOAT16.json": "719623826bb3f478bcc047a5b738e5d8dc37816aa957ecf1e507b56e47a1f230",
+    "full-tests.log": "e123349a4972a3e96e919e26455486067947161456a0069a6022e430b470d052",
+    "final-metal-tests.log": "8615f1f9ac8a8881579eb5cca0008571a7a42d96127189f39c1ea81d356c881b",
+    "final-demo-checks.log": "e2193b5577dd7f2e760ec05ecf502ffbb44b7ca200c7389420ecb5c6a7edf981",
+    "evidence.tar.gz": "869deca3e9d02185210531745f92ec6f0b161db91d486985e513ed40cabae674"
+  },
+  "inputs": {
+    "prompt": [
+      2,
+      106,
+      1645,
+      108,
+      74198,
+      575,
+      1378,
+      26099,
+      1368,
+      476,
+      35544,
+      6011,
+      59938,
+      774,
+      8944,
+      235265,
+      107,
+      108,
+      106,
+      2516,
+      108
+    ],
+    "decode": [
+      586,
+      35544,
+      6011,
+      59938,
+      731,
+      49074,
+      1277,
+      22718,
+      577,
+      8339,
+      10266,
+      611,
+      8944,
+      235265,
+      586,
+      35544
+    ],
+    "text": "Explain in two sentences how a neural network learns from examples.",
+    "prompt_tokens": 21,
+    "continuation_tokens": 16
+  },
+  "source_sha256": {
+    "src/main/java/io/github/kirstenali/deepj/nn/ModelMemory.java": "11a0b60b86930b8f012fbb08c28ce5753473e395f4df3557ada220f034f1234d",
+    "src/main/java/io/github/kirstenali/deepj/nn/ModelOps.java": "6044046034da549c32eab7a33296713a1cb8a3cf05975e3a111ee2618e0e9081",
+    "src/main/java/io/github/kirstenali/deepj/nn/ModelInference.java": "d4f8c3fbe79a990ff6f78a28942a0416082968a9631098df171c1a86451507cf",
+    "src/main/java/io/github/kirstenali/deepj/nn/ModelRms.java": "97481675ba36ec3e6f4cb8bc8bc57e3ebc692f5549dae02ac3b04ea90b837438",
+    "src/main/java/io/github/kirstenali/deepj/nn/transformer/gemma2/Gemma2Session.java": "d2416bd5217472c11a14426837f6e62311209f52cbef230dd6f90f745c29c273",
+    "src/main/java/io/github/kirstenali/deepj/tensor/metal/MetalCompactGraph.java": "bece60c3f96e1843788b91867ce36de7ae5d14e8b49ee39f7818817ab5fa9347",
+    "src/main/java/io/github/kirstenali/deepj/tensor/metal/MetalMixedMatmul.java": "3903b1db4c8e6d85638232f6a85cf30062ea9f214e13479200242d3cf8e501f7",
+    "native/deepj_metal_jni.mm": "2a7730bf01435dd9fb945a86befa8e48595abd143a5eac81154b4f898ce4c373",
+    "native/macos/libdeepj_metal_jni.dylib": "7860ab341ccdcb1903fccdac34316dc1c3368f956514f4206d13c36d2965dbcc",
+    "src/main/resources/native/macos/libdeepj_metal_jni.dylib": "7860ab341ccdcb1903fccdac34316dc1c3368f956514f4206d13c36d2965dbcc"
+  },
+  "verification": {
+    "full": {
+      "tests": 2956,
+      "failures": 0,
+      "errors": 0,
+      "skips": 57,
+      "log_sha256": "e123349a4972a3e96e919e26455486067947161456a0069a6022e430b470d052"
+    },
+    "focused_metal": {
+      "tests": 43,
+      "failures": 0,
+      "errors": 0,
+      "skips": 3,
+      "log_sha256": "8615f1f9ac8a8881579eb5cca0008571a7a42d96127189f39c1ea81d356c881b"
+    },
+    "media_reference_metal": {
+      "tests": 37,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "log_sha256": "4884a7429cab092ef26b87b29d9a301de0ef5f62a590415fb0271647e69c126d"
+    }
+  }
+}

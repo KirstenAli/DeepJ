@@ -3,6 +3,9 @@ package io.github.kirstenali.deepj.tensor.cpu;
 import io.github.kirstenali.deepj.tensor.*;
 
 public final class CpuBackend extends CpuTrainingOps {
+    @Override public Tensor add(Tensor left, Tensor right) { return CpuAddition.apply(left, right); }
+    @Override public void addInPlace(Tensor left, Tensor right) { CpuAddition.into(left, right, left); }
+
     @Override public Tensor causalSoftmax(Tensor input, int length, float scale) {
         return CpuNdElementwise.matrix(input) ? CpuCausalSoftmax.apply(input, length, scale)
                 : CpuNdPosition.softmax(input, length, scale);
@@ -77,7 +80,24 @@ public final class CpuBackend extends CpuTrainingOps {
         return CpuNdReduction.sliceGradient(gradient, shape, axis, start, step);
     }
 
-    @Override public Tensor softmaxAxis(Tensor input, int axis) { return CpuNdSoftmax.apply(input, axis); }
+    @Override public Tensor softmaxAxis(Tensor input, int axis) {
+        if (!matrixAxis(input, axis)) return CpuNdSoftmax.apply(input, axis);
+        return reshape(softmaxRows(reshape(input, -1, input.size(-1))), input.shape());
+    }
+
+    @Override public Tensor softmaxAxisBackward(Tensor gradient, Tensor output, int axis) {
+        if (!matrixAxis(output, axis) || !matrixAxis(gradient, axis) || !output.hasSameShape(gradient)) {
+            return super.softmaxAxisBackward(gradient, output, axis);
+        }
+        Tensor result = softmaxBackward(reshape(gradient, -1, output.size(-1)),
+                reshape(output, -1, output.size(-1)));
+        return reshape(result, output.shape());
+    }
+
+    private static boolean matrixAxis(Tensor input, int axis) {
+        return input.rank() > 0 && input.numel() > 0 && (axis == -1 || axis == input.rank() - 1)
+                && input.dtype() == DType.FLOAT32 && input.coversStorage();
+    }
 
     @Override public Tensor indexSelect(Tensor input, int axis, int[] indices) {
         return CpuNdIndexing.select(input, axis, indices);
@@ -92,13 +112,13 @@ public final class CpuBackend extends CpuTrainingOps {
     }
 
     @Override public CrossEntropyResult crossEntropy(Tensor logits, int[] targets) {
-        return CpuNdElementwise.matrix(logits) ? CrossEntropyDefaults.apply(this, logits, targets, null)
+        return CpuNdElementwise.matrix(logits) ? CpuMatrixCrossEntropy.apply(logits, targets, null)
                 : CpuNdCrossEntropy.apply(logits, targets, null);
     }
 
     @Override public CrossEntropyResult crossEntropy(Tensor logits, int[] targets, boolean[] mask) {
         CrossEntropyChecks.included(mask, CrossEntropyChecks.positions(logits));
-        return CpuNdElementwise.matrix(logits) ? CrossEntropyDefaults.apply(this, logits, targets, mask)
+        return CpuNdElementwise.matrix(logits) ? CpuMatrixCrossEntropy.apply(logits, targets, mask)
                 : CpuNdCrossEntropy.apply(logits, targets, mask);
     }
 
@@ -118,8 +138,6 @@ public final class CpuBackend extends CpuTrainingOps {
     }
 
     @Override public Tensor rmsNormBackward(Tensor gradient, Tensor normalized, Tensor rms, Tensor gamma) {
-        if (CpuNdElementwise.sameMatrices(gradient, normalized) && CpuNdElementwise.matrix(gamma)
-                && CpuNdElementwise.matrix(rms)) return super.rmsNormBackward(gradient, normalized, rms, gamma);
         return normalizationBackward(gradient, normalized, rms, gamma, false);
     }
 

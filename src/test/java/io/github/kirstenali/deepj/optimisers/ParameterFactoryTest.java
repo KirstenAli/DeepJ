@@ -83,4 +83,17 @@ class ParameterFactoryTest {
         assertThrows(IllegalArgumentException.class, () -> factory.random("other", 2, 3, new Random(12)));
         assertThrows(IllegalArgumentException.class, () -> factory.random("weight", 3, 2, new Random(12)));
     }
+    @ParameterizedTest @EnumSource(DType.class)
+    void uniformStorageSurvivesScopesAndLoadingWhileDefaultsRemainMixed(DType dtype) {
+        var uniform = ParameterFactory.uniform(dtype).withStorageActivations().scope("layer").forLoading();
+        assertEquals(dtype, uniform.ones("gamma", 1, 4).value.dtype());
+        assertEquals(dtype, uniform.activationType(dtype));
+        assertEquals(DType.FLOAT32, uniform.ones("gamma", 1, 4).grad().dtype());
+        var defaults = new ParameterFactory(dtype);
+        assertEquals(DType.FLOAT32, defaults.ones("gamma", 1, 4).value.dtype());
+        assertEquals(DType.FLOAT32, defaults.activationType(dtype));
+        assertEquals(DType.FLOAT32, defaults.withStorageActivations().ones("gamma", 1, 4).value.dtype());
+        assertEquals(dtype, defaults.withStorageActivations().scope("layer").activationType(dtype));
+    }
+
 }

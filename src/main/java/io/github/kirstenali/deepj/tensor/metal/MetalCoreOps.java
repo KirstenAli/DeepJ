@@ -25,6 +25,13 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override public boolean usesDeviceStorage() { return true; }
 
+    @Override public Tensor zerosForLoading(DType dtype, int... shape) {
+        boolean projection = dtype != DType.FLOAT32 && shape.length == 2 && shape[0] > 1 && shape[1] > 1
+                && (long) shape[0] * shape[1] >= 262144 && shape[0] <= 8L * shape[1];
+        return projection ? permute(graph.lazyZeros(dtype, shape[1], shape[0]), 1, 0)
+                : graph.lazyZeros(dtype, shape);
+    }
+
     static void requireRowVector(Tensor rowVector, Tensor target) {
         if (rowVector.matrixRows() != 1 || rowVector.matrixCols() != target.matrixCols()) {
             throw new IllegalArgumentException(
@@ -194,6 +201,11 @@ abstract class MetalCoreOps implements TensorBackend {
         graph.recordRotary(gpuIn(input), gpuIn(cosine), gpuIn(sine), output,
                 input.matrixRows(), sequenceLength, input.matrixCols(), inverse);
         return graph.createOutputLike(output, input);
+    }
+
+    @Override
+    public Tensor rotaryHalfSplit(Tensor input, Tensor cosine, Tensor sine, int length, boolean inverse) {
+        return graph.layoutRotary(input, cosine, sine, length, inverse, true);
     }
 
     static void requireDivisible(int dimension, int divisor, String name) {

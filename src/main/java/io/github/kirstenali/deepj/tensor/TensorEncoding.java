@@ -92,42 +92,64 @@ public final class TensorEncoding {
         }
     }
 
+    /** Consumes private checkpoint staging, uploading once and retiring temporary dtype-conversion storage. */
+    public static Tensor weightToBackend(Tensor source, DType dtype) {
+        java.util.Objects.requireNonNull(dtype, "dtype");
+        try (var ignored = GradMode.noGrad(); var buffers = BackwardBuffers.begin()) {
+            Tensor result = buffers.capture(() -> (Tensor.backend().usesDeviceStorage()
+                    ? HostStaging.copy(source) : source).to(dtype));
+            buffers.expose(result);
+            return result;
+        }
+    }
+
     public static void readValues(DataInput input, Tensor tensor) throws IOException {
+        readValues(input, tensor, ByteOrder.BIG_ENDIAN);
+    }
+
+    /** Reads a raw payload in its file byte order without creating a FLOAT32 compact shadow. */
+    public static void readValues(DataInput input, Tensor tensor, ByteOrder order) throws IOException {
+        java.util.Objects.requireNonNull(order, "order");
         tensor.layout().requireWritable();
         tensor.materialize();
         try (var ignored = GradMode.noGrad()) {
             tensor.gradientState().beforeMutation();
-            if (tensor.isContiguous()) readDense(input, tensor);
-            else readStrided(input, tensor);
+            if (tensor.isContiguous()) readDense(input, tensor, order);
+            else readStrided(input, tensor, order);
         } finally {
             TensorStorage.markGpuNeedsUpload(tensor);
         }
     }
 
-    private static void readDense(DataInput input, Tensor tensor) throws IOException {
-        int start = tensor.storageOffset(), end = start + tensor.numel();
-        if (tensor.dtype() == DType.FLOAT32) {
-            float[] values = tensor.memory().floats();
-            for (int index = start; index < end; index++) {
-                values[index] = Float.intBitsToFloat(input.readInt());
-            }
-        } else {
-            short[] values = tensor.memory().shorts();
-            for (int index = start; index < end; index++) {
-                values[index] = input.readShort();
-            }
+    private static void readDense(DataInput input, Tensor tensor, ByteOrder order) throws IOException {
+        int capacity = Math.min(CHUNK, tensor.numel());
+        ByteBuffer bytes = ByteBuffer.allocate(capacity * tensor.dtype().bytes()).order(order);
+        for (int done = 0; done < tensor.numel(); done += capacity) {
+            int count = Math.min(capacity, tensor.numel() - done);
+            input.readFully(bytes.array(), 0, count * tensor.dtype().bytes());
+            readDenseChunk(tensor, bytes, tensor.storageOffset() + done, count);
         }
     }
 
-    private static void readStrided(DataInput input, Tensor tensor) throws IOException {
+    private static void readDenseChunk(Tensor tensor, ByteBuffer bytes, int start, int count) {
+        if (tensor.dtype() == DType.FLOAT32) bytes.asFloatBuffer().get(tensor.memory().floats(), start, count);
+        else bytes.asShortBuffer().get(tensor.memory().shorts(), start, count);
+    }
+
+    private static void readStrided(DataInput input, Tensor tensor, ByteOrder order) throws IOException {
         for (int index = 0; index < tensor.numel(); index++) {
-            readValue(input, tensor, tensor.layout().addressAt(index));
+            readValue(input, tensor, tensor.layout().addressAt(index), order == ByteOrder.LITTLE_ENDIAN);
         }
     }
 
-    private static void readValue(DataInput input, Tensor tensor, int address) throws IOException {
-        if (tensor.dtype() == DType.FLOAT32) tensor.memory().set(address, Float.intBitsToFloat(input.readInt()));
-        else tensor.memory().shorts()[address] = input.readShort();
+    private static void readValue(DataInput input, Tensor tensor, int address, boolean little) throws IOException {
+        if (tensor.dtype() == DType.FLOAT32) {
+            int bits = input.readInt();
+            tensor.memory().set(address, Float.intBitsToFloat(little ? Integer.reverseBytes(bits) : bits));
+        } else {
+            short bits = input.readShort();
+            tensor.memory().shorts()[address] = little ? Short.reverseBytes(bits) : bits;
+        }
     }
 
     /** Explicit host-side restoration after file validation; not an operator fallback. */

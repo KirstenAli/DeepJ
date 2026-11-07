@@ -39,6 +39,11 @@ class Qwen3MetalTest {
         Tensor.setBackend(new CpuBackend());
     }
 
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void compactActivationsMatchOfficialTransformersOnMetal(DType dtype) throws IOException {
+        Qwen3CompactTest.compareReference(dtype);
+    }
+
     @ParameterizedTest @ValueSource(strings = {"float32", "float16", "bfloat16"})
     void officialReferenceLogitsGradientsAndCachedDecodingRunOnMetal(String dtype) throws IOException {
         Qwen3 model = Qwen3Pretrained.load(Qwen3Fixtures.path(dtype));

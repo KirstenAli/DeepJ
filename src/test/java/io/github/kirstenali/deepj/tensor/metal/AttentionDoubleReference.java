@@ -4,8 +4,6 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 
 /** Independent scalar FP64 diagnostic; never used by production attention. */
 final class AttentionDoubleReference {
-    private static final int WIDTH = 64;
-
     record Inputs(Tensor query, Tensor key, Tensor value, Tensor upstream,
                   int heads, int keyValueHeads, float scale) {
         Inputs(Tensor query, Tensor key, Tensor value, Tensor upstream, int heads, float scale) {
@@ -72,9 +70,10 @@ final class AttentionDoubleReference {
     }
 
     private static double dot(Tensor left, int row, Tensor right, int column) {
+        int width = left.matrixCols();
         double sum = 0;
-        for (int index = 0; index < WIDTH; index++) {
-            sum += (double) left.rawData()[row * WIDTH + index] * right.rawData()[column * WIDTH + index];
+        for (int index = 0; index < width; index++) {
+            sum += (double) left.rawData()[row * width + index] * right.rawData()[column * width + index];
         }
         return sum;
     }
@@ -89,9 +88,10 @@ final class AttentionDoubleReference {
 
     private static void accumulate(Inputs inputs, Result result, int row, int column,
                                    double probability, double derivative) {
-        for (int index = 0; index < WIDTH; index++) {
-            int query = row * WIDTH + index;
-            int key = column * WIDTH + index;
+        int width = inputs.query().matrixCols();
+        for (int index = 0; index < width; index++) {
+            int query = row * width + index;
+            int key = column * width + index;
             result.output()[query] += probability * inputs.value().rawData()[key];
             result.query()[query] += derivative * inputs.key().rawData()[key];
             result.key()[key] += derivative * inputs.query().rawData()[query];

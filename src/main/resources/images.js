@@ -49,7 +49,7 @@ function openImageSettings() {
   element('imageSize').focus();
 }
 
-function submitImage(prompt) {
+function validImageSettings() {
   const invalid = ['imageSeed', 'imageGuidance']
     .map(element)
     .find((field) => !field.value.trim() || !field.checkValidity());
@@ -57,16 +57,22 @@ function submitImage(prompt) {
     openSettings();
     invalid.focus();
     toast('Check the image settings before generating.');
-    return;
+    return false;
   }
+  return true;
+}
+
+function submitImage(prompt) {
+  if (!validImageSettings()) return;
   const [width, height] = element('imageSize').value.split('x').map(Number);
-  imageBridge.generate(
+  imageBridge.generateWithPrecision(
     prompt,
     width,
     height,
     Number(element('imageSteps').value),
     Number(element('imageSeed').value),
     Number(element('imageGuidance').value),
+    element('imageDtype').value,
   );
 }
 

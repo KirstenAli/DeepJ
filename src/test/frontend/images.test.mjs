@@ -5,7 +5,7 @@ import { fixture, finish } from './fixture.mjs';
 function images(context) {
   const ui = fixture(context);
   ui.window.imageBridge = Object.fromEntries(
-    ['chooseModel', 'generate', 'stop', 'save'].map((name) => [
+    ['chooseModel', 'generateWithPrecision', 'stop', 'save'].map((name) => [
       name,
       (...args) => ui.calls.push([name, ...args]),
     ]),
@@ -36,8 +36,18 @@ test('image generation uses image settings and ignores text sampling controls', 
   ui.element('imageSize').dispatchEvent(new ui.window.Event('change'));
   ui.element('temperature').value = '';
   ui.window.submitPrompt();
-  assert.deepEqual(ui.calls, [['generate', 'A fox', 1344, 768, 2, 42, 4.5]]);
+  assert.deepEqual(ui.calls, [
+    ['generateWithPrecision', 'A fox', 1344, 768, 2, 42, 4.5, 'FLOAT32'],
+  ]);
   assert.equal(ui.element('imageSizeHint').textContent, '1344 × 768');
+});
+
+test('compact image precision reaches the model bridge', (context) => {
+  const ui = images(context);
+  ui.element('prompt').value = 'A fox';
+  ui.element('imageDtype').value = 'BFLOAT16';
+  ui.window.submitPrompt();
+  assert.equal(ui.calls[0].at(-1), 'BFLOAT16');
 });
 
 test('invalid image settings focus the field before dispatch', (context) => {

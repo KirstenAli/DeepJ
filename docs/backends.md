@@ -23,16 +23,34 @@ that it is executed on the backend that recorded it.
 ## CPU matrix execution
 
 On supported Apple Silicon Macs, large FLOAT32 products use Accelerate BLAS.
-FLOAT16 and BFLOAT16 weights use CPU SIMD kernels with FLOAT32 accumulation;
-multi-position products convert bounded tiles for BLAS. Small and unsupported
-products retain Java execution. This CPU library loads independently of Metal and
+FLOAT16 and BFLOAT16 matrix-vector products use CPU SIMD kernels with FLOAT32 accumulation;
+eligible FP16 matrix-matrix products use BNNS with compact operands and bounded workspace.
+Other compact matrix products convert bounded tiles for BLAS. Small products retain their existing native or Java routes. This CPU library loads independently of Metal and
 falls back to Java if unavailable. `-Ddeepj.cpu.javaOnly=true` disables it for a JVM.
+
+Batched FLOAT32 products pin their arrays once per batch operation. Compatible
+transposed inputs also use BLAS, including the products used for weight gradients.
+Dense FLOAT32 and contiguous compact normalization use native forward and backward
+loops with the same scalar reduction order as Java. Compact statistics and gradients
+remain FLOAT32. Compact addition, SwiGLU and softmax avoid scalar Java dtype conversion;
+softmax retries individual numerically sensitive rows through Java when needed.
+FLOAT32 causal softmax uses native vector exponentials for
+4,096–262,144 elements, distributes independent rows within the configured thread
+limit, and retains the parallel Java path for larger matrices.
+Unsupported storage and values retain their Java fallback.
+
+Dense FLOAT32 rotary positions share an array-based CPU implementation for
+interleaved and half-split pairs, including backward. Large inputs use the CPU
+executor; small inputs execute directly. Contiguous compact rotary positions use the
+same pairing rules with direct compact storage access; strided inputs keep their fallback.
 
 Large compact matrices allocated through `CpuBackend.zeros(...)` can use column-major
 storage for contiguous dot products. Checkpoint slots allocated through
 `ParameterFactory.forLoading()` also use this layout for large FLOAT32 projections.
 Tall lookup tables retain row-major storage. Ordinary FLOAT32 zero tensors, gradient
 buffers and randomly initialized parameters retain their contiguous layout.
+Metal checkpoint slots also use column-major storage for eligible large compact
+projections; its FLOAT32 loading layout remains unchanged.
 Logical shapes, values, dtype promotion, gradients and checkpoint order stay the same;
 use tensor accessors rather than assuming a physical layout. `Tensor.zeros(...)`
 continues to create contiguous tensors. No expanded weight cache is retained.
@@ -49,7 +67,8 @@ JAVA_HOME="$(/usr/libexec/java_home -v 20)" bash native/build-cpu-macos.sh
 ```
 
 See [CPU performance measurements](cpu-performance.md) for the benchmark setup,
-results and precision policies.
+results and precision policies. The [full Qwen3 follow-up](benchmarks/full-qwen-2026-11-07/REPORT.md)
+records the current FP32 CPU/Metal comparison and training regression controls.
 
 ## Shared network operations
 
@@ -76,6 +95,17 @@ explicit promotion and FLOAT32 gradients/optimizer state. Storage width does not
 promise native compact arithmetic for every operation, faster training, or a fixed
 total-memory reduction. See [precision](tensors.md#storage-is-not-the-same-as-calculation-precision).
 
+Compact cached decoding can combine score products, scaling, softmax and value
+products in one Metal dispatch. This shared inference path supports FP16/BF16
+head widths up to 128 and valid cache prefixes up to 512 positions, including
+grouped-query heads. Other shapes and FP32 use the existing cache operations.
+Gradient-enabled execution never selects this inference kernel.
+
+Eligible compact MPSGraph products use the GPU compilation setting and submit
+ordered batches while the host prepares later work. Every submitted batch is
+finished and checked before a flush returns, including failure cleanup. See the
+[compact execution measurements](benchmarks/compact-followup-2026-11-07/REPORT.md).
+
 Explicit value reads such as `get(...)`, `toFloatArray()`, and `item()` can materialize
 host data. Loss reporting and persistence use such transfers where needed. Keep model
 arithmetic in tensor operations when gradients or device execution are required.
@@ -87,6 +117,16 @@ training/evaluation mode or define the lifetime of returned tensors. Consume tem
 evaluation outputs inside `TensorScope`, close the scope, then call
 `Tensor.backend().releaseTemporaryResources()` at an appropriate cleanup boundary.
 Escape or explicitly retain a tensor that must outlive its scope.
+
+Metal keeps a bounded cache of released native scratch buffers: up to 128 buffers,
+32 MiB total, and 4 MiB per buffer. Reuse follows command completion and requires an
+exact byte-size match. The cache empties when the last native buffer is released;
+configured `deepj.metal.maxBufferBytes` budgets also clear it after releases and
+allocation rollbacks. Set `DEEPJ_METAL_DISABLE_BUFFER_REUSE=1` before launching the JVM
+to disable it for diagnosis.
+
+See [shared-operation performance measurements](benchmarks/shared-tensor-2026-11-06/REPORT.md)
+for the matched inference and training probes.
 
 See [autograd](autograd.md) for graph and mutation rules and
 [training](training.md#training-and-evaluation-mode) for dropout and BatchNorm behavior.

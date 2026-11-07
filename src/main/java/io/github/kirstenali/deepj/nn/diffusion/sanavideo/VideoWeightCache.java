@@ -13,16 +13,20 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Predicate;
 
-/** Budgeted checkpoint storage with FP32 working values. Inference only. */
+/** Budgeted checkpoint storage with explicitly selected working precision. Inference only. */
 final class VideoWeightCache implements AutoCloseable {
     private static final long GIB = 1024L * 1024 * 1024;
     private final Path directory;
     private final Map<String, TensorDescriptor> descriptors;
     private final Map<DType, TensorWeights> sources = new EnumMap<>(DType.class);
     private final boolean cached;
+    private final DType workingType;
     private boolean closed;
 
-    VideoWeightCache(Path directory, long budget) throws IOException {
+    VideoWeightCache(Path directory, long budget) throws IOException { this(directory, budget, DType.FLOAT32); }
+
+    VideoWeightCache(Path directory, long budget, DType dtype) throws IOException {
+        workingType = java.util.Objects.requireNonNull(dtype, "dtype");
         if (budget < 0) throw new IllegalArgumentException("Video weight cache budget must be nonnegative");
         this.directory = directory;
         try (var metadata = TensorWeights.open(directory, DType.FLOAT32)) {
@@ -44,7 +48,7 @@ final class VideoWeightCache implements AutoCloseable {
 
     TensorWeights select(Predicate<String> selected) throws IOException {
         if (closed) throw new IllegalStateException("Video weights are closed");
-        TensorWeights stream = cached ? null : TensorWeights.open(directory, DType.FLOAT32);
+        TensorWeights stream = cached ? null : TensorWeights.open(directory, workingType);
         try {
             var tensors = new LinkedHashMap<String, Tensor>();
             descriptors.keySet().stream().filter(selected).sorted()
@@ -59,7 +63,7 @@ final class VideoWeightCache implements AutoCloseable {
     private Tensor read(String name, TensorWeights stream) {
         Tensor value = stream == null ? source(descriptors.get(name).dtype()).tensor(name) : stream.tensor(name);
         Tensor alias = Tensor.backend().expand(value, value.shape());
-        return alias.to(DType.FLOAT32);
+        return alias.to(workingType);
     }
 
     private TensorWeights source(DType dtype) {

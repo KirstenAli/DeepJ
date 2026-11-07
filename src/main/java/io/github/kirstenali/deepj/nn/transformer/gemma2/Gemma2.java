@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.nn.transformer.gemma2;
 
+import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.transformer.CausalLM;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.GenerationSession;
@@ -45,6 +46,7 @@ public final class Gemma2 implements CausalLM, AutoCloseable {
             Tensor hidden = backbone.forward(tokens, valid, cache);
             if (cache != null) hidden = hidden.slice(1, tokens.length - 1, tokens.length);
             String head = weights.contains("lm_head.weight") ? "lm_head.weight" : prefix + "embed_tokens.weight";
+            if (GradMode.isEnabled()) hidden = hidden.reshape(-1, config.dModel());
             Tensor logits = hidden.matmul(weights.tensor(head).transpose(-1, -2));
             return scope.escape(logits.divideScalar(config.logitSoftcap()).tanhActivation()
                     .multiplyScalar(config.logitSoftcap()).reshape(-1, config.vocabSize()));

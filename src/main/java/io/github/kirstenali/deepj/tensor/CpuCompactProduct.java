@@ -8,10 +8,15 @@ final class CpuCompactProduct {
     static boolean apply(CpuProductPlan plan) {
         if (!CpuBlas.AVAILABLE) return false;
         if (plan.left.type() == 1 && plan.right.type() == 1 && plan.shape.rows() != 1) return false;
-        if ((long) plan.shape.rows() * plan.shape.inner() * plan.shape.columns() < 262144) return false;
+        if ((long) plan.shape.rows() * plan.shape.inner() * plan.shape.columns() < minimumWork(plan)) return false;
         int width = width(plan);
         CpuRanges.balance(plan.tiles(ROWS, width), index -> tile(plan.tile(index, ROWS, width)));
         return true;
+    }
+
+    private static int minimumWork(CpuProductPlan plan) {
+        boolean compactBatch = plan.batches() > 1 && (plan.left.type() != 1 || plan.right.type() != 1);
+        return compactBatch ? 16384 : 262144;
     }
 
     private static int width(CpuProductPlan p) {

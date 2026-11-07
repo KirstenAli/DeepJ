@@ -1,0 +1,6 @@
+{
+  "torch": "2.8.0",
+  "transformers": "5.22.1",
+  "diffusers": "0.42.1",
+  "device": "cpu"
+}

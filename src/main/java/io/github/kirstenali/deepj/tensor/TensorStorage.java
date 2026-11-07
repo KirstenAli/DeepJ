@@ -58,6 +58,10 @@ final class TensorStorage {
         if (tensor.dtype() == DType.FLOAT32 && tensor.coversStorage()) {
             return Arrays.copyOfRange(tensor.rawData(), row * width, (row + 1) * width);
         }
+        if (width == 0) return new float[0];
+        if (tensor.layout().stride(1) == 1) {
+            return tensor.memory().copyFloats(tensor.layout().address(row, 0), width);
+        }
         float[] result = new float[width];
         for (int column = 0; column < width; column++) {
             result[column] = tensor.memory().get(tensor.layout().address(row, column));

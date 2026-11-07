@@ -30,20 +30,21 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 | Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, Loop, Qwen3, and Gemma 2 for causal language modeling |
 | Diffusion models | SANA-Sprint 0.6B for text-to-image and [SANA-Video 2B](docs/sana-video.md) for text-to-video generation |
 
-## Serious inference speed, in Java
+## Fast inference and training, in Java
 
-Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an Apple M4**, CPU cached decoding was faster than PyTorch, CPU prompt processing was within 8%, and Metal decode throughput was close to PyTorch MPS.
+In **FP32 tests on an Apple M4**, DeepJ achieved higher decode throughput and lower training step times in the configurations below.
 
 | Measurement | DeepJ | PyTorch |
 |---|---:|---:|
-| CPU cached decoding | **12.17 tokens/s** | 7.99 tokens/s |
-| CPU prompt processing | **334.8 ms** | 311.2 ms |
-| Metal / MPS cached decoding | **11.77 tokens/s** | 11.82 tokens/s |
-| Metal / MPS prompt processing | **152.2 ms** | 132.9 ms |
+| CPU cached decoding | **12.72 tokens/s** | 9.02 tokens/s |
+| CPU prompt processing | 292.8 ms | **286.5 ms** |
+| Metal / MPS cached decoding | **12.69 tokens/s** | 12.05 tokens/s |
+| Metal / MPS prompt processing | **119.7 ms** | 132.3 ms |
+| CPU training step (small Qwen) | **6.718 ms/step** | 9.016 ms/step |
+| CPU training step (small Gemma) | **7.163 ms/step** | 7.656 ms/step |
+| Metal / MPS training step (small Qwen) | **4.113 ms/step** | 17.824 ms/step |
 
-Both engines used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling.
-
-[CPU measurements and validation](docs/cpu-performance.md) · [Metal/MPS trials and setup](docs/benchmarks/qwen3-metal-m4.json)
+[Qwen3-1.7B inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Small Qwen training measurements](docs/benchmarks/compact-cpu-metal-2026-11-07/REPORT.md#fp32-training-and-regression-controls) · [Small Gemma training measurements](docs/benchmarks/gemma-cpu-indexing-2026-11-07/REPORT.md) · [FP16/BF16 measurements](docs/benchmarks/demo-compact-2026-11-07/REPORT.md)
 
 ## Install
 
@@ -96,7 +97,7 @@ The desktop **Thinking** switch lets Qwen3 reason before answering. Qwen3 also s
 Download the checkpoint using the [SANA-Sprint guide](docs/sana-sprint.md), start the desktop app, and choose **Open image model folder…** from the model menu.
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx8g" mvn javafx:run
+JAVA_TOOL_OPTIONS="-Xmx3g" mvn javafx:run
 ```
 
 The pipeline runs through DeepJ tensors on CPU or Apple Metal. A standalone image launcher is also available in the guide.
@@ -128,7 +129,7 @@ Download the model and tokenizer files using the [Gemma 2 guide](docs/gemma2.md)
 
 ```bash
 mvn package -Pcli
-java -Xmx8g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
   --backend metal chat checkpoints/gemma-2-2b-it --max-tokens 256
 ```
 

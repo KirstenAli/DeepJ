@@ -12,6 +12,8 @@ import java.nio.file.Path;
 import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VideoInferenceTilingTest {
@@ -46,15 +48,16 @@ class VideoInferenceTilingTest {
         }
     }
 
-    @Test void stagedSelfAttentionPreservesTheCompleteRotaryCalculation() throws Exception {
-        try (var scope = TensorScope.open(); var weights = TensorWeights.open(WEIGHTS, DType.FLOAT32)) {
+    @ParameterizedTest @EnumSource(DType.class)
+    void stagedSelfAttentionPreservesTheCompleteRotaryCalculation(DType dtype) throws Exception {
+        try (var scope = TensorScope.open(); var weights = TensorWeights.open(WEIGHTS, dtype)) {
             var rotary = new VideoRotary(1, 91, 91, 12);
             var attention = new SanaVideoAttention(weights, 2);
-            Tensor input = random(1, 91 * 91, 24);
+            Tensor input = random(1, 91 * 91, 24).to(dtype);
             float[] expected = attention.self(input, "transformer_blocks.0.attn1", rotary).toFloatArray();
             try (var ignored = GradMode.noGrad()) {
                 assertArrayEquals(expected, attention.self(input, "transformer_blocks.0.attn1", rotary)
-                        .toFloatArray(), 2e-4f);
+                        .toFloatArray(), dtype == DType.FLOAT32 ? 2e-4f : .01f);
             }
         }
     }

@@ -23,7 +23,7 @@ final class MetalGpuRuntime implements GpuRuntime {
             return;
         }
         BUDGET.allocate(ids, sizes, null, count, () -> MetalNative.nativeAllocBuffers(ids, sizes, count),
-                () -> MetalNative.nativeReleaseBuffers(ids, count));
+                () -> releaseBudgeted(ids, count));
     }
 
     @Override
@@ -39,7 +39,7 @@ final class MetalGpuRuntime implements GpuRuntime {
         }
         BUDGET.allocate(ids, elements, dtypes, count,
                 () -> MetalNative.nativeAllocTypedBuffers(ids, elements, codes, count),
-                () -> MetalNative.nativeReleaseBuffers(ids, count));
+                () -> releaseBudgeted(ids, count));
     }
 
     @Override
@@ -83,7 +83,12 @@ final class MetalGpuRuntime implements GpuRuntime {
             MetalNative.nativeReleaseBuffers(ids, count);
             return;
         }
-        BUDGET.release(ids, count, () -> MetalNative.nativeReleaseBuffers(ids, count));
+        BUDGET.release(ids, count, () -> releaseBudgeted(ids, count));
+    }
+
+    private static void releaseBudgeted(int[] ids, int count) {
+        MetalNative.nativeReleaseBuffers(ids, count);
+        MetalNative.nativeClearBufferCache();
     }
 
     @Override

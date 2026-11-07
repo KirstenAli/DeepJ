@@ -40,6 +40,40 @@ abstract class GraphAttentionRecordingOps extends GraphAdvancedRecordingOps {
         endOp();
     }
 
+    public void recordCachedAttention(GpuBuffer q, GpuBuffer k, GpuBuffer v, GpuBuffer output,
+                                       int rows, int width, int heads, int capacity, int length, float scale) {
+        beginOp(11);
+        emitInt(OP_CACHED_ATTENTION);
+        cachedAttentionInputs(q, k, v, output, rows, width, heads, capacity, length);
+        emitFloatBits(scale);
+        endOp();
+    }
+
+    public void recordCachedAttention(GpuBuffer q, GpuBuffer k, GpuBuffer v, GpuBuffer output,
+                                       int rows, int width, int heads, int capacity, int length,
+                                       CachedAttentionBackend.Options options) {
+        beginOp(13);
+        emitInt(OP_CACHED_ATTENTION_SOFTCAP);
+        cachedAttentionInputs(q, k, v, output, rows, width, heads, capacity, length);
+        emitFloatBits(options.scale());
+        emitFloatBits(options.softcap());
+        emitInt(options.firstPosition());
+        endOp();
+    }
+
+    private void cachedAttentionInputs(GpuBuffer q, GpuBuffer k, GpuBuffer v, GpuBuffer output,
+                                        int rows, int width, int heads, int capacity, int length) {
+        emitStorageBuffer(q);
+        emitStorageBuffer(k);
+        emitStorageBuffer(v);
+        emitStorageBuffer(output);
+        emitInt(rows);
+        emitInt(width);
+        emitInt(heads);
+        emitInt(capacity);
+        emitInt(length);
+    }
+
     public void recordCausalAttention(GpuBuffer query, GpuBuffer key, GpuBuffer value,
                                       GpuBuffer output, GpuBuffer normalization, int heads, float scale) {
         recordCausalAttention(query, key, value, output, normalization, heads, heads, scale);

@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.layers.TiedEmbeddingProjection;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
 import io.github.kirstenali.deepj.layers.transformer.qwen3.Qwen3Block;
+import io.github.kirstenali.deepj.layers.transformer.qwen3.Qwen3RotaryTables;
 import io.github.kirstenali.deepj.nn.transformer.CausalLM;
 import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 import io.github.kirstenali.deepj.nn.transformer.GenerationSession;
@@ -33,6 +34,10 @@ public final class Qwen3 implements CausalLM {
     public Qwen3(Qwen3Config config, long seed) { this(config, seed, ParameterFactory.float32(), true); }
     public Qwen3(Qwen3Config config, long seed, DType dtype) {
         this(config, seed, new ParameterFactory(dtype), true);
+    }
+
+    public Qwen3(Qwen3Config config, long seed, ParameterFactory parameters) {
+        this(config, seed, parameters, true);
     }
 
     private Qwen3(Qwen3Config config, long seed, ParameterFactory factory, boolean initialize) {
@@ -114,6 +119,10 @@ public final class Qwen3 implements CausalLM {
     }
 
     private Tensor logits(Tensor hidden, InferenceContext context, boolean lastOnly) {
+        try (var tables = Qwen3RotaryTables.open()) { return projected(hidden, context, lastOnly); }
+    }
+
+    private Tensor projected(Tensor hidden, InferenceContext context, boolean lastOnly) {
         for (Qwen3Block block : blocks) {
             hidden = context == null ? block.forward(hidden) : block.forward(hidden, context);
         }

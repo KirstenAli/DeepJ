@@ -22,15 +22,19 @@ Build the existing CLI distribution, then invoke the new image entry point:
 
 ```sh
 mvn -Pcli -DskipTests package
-java -Xmx8g --enable-native-access=ALL-UNNAMED \
+java -Xmx3g --enable-native-access=ALL-UNNAMED \
   -cp target/deepj-cli.jar io.github.kirstenali.deepj.nn.diffusion.sana.SanaImageCli \
   --model checkpoints/sana-sprint --backend metal --output sana.png \
   'A red fox in a snowy forest, soft morning light, detailed wildlife photograph'
 ```
 
-Use `--backend cpu` for CPU execution. The defaults are 1024 × 1024 pixels, two sampling steps, guidance 4.5, and seed 42. `--width`, `--height`, `--steps`, `--guidance`, and `--seed` are configurable. Dimensions must be multiples of 32 between 32 and 2048; sampling supports one through four steps. The checkpoint is designed for 1024-pixel images. Memory needs increase with resolution.
+Use `--backend cpu` for CPU execution. The defaults are 1024 × 1024 pixels, two sampling steps, guidance 4.5, and seed 42. `--width`, `--height`, `--steps`, `--guidance`, `--seed`, and `--dtype` are configurable. Dimensions must be multiples of 32 between 32 and 2048; sampling supports one through four steps. The checkpoint is designed for 1024-pixel images. Memory needs increase with resolution.
 
-The pipeline loads and releases each model stage in sequence. Gemma weights use BF16 storage; the image transformer and decoder use FP32. During generation, DeepJ disables autograd graph recording. Image arithmetic stays on the selected tensor backend; small prompt features and final latents pass through host memory between model stages. Output is an RGB PNG.
+The pipeline loads and releases each model stage in sequence. Gemma uses BF16 weights and activations. The image denoiser defaults to FP32; select
+`--dtype float16` or `--dtype bfloat16` for compact denoiser and DC-AE decoder weights and activations.
+The sampler keeps FP32 state, as in the Python pipeline; the DC-AE decoder follows the selected precision. The
+published [0.6B Python example](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers)
+uses BF16 model weights, including DC-AE. During generation, DeepJ disables autograd graph recording. Image arithmetic stays on the selected tensor backend; small prompt features and final latents pass through host memory between model stages. Output is an RGB PNG.
 
 A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use different random-number generators, so matching seed values do not produce identical noise across the two implementations.
 
@@ -39,18 +43,19 @@ A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use diffe
 Launch the existing DeepJ desktop application with enough heap for the image pipeline:
 
 ```sh
-JAVA_TOOL_OPTIONS="-Xmx8g" mvn javafx:run
+JAVA_TOOL_OPTIONS="-Xmx3g" mvn javafx:run
 ```
 
 Open the model menu, choose **Open image model folder…**, and select the checkpoint folder containing `model_index.json`. Selecting that file in the existing model-file picker also recognises the image pipeline.
 
-The composer switches to image descriptions. Its image-size button opens the existing Settings dialog, where you can choose size, sampling steps, seed, and prompt guidance. The window shows generation stages and keeps the Stop action available. After stopping, it waits for the current work to unwind before accepting another generation.
+The composer switches to image descriptions. Its image-size button opens the existing Settings dialog, where you can choose size, sampling steps, seed, prompt guidance, and precision. The precision control selects the denoiser and image-decoder dtype. The window shows generation stages and keeps the Stop action available. After stopping, it waits for the current work to unwind before accepting another generation.
 
 Each result has a **Save image** action that opens the native PNG save dialog. PNG encoding and file writing run in the background. Images remain available to save after switching back to a chat model; **New chat** or **New image** clears the displayed results. Switching model types releases the previous model's device memory.
 
 ## Java API
 
-`SanaSprint.generate(prompt, options)` returns a `BufferedImage`. `SanaSprint.Options.defaults()` supplies the defaults above. Select DeepJ's tensor backend before calling it. An optional `Consumer<String>` constructor argument receives stage and sampling progress.
+`SanaSprint.generate(prompt, options)` returns a `BufferedImage`. `SanaSprint.Options.defaults()` supplies the defaults above. The six-argument `Options` constructor accepts a final `DType`; the five-argument
+constructor and `defaults()` retain FP32. Select DeepJ's tensor backend before calling it. An optional `Consumer<String>` constructor argument receives stage and sampling progress.
 
 `Gemma2Backbone`, `SanaTransformer`, and `DcAeDecoder` expose tensor-level forward methods. Their operations use DeepJ autograd when graph recording is enabled. `TensorWeights` owns the parameters loaded from a stage directory and releases their device retention when closed. `parameters()` returns the parameters loaded so far; weights load on first use. Image generation is provided here; a pretrained-model fine-tuning workflow is not included.
 
@@ -75,3 +80,14 @@ The last command checks the real checkpoint tokenizer against Hugging Face token
 The full official checkpoint was also exercised end to end through the launcher and desktop UI on Apple M4 Metal at 1024 × 1024 with two sampling steps, producing an RGB image from a text prompt. Desktop tests cover PNG preview and saving, cancellation cleanup, and the existing chat controls. The image controls and results were visually reviewed across all four desktop themes.
 
 Architecture and numerical behavior follow the official [SANA project](https://github.com/NVlabs/Sana), [Diffusers SANA-Sprint pipeline](https://github.com/huggingface/diffusers/blob/v0.33.1/src/diffusers/pipelines/sana/pipeline_sana_sprint.py), and [Transformers Gemma 2 implementation](https://github.com/huggingface/transformers/blob/v4.51.3/src/transformers/models/gemma2/modeling_gemma2.py). The instruction prefix follows the Diffusers pipeline (Hugging Face, Apache-2.0). The checkpoint and its Gemma component remain subject to their respective model licenses and terms; see the model card before redistribution.
+
+Compact component references are regenerated by `scripts/compact-model-reference.py`
+with PyTorch 2.8.0, Diffusers 0.42.1 and Transformers 5.22.1. CPU and Metal tests
+cover FP16/BF16 Gemma features, denoiser predictions and DC-AE decoder outputs, plus tiny end-to-end image
+and video pipelines. These compact tests do not establish full-checkpoint image
+or video quality; the existing pretrained FP32 results remain the quality reference.
+
+The [Apple M4 demo checks](benchmarks/media-demo-2026-11-07/REPORT.md#sana-sprint-fox)
+also verify the original 1024-pixel fox prompt with the complete checkpoint in
+FP32 and BF16. The Metal examples use the tested 3 GiB JVM heap; CPU execution
+needs a larger heap because model weights reside in JVM memory.

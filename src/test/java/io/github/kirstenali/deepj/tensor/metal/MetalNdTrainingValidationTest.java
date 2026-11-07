@@ -22,7 +22,7 @@ class MetalNdTrainingValidationTest extends MetalCommandValidationSupport {
         invalidField(command, 8, 0);
         invalidField(command, 10, Float.floatToRawIntBits(Float.NaN));
         invalidField(command, 10, 0);
-        invalidField(command, 11, 2);
+        invalidField(command, 11, 4);
         invalidField(command, 4, buffer(DType.FLOAT32, 6));
         invalidField(command, 5, buffer(DType.FLOAT16, 6));
     }

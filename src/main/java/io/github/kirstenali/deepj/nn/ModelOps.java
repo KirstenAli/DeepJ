@@ -17,6 +17,7 @@ public final class ModelOps {
     public static Tensor silu(Tensor input) { return input.multiply(input.sigmoidActivation()); }
 
     public static Tensor rms(Tensor input, Tensor gain, Tensor bias, float epsilon, boolean gemma) {
+        if (ModelRms.supports(input, gain, epsilon)) return ModelRms.inference(input, gain, bias, epsilon, gemma);
         Tensor value = input.to(DType.FLOAT32);
         Tensor result = value.divide(value.multiply(value).mean(-1, true).addScalar(epsilon).sqrt());
         if (gain != null) result = result.multiply(gemma ? gain.to(DType.FLOAT32).addScalar(1) : gain);

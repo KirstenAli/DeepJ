@@ -55,7 +55,10 @@ function submitVideo(prompt) {
   const options = Object.fromEntries(
     fields.map((field) => [field.id.slice(5).toLowerCase(), Number(field.value)]),
   );
-  videoBridge.generate(prompt, JSON.stringify({ width, height, ...options }));
+  videoBridge.generate(
+    prompt,
+    JSON.stringify({ width, height, ...options, dtype: element('videoDtype').value }),
+  );
 }
 
 function startVideo(prompt, id) {

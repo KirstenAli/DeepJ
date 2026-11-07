@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.autograd.GradientState;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /** Physical typed allocation and device binding, independent of any logical tensor layout. */
@@ -56,6 +57,18 @@ final class TensorMemory {
     float[] rawFloats() {
         if (dtype != DType.FLOAT32) throw new IllegalStateException("Compact storage has no float[] backing");
         return (float[]) values;
+    }
+
+    float[] copyFloats(int start, int count) {
+        if (count == 0) return new float[0];
+        Objects.checkFromIndexSize(start, count, length);
+        if (dtype == DType.FLOAT32) return Arrays.copyOfRange(floats(), start, start + count);
+        float[] result = new float[count];
+        short[] source = shorts();
+        for (int index = 0; index < count; index++) {
+            result[index] = dtype.decode16(source[start + index]);
+        }
+        return result;
     }
 
     boolean hasHostStorage() { return values != null; }

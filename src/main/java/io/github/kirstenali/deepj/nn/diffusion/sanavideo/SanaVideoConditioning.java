@@ -18,7 +18,8 @@ final class SanaVideoConditioning {
             values[pair + 128] = (float) Math.sin(phase);
         }
         String name = "time_embed.emb.timestep_embedder";
-        Tensor first = ModelOps.linear(Tensor.from(values, 1, 256), weights, name + ".linear_1");
+        Tensor first = ModelOps.linear(Tensor.from(values, 1, 256)
+                .to(weights.tensor(name + ".linear_1.weight").dtype()), weights, name + ".linear_1");
         return ModelOps.linear(ModelOps.silu(first), weights, name + ".linear_2");
     }
 

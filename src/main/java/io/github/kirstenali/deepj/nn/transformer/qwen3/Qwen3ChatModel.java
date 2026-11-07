@@ -31,11 +31,12 @@ public record Qwen3ChatModel(Qwen3 model, Qwen3Tokenizer tokenizer, boolean thin
         return load(selection, null);
     }
 
-    /** Loads chat weights in the requested storage format, or keeps the checkpoint format when null. */
+    /** Explicit compact chat uses compact weights and activations; null preserves the checkpoint loading policy. */
     public static Qwen3ChatModel load(Path selection, DType dtype) throws IOException {
         Path directory = Qwen3Snapshot.directory(selection);
         Qwen3Tokenizer tokenizer = Qwen3Tokenizer.load(directory);
-        return new Qwen3ChatModel(Qwen3Pretrained.load(directory, dtype), tokenizer);
+        boolean compact = dtype == DType.FLOAT16 || dtype == DType.BFLOAT16;
+        return new Qwen3ChatModel(Qwen3Pretrained.load(directory, dtype, compact), tokenizer);
     }
 
     public String stream(String prompt, int maxTokens, float temperature, int topK, long seed,

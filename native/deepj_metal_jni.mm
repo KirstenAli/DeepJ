@@ -2,6 +2,8 @@
 #include <Foundation/Foundation.h>
 #include <Metal/Metal.h>
 #include <MetalPerformanceShaders/MetalPerformanceShaders.h>
+#include <MetalPerformanceShadersGraph/MetalPerformanceShadersGraph.h>
+#include <map>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -13,7 +15,7 @@
 #include <vector>
 
 struct CompactAttentionPipelines {
-    id<MTLComputePipelineState> forward, query, keyValue;
+    id<MTLComputePipelineState> forward, query, keyValue, delta;
 };
 
 struct MetalContext {
@@ -31,6 +33,7 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutSoftmaxPSO;
     id<MTLComputePipelineState> layoutMaximumBackwardPSO;
     id<MTLComputePipelineState> layoutMatmulPSO;
+    id<MTLComputePipelineState> compactMatvecPSO;
     std::once_flag compactMatmulOnce;
     id<MTLComputePipelineState> halfMatmulPSO;
     id<MTLComputePipelineState> bfloatMatmulPSO;
@@ -82,6 +85,8 @@ struct MetalContext {
     id<MTLComputePipelineState> orderedScatterPSO;
     id<MTLComputePipelineState> gatherRowsPSO;
     id<MTLComputePipelineState> headCacheWritePSO;
+    id<MTLComputePipelineState> cachedAttentionPSO;
+    id<MTLComputePipelineState> cachedSoftcapAttentionPSO;
     id<MTLComputePipelineState> sqrtPSO;
     id<MTLComputePipelineState> negPSO;
     id<MTLComputePipelineState> expPSO;
@@ -107,7 +112,8 @@ struct MetalContext {
     id<MTLComputePipelineState> attentionQueryBackwardPSO;
     id<MTLComputePipelineState> attentionKeyValueBackwardPSO;
     std::once_flag compactAttentionOnce;
-    CompactAttentionPipelines halfAttention, bfloatAttention;
+    CompactAttentionPipelines halfAttention, bfloatAttention, wideAttention;
+    std::once_flag wideAttentionOnce;
 };
 static NSString* tiledAttentionShaderSource = @R"(
 #include <metal_stdlib>
@@ -120,6 +126,10 @@ using AttentionValue = half;
 using AttentionValue = bfloat;
 #else
 using AttentionValue = float;
+#endif
+
+#ifndef HEAD_WIDTH
+#define HEAD_WIDTH 64
 #endif
 
 struct AttentionParams {
@@ -168,10 +178,10 @@ inline void attention_scores(device const Q* query, device const K* key,
                               threadgroup float* scores, uint group) {
     for (uint column = 0; column < Keys; column += 8) {
         simdgroup_float8x8 result(0.0f);
-        for (uint inner = 0; inner < 64; inner += 8) {
+        for (uint inner = 0; inner < HEAD_WIDTH; inner += 8) {
             simdgroup_float8x8 left, right;
-            attention_load(left, query + group * 8 * 64 + inner, 64);
-            attention_load(right, key + column * 64 + inner, 64, true);
+            attention_load(left, query + group * 8 * HEAD_WIDTH + inner, HEAD_WIDTH);
+            attention_load(right, key + column * HEAD_WIDTH + inner, HEAD_WIDTH, true);
             simdgroup_multiply_accumulate(result, left, right, result);
         }
         simdgroup_store(result, scores + group * 8 * Keys + column, Keys);
@@ -181,16 +191,16 @@ inline void attention_scores(device const Q* query, device const K* key,
 template<uint Keys, typename T>
 inline void attention_values(threadgroup float* probabilities, device const T* values,
                               threadgroup float* output, uint group) {
-    for (uint column = 0; column < 64; column += 8) {
+    for (uint column = 0; column < HEAD_WIDTH; column += 8) {
         simdgroup_float8x8 result;
-        simdgroup_load(result, output + group * 8 * 64 + column, 64);
+        simdgroup_load(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
         for (uint inner = 0; inner < Keys; inner += 8) {
             simdgroup_float8x8 left, right;
             simdgroup_load(left, probabilities + group * 8 * Keys + inner, Keys);
-            attention_load(right, values + inner * 64 + column, 64);
+            attention_load(right, values + inner * HEAD_WIDTH + column, HEAD_WIDTH);
             simdgroup_multiply_accumulate(result, left, right, result);
         }
-        simdgroup_store(result, output + group * 8 * 64 + column, 64);
+        simdgroup_store(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
     }
 }
 
@@ -232,8 +242,8 @@ inline void attention_online_statistics(threadgroup float* scores, threadgroup f
     float previous = maxima[row];
     attention_statistics(scores, maxima, sums, row, tile, scale);
     float correction = exp(previous - maxima[row]);
-    for (uint column = 0; column < 64; column++) {
-        output[row * 64 + column] *= correction;
+    for (uint column = 0; column < HEAD_WIDTH; column++) {
+        output[row * HEAD_WIDTH + column] *= correction;
     }
 }
 
@@ -245,7 +255,7 @@ inline void attention_zero(threadgroup float* values, uint count, uint tid, uint
 
 inline void attention_initialize(threadgroup float* output, threadgroup float* maxima,
                                   threadgroup float* sums, uint tid) {
-    attention_zero(output, 32 * 64, tid, 128);
+    attention_zero(output, 32 * HEAD_WIDTH, tid, 128);
     if (tid < 32) {
         maxima[tid] = -INFINITY;
         sums[tid] = 0.0f;
@@ -257,8 +267,8 @@ inline void attention_write(device float* output, device float* normalization,
                              threadgroup float* accumulated, threadgroup float* maxima,
                              threadgroup float* sums, AttentionTile tile, uint length, uint tid) {
     uint row = tile.head * length + tile.query;
-    for (uint index = tid; index < 32 * 64; index += 128) {
-        output[row * 64 + index] = accumulated[index] / sums[index / 64];
+    for (uint index = tid; index < 32 * HEAD_WIDTH; index += 128) {
+        output[row * HEAD_WIDTH + index] = accumulated[index] / sums[index / HEAD_WIDTH];
     }
     if (tid < 32) {
         normalization[(row + tid) * 2] = maxima[tid];
@@ -271,16 +281,17 @@ inline void attention_forward(AttentionInputs inputs, AttentionParams params, ui
                                uint tid, uint group, threadgroup float* scores,
                                threadgroup float* output, threadgroup float* maxima,
                                threadgroup float* sums) {
-    uint start = block.x * 32, base = block.y * params.length * 64;
-    uint keyBase = (block.y / params.groupSize) * params.length * 64;
+    uint start = block.x * 32, base = block.y * params.length * HEAD_WIDTH;
+    uint keyBase = (block.y / params.groupSize) * params.length * HEAD_WIDTH;
     attention_initialize(output, maxima, sums, tid);
     for (uint key = 0; key <= start; key += 32) {
-        attention_scores<32>(inputs.query + base + start * 64, inputs.key + keyBase + key * 64, scores, group);
+        attention_scores<32>(inputs.query + base + start * HEAD_WIDTH,
+            inputs.key + keyBase + key * HEAD_WIDTH, scores, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
         if (tid < 32) attention_online_statistics(scores, output, maxima, sums, tid,
                                                   AttentionTile{block.y, start, key}, params.scale);
         threadgroup_barrier(mem_flags::mem_threadgroup);
-        attention_values<32>(scores, inputs.value + keyBase + key * 64, output, group);
+        attention_values<32>(scores, inputs.value + keyBase + key * HEAD_WIDTH, output, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 }
@@ -294,7 +305,7 @@ kernel void kernel_tiled_attention(device const AttentionValue* query [[buffer(0
                                    uint2 block [[threadgroup_position_in_grid]],
                                    uint tid [[thread_index_in_threadgroup]],
                                    uint group [[simdgroup_index_in_threadgroup]]) {
-    threadgroup float scores[32 * 32], accumulated[32 * 64], maxima[32], sums[32];
+    threadgroup float scores[32 * 32], accumulated[32 * HEAD_WIDTH], maxima[32], sums[32];
     attention_forward(AttentionInputs{query, key, value}, params, block, tid, group,
                        scores, accumulated, maxima, sums);
     attention_write(output, normalization, accumulated, maxima, sums,
@@ -305,8 +316,11 @@ kernel void kernel_attention_delta(device const float* output [[buffer(0)]],
                                    device const float* gradient [[buffer(1)]],
                                    device float* delta [[buffer(2)]],
                                    uint2 position [[thread_position_in_grid]]) {
-    uint base = position.y * 64 + position.x;
-    float value = output[base] * gradient[base] + output[base + 32] * gradient[base + 32];
+    uint base = position.y * HEAD_WIDTH + position.x;
+    float value = output[base] * gradient[base];
+    for (uint column = 32; column < HEAD_WIDTH; column += 32) {
+        value += output[base + column] * gradient[base + column];
+    }
     float sum = simd_sum(value);
     if (position.x == 0) delta[position.y] = sum;
 }
@@ -331,8 +345,8 @@ inline void attention_derivatives(AttentionBackwardInputs inputs, AttentionParam
 inline void attention_backward_tile(AttentionBackwardInputs inputs, AttentionParams params,
                                      AttentionTile tile, uint tid, uint group,
                                      threadgroup float* scores, threadgroup float* derivatives) {
-    uint query = (tile.head * params.length + tile.query) * 64;
-    uint key = ((tile.head / params.groupSize) * params.length + tile.key) * 64;
+    uint query = (tile.head * params.length + tile.query) * HEAD_WIDTH;
+    uint key = ((tile.head / params.groupSize) * params.length + tile.key) * HEAD_WIDTH;
     attention_scores<16>(inputs.values.query + query, inputs.values.key + key, scores, group);
     attention_scores<16>(inputs.gradient + query, inputs.values.value + key, derivatives, group);
     threadgroup_barrier(mem_flags::mem_threadgroup);
@@ -343,37 +357,37 @@ inline void attention_backward_tile(AttentionBackwardInputs inputs, AttentionPar
 template<typename T>
 inline void attention_transposed_values(threadgroup float* left, device const T* right,
                                          threadgroup float* output, uint group) {
-    for (uint column = 0; column < 64; column += 8) {
+    for (uint column = 0; column < HEAD_WIDTH; column += 8) {
         simdgroup_float8x8 result;
-        simdgroup_load(result, output + group * 8 * 64 + column, 64);
+        simdgroup_load(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
         for (uint inner = 0; inner < 16; inner += 8) {
             simdgroup_float8x8 a, b;
             simdgroup_load(a, left + inner * 16 + group * 8, 16, ulong2(0), true);
-            attention_load(b, right + inner * 64 + column, 64);
+            attention_load(b, right + inner * HEAD_WIDTH + column, HEAD_WIDTH);
             simdgroup_multiply_accumulate(result, a, b, result);
         }
-        simdgroup_store(result, output + group * 8 * 64 + column, 64);
+        simdgroup_store(result, output + group * 8 * HEAD_WIDTH + column, HEAD_WIDTH);
     }
 }
 
 inline void attention_query_gradient(AttentionBackwardInputs inputs, AttentionParams params,
                                       uint2 block, uint tid, uint group, threadgroup float* scores,
                                       threadgroup float* derivatives, threadgroup float* accumulated) {
-    uint start = block.x * 16, base = (block.y / params.groupSize) * params.length * 64;
-    attention_zero(accumulated, 16 * 64, tid, 64);
+    uint start = block.x * 16, base = (block.y / params.groupSize) * params.length * HEAD_WIDTH;
+    attention_zero(accumulated, 16 * HEAD_WIDTH, tid, 64);
     threadgroup_barrier(mem_flags::mem_threadgroup);
     for (uint key = 0; key <= start; key += 16) {
         attention_backward_tile(inputs, params, AttentionTile{block.y, start, key}, tid, group,
                                  scores, derivatives);
-        attention_values<16>(derivatives, inputs.values.key + base + key * 64, accumulated, group);
+        attention_values<16>(derivatives, inputs.values.key + base + key * HEAD_WIDTH, accumulated, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 }
 
 inline void attention_write_gradient(device float* output, threadgroup float* values,
                                       uint2 block, uint length, uint tid) {
-    uint base = (block.y * length + block.x * 16) * 64;
-    for (uint index = tid; index < 16 * 64; index += 64) {
+    uint base = (block.y * length + block.x * 16) * HEAD_WIDTH;
+    for (uint index = tid; index < 16 * HEAD_WIDTH; index += 64) {
         output[base + index] = values[index];
     }
 }
@@ -389,7 +403,7 @@ kernel void kernel_attention_query_backward(device const AttentionValue* query [
                                             uint2 block [[threadgroup_position_in_grid]],
                                             uint tid [[thread_index_in_threadgroup]],
                                             uint group [[simdgroup_index_in_threadgroup]]) {
-    threadgroup float scores[16 * 16], derivatives[16 * 16], accumulated[16 * 64];
+    threadgroup float scores[16 * 16], derivatives[16 * 16], accumulated[16 * HEAD_WIDTH];
     AttentionBackwardInputs inputs = {{query, key, value}, gradient, normalization, delta};
     attention_query_gradient(inputs, params, block, tid, group, scores, derivatives, accumulated);
     attention_write_gradient(result, accumulated, block, params.length, tid);
@@ -399,12 +413,12 @@ inline void attention_accumulate_key_value(AttentionBackwardInputs inputs, Atten
                                             AttentionTile tile, uint tid, uint group,
                                             threadgroup float* scores, threadgroup float* derivatives,
                                             threadgroup float* dk, threadgroup float* dv) {
-    uint start = tile.key, base = tile.head * params.length * 64;
+    uint start = tile.key, base = tile.head * params.length * HEAD_WIDTH;
     for (uint query = start; query < params.length; query += 16) {
         attention_backward_tile(inputs, params, AttentionTile{tile.head, query, start}, tid, group,
                                  scores, derivatives);
-        attention_transposed_values(derivatives, inputs.values.query + base + query * 64, dk, group);
-        attention_transposed_values(scores, inputs.gradient + base + query * 64, dv, group);
+        attention_transposed_values(derivatives, inputs.values.query + base + query * HEAD_WIDTH, dk, group);
+        attention_transposed_values(scores, inputs.gradient + base + query * HEAD_WIDTH, dv, group);
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 }
@@ -413,8 +427,8 @@ inline void attention_key_value_gradients(AttentionBackwardInputs inputs, Attent
                                           uint2 block, uint tid, uint group,
                                           threadgroup float* scores, threadgroup float* derivatives,
                                           threadgroup float* dk, threadgroup float* dv) {
-    attention_zero(dk, 16 * 64, tid, 64);
-    attention_zero(dv, 16 * 64, tid, 64);
+    attention_zero(dk, 16 * HEAD_WIDTH, tid, 64);
+    attention_zero(dv, 16 * HEAD_WIDTH, tid, 64);
     threadgroup_barrier(mem_flags::mem_threadgroup);
     for (uint shared = 0; shared < params.groupSize; shared++) {
         AttentionTile tile = {block.y * params.groupSize + shared, 0, block.x * 16};
@@ -434,7 +448,7 @@ kernel void kernel_attention_key_value_backward(device const AttentionValue* que
                                                 uint2 block [[threadgroup_position_in_grid]],
                                                 uint tid [[thread_index_in_threadgroup]],
                                                 uint group [[simdgroup_index_in_threadgroup]]) {
-    threadgroup float scores[16 * 16], derivatives[16 * 16], keys[16 * 64], values[16 * 64];
+    threadgroup float scores[16 * 16], derivatives[16 * 16], keys[16 * HEAD_WIDTH], values[16 * HEAD_WIDTH];
     AttentionBackwardInputs inputs = {{query, key, value}, gradient, normalization, delta};
     attention_key_value_gradients(inputs, params, block, tid, group, scores, derivatives, keys, values);
     attention_write_gradient(dk, keys, block, params.length, tid);
@@ -591,7 +605,7 @@ inline uint storage_decode_half(ushort bits) {
     uint exponent = (uint(bits) >> 10) & 31u;
     uint fraction = uint(bits) & 1023u;
     if (exponent == 31) return sign | 0x7f800000u | (fraction << 13);
-    if (exponent != 0) return sign | ((exponent + 112u) << 23) | (fraction << 13);
+    if (exponent != 0) return as_type<uint>(float(as_type<half>(bits)));
     if (fraction == 0) return sign;
     uint shift = clz(fraction) - 21u;
     return sign | ((113u - shift) << 23) | (((fraction << shift) & 1023u) << 13);
@@ -604,7 +618,7 @@ inline ushort storage_encode_half(uint bits) {
     if (exponent == 128) return ushort(sign | 0x7c00u | (fraction == 0 ? 0u : 0x0200u | (fraction >> 13)));
     if (exponent > 15) return ushort(sign | 0x7c00u);
     if (exponent >= -14) {
-        return ushort(sign | ((uint(exponent + 15) << 10) + storage_round_shift(fraction, 13)));
+        return as_type<ushort>(half(as_type<float>(bits)));
     }
     if (exponent < -25) return ushort(sign);
     return ushort(sign | storage_round_shift(fraction | 0x00800000u, uint(-exponent - 1)));
@@ -683,6 +697,61 @@ kernel void kernel_layout_matmul(device const unsigned char* a [[buffer(0)]],
                                  constant uint* params [[buffer(4)]], uint index [[thread_position_in_grid]]) {
     float sum = layout_matmul_dot(a, b, layouts, params, index);
     storage_write_bits(output, index, params[4], as_type<uint>(sum));
+}
+
+struct MatvecInput {
+    device const unsigned char* left;
+    device const unsigned char* right;
+    constant uint* params;
+    ulong first, second, aStep, bStep, columnStep;
+};
+
+inline MatvecInput matvec_input(device const unsigned char* left, device const unsigned char* right,
+                                device const ulong* layouts, constant uint* params, uint batch) {
+    uint aRank = uint(layouts[params[0]]), bRank = uint(layouts[params[1]]);
+    return {left, right, params, layout_address(layouts, params[0], batch * params[7]),
+        layout_address(layouts, params[1], batch * params[7] * params[6]),
+        layouts[params[0] + 3 + 2 * aRank], layouts[params[1] + 2 + 2 * bRank],
+        layouts[params[1] + 3 + 2 * bRank]};
+}
+
+inline float matvec_partial(MatvecInput input, uint column, uint first, uint step) {
+    if (column >= input.params[6]) return 0.0f;
+    float sum = 0.0f;
+    ulong offset = input.second + column * input.columnStep;
+    for (uint inner = first; inner < input.params[7]; inner += step) {
+        float a = as_type<float>(storage_float_bits(input.left, uint(input.first + inner * input.aStep),
+                                                   input.params[2]));
+        float b = as_type<float>(storage_float_bits(input.right, uint(offset + inner * input.bStep),
+                                                   input.params[3]));
+        sum = fma(a, b, sum);
+    }
+    return sum;
+}
+
+inline float matvec_columns(MatvecInput input, threadgroup float* partials, uint column, uint lane) {
+    partials[lane] = matvec_partial(input, column, lane / 32, 4);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    uint index = lane % 32;
+    return (partials[index] + partials[index + 32]) + (partials[index + 64] + partials[index + 96]);
+}
+
+kernel void kernel_compact_matvec(device const unsigned char* left [[buffer(0)]],
+                                  device const unsigned char* right [[buffer(1)]],
+                                  device unsigned char* output [[buffer(2)]],
+                                  device const ulong* layouts [[buffer(3)]], constant uint* params [[buffer(4)]],
+                                  uint3 tile [[threadgroup_position_in_grid]],
+                                  uint lane [[thread_index_in_threadgroup]]) {
+    threadgroup float partials[128];
+    auto input = matvec_input(left, right, layouts, params, tile.z);
+    bool transposed = input.bStep == 1;
+    uint column = transposed ? tile.x * 4 + lane / 32 : tile.x * 32 + lane % 32;
+    float sum = transposed ? simd_sum(matvec_partial(input, column, lane % 32, 32))
+                          : matvec_columns(input, partials, column, lane);
+    bool writer = transposed ? lane % 32 == 0 : lane < 32;
+    if (writer && column < params[6]) {
+        storage_write_bits(output, tile.z * params[6] + column, params[4], as_type<uint>(sum));
+    }
 }
 
 kernel void kernel_layout_index_select(device const unsigned char* input [[buffer(0)]],
@@ -819,32 +888,64 @@ struct LayoutNormInputs {
     device const unsigned char* beta;
 };
 
+inline float reduce_sum(threadgroup float* scratch, float value, uint tid, uint width);
+
+struct NormWork {
+    uint row, lane, threads;
+    threadgroup float* scratch;
+};
+
+inline float norm_sum(float value, NormWork work) {
+    if (work.threads == 1) return value;
+    work.scratch[work.lane] = value;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = work.threads >> 1; stride >= 32; stride >>= 1) {
+        if (work.lane < stride) work.scratch[work.lane] += work.scratch[work.lane + stride];
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    value = work.scratch[work.lane];
+    for (uint stride = 16; stride > 0; stride >>= 1) {
+        float other = simd_shuffle_down(value, stride);
+        if (work.lane < stride) value += other;
+    }
+    if (work.lane == 0) work.scratch[0] = value;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    return work.scratch[0];
+}
+
+inline float layout_norm_moment(device const unsigned char* input, device const ulong* layouts,
+                                constant uint* params, NormWork work, float mean, bool squared) {
+    float sum = 0.0f;
+    for (uint column = work.lane; column < params[3]; column += work.threads) {
+        float value = layout_value(input, layouts, params[0], params[5], work.row * params[3] + column) - mean;
+        sum += squared ? value * value : value;
+    }
+    return norm_sum(sum, work) * (1.0f / float(params[3]));
+}
+
 inline float2 layout_normalization_statistics(device const unsigned char* input, device const ulong* layouts,
-                                              constant uint* params, uint row) {
-    uint width = params[3], base = row * width;
-    float inverse = 1.0f / float(width), mean = 0.0f, squares = 0.0f;
-    if (params[9] != 0) {
-        for (uint column = 0; column < width; column++) {
-            mean += layout_value(input, layouts, params[0], params[5], base + column);
-        }
-        mean *= inverse;
-    }
-    for (uint column = 0; column < width; column++) {
-        float difference = layout_value(input, layouts, params[0], params[5], base + column) - mean;
-        squares += difference * difference;
-    }
-    return float2(mean, sqrt(squares * inverse + as_type<float>(params[10])));
+                                              constant uint* params, NormWork work) {
+    float mean = params[9] == 0 ? 0.0f : layout_norm_moment(input, layouts, params, work, 0.0f, false);
+    float squares = layout_norm_moment(input, layouts, params, work, mean, true);
+    return float2(mean, sqrt(squares + as_type<float>(params[10])));
+}
+
+inline float unit_offset_gain(float gain) {
+    volatile float shifted = gain + 1.0f;
+    return shifted;
 }
 
 inline void write_layout_normalization(LayoutNormInputs inputs, device unsigned char* output,
                                        device float* normalized, device const ulong* layouts,
-                                       constant uint* params, uint row, float2 statistics) {
-    uint width = params[3], base = row * width;
-    for (uint column = 0; column < width; column++) {
+                                       constant uint* params, NormWork work, float2 statistics) {
+    uint width = params[3], base = work.row * width;
+    for (uint column = work.lane; column < width; column += work.threads) {
         float value = (layout_value(inputs.input, layouts, params[0], params[5], base + column)
                         - statistics.x) / statistics.y;
-        normalized[base + column] = value;
-        float scaled = value * layout_value(inputs.gamma, layouts, params[1], params[6], column);
+        if ((params[11] & 1) == 0) normalized[base + column] = value;
+        float gain = layout_value(inputs.gamma, layouts, params[1], params[6], column);
+        if ((params[11] & 4) != 0) gain = unit_offset_gain(gain);
+        float scaled = value * gain;
         if (params[9] != 0) scaled += layout_value(inputs.beta, layouts, params[2], params[7], column);
         storage_write_bits(output, base + column, params[8], as_type<uint>(scaled));
     }
@@ -856,10 +957,14 @@ kernel void kernel_layout_normalize(device const unsigned char* input [[buffer(0
                                     device unsigned char* output [[buffer(3)]],
                                     device float* normalized [[buffer(4)]], device float* denominator [[buffer(5)]],
                                     device const ulong* layouts [[buffer(6)]], constant uint* params [[buffer(7)]],
-                                    uint row [[thread_position_in_grid]]) {
-    float2 statistics = layout_normalization_statistics(input, layouts, params, row);
-    denominator[row] = statistics.y;
-    write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, row, statistics);
+                                    uint row [[threadgroup_position_in_grid]],
+                                    uint lane [[thread_index_in_threadgroup]],
+                                    uint threads [[threads_per_threadgroup]]) {
+    threadgroup float scratch[128];
+    NormWork work{row, lane, threads, scratch};
+    float2 statistics = layout_normalization_statistics(input, layouts, params, work);
+    if (lane == 0 && (params[11] & 1) == 0) denominator[row] = statistics.y;
+    write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, work, statistics);
 }
 
 struct LayoutNormBackwardInputs {
@@ -876,23 +981,25 @@ inline float layout_normalization_scaled(LayoutNormBackwardInputs inputs, device
 }
 
 inline float2 layout_normalization_sums(LayoutNormBackwardInputs inputs, device const ulong* layouts,
-                                        constant uint* params, uint base) {
+                                        constant uint* params, NormWork work) {
+    uint base = work.row * params[4];
     float sum = 0.0f, dot = 0.0f;
-    for (uint column = 0; column < params[4]; column++) {
+    for (uint column = work.lane; column < params[4]; column += work.threads) {
         float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
         sum += scaled;
         dot += scaled * layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
     }
-    return float2(sum, dot);
+    float total = norm_sum(sum, work);
+    return float2(total, norm_sum(dot, work));
 }
 
 inline void write_layout_normalization_gradient(LayoutNormBackwardInputs inputs, device float* output,
-                                                device const ulong* layouts, constant uint* params, uint row) {
-    uint width = params[4], base = row * width;
-    float2 sums = layout_normalization_sums(inputs, layouts, params, base);
-    float denominator = layout_value(inputs.denominator, layouts, params[2], params[8], row);
+                                                device const ulong* layouts, constant uint* params, NormWork work) {
+    uint width = params[4], base = work.row * width;
+    float2 sums = layout_normalization_sums(inputs, layouts, params, work);
+    float denominator = layout_value(inputs.denominator, layouts, params[2], params[8], work.row);
     float inverse = 1.0f / denominator;
-    for (uint column = 0; column < width; column++) {
+    for (uint column = work.lane; column < width; column += work.threads) {
         float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
         float norm = layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
         output[base + column] = params[10] != 0
@@ -908,8 +1015,12 @@ kernel void kernel_layout_normalization_backward(device const unsigned char* gra
                                                   device float* output [[buffer(4)]],
                                                   device const ulong* layouts [[buffer(5)]],
                                                   constant uint* params [[buffer(6)]],
-                                                  uint row [[thread_position_in_grid]]) {
-    write_layout_normalization_gradient({gradient, normalized, denominator, gamma}, output, layouts, params, row);
+                                                  uint row [[threadgroup_position_in_grid]],
+                                                  uint lane [[thread_index_in_threadgroup]],
+                                                  uint threads [[threads_per_threadgroup]]) {
+    threadgroup float scratch[128];
+    write_layout_normalization_gradient({gradient, normalized, denominator, gamma}, output, layouts, params,
+                                         {row, lane, threads, scratch});
 }
 
 kernel void kernel_layout_swiglu_backward(device const unsigned char* gradient [[buffer(0)]],
@@ -996,6 +1107,105 @@ inline float layout_probability(float value, float total, uint dtype) {
     // Compatibility devices can cross compact rounding midpoints with fast reciprocal math.
     return dtype == 1 || !COMPACT_PRECISE_NORMALIZATION ? exp(value) / total
             : precise::divide(precise::exp(value), total);
+}
+
+inline float cached_round(float value, uint dtype) {
+    if (dtype == 2 && abs(value) >= 6.103515625e-5f && abs(value) <= 65504.0f) return float(half(value));
+    uint bits = as_type<uint>(value);
+    ushort compact = dtype == 2 ? storage_encode_half(bits) : storage_encode_bfloat(bits);
+    return as_type<float>(dtype == 2 ? storage_decode_half(compact) : uint(compact) << 16);
+}
+
+inline float cached_read(device const unsigned char* input, uint index, uint dtype) {
+    ushort bits = ((device const ushort*)input)[index];
+    if (dtype == 3) return as_type<float>(uint(bits) << 16);
+    if ((bits & 0x7c00u) == 0) return as_type<float>(storage_decode_half(bits));
+    return float(as_type<half>(bits));
+}
+
+inline float cached_dot(device const unsigned char* query, device const unsigned char* keys,
+                         constant uint* p, uint row, uint position) {
+    uint head = row / (p[0] / p[2]), base = (head * p[3] + position) * p[1];
+    float sum = 0.0f;
+    for (uint column = 0; column < p[1]; column++) {
+        float q = cached_read(query, row * p[1] + column, p[5]);
+        float k = cached_read(keys, base + column, p[5]);
+        sum += q * k;
+    }
+    return cached_round(cached_round(sum, p[5]) * as_type<float>(p[6]), p[5]);
+}
+
+inline float cached_softcap_score(device const unsigned char* query, device const unsigned char* keys,
+                                   constant uint* p, uint row, uint position) {
+    float score = cached_dot(query, keys, p, row, position), cap = as_type<float>(p[7]);
+    if (cap > 0.0f) {
+        score = cached_round(score / cap, p[5]);
+        score = cached_round(layout_tanh(score), p[5]);
+        score = cached_round(score * cap, p[5]);
+    }
+    if (position < p[8]) score = cached_round(score + cached_round(-1e30f, p[5]), p[5]);
+    return score;
+}
+
+inline void cached_probabilities(threadgroup float* scores, constant uint* p, uint mathType) {
+    float maximum = -INFINITY, total = 0.0f;
+    for (uint i = 0; i < p[4]; i++) {
+        maximum = layout_maximum(maximum, scores[i]);
+    }
+    for (uint i = 0; i < p[4]; i++) {
+        total += layout_exponential(scores[i] - maximum, mathType);
+    }
+    bool invalid = (as_type<uint>(maximum) & 0x7fffffffu) >= 0x7f800000u;
+    for (uint i = 0; i < p[4]; i++) {
+        scores[i] = invalid ? as_type<float>(0x7fc00000u)
+            : cached_round(layout_probability(scores[i] - maximum, total, mathType), p[5]);
+    }
+}
+
+inline float cached_value(device const unsigned char* values, threadgroup const float* scores,
+                           constant uint* p, uint row, uint column) {
+    uint head = row / (p[0] / p[2]), base = head * p[3] * p[1] + column;
+    float sum = 0.0f;
+    for (uint i = 0; i < p[4]; i++) {
+        sum += scores[i] * cached_read(values, base + i * p[1], p[5]);
+    }
+    return sum;
+}
+
+template<bool softcap>
+inline void cached_attention_product(device const unsigned char* query, device const unsigned char* keys,
+                                      device const unsigned char* values, device unsigned char* output,
+                                      constant uint* p, threadgroup float* scores, uint row, uint lane) {
+    for (uint i = lane; i < p[4]; i += 128) {
+        scores[i] = softcap ? cached_softcap_score(query, keys, p, row, i) : cached_dot(query, keys, p, row, i);
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (lane == 0) cached_probabilities(scores, p, softcap ? 1 : p[5]);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint column = lane; column < p[1]; column += 128) {
+        storage_write_bits(output, row * p[1] + column, p[5],
+            as_type<uint>(cached_value(values, scores, p, row, column)));
+    }
+}
+
+kernel void kernel_cached_attention(device const unsigned char* query [[buffer(0)]],
+                                     device const unsigned char* keys [[buffer(1)]],
+                                     device const unsigned char* values [[buffer(2)]],
+                                     device unsigned char* output [[buffer(3)]], constant uint* p [[buffer(4)]],
+                                     uint row [[threadgroup_position_in_grid]],
+                                     uint lane [[thread_index_in_threadgroup]]) {
+    threadgroup float scores[512];
+    cached_attention_product<false>(query, keys, values, output, p, scores, row, lane);
+}
+
+kernel void kernel_cached_attention_softcap(device const unsigned char* query [[buffer(0)]],
+                                             device const unsigned char* keys [[buffer(1)]],
+                                             device const unsigned char* values [[buffer(2)]],
+                                             device unsigned char* output [[buffer(3)]], constant uint* p [[buffer(4)]],
+                                             uint row [[threadgroup_position_in_grid]],
+                                             uint lane [[thread_index_in_threadgroup]]) {
+    threadgroup float scores[512];
+    cached_attention_product<true>(query, keys, values, output, p, scores, row, lane);
 }
 
 inline float layout_softmax_sum(device const unsigned char* input, device const ulong* layouts,
@@ -1766,14 +1976,17 @@ kernel void kernel_layout_rotary(device const unsigned char* input [[buffer(0)]]
                                  device unsigned char* output [[buffer(3)]],
                                  device const ulong* words [[buffer(4)]], constant uint* params [[buffer(5)]],
                                  uint pair [[thread_position_in_grid]]) {
-    uint width = params[4], index = pair * 2, row = index / width;
+    uint width = params[4], row = pair / (width / 2);
+    bool halfSplit = (params[9] & 2) != 0;
+    uint index = row * width + pair % (width / 2) * (halfSplit ? 1 : 2);
+    uint second = index + (halfSplit ? width / 2 : 1);
     uint table = row % params[5] * (width / 2) + pair % (width / 2);
     float x = layout_value(input, words, params[0], params[6], index);
-    float y = layout_value(input, words, params[0], params[6], index + 1);
+    float y = layout_value(input, words, params[0], params[6], second);
     float c = layout_value(cosine, words, params[1], params[7], table);
-    float s = layout_value(sine, words, params[2], params[8], table) * (params[9] == 0 ? 1.0f : -1.0f);
+    float s = layout_value(sine, words, params[2], params[8], table) * ((params[9] & 1) == 0 ? 1.0f : -1.0f);
     storage_write_bits(output, index, params[6], as_type<uint>(x * c - y * s));
-    storage_write_bits(output, index + 1, params[6], as_type<uint>(x * s + y * c));
+    storage_write_bits(output, second, params[6], as_type<uint>(x * s + y * c));
 }
 
 struct RmsNormParams {
@@ -2409,7 +2622,8 @@ static bool supportsAttentionThreads(id<MTLComputePipelineState> pipeline, NSUIn
 
 static CompactAttentionPipelines compiledAttentionPipelines(id<MTLLibrary> library) {
     CompactAttentionPipelines result{makePSO(library, @"kernel_tiled_attention"),
-        makePSO(library, @"kernel_attention_query_backward"), makePSO(library, @"kernel_attention_key_value_backward")};
+        makePSO(library, @"kernel_attention_query_backward"), makePSO(library, @"kernel_attention_key_value_backward"),
+        makePSO(library, @"kernel_attention_delta")};
     if (!supportsAttentionThreads(result.forward, 128) || !supportsAttentionThreads(result.query, 64)
         || !supportsAttentionThreads(result.keyValue, 64)) return {};
     return result;
@@ -2440,10 +2654,27 @@ static CompactAttentionPipelines attentionPipelines(MetalContext* ctx, int dtype
     throw std::runtime_error("Invalid attention dtype");
 }
 
+static CompactAttentionPipelines wideAttentionPipelines(MetalContext* ctx) {
+    std::call_once(ctx->wideAttentionOnce, [ctx] {
+        auto options = makeCompileOptions(ctx->device);
+        options.preprocessorMacros = @{@"HEAD_WIDTH": @128};
+        auto library = [ctx->device newLibraryWithSource:tiledAttentionShaderSource options:options error:nil];
+        if (library != nil) ctx->wideAttention = compiledAttentionPipelines(library);
+    });
+    return ctx->wideAttention;
+}
+
+static CompactAttentionPipelines attentionPipelines(MetalContext* ctx, int dtype, uint32_t width) {
+    if (width == 64) return attentionPipelines(ctx, dtype);
+    return dtype == 1 ? wideAttentionPipelines(ctx) : CompactAttentionPipelines{};
+}
+
 static void initPositionPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutCausalMaskPSO = makePSO(library, @"kernel_layout_causal_mask");
     ctx->layoutCausalSoftmaxPSO = makePSO(library, @"kernel_layout_causal_softmax");
     ctx->layoutRotaryPSO = makePSO(library, @"kernel_layout_rotary");
+    ctx->cachedAttentionPSO = makePSO(library, @"kernel_cached_attention");
+    ctx->cachedSoftcapAttentionPSO = makePSO(library, @"kernel_cached_attention_softcap");
 }
 
 static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
@@ -2457,6 +2688,7 @@ static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutSoftmaxPSO = makePSO(library, @"kernel_layout_softmax");
     ctx->layoutMaximumBackwardPSO = makePSO(library, @"kernel_layout_maximum_backward");
     ctx->layoutMatmulPSO = makePSO(library, @"kernel_layout_matmul");
+    ctx->compactMatvecPSO = makePSO(library, @"kernel_compact_matvec");
     ctx->layoutIndexSelectPSO = makePSO(library, @"kernel_layout_index_select");
     ctx->layoutIndexAddPSO = makePSO(library, @"kernel_layout_index_add");
     ctx->layoutNormalizePSO = makePSO(library, @"kernel_layout_normalize");
@@ -2609,6 +2841,31 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTypedAtte
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsWideAttention(JNIEnv* env, jclass) {
+    try { return wideAttentionPipelines(getContext()).forward != nil ? JNI_TRUE : JNI_FALSE; }
+    catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
+}
+
+static bool supportsCompactGraph(MetalContext* ctx) {
+    if (@available(macOS 14.0, *)) {
+        return [ctx->device supportsFamily:MTLGPUFamilyApple7];
+    }
+    return false;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsCompactGraph(JNIEnv* env, jclass) {
+    try { return supportsCompactGraph(getContext()); }
+    catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsCompactMatmul(
         JNIEnv* env, jclass, jint dtype) {
     try {
@@ -2636,6 +2893,64 @@ using BufferEntry = BufferPool::iterator;
 
 static BufferPool gBufferPool;
 static std::mutex gBufferMutex;
+
+// Bounded reuse only after synchronous command completion; all accesses hold gBufferMutex.
+static std::array<id<MTLBuffer>, 128> gReusableBuffers;
+static std::array<NSUInteger, 128> gReusableSizes;
+static size_t gReusableCount = 0;
+static NSUInteger gReusableBytes = 0;
+
+static bool bufferReuseEnabled() {
+    static bool enabled = std::getenv("DEEPJ_METAL_DISABLE_BUFFER_REUSE") == nullptr;
+    return enabled;
+}
+
+static void clearReusableBuffers() {
+    while (gReusableCount > 0) { gReusableBuffers[--gReusableCount] = nil; }
+    gReusableBytes = 0;
+}
+
+static id<MTLBuffer> reusableBuffer(NSUInteger bytes) {
+    for (size_t index = 0; index < gReusableCount; index++) {
+        if (gReusableSizes[index] != bytes) continue;
+        id<MTLBuffer> buffer = gReusableBuffers[index];
+        gReusableBuffers[index] = gReusableBuffers[--gReusableCount];
+        gReusableSizes[index] = gReusableSizes[gReusableCount];
+        gReusableBuffers[gReusableCount] = nil;
+        gReusableBytes -= bytes;
+        return buffer;
+    }
+    return nil;
+}
+
+static id<MTLBuffer> allocateStorage(MetalContext* ctx, NSUInteger bytes) {
+    id<MTLBuffer> buffer = reusableBuffer(bytes);
+    if (buffer != nil) return buffer;
+    buffer = [ctx->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+    if (buffer != nil) return buffer;
+    clearReusableBuffers();
+    return [ctx->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+}
+
+static void retireBuffer(int bufferId) {
+    auto entry = gBufferPool.find(bufferId);
+    if (entry == gBufferPool.end()) return;
+    id<MTLBuffer> buffer = entry->second.buffer;
+    NSUInteger bytes = [buffer length];
+    if (bufferReuseEnabled() && gReusableCount < gReusableBuffers.size()
+            && bytes <= 4 * 1024 * 1024 && gReusableBytes + bytes <= 32 * 1024 * 1024) {
+        gReusableSizes[gReusableCount] = bytes;
+        gReusableBuffers[gReusableCount++] = buffer;
+        gReusableBytes += bytes;
+    }
+    gBufferPool.erase(entry);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeClearBufferCache(JNIEnv*, jclass) {
+    std::lock_guard<std::mutex> lock(gBufferMutex);
+    clearReusableBuffers();
+}
 
 static std::unordered_map<uint64_t, MPSMatrixMultiplication*> gMatmulKernelCaches[4];
 
@@ -2735,6 +3050,8 @@ static constexpr int OP_LAYOUT_ADAMW = 76;
 static constexpr int OP_LAYOUT_CROSS_ENTROPY = 77;
 static constexpr int OP_LAYOUT_CAUSAL = 78;
 static constexpr int OP_LAYOUT_ROTARY = 79;
+static constexpr int OP_CACHED_ATTENTION = 80;
+static constexpr int OP_CACHED_ATTENTION_SOFTCAP = 81;
 
 static BufferEntry requireStorageEntry(int id, const char* opName) {
     auto entry = gBufferPool.find(id);
@@ -2903,8 +3220,7 @@ static void allocateTypedBuffer(MetalContext* ctx, int bufferId, int elements, i
         }
         return;
     }
-    id<MTLBuffer> buffer = [ctx->device newBufferWithLength:bytes
-                                                    options:MTLResourceStorageModeShared];
+    id<MTLBuffer> buffer = allocateStorage(ctx, bytes);
     if (buffer == nil) throw std::runtime_error("Failed to allocate Metal buffer");
     gBufferPool.try_emplace(bufferId, buffer, dtype);
 }
@@ -3091,9 +3407,10 @@ static void releaseBuffers(JNIEnv* env, jintArray idsArr, jint count) {
     jint* ids = env->GetIntArrayElements(idsArr, nullptr);
     if (ids == nullptr) return;
     for (int i = 0; i < count; i++) {
-        gBufferPool.erase(ids[i]);
+        retireBuffer(ids[i]);
     }
     env->ReleaseIntArrayElements(idsArr, ids, JNI_ABORT);
+    if (gBufferPool.empty()) clearReusableBuffers();
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -3113,11 +3430,25 @@ struct GraphState {
     id<MTLCommandBuffer> commandBuffer;
     id<MTLComputeCommandEncoder> encoder;
     GraphLayoutWords layouts;
+    uint32_t compactProducts = 0;
+    std::vector<id<MTLCommandBuffer>> submitted;
+    bool completed = false;
 
     ~GraphState() {
         if (encoder != nil) [encoder endEncoding];
+        if (!completed) {
+            for (auto commands : submitted) { [commands waitUntilCompleted]; }
+        }
     }
 };
+
+// Keep compact GPU work moving while the host encodes later matrix products.
+static void submitCompactPrefix(GraphState& state) {
+    if (++state.compactProducts % 8 != 0) return;
+    auto commands = (MPSCommandBuffer*)state.commandBuffer;
+    state.submitted.push_back(commands.rootCommandBuffer);
+    [commands commitAndContinue];
+}
 
 static id<MTLCommandBuffer> graphCommands(id<MTLCommandQueue> queue) {
     id<MTLCommandBuffer> commands = [queue commandBuffer];
@@ -3655,22 +3986,36 @@ static uint32_t normalizationMode(int mode) {
     return (uint32_t)mode;
 }
 
-static std::array<uint32_t, 11> layoutNormalizationParams(GraphState& state, const jint* cmd, int pos) {
+static uint32_t normalizationFlags(int flags) {
+    if (flags < 0 || (flags > 3 && flags != 6 && flags != 14)) {
+        throw std::runtime_error("Invalid normalization flags");
+    }
+    return (uint32_t)flags;
+}
+
+static void requireNormalizationOutputs(const jint* cmd, int pos, uint32_t type,
+                                         uint32_t count, uint32_t rows, bool statistics) {
+    requireOutputSeparation(cmd, pos, 3, statistics ? 6 : 4);
+    requireTypedCount(cmd[pos + 4], type, count);
+    if (!statistics) return;
+    requireTypedCount(cmd[pos + 5], 1, count);
+    requireTypedCount(cmd[pos + 6], 1, rows);
+}
+
+static std::array<uint32_t, 12> layoutNormalizationParams(GraphState& state, const jint* cmd, int pos) {
     auto input = commandLayout(state, cmd, pos, 1, 7);
     uint32_t width = normalizationWidth(input), rows = input.count / width;
     requireNormalizationParameter(commandLayout(state, cmd, pos, 2, 8), width);
     requireNormalizationParameter(commandLayout(state, cmd, pos, 3, 9), width);
-    uint32_t mode = normalizationMode(cmd[pos + 11]);
+    uint32_t flags = normalizationFlags(cmd[pos + 11]), mode = flags & 1;
     float epsilon = floatFromBits(cmd[pos + 10]);
     if (!std::isfinite(epsilon) || epsilon <= 0) throw std::runtime_error("Invalid normalization epsilon");
     uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
     uint32_t c = bufferDType(cmd[pos + 3]), output = a == b && (mode == 0 || a == c) ? a : 1;
-    requireOutputSeparation(cmd, pos, 3, 6);
-    requireTypedCount(cmd[pos + 4], output, input.count);
-    requireTypedCount(cmd[pos + 5], 1, input.count);
-    requireTypedCount(cmd[pos + 6], 1, rows);
+    if ((flags & 4) != 0) output = a;
+    requireNormalizationOutputs(cmd, pos, output, input.count, rows, flags < 2);
     return {(uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8], (uint32_t)cmd[pos + 9], width,
-            rows, a, b, c, output, mode, (uint32_t)cmd[pos + 10]};
+            rows, a, b, c, output, mode, (uint32_t)cmd[pos + 10], flags >> 1};
 }
 
 static std::array<uint32_t, 11> layoutNormalizationBackwardParams(GraphState& state, const jint* cmd, int pos) {
@@ -3689,7 +4034,7 @@ static std::array<uint32_t, 11> layoutNormalizationBackwardParams(GraphState& st
 
 template <typename T>
 static void encodeLayoutMany(GraphState& state, id<MTLComputePipelineState> pipeline, const jint* cmd,
-                              int pos, int buffers, const T& params, uint32_t count) {
+                              int pos, int buffers, const T& params, uint32_t count, uint32_t threads = 0) {
     auto encoder = graphEncoder(state);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
     [encoder setComputePipelineState:pipeline];
@@ -3698,17 +4043,22 @@ static void encodeLayoutMany(GraphState& state, id<MTLComputePipelineState> pipe
     }
     [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:buffers];
     bindValue(encoder, params, buffers + 1);
-    dispatch1D(encoder, pipeline, count);
+    if (threads == 0) dispatch1D(encoder, pipeline, count);
+    else [encoder dispatchThreadgroups:MTLSizeMake(count, 1, 1) threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
 
 static void encodeLayoutNormalization(GraphState& state, const jint* cmd, int pos) {
     auto params = layoutNormalizationParams(state, cmd, pos);
-    encodeLayoutMany(state, state.ctx->layoutNormalizePSO, cmd, pos, 6, params, params[4]);
+    bool compact = params[5] != 1 || params[6] != 1 || params[7] != 1;
+    uint32_t threads = compact && params[3] >= 128 ? 128 : 1;
+    encodeLayoutMany(state, state.ctx->layoutNormalizePSO, cmd, pos, 6, params, params[4], threads);
 }
 
 static void encodeLayoutNormalizationBackward(GraphState& state, const jint* cmd, int pos) {
     auto params = layoutNormalizationBackwardParams(state, cmd, pos);
-    encodeLayoutMany(state, state.ctx->layoutNormalizationBackwardPSO, cmd, pos, 5, params, params[5]);
+    bool compact = params[6] != 1 || params[7] != 1 || params[8] != 1 || params[9] != 1;
+    uint32_t threads = compact && params[4] >= 128 ? 128 : 1;
+    encodeLayoutMany(state, state.ctx->layoutNormalizationBackwardPSO, cmd, pos, 5, params, params[5], threads);
 }
 
 static std::array<uint32_t, 7> layoutSwiGluBackwardParams(GraphState& state, const jint* cmd, int pos) {
@@ -3866,7 +4216,7 @@ static std::array<uint32_t, 10> layoutRotaryParams(GraphState& state, const jint
     auto sine = commandLayout(state, cmd, pos, 3, 7);
     uint32_t length = (uint32_t)positiveCount(cmd[pos + 8], "rotary length");
     requireRotaryLayouts(input, cosine, sine, length);
-    if (cmd[pos + 9] != 0 && cmd[pos + 9] != 1) throw std::runtime_error("Invalid inverse rotary flag");
+    if (cmd[pos + 9] < 0 || cmd[pos + 9] > 3) throw std::runtime_error("Invalid rotary flags");
     requireOutputSeparation(cmd, pos, 3, 4);
     uint32_t dtype = bufferDType(cmd[pos + 1]);
     requireTypedCount(cmd[pos + 4], dtype, input.count);
@@ -4489,12 +4839,16 @@ static bool mpsOperandPair(uint32_t leftType, uint32_t rightType) {
     return rightType == 2 && (leftType == 1 || leftType == 2);
 }
 
+static bool largeCompactVector(const LayoutMatmulSpec& spec) {
+    return spec.rows == 1 && spec.columns >= 256 && spec.inner >= 256;
+}
+
 static bool supportsLayoutMpsMatmul(MetalContext* ctx, const LayoutMatmulSpec& spec) {
     // Preserve small-matrix accumulation order and avoid MPS setup on tiny products.
     // FLOAT32 always; MPS-supported FLOAT16 pairs once every dimension reaches the tile floor.
     if (spec.leftType == 1 && spec.rightType == 1) return true;
     return mpsOperandPair(spec.leftType, spec.rightType)
-        && spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64
+        && ((spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64) || largeCompactVector(spec))
         && [ctx->device supportsFamily:MTLGPUFamilyApple7];
 }
 
@@ -4515,11 +4869,106 @@ static bool encodeLayoutMpsMatmul(GraphState& state, const jint* cmd, int pos, c
     return true;
 }
 
+struct CompactGraph {
+    MPSGraph* graph;
+    MPSGraphTensor* left;
+    MPSGraphTensor* right;
+    MPSGraphTensor* output;
+    MPSGraphExecutionDescriptor* execution;
+};
+
+static MPSGraphTensor* compactGraphOperand(MPSGraph* graph, MPSGraphTensor* input, bool transpose) {
+    return transpose ? [graph transposeTensor:input dimension:0 withDimension:1 name:nil] : input;
+}
+
+static CompactGraph makeCompactGraph(const MpsLayoutMatrix& a, const MpsLayoutMatrix& b, uint32_t dtype) {
+    auto graph = [MPSGraph new];
+    graph.options = MPSGraphOptionsNone;
+    MPSDataType type = dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeBFloat16;
+    auto left = [graph placeholderWithShape:@[@(a.rows), @(a.columns)] dataType:type name:nil];
+    auto right = [graph placeholderWithShape:@[@(b.rows), @(b.columns)] dataType:type name:nil];
+    auto output = [graph matrixMultiplicationWithPrimaryTensor:compactGraphOperand(graph, left, a.transposed)
+        secondaryTensor:compactGraphOperand(graph, right, b.transposed) name:nil];
+    auto compilation = [MPSGraphCompilationDescriptor new];
+    compilation.optimizationLevel = MPSGraphOptimizationLevel0;
+    auto execution = [MPSGraphExecutionDescriptor new];
+    execution.compilationDescriptor = compilation;
+    return {graph, left, right, output, execution};
+}
+
+static const CompactGraph& compactGraph(const MpsLayoutMatrix& a, const MpsLayoutMatrix& b, uint32_t dtype) {
+    static std::map<std::array<uint32_t, 7>, CompactGraph> cache;
+    std::array<uint32_t, 7> key{a.rows, a.columns, b.rows, b.columns, uint32_t(a.transposed),
+        uint32_t(b.transposed), dtype};
+    auto found = cache.find(key);
+    if (found != cache.end()) return found->second;
+    if (cache.size() >= 128) cache.clear();
+    return cache.emplace(key, makeCompactGraph(a, b, dtype)).first->second;
+}
+
+static MPSGraphTensorData* compactGraphData(id<MTLBuffer> buffer, const MpsLayoutMatrix& matrix,
+                                          NSUInteger offset, uint32_t dtype) {
+    MPSDataType type = dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeBFloat16;
+    if (offset == 0) return [[MPSGraphTensorData alloc] initWithMTLBuffer:buffer
+        shape:@[@(matrix.rows), @(matrix.columns)] dataType:type];
+    auto descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:matrix.rows columns:matrix.columns
+        rowBytes:matrix.rowStride * sizeof(uint16_t) dataType:type];
+    auto storage = [[MPSMatrix alloc] initWithBuffer:buffer offset:offset * sizeof(uint16_t) descriptor:descriptor];
+    return [[MPSGraphTensorData alloc] initWithMPSMatrix:storage rank:2];
+}
+
+static bool compactGraphShape(MetalContext* ctx, const LayoutMatmulSpec& spec) {
+    return spec.leftType != 1 && spec.leftType == spec.rightType && spec.batches == 1
+        && spec.rows >= 1
+        && spec.inner >= 256 && spec.columns >= 256 && spec.columns % 8 == 0 && supportsCompactGraph(ctx);
+}
+
+static void encodeCompactGraphProduct(GraphState& state, const jint* cmd, int pos,
+                                      const LayoutMatmulSpec& spec,
+                                      const MpsLayoutMatrix& a, const MpsLayoutMatrix& b) {
+    const auto& operation = compactGraph(a, b, spec.leftType);
+    auto left = compactGraphData(requireStorageBuffer(cmd[pos + 1], "graph left"), a,
+        spec.left.offset, spec.leftType);
+    auto right = compactGraphData(requireStorageBuffer(cmd[pos + 2], "graph right"), b,
+        spec.right.offset, spec.rightType);
+    auto output = compactGraphData(requireStorageBuffer(cmd[pos + 3], "graph result"),
+        {spec.rows, spec.columns, spec.columns, false}, 0, spec.outputType);
+    endGraphEncoder(state);
+    if (![state.commandBuffer isKindOfClass:[MPSCommandBuffer class]]) {
+        state.commandBuffer = [MPSCommandBuffer commandBufferWithCommandBuffer:state.commandBuffer];
+    }
+    [operation.graph encodeToCommandBuffer:(MPSCommandBuffer*)state.commandBuffer
+        feeds:@{operation.left:left, operation.right:right} targetOperations:nil
+        resultsDictionary:@{operation.output:output} executionDescriptor:operation.execution];
+    submitCompactPrefix(state);
+}
+
+static bool compactGraphMatrix(const MpsLayoutMatrix& matrix, NSUInteger offset) {
+    // MPSGraph's MPSMatrix import ignores nonzero offsets; use the offset-aware matrix kernels instead.
+    return matrix.rowStride == matrix.columns && matrix.columns % 8 == 0 && offset == 0;
+}
+
+static bool encodeCompactGraph(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
+    if (!compactGraphShape(state.ctx, spec)) return false;
+    MpsLayoutMatrix a, b;
+    if (!mpsLayoutMatrix(spec.left, a) || !mpsLayoutMatrix(spec.right, b)
+        || !compactGraphMatrix(a, spec.left.offset) || !compactGraphMatrix(b, spec.right.offset)) return false;
+    encodeCompactGraphProduct(state, cmd, pos, spec, a, b);
+    return true;
+}
+
+
 static id<MTLComputePipelineState> compactMatmulPipeline(MetalContext* ctx, const LayoutMatmulSpec& spec) {
     if (spec.leftType == 1 && spec.rightType == 1) return nil;
+    if (largeCompactVector(spec)) return ctx->compactMatvecPSO;
     ensureCompactMatmul(ctx);
     if (spec.leftType != spec.rightType) return ctx->mixedMatmulPSO;
     return spec.leftType == 2 ? ctx->halfMatmulPSO : ctx->bfloatMatmulPSO;
+}
+
+static MTLSize compactProductGrid(const LayoutMatmulSpec& spec) {
+    uint32_t columns = largeCompactVector(spec) && spec.right.axes[2 * spec.right.rank - 2] == 1 ? 4 : 32;
+    return MTLSizeMake((spec.columns + columns - 1) / columns, (spec.rows + 31) / 32, spec.batches);
 }
 
 static bool encodeCompactMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
@@ -4535,13 +4984,14 @@ static bool encodeCompactMatmul(GraphState& state, const jint* cmd, int pos, con
     std::array<uint32_t, 8> params{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], spec.leftType,
         spec.rightType, spec.outputType, spec.rows, spec.columns, spec.inner};
     bindValue(encoder, params, 4);
-    [encoder dispatchThreadgroups:MTLSizeMake((spec.columns + 31) / 32, (spec.rows + 31) / 32, spec.batches)
+    [encoder dispatchThreadgroups:compactProductGrid(spec)
         threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
     return true;
 }
 
 static void encodeLayoutMatmul(GraphState& state, const jint* cmd, int pos) {
     auto spec = layoutMatmulSpec(state, cmd, pos);
+    if (encodeCompactGraph(state, cmd, pos, spec)) return;
     if (encodeLayoutMpsMatmul(state, cmd, pos, spec)) return;
     if (encodeCompactMatmul(state, cmd, pos, spec)) return;
     auto encoder = graphEncoder(state);
@@ -4578,6 +5028,65 @@ static MPSMatrix* headPrefixMatrix(id<MTLBuffer> buffer, int heads, int length, 
     // Describe the full storage; the GEMM dimensions select only the valid prefix.
     // Full descriptor rows keep multi-head GEMV strides consistent on physical Metal devices.
     return matrixBatch(buffer, (int)(buffer.length / perRow), width, heads);
+}
+
+static uint32_t cachedAttentionPolicy(std::array<uint32_t, 9>& p, const jint* cmd, int pos) {
+    if (cmd[pos] != OP_CACHED_ATTENTION_SOFTCAP) return 128;
+    p[7] = uint32_t(cmd[pos + 11]);
+    p[8] = uint32_t(cmd[pos + 12]);
+    uint32_t magnitude = p[7] & 0x7fffffffu;
+    if (p[8] >= p[4] || magnitude >= 0x7f800000u || ((p[7] >> 31) != 0 && magnitude != 0)) {
+        throw std::runtime_error("Invalid cached attention softcap or window");
+    }
+    return 256;
+}
+
+static void cachedAttentionAliases(const jint* cmd, int pos) {
+    for (int index : {1, 2, 3}) {
+        if (cmd[pos + 4] == cmd[pos + index]) {
+            throw std::runtime_error("Cached attention output aliases an input");
+        }
+    }
+}
+
+static std::array<uint32_t, 9> cachedAttentionParams(const jint* cmd, int pos) {
+    std::array<uint32_t, 9> p{};
+    for (int i = 0; i < 5; i++) {
+        p[i] = positiveCount(cmd[pos + 5 + i], "cached attention shape");
+    }
+    p[5] = bufferDType(cmd[pos + 1]);
+    p[6] = uint32_t(cmd[pos + 10]);
+    uint32_t limit = cachedAttentionPolicy(p, cmd, pos);
+    cachedAttentionAliases(cmd, pos);
+    if (p[0] % p[2] != 0 || p[1] > limit || p[4] > 512 || p[4] > p[3]
+        || p[5] == 1 || (p[6] & 0x7fffffffu) >= 0x7f800000u) {
+        throw std::runtime_error("Invalid compact cached attention");
+    }
+    return p;
+}
+
+static id<MTLBuffer> cachedAttentionBuffer(int id, uint64_t elements, uint32_t dtype, bool output) {
+    auto buffer = requireStorageBuffer(id, "cached attention");
+    if (bufferDType(id) != (int)dtype || (output ? buffer.length != elements * 2 : buffer.length < elements * 2)) {
+        throw std::runtime_error("Cached attention storage mismatch");
+    }
+    return buffer;
+}
+
+static void encodeCachedAttention(GraphState& state, const jint* cmd, int pos) {
+    auto p = cachedAttentionParams(cmd, pos);
+    uint64_t query = cacheElementCount(1, p[0], p[1]), cache = cacheElementCount(p[2], p[3], p[1]);
+    auto encoder = graphEncoder(state);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    auto pipeline = cmd[pos] == OP_CACHED_ATTENTION_SOFTCAP
+        ? state.ctx->cachedSoftcapAttentionPSO : state.ctx->cachedAttentionPSO;
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 4; index++) {
+        uint64_t count = index == 0 || index == 3 ? query : cache;
+        [encoder setBuffer:cachedAttentionBuffer(cmd[pos + index + 1], count, p[5], index == 3) offset:0 atIndex:index];
+    }
+    bindValue(encoder, p, 4);
+    [encoder dispatchThreadgroups:MTLSizeMake(p[0], 1, 1) threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
 }
 
 static void encodeHeadPrefixMatmul(GraphState& state, const jint* cmd, int pos) {
@@ -4659,21 +5168,24 @@ struct TiledAttentionShape {
     uint32_t rows;
     uint32_t heads;
     uint32_t keyValueHeads;
+    uint32_t width;
     TiledAttentionParams params;
 };
 
-static TiledAttentionShape tiledAttentionShape(GraphState& state, const jint* fields) {
+static TiledAttentionShape tiledAttentionShape(GraphState& state, const jint* fields, int queryId) {
     uint32_t rows = (uint32_t)positiveCount(fields[0], "attention rows");
     uint32_t heads = (uint32_t)positiveCount(fields[1], "attention heads");
     uint32_t keyValueHeads = (uint32_t)positiveCount(fields[2], "attention key/value heads");
     uint32_t length = rows / heads;
+    NSUInteger bytes = [requireStorageBuffer(queryId, "attention") length];
+    uint32_t width = (uint32_t)(bytes / rows / (bufferDType(queryId) == 1 ? 4 : 2));
     float scale = floatFromBits(fields[3]);
     if (rows % heads != 0 || heads % keyValueHeads != 0 || length < 32 || length % 32 != 0 ||
-        rows > INT32_MAX / 64 || !std::isfinite(scale)) {
+        (width != 64 && width != 128) || rows > INT32_MAX / width || !std::isfinite(scale)) {
         throw std::runtime_error("Invalid tiled attention shape or scale");
     }
     if (state.ctx->attentionPSO == nil) throw std::runtime_error("Tiled attention is unavailable on this GPU");
-    return {rows, heads, keyValueHeads, {length, heads / keyValueHeads, scale}};
+    return {rows, heads, keyValueHeads, width, {length, heads / keyValueHeads, scale}};
 }
 
 static id<MTLBuffer> attentionBuffer(int bufferId, NSUInteger count, int dtype = 1) {
@@ -4688,9 +5200,9 @@ static void bindAttentionValues(id<MTLComputeCommandEncoder> encoder, const jint
                                  TiledAttentionShape shape) {
     NSUInteger keyValueRows = (NSUInteger)shape.keyValueHeads * shape.params.length;
     int dtype = bufferDType(ids[0]);
-    [encoder setBuffer:attentionBuffer(ids[0], (NSUInteger)shape.rows * 64, dtype) offset:0 atIndex:0];
-    [encoder setBuffer:attentionBuffer(ids[1], keyValueRows * 64, dtype) offset:0 atIndex:1];
-    [encoder setBuffer:attentionBuffer(ids[2], keyValueRows * 64, dtype) offset:0 atIndex:2];
+    [encoder setBuffer:attentionBuffer(ids[0], (NSUInteger)shape.rows * shape.width, dtype) offset:0 atIndex:0];
+    [encoder setBuffer:attentionBuffer(ids[1], keyValueRows * shape.width, dtype) offset:0 atIndex:1];
+    [encoder setBuffer:attentionBuffer(ids[2], keyValueRows * shape.width, dtype) offset:0 atIndex:2];
 }
 
 static void dispatchAttention(id<MTLComputeCommandEncoder> encoder, TiledAttentionShape shape,
@@ -4700,13 +5212,13 @@ static void dispatchAttention(id<MTLComputeCommandEncoder> encoder, TiledAttenti
 }
 
 static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
-    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6);
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 6, cmd[pos + 1]);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]));
+    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]), shape.width);
     if (pipelines.forward == nil) throw std::runtime_error("Attention dtype unavailable on this GPU");
     [encoder setComputePipelineState:pipelines.forward];
     bindAttentionValues(encoder, cmd + pos + 1, shape);
-    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64) offset:0 atIndex:3];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:3];
     bindValue(encoder, shape.params, 4);
     [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * 2) offset:0 atIndex:5];
     dispatchAttention(encoder, shape, 32, 128, shape.heads);
@@ -4714,9 +5226,10 @@ static void encodeTiledAttention(GraphState& state, const jint* cmd, int pos) {
 
 static void encodeAttentionDelta(GraphState& state, const jint* cmd, int pos, TiledAttentionShape shape) {
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
-    [encoder setComputePipelineState:state.ctx->attentionDeltaPSO];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * 64) offset:0 atIndex:0];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * 64) offset:0 atIndex:1];
+    [encoder setComputePipelineState:shape.width == 64 ? state.ctx->attentionDeltaPSO
+        : wideAttentionPipelines(state.ctx).delta];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 4], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:0];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 5], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:1];
     [encoder setBuffer:attentionBuffer(cmd[pos + 7], shape.rows) offset:0 atIndex:2];
     [encoder dispatchThreadgroups:MTLSizeMake(1, shape.rows, 1)
            threadsPerThreadgroup:MTLSizeMake(32, 1, 1)];
@@ -4725,26 +5238,26 @@ static void encodeAttentionDelta(GraphState& state, const jint* cmd, int pos, Ti
 static void bindAttentionBackward(id<MTLComputeCommandEncoder> encoder, const jint* ids,
                                    TiledAttentionShape shape) {
     bindAttentionValues(encoder, ids + 1, shape);
-    [encoder setBuffer:attentionBuffer(ids[5], (NSUInteger)shape.rows * 64) offset:0 atIndex:3];
+    [encoder setBuffer:attentionBuffer(ids[5], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:3];
     [encoder setBuffer:attentionBuffer(ids[6], (NSUInteger)shape.rows * 2) offset:0 atIndex:4];
     [encoder setBuffer:attentionBuffer(ids[7], shape.rows) offset:0 atIndex:5];
 }
 
 static void encodeTiledAttentionBackward(GraphState& state, const jint* cmd, int pos) {
-    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11);
+    TiledAttentionShape shape = tiledAttentionShape(state, cmd + pos + 11, cmd[pos + 1]);
     encodeAttentionDelta(state, cmd, pos, shape);
     id<MTLComputeCommandEncoder> encoder = graphEncoder(state);
     bindAttentionBackward(encoder, cmd + pos, shape);
-    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]));
+    auto pipelines = attentionPipelines(state.ctx, bufferDType(cmd[pos + 1]), shape.width);
     if (pipelines.query == nil) throw std::runtime_error("Attention dtype unavailable on this GPU");
     [encoder setComputePipelineState:pipelines.query];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 8], (NSUInteger)shape.rows * 64) offset:0 atIndex:6];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 8], (NSUInteger)shape.rows * shape.width) offset:0 atIndex:6];
     bindValue(encoder, shape.params, 7);
     dispatchAttention(encoder, shape, 16, 64, shape.heads);
     [encoder setComputePipelineState:pipelines.keyValue];
     NSUInteger keyValueRows = (NSUInteger)shape.keyValueHeads * shape.params.length;
-    [encoder setBuffer:attentionBuffer(cmd[pos + 9], keyValueRows * 64) offset:0 atIndex:6];
-    [encoder setBuffer:attentionBuffer(cmd[pos + 10], keyValueRows * 64) offset:0 atIndex:7];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 9], keyValueRows * shape.width) offset:0 atIndex:6];
+    [encoder setBuffer:attentionBuffer(cmd[pos + 10], keyValueRows * shape.width) offset:0 atIndex:7];
     bindValue(encoder, shape.params, 8);
     dispatchAttention(encoder, shape, 16, 64, shape.keyValueHeads);
 }
@@ -4903,6 +5416,8 @@ static int layoutTrainingCommandWidth(int op) {
 }
 
 static int layoutCommandWidth(int op) {
+    if (op == OP_CACHED_ATTENTION) return 11;
+    if (op == OP_CACHED_ATTENTION_SOFTCAP) return 13;
     if (op == OP_STORAGE_COPY) return 6;
     if (op == OP_LAYOUT_TRANSFER) return 4;
     if (op == OP_LAYOUT_BINARY || op == OP_LAYOUT_UNARY || op == OP_LAYOUT_REDUCE) return 7;
@@ -4965,6 +5480,9 @@ static bool encodeTrainingCommand(GraphState& state, const jint* cmd, int pos) {
     else if (op == OP_ADAMW_UPDATE) encodeAdamW(state, cmd, pos);
     else if (op == OP_HEAD_CACHE_WRITE) encodeHeadCacheWrite(state, cmd, pos);
     else if (op == OP_HEAD_PREFIX_MATMUL) encodeHeadPrefixMatmul(state, cmd, pos);
+    else if (op == OP_CACHED_ATTENTION || op == OP_CACHED_ATTENTION_SOFTCAP) {
+        encodeCachedAttention(state, cmd, pos);
+    }
     else return false;
     return true;
 }
@@ -5043,6 +5561,11 @@ static void finishCommandBuffer(GraphState& state) {
     endGraphEncoder(state);
     [state.commandBuffer commit];
     [state.commandBuffer waitUntilCompleted];
+    for (auto commands : state.submitted) { [commands waitUntilCompleted]; }
+    state.completed = true;
+    for (auto commands : state.submitted) {
+        checkCommandBuffer(commands);
+    }
     checkCommandBuffer(state.commandBuffer);
 }
 

@@ -8,6 +8,7 @@ public final class CpuNdSwiGlu {
         Tensor.requireSameShape(gate, up, "SwiGLU");
         materialize(gate, up);
         Tensor output = new Tensor(DType.promote(gate.dtype(), up.dtype()), gate.shape());
+        if (CpuCompactPointwise.apply(gate, up, output, CpuCompactPointwise.SWIGLU)) return output;
         if (CpuDenseElementwise.supports(gate, up)) {
             CpuDenseSwiGlu.forward(gate, up, output);
             return output;
@@ -25,16 +26,18 @@ public final class CpuNdSwiGlu {
         materialize(gate, up, gradient);
         var result = new SwiGluBackwardResult(new Tensor(DType.FLOAT32, gate.shape()),
                 new Tensor(DType.FLOAT32, up.shape()));
+        if (CpuCompactSwiGluBackward.apply(gradient, gate, up, result)) return result;
         if (CpuDenseElementwise.supports(gradient, gate, up)) {
             CpuDenseSwiGlu.backward(gradient, gate, up, result);
         } else {
-            backwardValues(gradient, gate, up, result);
+            backwardRange(gradient, gate, up, result, 0, gradient.numel());
         }
         return result;
     }
 
-    private static void backwardValues(Tensor gradient, Tensor gate, Tensor up, SwiGluBackwardResult result) {
-        for (int index = 0; index < gradient.numel(); index++) {
+    static void backwardRange(Tensor gradient, Tensor gate, Tensor up, SwiGluBackwardResult result,
+                               int first, int last) {
+        for (int index = first; index < last; index++) {
             float input = value(gate, index), sigmoid = sigmoid(input), activated = input * sigmoid;
             float derivative = sigmoid + activated * (1.0f - sigmoid), upstream = value(gradient, index);
             result.gateGradient().memory().set(index, (upstream * value(up, index)) * derivative);

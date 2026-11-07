@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.nn.transformer.gemma2;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.transformer.GenerationSession;
+import io.github.kirstenali.deepj.nn.ModelInference;
 import io.github.kirstenali.deepj.tensor.BackwardBuffers;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorBackend;
@@ -43,7 +44,8 @@ final class Gemma2Session implements GenerationSession {
     }
 
     private Tensor evaluate(int[] input) {
-        if (input.length <= 1 || !backend.usesDeviceStorage()) return model.logits(input, cache);
+        if (!backend.usesDeviceStorage()) return model.logits(input, cache);
+        if (input.length <= 128) return ModelInference.batch(() -> model.logits(input, cache));
         try (var scratch = BackwardBuffers.begin()) {
             Tensor result = scratch.capture(() -> model.logits(input, cache));
             scratch.expose(result);

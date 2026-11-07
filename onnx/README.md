@@ -19,7 +19,7 @@ The artifact coordinates are `io.github.kirstenali:deepj-onnx:0.1.0-alpha-SNAPSH
 
 `mvn -f onnx/pom.xml verify` enforces the shared Java standards in production and test code: 20 non-empty lines and 15 executable statements per function, complexity and nesting limits, 120-character lines, and copy/paste detection from 100 tokens. Spotless also checks a pinned four-space Java format. Use `mvn -f onnx/pom.xml spotless:apply` to apply that format before verification.
 
-JaCoCo enforces at least 85% line coverage and 70% branch coverage for the handwritten ONNX implementation. The generated protobuf bindings are the only Java code excluded from formatting, style and coverage analysis; they are generated from the pinned official schema. PMD and duplication checks fail the build on violations or analysis errors.
+JaCoCo enforces at least 85% line coverage and 70% branch coverage for DeepJ's ONNX importer and execution code. The generated protobuf bindings are the only Java code excluded from formatting, style and coverage analysis; they are generated from the pinned official schema. PMD and duplication checks fail the build on violations or analysis errors.
 
 ## Import and execution
 

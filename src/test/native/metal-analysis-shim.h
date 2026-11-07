@@ -35,6 +35,7 @@ void simdgroup_store(const simdgroup_float8x8&, float*, uint);
 void simdgroup_multiply_accumulate(simdgroup_float8x8&, const simdgroup_float8x8&,
                                   const simdgroup_float8x8&, const simdgroup_float8x8&);
 float simd_sum(float);
+float simd_shuffle_down(float, uint);
 uint clz(uint);
 struct float2 {
     float x;

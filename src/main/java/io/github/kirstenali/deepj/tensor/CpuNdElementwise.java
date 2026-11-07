@@ -67,6 +67,7 @@ public final class CpuNdElementwise {
             CpuDenseElementwise.binary(left, right, output, operation);
             return;
         }
+        if (CpuStridedElementwise.binary(left, right, output, operation)) return;
         TensorLayout a = LayoutTransforms.expand(left.layout(), output.shape());
         TensorLayout b = LayoutTransforms.expand(right.layout(), output.shape());
         for (int index = 0; index < output.numel(); index++) {
@@ -76,7 +77,7 @@ public final class CpuNdElementwise {
         }
     }
 
-    private static Tensor readable(Tensor input, Tensor output) {
+    static Tensor readable(Tensor input, Tensor output) {
         if (input.memory() != output.memory()) return input;
         boolean same = input.layout().shape().equals(output.layout().shape())
                 && input.storageOffset() == output.storageOffset() && Arrays.equals(input.strides(), output.strides());
