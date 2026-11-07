@@ -11,6 +11,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class MetalCompactGraphTest extends MetalDifferentialTestSupport {
     @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void nativeGraphProductsReadTheSelectedRowsAtAlignedNonzeroOffsets(DType type) {
+        Tensor weight = values(type, 257, 256).slice(0, 1, 257).transpose(-2, -1);
+        for (int rows : new int[]{1, 2, 17, 64}) {
+            Tensor left = values(type, rows + 2, 256).slice(0, 1, rows + 1);
+            compare(left, weight);
+            compare(left.copy(), weight);
+            compare(left, weight.copy());
+        }
+    }
+
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void copyingAnOffsetVectorPreservesItsViewAndWeightGradients(DType type) {
+        Tensor source = values(type, 5, 256).requiresGrad(true), row = source.slice(0, 4, 5);
+        Tensor weight = values(type, 256, 256).requiresGrad(true);
+        row.matmul(weight).sumTensor().backward();
+        Tensor ones = Tensor.ones(1, 256);
+        Tensor expectedInput = cpu.matmul(ones, cpu.transpose(weight));
+        assertTensorClose(expectedInput, source.grad().slice(0, 4, 5), .00001f, .00001f);
+        assertTensorClose(cpu.matmul(cpu.transpose(row), ones), weight.grad(), .00001f, .00001f);
+        assertArrayEquals(new float[4 * 256], source.grad().slice(0, 0, 4).toFloatArray());
+        assertEquals(DType.FLOAT32, source.grad().dtype());
+        assertEquals(DType.FLOAT32, weight.grad().dtype());
+    }
+
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
     void compactGraphsRespectOffsetsPaddingAndBothTransposes(DType type) {
         for (int rows : new int[]{1, 2, 17, 33, 63, 64, 256}) {
             Tensor left = values(type, rows + 2, 259).slice(0, 1, rows + 1).slice(1, 1, 258);

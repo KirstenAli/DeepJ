@@ -47,7 +47,7 @@ public final class ModelMemory {
     }
 
     public static Tensor finish(Tensor output) {
-        if (!GradMode.isEnabled()) {
+        if (!GradMode.isEnabled() && !ModelInference.active()) {
             output.materialize();
             try (var pinned = retain(output)) { Tensor.backend().releaseTemporaryResources(); }
         }

@@ -22,7 +22,7 @@ Build the existing CLI distribution, then invoke the new image entry point:
 
 ```sh
 mvn -Pcli -DskipTests package
-java -Xmx8g --enable-native-access=ALL-UNNAMED \
+java -Xmx3g --enable-native-access=ALL-UNNAMED \
   -cp target/deepj-cli.jar io.github.kirstenali.deepj.nn.diffusion.sana.SanaImageCli \
   --model checkpoints/sana-sprint --backend metal --output sana.png \
   'A red fox in a snowy forest, soft morning light, detailed wildlife photograph'
@@ -43,7 +43,7 @@ A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use diffe
 Launch the existing DeepJ desktop application with enough heap for the image pipeline:
 
 ```sh
-JAVA_TOOL_OPTIONS="-Xmx8g" mvn javafx:run
+JAVA_TOOL_OPTIONS="-Xmx3g" mvn javafx:run
 ```
 
 Open the model menu, choose **Open image model folder…**, and select the checkpoint folder containing `model_index.json`. Selecting that file in the existing model-file picker also recognises the image pipeline.
@@ -86,3 +86,8 @@ with PyTorch 2.8.0, Diffusers 0.42.1 and Transformers 5.22.1. CPU and Metal test
 cover FP16/BF16 Gemma features, denoiser predictions and DC-AE decoder outputs, plus tiny end-to-end image
 and video pipelines. These compact tests do not establish full-checkpoint image
 or video quality; the existing pretrained FP32 results remain the quality reference.
+
+The [Apple M4 demo checks](benchmarks/media-demo-2026-11-07/REPORT.md#sana-sprint-fox)
+also verify the original 1024-pixel fox prompt with the complete checkpoint in
+FP32 and BF16. The Metal examples use the tested 3 GiB JVM heap; CPU execution
+needs a larger heap because model weights reside in JVM memory.

@@ -96,7 +96,7 @@ The desktop **Thinking** switch lets Qwen3 reason before answering. Qwen3 also s
 Download the checkpoint using the [SANA-Sprint guide](docs/sana-sprint.md), start the desktop app, and choose **Open image model folder…** from the model menu.
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx8g" mvn javafx:run
+JAVA_TOOL_OPTIONS="-Xmx3g" mvn javafx:run
 ```
 
 The pipeline runs through DeepJ tensors on CPU or Apple Metal. A standalone image launcher is also available in the guide.
@@ -128,7 +128,7 @@ Download the model and tokenizer files using the [Gemma 2 guide](docs/gemma2.md)
 
 ```bash
 mvn package -Pcli
-java -Xmx8g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
   --backend metal chat checkpoints/gemma-2-2b-it --max-tokens 256
 ```
 

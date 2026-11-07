@@ -150,3 +150,7 @@ and weight dtypes, streamed compact weights, and tiny two-step pipelines through
 FP32 sampling and frame decoding. Full pretrained 16-bit video quality has not
 been established by these small checks; the full-resolution comparisons above
 measure FP32. Compact modes are explicit selections rather than new defaults.
+
+[Apple M4 demo checks](benchmarks/media-demo-2026-11-07/REPORT.md#sana-video-small-execution-check)
+record a small pretrained 192 × 128, five-frame, one-step execution check and
+its stage timings. No long video generation was run for that check.

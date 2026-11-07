@@ -4902,8 +4902,8 @@ static void encodeCompactGraphProduct(GraphState& state, const jint* cmd, int po
 }
 
 static bool compactGraphMatrix(const MpsLayoutMatrix& matrix, NSUInteger offset) {
-    // MPSGraph's MPSMatrix import pads compact rows to eight elements.
-    return matrix.rowStride == matrix.columns && matrix.columns % 8 == 0 && offset % 8 == 0;
+    // MPSGraph's MPSMatrix import ignores nonzero offsets; use the offset-aware matrix kernels instead.
+    return matrix.rowStride == matrix.columns && matrix.columns % 8 == 0 && offset == 0;
 }
 
 static bool encodeCompactGraph(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {

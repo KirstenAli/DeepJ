@@ -17,6 +17,7 @@ final class MetalMixedMatmul {
     private MetalMixedMatmul() {}
 
     static Tensor product(ComputeGraph graph, Tensor left, Tensor right) {
+        if (MetalCompactGraph.vectorView(left, right)) return MetalCompactGraph.vectorProduct(graph, left, right);
         if (MetalCompactGraph.supports(left, right) || !stage(left, right)) return graph.layoutMatmul(left, right);
         try (var scope = TensorScope.open()) {
             Tensor result = graph.layoutMatmul(widenLeft(graph, left), widenRight(graph, right));
