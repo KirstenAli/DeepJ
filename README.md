@@ -39,7 +39,7 @@ In **Apple M4 tests**, DeepJ achieved higher **Qwen3-1.7B decode throughput** ac
 | CPU cached decoding | FP32 | **12.72 tokens/s** | 9.02 tokens/s |
 | CPU cached decoding | FP16 | **21.60 tokens/s** | 20.93 tokens/s |
 | CPU cached decoding | BF16 | **22.29 tokens/s** | 20.09 tokens/s |
-| CPU prompt processing | FP32 | 292.8 ms | **286.5 ms** |
+| CPU prompt processing | FP32 | **283.7 ms** | 294.0 ms |
 | CPU prompt processing | FP16 | **322.3 ms** | 707.9 ms |
 | CPU prompt processing | BF16 | **725.9 ms** | 1028.6 ms |
 | Metal / MPS cached decoding | FP32 | **12.69 tokens/s** | 12.05 tokens/s |

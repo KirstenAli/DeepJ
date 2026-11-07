@@ -1,0 +1,1340 @@
+{
+  "revision": "9792245592def3c8c1e1584e0ac36e6bafb9e0b0",
+  "date": "2026-11-07",
+  "environment": {
+    "machine": "Apple M4",
+    "memory_gib": 16,
+    "macos": "15.5",
+    "java": "Temurin 20.0.2",
+    "torch": "2.8.0",
+    "transformers": "4.51.3",
+    "cpu_threads": 10
+  },
+  "workload": {
+    "model": "Qwen3-1.7B",
+    "checkpoint_revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    "dtype": "FLOAT32",
+    "parameters": 1720574976,
+    "prompt_tokens": 64,
+    "batch_size": 1,
+    "kv_cache": true,
+    "warmups_per_process": 8,
+    "timed_trials_per_process": 5,
+    "logit_readback": "full final-position row",
+    "sampling": false,
+    "decode_tokens": 0
+  },
+  "java_flags": [
+    "-Xmx9g",
+    "-XX:+UseSerialGC",
+    "-XX:NewRatio=8"
+  ],
+  "protocol": {
+    "aggregation": "median of two fresh-process medians",
+    "accepted_order": [
+      "DeepJ",
+      "PyTorch",
+      "PyTorch",
+      "DeepJ"
+    ],
+    "acceptance": "All five measured trials in a process must have unchanged global Swapins and Swapouts counters."
+  },
+  "sha256": {
+    "deepj.jar": "67821eb6b20a11c685ca44c9c53641d96a42411c3fa4ae71fd03299b37100f70",
+    "FullCpuValues.java": "02bbb196cb7b617f1f8cb9fbb5eabe2c1e2f951fb8d7cf749c9cda903eac137c",
+    "pytorch_values.py": "dea8990192f98c76d3db17c4d6c1a826346a87a0f6ef6b6b157fe3909c90043b",
+    "guard.py": "6a24c3d98f5f94ee19b75ef7bb3e0c6464cc6f7004e5d281ee6aac30bee2cbff",
+    "reverse_pair.py": "557e5d57153877bf9b260d77a522a6595968506664e469cdf0a9f2dfc55db688",
+    "input.json": "420d5d243c6eb4cdb6b1734f41bdda6c7d5e6bd810f24318f1c6030d666703e6"
+  },
+  "results": {
+    "DeepJ": {
+      "median_ms": 283.73031249999997,
+      "runs": [
+        {
+          "label": "deepj-serial-1",
+          "median_ms": 284.993209,
+          "samples": [
+            {
+              "phase": "loading"
+            },
+            {
+              "phase": "loaded",
+              "parameters": 1720574976,
+              "heap_used": 6900534240
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 1440.117709,
+              "vm_before": {
+                "Swapins": 901515,
+                "Swapouts": 1233140,
+                "Pageins": 119003761,
+                "Decompressions": 121115637
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003805,
+                "Decompressions": 121425312
+              },
+              "trial": -8
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 496.113791,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003806,
+                "Decompressions": 121425320
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003833,
+                "Decompressions": 121476560
+              },
+              "trial": -7
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 311.756875,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003834,
+                "Decompressions": 121476560
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003836,
+                "Decompressions": 121477036
+              },
+              "trial": -6
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 292.186625,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003837,
+                "Decompressions": 121477036
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003838,
+                "Decompressions": 121478885
+              },
+              "trial": -5
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 288.792375,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003839,
+                "Decompressions": 121478885
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003841,
+                "Decompressions": 121479330
+              },
+              "trial": -4
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 285.55975,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003842,
+                "Decompressions": 121479331
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003844,
+                "Decompressions": 121479919
+              },
+              "trial": -3
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 283.967833,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003845,
+                "Decompressions": 121479919
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003846,
+                "Decompressions": 121480200
+              },
+              "trial": -2
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 283.046167,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003847,
+                "Decompressions": 121480200
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003853,
+                "Decompressions": 121480394
+              },
+              "trial": -1
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 281.111666,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003854,
+                "Decompressions": 121480394
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003855,
+                "Decompressions": 121480573
+              },
+              "trial": 0
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 303.363833,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003856,
+                "Decompressions": 121480573
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003858,
+                "Decompressions": 121481769
+              },
+              "trial": 1
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 284.756166,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003859,
+                "Decompressions": 121481769
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003860,
+                "Decompressions": 121482935
+              },
+              "trial": 2
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 292.104917,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003861,
+                "Decompressions": 121482935
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003863,
+                "Decompressions": 121483676
+              },
+              "trial": 3
+            },
+            {
+              "engine": "DeepJ",
+              "checksum": 12.174936,
+              "logits": 151936,
+              "prefill_ms": 284.993209,
+              "vm_before": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003864,
+                "Decompressions": 121483704
+              },
+              "vm_after": {
+                "Swapins": 901523,
+                "Swapouts": 1233140,
+                "Pageins": 119003894,
+                "Decompressions": 121483982
+              },
+              "trial": 4
+            }
+          ],
+          "resources": {
+            "returncode": 0,
+            "elapsed_seconds": 29.437157166,
+            "swap_before_mib": 19267.8125,
+            "swap_after_mib": 19267.8125,
+            "stopped_for": null,
+            "measured_trials": 5,
+            "measured_trials_swap_free": true,
+            "peak_rss_mib": 7881.609375
+          }
+        },
+        {
+          "label": "deepj-serial-2",
+          "median_ms": 282.467416,
+          "samples": [
+            {
+              "phase": "loading"
+            },
+            {
+              "parameters": 1720574976,
+              "heap_used": 6901170536,
+              "phase": "loaded"
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 1317.085709,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454732,
+                "Decompressions": 123583684
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454777,
+                "Decompressions": 123872846
+              },
+              "trial": -8,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 361.707459,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454778,
+                "Decompressions": 123872855
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454780,
+                "Decompressions": 123886366
+              },
+              "trial": -7,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 293.265792,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454781,
+                "Decompressions": 123886366
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454782,
+                "Decompressions": 123887208
+              },
+              "trial": -6,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 293.035917,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454783,
+                "Decompressions": 123887208
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454785,
+                "Decompressions": 123888221
+              },
+              "trial": -5,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 289.081208,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454786,
+                "Decompressions": 123888221
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454787,
+                "Decompressions": 123889389
+              },
+              "trial": -4,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 291.435583,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454788,
+                "Decompressions": 123889401
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454790,
+                "Decompressions": 123889737
+              },
+              "trial": -3,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 306.945875,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454791,
+                "Decompressions": 123889737
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454823,
+                "Decompressions": 123903656
+              },
+              "trial": -2,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 287.131125,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454824,
+                "Decompressions": 123903656
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454825,
+                "Decompressions": 123903720
+              },
+              "trial": -1,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 282.467416,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454826,
+                "Decompressions": 123903734
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454828,
+                "Decompressions": 123904088
+              },
+              "trial": 0,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 282.563292,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454829,
+                "Decompressions": 123904088
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454830,
+                "Decompressions": 123904221
+              },
+              "trial": 1,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 282.349708,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454831,
+                "Decompressions": 123904221
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454833,
+                "Decompressions": 123904380
+              },
+              "trial": 2,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 283.960833,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454834,
+                "Decompressions": 123904381
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454835,
+                "Decompressions": 123904406
+              },
+              "trial": 3,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            },
+            {
+              "logits": 151936,
+              "prefill_ms": 281.692583,
+              "vm_before": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454836,
+                "Decompressions": 123904406
+              },
+              "vm_after": {
+                "Swapins": 903477,
+                "Swapouts": 1270184,
+                "Pageins": 119454838,
+                "Decompressions": 123904495
+              },
+              "trial": 4,
+              "engine": "DeepJ",
+              "checksum": 12.174936
+            }
+          ],
+          "resources": {
+            "returncode": 0,
+            "elapsed_seconds": 27.295715167,
+            "swap_before_mib": 19846.625,
+            "swap_after_mib": 19846.625,
+            "stopped_for": null,
+            "measured_trials": 5,
+            "measured_trials_swap_free": true,
+            "peak_rss_mib": 8786.34375
+          }
+        }
+      ]
+    },
+    "PyTorch": {
+      "median_ms": 293.9650624903152,
+      "runs": [
+        {
+          "label": "pytorch-tied-2",
+          "median_ms": 294.9216249980964,
+          "samples": [
+            {
+              "torch": "2.8.0",
+              "transformers": "4.51.3",
+              "device": "cpu",
+              "dtype": "FLOAT32",
+              "threads": 10,
+              "interop": 1,
+              "attention": "sdpa",
+              "parameters": 1720574976,
+              "mps_allocated": 0,
+              "mps_driver": 0
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -8,
+              "prefill_seconds": 1.3276458329928573,
+              "decode_seconds": 2.541026333346963e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 1327.6458329928573,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119260514,
+                "Decompressions": 122154652
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119261849,
+                "Decompressions": 122568581
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -7,
+              "prefill_seconds": 0.31469595900853164,
+              "decode_seconds": 1.0409858077764511e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 314.69595900853164,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119261850,
+                "Decompressions": 122568583
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119261960,
+                "Decompressions": 122569376
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -6,
+              "prefill_seconds": 0.297534583020024,
+              "decode_seconds": 1.1250085663050413e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 297.534583020024,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119261961,
+                "Decompressions": 122569474
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262074,
+                "Decompressions": 122570046
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -5,
+              "prefill_seconds": 0.29683687500073574,
+              "decode_seconds": 1.166015863418579e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 296.83687500073574,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262139,
+                "Decompressions": 122570049
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262143,
+                "Decompressions": 122570169
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -4,
+              "prefill_seconds": 0.295076375012286,
+              "decode_seconds": 1.2500095181167126e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 295.076375012286,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262144,
+                "Decompressions": 122570222
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262151,
+                "Decompressions": 122570307
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -3,
+              "prefill_seconds": 0.29457100000581704,
+              "decode_seconds": 8.330098353326321e-07,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 294.57100000581704,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262152,
+                "Decompressions": 122570310
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262153,
+                "Decompressions": 122570780
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -2,
+              "prefill_seconds": 0.2968921250139829,
+              "decode_seconds": 1.1659867595881224e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 296.8921250139829,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262154,
+                "Decompressions": 122570782
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262165,
+                "Decompressions": 122572476
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -1,
+              "prefill_seconds": 0.30510058399522677,
+              "decode_seconds": 1.2919772416353226e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 305.10058399522677,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262211,
+                "Decompressions": 122572651
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262335,
+                "Decompressions": 122581938
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 0,
+              "prefill_seconds": 0.29558716699830256,
+              "decode_seconds": 1.0830117389559746e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 295.58716699830256,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262336,
+                "Decompressions": 122581945
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262347,
+                "Decompressions": 122583276
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 1,
+              "prefill_seconds": 0.2953589999815449,
+              "decode_seconds": 1.166015863418579e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 295.3589999815449,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262348,
+                "Decompressions": 122583278
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262351,
+                "Decompressions": 122585026
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 2,
+              "prefill_seconds": 0.2949216249980964,
+              "decode_seconds": 1.0420044418424368e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 294.9216249980964,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262352,
+                "Decompressions": 122585028
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262378,
+                "Decompressions": 122586288
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 3,
+              "prefill_seconds": 0.2931618750153575,
+              "decode_seconds": 8.749775588512421e-07,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 293.1618750153575,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262379,
+                "Decompressions": 122586290
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262380,
+                "Decompressions": 122586318
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 4,
+              "prefill_seconds": 0.29074770797160454,
+              "decode_seconds": 1.333013642579317e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 290.74770797160454,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262381,
+                "Decompressions": 122586320
+              },
+              "vm_after": {
+                "Swapins": 903368,
+                "Swapouts": 1270184,
+                "Pageins": 119262406,
+                "Decompressions": 122586480
+              }
+            }
+          ],
+          "resources": {
+            "returncode": 0,
+            "elapsed_seconds": 15.128444750000002,
+            "swap_before_mib": 19846.625,
+            "swap_after_mib": 19846.625,
+            "stopped_for": null,
+            "measured_trials": 5,
+            "measured_trials_swap_free": true,
+            "peak_rss_mib": 6854.046875
+          }
+        },
+        {
+          "label": "pytorch-tied-3",
+          "median_ms": 293.008499982534,
+          "samples": [
+            {
+              "torch": "2.8.0",
+              "transformers": "4.51.3",
+              "device": "cpu",
+              "dtype": "FLOAT32",
+              "threads": 10,
+              "interop": 1,
+              "attention": "sdpa",
+              "parameters": 1720574976,
+              "mps_allocated": 0,
+              "mps_driver": 0
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -8,
+              "prefill_seconds": 1.3017934999952558,
+              "decode_seconds": 1.2920063454657793e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 1301.7934999952558,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903469,
+                "Swapouts": 1270184,
+                "Pageins": 119311974,
+                "Decompressions": 122638003
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312005,
+                "Decompressions": 123051348
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -7,
+              "prefill_seconds": 0.31195066700456664,
+              "decode_seconds": 8.750066626816988e-07,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 311.95066700456664,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312006,
+                "Decompressions": 123051350
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312074,
+                "Decompressions": 123051565
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -6,
+              "prefill_seconds": 0.29158437499427237,
+              "decode_seconds": 7.920025382190943e-07,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 291.58437499427237,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312075,
+                "Decompressions": 123051568
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312076,
+                "Decompressions": 123051643
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -5,
+              "prefill_seconds": 0.29134774999693036,
+              "decode_seconds": 1.1250085663050413e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 291.34774999693036,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312077,
+                "Decompressions": 123051645
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312079,
+                "Decompressions": 123051901
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -4,
+              "prefill_seconds": 0.2953085000044666,
+              "decode_seconds": 1.4590041246265173e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 295.3085000044666,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312080,
+                "Decompressions": 123051905
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312081,
+                "Decompressions": 123052432
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -3,
+              "prefill_seconds": 0.29653012499329634,
+              "decode_seconds": 9.579816833138466e-07,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 296.53012499329634,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312082,
+                "Decompressions": 123052442
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312084,
+                "Decompressions": 123052517
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -2,
+              "prefill_seconds": 0.29393625000375323,
+              "decode_seconds": 1.2090022210031748e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 293.93625000375323,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312085,
+                "Decompressions": 123052521
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312087,
+                "Decompressions": 123052719
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": -1,
+              "prefill_seconds": 0.2911985410028137,
+              "decode_seconds": 1.166015863418579e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 291.1985410028137,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312088,
+                "Decompressions": 123052721
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312089,
+                "Decompressions": 123053646
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 0,
+              "prefill_seconds": 0.29217716702260077,
+              "decode_seconds": 1.2499804142862558e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 292.17716702260077,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312090,
+                "Decompressions": 123053650
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312114,
+                "Decompressions": 123057003
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 1,
+              "prefill_seconds": 0.29789341700961813,
+              "decode_seconds": 9.999785106629133e-07,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 297.89341700961813,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312115,
+                "Decompressions": 123057006
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312117,
+                "Decompressions": 123058323
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 2,
+              "prefill_seconds": 0.2945978339994326,
+              "decode_seconds": 1.0410149116069078e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 294.5978339994326,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312118,
+                "Decompressions": 123058325
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312119,
+                "Decompressions": 123058883
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 3,
+              "prefill_seconds": 0.293008499982534,
+              "decode_seconds": 1.2920063454657793e-06,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 293.008499982534,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312120,
+                "Decompressions": 123058885
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312122,
+                "Decompressions": 123059735
+              }
+            },
+            {
+              "engine": "PyTorch",
+              "backend": "cpu",
+              "dtype": "FLOAT32",
+              "trial": 4,
+              "prefill_seconds": 0.29246666698600166,
+              "decode_seconds": 6.67001586407423e-07,
+              "tokens_per_second": 0.0,
+              "checksum": 12.174959182739258,
+              "prefill_ms": 292.46666698600166,
+              "logits": 151936,
+              "vm_before": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312123,
+                "Decompressions": 123059738
+              },
+              "vm_after": {
+                "Swapins": 903473,
+                "Swapouts": 1270184,
+                "Pageins": 119312124,
+                "Decompressions": 123059769
+              }
+            }
+          ],
+          "resources": {
+            "returncode": 0,
+            "elapsed_seconds": 14.973267542,
+            "swap_before_mib": 19846.625,
+            "swap_after_mib": 19846.625,
+            "stopped_for": null,
+            "measured_trials": 5,
+            "measured_trials_swap_free": true,
+            "peak_rss_mib": 6850.125
+          }
+        }
+      ]
+    }
+  },
+  "excluded_attempts": [
+    {
+      "label": "deepj-1",
+      "resources": {
+        "returncode": -15,
+        "elapsed_seconds": 24.434475125000002,
+        "swap_before_mib": 18671.75,
+        "swap_after_mib": 19267.8125,
+        "stopped_for": "loading/warm-up swap growth cap",
+        "measured_trials": 0,
+        "measured_trials_swap_free": false
+      },
+      "log": "{\"phase\": \"loading\"}\n"
+    },
+    {
+      "label": "deepj-2",
+      "resources": {
+        "returncode": 1,
+        "elapsed_seconds": 3.080192167,
+        "swap_before_mib": 19267.8125,
+        "swap_after_mib": 19267.8125,
+        "stopped_for": null,
+        "measured_trials": 0,
+        "measured_trials_swap_free": false
+      },
+      "log": "{\"phase\": \"loading\"}\nException in thread \"main\" java.lang.OutOfMemoryError: Java heap space\n\tat io.github.kirstenali.deepj.tensor.TensorMemory.ensureHost(TensorMemory.java:103)\n\tat io.github.kirstenali.deepj.tensor.TensorMemory.<init>(TensorMemory.java:26)\n\tat io.github.kirstenali.deepj.tensor.TensorStorageAccess.<init>(TensorStorageAccess.java:23)\n\tat io.github.kirstenali.deepj.tensor.TensorStorageAccess.<init>(TensorStorageAccess.java:15)\n\tat io.github.kirstenali.deepj.tensor.TensorManipulations.<init>(TensorManipulations.java:15)\n\tat io.github.kirstenali.deepj.tensor.Tensor.<init>(Tensor.java:46)\n\tat io.github.kirstenali.deepj.tensor.Tensor.<init>(Tensor.java:44)\n\tat io.github.kirstenali.deepj.persistence.qwen3.SafeTensorFile.read(SafeTensorFile.java:87)\n\tat io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained.load(Qwen3Pretrained.java:43)\n\tat io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained.load(Qwen3Pretrained.java:30)\n\tat io.github.kirstenali.deepj.nn.transformer.qwen3.FullCpuValues.main(FullCpuValues.java:16)\n        2.69 real         0.89 user         1.08 sys\ntime: sysctl kern.clockrate: Operation not permitted\n"
+    },
+    {
+      "label": "pytorch-1",
+      "resources": {
+        "returncode": -15,
+        "elapsed_seconds": 11.213744042,
+        "swap_before_mib": 19267.8125,
+        "swap_after_mib": 19846.625,
+        "stopped_for": "loading/warm-up swap growth cap",
+        "measured_trials": 0,
+        "measured_trials_swap_free": false,
+        "peak_rss_mib": 6447.40625
+      },
+      "log": ""
+    },
+    {
+      "label": "pytorch-tied-1",
+      "resources": {
+        "returncode": 0,
+        "elapsed_seconds": 15.0502625,
+        "swap_before_mib": 19846.625,
+        "swap_after_mib": 19846.625,
+        "stopped_for": null,
+        "measured_trials": 5,
+        "measured_trials_swap_free": false,
+        "peak_rss_mib": 6858.140625
+      },
+      "log": "{\"torch\": \"2.8.0\", \"transformers\": \"4.51.3\", \"device\": \"cpu\", \"dtype\": \"FLOAT32\", \"threads\": 10, \"interop\": 1, \"attention\": \"sdpa\", \"parameters\": 1720574976, \"mps_allocated\": 0, \"mps_driver\": 0}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -8, \"prefill_seconds\": 1.429320707975421, \"decode_seconds\": 2.7500209398567677e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 1429.320707975421, \"logits\": 151936, \"vm_before\": {\"Swapins\": 902989, \"Swapouts\": 1270184, \"Pageins\": 119188755, \"Decompressions\": 121646398}, \"vm_after\": {\"Swapins\": 903017, \"Swapouts\": 1270184, \"Pageins\": 119191720, \"Decompressions\": 122067973}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -7, \"prefill_seconds\": 0.323097709013382, \"decode_seconds\": 3.4170225262641907e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 323.097709013382, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903017, \"Swapouts\": 1270184, \"Pageins\": 119191770, \"Decompressions\": 122067977}, \"vm_after\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119192642, \"Decompressions\": 122073581}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -6, \"prefill_seconds\": 0.29659937499673106, \"decode_seconds\": 2.749991836026311e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 296.59937499673106, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119192647, \"Decompressions\": 122073584}, \"vm_after\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119192788, \"Decompressions\": 122073635}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -5, \"prefill_seconds\": 0.29388591699535027, \"decode_seconds\": 2.9999937396496534e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 293.88591699535027, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119192794, \"Decompressions\": 122073726}, \"vm_after\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119193324, \"Decompressions\": 122076891}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -4, \"prefill_seconds\": 0.2957046669907868, \"decode_seconds\": 3.6249984987080097e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 295.7046669907868, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119193325, \"Decompressions\": 122076896}, \"vm_after\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119193378, \"Decompressions\": 122077069}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -3, \"prefill_seconds\": 0.290613791992655, \"decode_seconds\": 2.9590155463665724e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 290.613791992655, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903025, \"Swapouts\": 1270184, \"Pageins\": 119193379, \"Decompressions\": 122077071}, \"vm_after\": {\"Swapins\": 903029, \"Swapouts\": 1270184, \"Pageins\": 119193452, \"Decompressions\": 122077315}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -2, \"prefill_seconds\": 0.2916895410162397, \"decode_seconds\": 2.9579969123005867e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 291.6895410162397, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903029, \"Swapouts\": 1270184, \"Pageins\": 119193453, \"Decompressions\": 122077316}, \"vm_after\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119193530, \"Decompressions\": 122077873}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": -1, \"prefill_seconds\": 0.2951460829935968, \"decode_seconds\": 3.2919924706220627e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 295.1460829935968, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119193531, \"Decompressions\": 122077875}, \"vm_after\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119193692, \"Decompressions\": 122078234}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": 0, \"prefill_seconds\": 0.3016327499935869, \"decode_seconds\": 3.541994374245405e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 301.6327499935869, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119193693, \"Decompressions\": 122078266}, \"vm_after\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119193729, \"Decompressions\": 122078520}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": 1, \"prefill_seconds\": 0.296151791990269, \"decode_seconds\": 2.4579931050539017e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 296.151791990269, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119193839, \"Decompressions\": 122078787}, \"vm_after\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119194521, \"Decompressions\": 122081166}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": 2, \"prefill_seconds\": 0.30186424998100847, \"decode_seconds\": 2.6250199880450964e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 301.86424998100847, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119194523, \"Decompressions\": 122081171}, \"vm_after\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119194908, \"Decompressions\": 122083619}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": 3, \"prefill_seconds\": 0.2965989999938756, \"decode_seconds\": 2.500019036233425e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 296.5989999938756, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119194909, \"Decompressions\": 122083620}, \"vm_after\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119195282, \"Decompressions\": 122084208}}\n{\"engine\": \"PyTorch\", \"backend\": \"cpu\", \"dtype\": \"FLOAT32\", \"trial\": 4, \"prefill_seconds\": 0.29671525000594556, \"decode_seconds\": 2.4999899324029684e-06, \"tokens_per_second\": 0.0, \"checksum\": 12.174959182739258, \"prefill_ms\": 296.71525000594556, \"logits\": 151936, \"vm_before\": {\"Swapins\": 903037, \"Swapouts\": 1270184, \"Pageins\": 119195283, \"Decompressions\": 122084209}, \"vm_after\": {\"Swapins\": 903041, \"Swapouts\": 1270184, \"Pageins\": 119195329, \"Decompressions\": 122084650}}\n"
+    }
+  ]
+}

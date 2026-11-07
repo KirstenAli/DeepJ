@@ -90,9 +90,10 @@ during loading; a 10 GiB heap still triggers the swap guard during loading.
 All these processes are terminated by the launcher or exit on the loading error.
 The resource guards are not relaxed to obtain a timing.
 
-There is no accepted new full-model comparison. The README retains the last
-completed FP32 CPU prompt figures, 292.8 ms versus PyTorch's 286.5 ms; this
-component improvement does not establish that the full-model gap is closed.
+These attempts produced no accepted new full-model comparison. The README then
+retained the preceding FP32 CPU prompt figures, 292.8 ms versus PyTorch's
+286.5 ms. A later [completed full-model comparison](../full-cpu-prompt-2026-11-07/REPORT.md)
+measures 283.7 ms for DeepJ and 294.0 ms for PyTorch and updates that README row.
 All paused background jobs are resumed. Training remains stopped, and no
 image or video generation is part of this work.
 

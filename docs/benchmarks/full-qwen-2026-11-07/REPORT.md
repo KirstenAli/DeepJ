@@ -122,3 +122,7 @@ The later [CPU softmax follow-up](../cpu-softmax-2026-11-07/REPORT.md) measures
 lower prompt time in a full-width decoder block while preserving exact scalar
 results. Its full-model retry is memory-limited, so it does not replace the
 full-model measurements in this report.
+
+A subsequent [completed full FP32 CPU prompt comparison](../full-cpu-prompt-2026-11-07/REPORT.md)
+measures 283.7 ms for DeepJ and 294.0 ms for PyTorch. It replaces the README's
+CPU prompt row; the other historical measurements above remain unchanged.

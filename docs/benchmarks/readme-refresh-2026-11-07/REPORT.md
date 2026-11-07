@@ -54,10 +54,13 @@ with an independent bounded resume watchdog.
 
 ## CPU prompt follow-up
 
-The README retains the last completed matched FP32 CPU prompt comparison:
+The README then retained the preceding matched FP32 CPU prompt comparison:
 **292.8 ms for DeepJ and 286.5 ms for PyTorch**. That approximately 2.2% gap
-has not been verified as closed. Those historical measurements and their
+had not been verified as closed. Those historical measurements and their
 protocol are in the [full Qwen report](../full-qwen-2026-11-07/REPORT.md).
+
+A later [completed full-model CPU comparison](../full-cpu-prompt-2026-11-07/REPORT.md)
+measures 283.7 ms for DeepJ and 294.0 ms for PyTorch and replaces that README row.
 
 A current prompt-only comparison was attempted using the same pretrained
 Qwen3-1.7B checkpoint and 64 prompt token IDs, FP32 weights, a KV cache and
