@@ -53,6 +53,7 @@ public final class CpuNdPosition {
         cosine.materialize();
         sine.materialize();
         Tensor output = new Tensor(input.dtype(), input.shape());
+        if (CpuDenseRotary.apply(input, cosine, sine, output, length, inverse, halfSplit)) return output;
         for (int index = 0; index < input.numel(); index += 2) {
             rotatePair(input, cosine, sine, output, index, length, inverse, halfSplit);
         }

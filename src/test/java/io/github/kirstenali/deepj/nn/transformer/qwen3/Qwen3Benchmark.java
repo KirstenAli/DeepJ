@@ -22,7 +22,8 @@ public final class Qwen3Benchmark {
         Qwen3 model = Qwen3Pretrained.load(Path.of(args[0]), DType.valueOf(args[2]));
         try { measure(model, args); }
         finally {
-            Tensor.backend().releaseResources();
+            // This standalone process exits next; do not download the entire GPU model during teardown.
+            Tensor.backend().releaseTemporaryResources();
             DeepJExecutor.shutdown();
         }
     }

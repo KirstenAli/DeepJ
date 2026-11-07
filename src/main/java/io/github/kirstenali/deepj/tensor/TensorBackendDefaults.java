@@ -80,36 +80,7 @@ final class TensorBackendDefaults {
 
     static Tensor rotary(Tensor input, Tensor cosine, Tensor sine,
                          int sequenceLength, boolean inverse) {
-        MatrixShapeChecks.requireRotary(input, cosine, sine, sequenceLength);
-        if (!CpuNdElementwise.matrix(input) || !CpuNdElementwise.matrix(cosine) || !CpuNdElementwise.matrix(sine)) {
-            return CpuNdPosition.rotary(input, cosine, sine, sequenceLength, inverse);
-        }
-        input.materialize();
-        cosine.materialize();
-        sine.materialize();
-        Tensor output = new Tensor(input.matrixRows(), input.matrixCols());
-        DeepJExecutor.forRange(0, input.matrixRows(), row ->
-                rotateRow(input, cosine, sine, output, row, sequenceLength, inverse));
-        return output;
-    }
-
-    private static void rotateRow(Tensor input, Tensor cosine, Tensor sine, Tensor output,
-                                  int row, int sequenceLength, boolean inverse) {
-        int position = row % sequenceLength;
-        for (int pair = 0; pair < input.matrixCols() / 2; pair++) {
-            rotatePair(input, cosine, sine, output, row, position, pair, inverse);
-        }
-    }
-
-    private static void rotatePair(Tensor input, Tensor cosine, Tensor sine, Tensor output,
-                                   int row, int position, int pair, boolean inverse) {
-        int inputBase = row * input.matrixCols() + pair * 2;
-        int tableIndex = position * cosine.matrixCols() + pair;
-        float direction = inverse ? -1.0f : 1.0f;
-        float x = input.rawData()[inputBase], y = input.rawData()[inputBase + 1];
-        float cos = cosine.rawData()[tableIndex], sin = sine.rawData()[tableIndex] * direction;
-        output.rawData()[inputBase] = x * cos - y * sin;
-        output.rawData()[inputBase + 1] = x * sin + y * cos;
+        return CpuNdPosition.rotary(input, cosine, sine, sequenceLength, inverse);
     }
 
     private static void requireHeads(int dimension, int heads) {

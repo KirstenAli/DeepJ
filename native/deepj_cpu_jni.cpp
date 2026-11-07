@@ -1,10 +1,12 @@
 #include <Accelerate/Accelerate.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <arm_neon.h>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <dispatch/dispatch.h>
 #include <jni.h>
 #include <limits>
 #include <vector>
@@ -451,17 +453,39 @@ static bool row(const float* input, float* output, int row, int width, float sca
     for (int column = 0; column < width; column++) { output[column] /= total; }
     return true;
 }
+
+struct Rows {
+    const float* input;
+    float* output;
+    int count, width, workers;
+    float scale;
+    std::atomic<bool> valid{true};
+};
+
+static void partition(void* context, size_t worker) {
+    auto& rows = *static_cast<Rows*>(context);
+    int first = int(worker * rows.count / rows.workers);
+    int last = int((worker + 1) * rows.count / rows.workers);
+    for (int index = first; index < last; index++) {
+        if (!row(rows.input + index * rows.width, rows.output + index * rows.width,
+                index, rows.width, rows.scale)) rows.valid.store(false, std::memory_order_relaxed);
+    }
+}
+
+static bool apply(Rows& rows) {
+    if (rows.workers == 1) partition(&rows, 0);
+    else dispatch_apply_f(rows.workers, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), &rows, partition);
+    return rows.valid.load(std::memory_order_relaxed);
+}
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_io_github_kirstenali_deepj_tensor_CpuBlas_causalSoftmax(
-        JNIEnv* env, jclass, jfloatArray input, jfloatArray output, jint rows, jint width, jfloat scale) {
+        JNIEnv* env, jclass, jfloatArray input, jfloatArray output, jint rows, jint width, jfloat scale, jint workers) {
     deepj_cpu::PinnedArray source(env, input, JNI_ABORT);
     deepj_cpu::PinnedArray result(env, output, 0, source.data != nullptr);
     if (!result.data) return false;
-    for (int row = 0; row < rows; row++) {
-        if (!deepj_softmax::row(static_cast<float*>(source.data) + row * width,
-                static_cast<float*>(result.data) + row * width, row, width, scale)) return false;
-    }
-    return true;
+    deepj_softmax::Rows operation{static_cast<float*>(source.data), static_cast<float*>(result.data),
+        rows, width, std::max(1, std::min(workers, rows)), scale};
+    return deepj_softmax::apply(operation);
 }

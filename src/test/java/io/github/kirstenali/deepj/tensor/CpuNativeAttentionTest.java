@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.tensor;
 
 import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
+import io.github.kirstenali.deepj.concurrent.DeepJExecutor;
 import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,7 +15,7 @@ class CpuNativeAttentionTest {
         assumeTrue(CpuBlas.AVAILABLE);
     }
 
-    @ParameterizedTest @ValueSource(ints = {32, 64, 257, 513})
+    @ParameterizedTest @ValueSource(ints = {32, 64, 128, 257, 513})
     void vectorExponentialsPreserveMaskAndJavaRounding(int width) {
         var random = new Random(width);
         float[] values = new float[(width <= 64 ? 4 : 1) * width * width];
@@ -26,6 +27,16 @@ class CpuNativeAttentionTest {
         compare(values, width, 1f);
         values[2 * width] = Float.NaN;
         compare(values, width, 1f);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void parallelRowsKeepScalarOrder(boolean parallel) {
+        boolean previous = DeepJExecutor.isParallelEnabled();
+        try {
+            DeepJExecutor.setParallelEnabled(parallel);
+            float[] values = Tensor.random(1024, 64, new Random(88)).toFloatArray();
+            compare(values, 64, .125f);
+        } finally { DeepJExecutor.setParallelEnabled(previous); }
     }
 
     private static void compare(float[] values, int width, float scale) {
