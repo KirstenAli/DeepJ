@@ -16,6 +16,7 @@ public final class CpuNdIndexing {
         Tensor result = new Tensor(input.dtype(), selection.output().dimensions());
         if (CpuLastAxisSelection.apply(input, selection, result)) return result;
         if (CpuContiguousSelection.apply(input, selection, result)) return result;
+        if (CpuRowSelection.select(input, selection, result)) return result;
         for (int index = 0; index < result.numel(); index++) {
             int source = input.layout().addressAt(selection.sourceIndex(index));
             input.memory().copyTo(result.memory(), source, index, 1);
@@ -33,6 +34,7 @@ public final class CpuNdIndexing {
             return;
         }
         if (CpuContiguousSelection.add(target, selection, source)) return;
+        if (CpuRowSelection.add(target, selection, source)) return;
         if (target.dtype() == DType.FLOAT32) addFloat32(target, source, selection);
         else addCompact(target, source, selection);
     }

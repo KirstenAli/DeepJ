@@ -37,6 +37,9 @@ short test. This is an improvement toward parity, not a claim that DeepJ wins
 this workload or that the remaining difference is statistically significant.
 Every timed step and loss is retained in [results.json](results.json).
 
+A [subsequent shared indexing improvement](../gemma-cpu-indexing-2026-11-07/REPORT.md)
+measures DeepJ below PyTorch in all six balanced process orders.
+
 ## Shared CPU implementation
 
 - FLOAT32 matrix addition reads transposed inputs in 64-by-64 tiles and uses
