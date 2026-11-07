@@ -25,6 +25,13 @@ abstract class MetalCoreOps implements TensorBackend {
 
     @Override public boolean usesDeviceStorage() { return true; }
 
+    @Override public Tensor zerosForLoading(DType dtype, int... shape) {
+        boolean projection = dtype != DType.FLOAT32 && shape.length == 2 && shape[0] > 1 && shape[1] > 1
+                && (long) shape[0] * shape[1] >= 262144 && shape[0] <= 8L * shape[1];
+        return projection ? permute(graph.lazyZeros(dtype, shape[1], shape[0]), 1, 0)
+                : graph.lazyZeros(dtype, shape);
+    }
+
     static void requireRowVector(Tensor rowVector, Tensor target) {
         if (rowVector.matrixRows() != 1 || rowVector.matrixCols() != target.matrixCols()) {
             throw new IllegalArgumentException(

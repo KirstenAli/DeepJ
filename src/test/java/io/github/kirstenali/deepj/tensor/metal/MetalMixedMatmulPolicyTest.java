@@ -8,6 +8,22 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MetalMixedMatmulPolicyTest {
+    @Test void compactGraphPolicyKeepsUnsupportedShapesOnEstablishedRoutes() {
+        Tensor right = lazy(DType.BFLOAT16, 256, 256);
+        boolean available = MetalNative.AVAILABLE && MetalNative.nativeSupportsCompactGraph();
+        assertEquals(available, MetalCompactGraph.supports(right, right));
+        assertEquals(available, MetalCompactGraph.supports(lazy(DType.BFLOAT16, 1, 256), right));
+        assertFalse(MetalCompactGraph.supports(lazy(DType.BFLOAT16, 63, 256), right));
+        assertFalse(MetalCompactGraph.supports(lazy(DType.FLOAT32, 256, 256), right));
+        assertFalse(MetalCompactGraph.supports(right, lazy(DType.FLOAT32, 256, 256)));
+        assertFalse(MetalCompactGraph.supports(lazy(DType.BFLOAT16, 256), right));
+        assertFalse(MetalCompactGraph.supports(lazy(DType.BFLOAT16, 2, 256, 256), right));
+        assertFalse(MetalCompactGraph.supports(lazy(DType.BFLOAT16, 256, 128), right));
+        assertFalse(MetalCompactGraph.supports(right, lazy(DType.BFLOAT16, 256, 128)));
+        Tensor strided = lazy(DType.BFLOAT16, 256, 512).slice(1, 0, 512, 2);
+        assertFalse(MetalCompactGraph.supports(strided, right));
+    }
+
     @Test
     void largeProductsWithAnyBfloatOperandAreStaged() {
         Tensor left = lazy(DType.FLOAT32, 3, 3072, 1024);

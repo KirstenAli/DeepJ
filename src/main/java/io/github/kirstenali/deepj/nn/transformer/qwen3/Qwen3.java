@@ -36,6 +36,10 @@ public final class Qwen3 implements CausalLM {
         this(config, seed, new ParameterFactory(dtype), true);
     }
 
+    public Qwen3(Qwen3Config config, long seed, ParameterFactory parameters) {
+        this(config, seed, parameters, true);
+    }
+
     private Qwen3(Qwen3Config config, long seed, ParameterFactory factory, boolean initialize) {
         this.config = Objects.requireNonNull(config, "config");
         var random = new Random(seed);

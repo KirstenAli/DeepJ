@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.transformer.embeddings;
 
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.optimisers.Parameter;
 import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.training.Trainable;
@@ -14,6 +15,7 @@ public final class Embedding implements Trainable {
     private final int dModel;
 
     private final Parameter weight;
+    private final DType outputType;
 
     public Embedding(int vocabSize, int dModel, Random rnd) {
         this(vocabSize, dModel, rnd, ParameterFactory.float32());
@@ -23,13 +25,14 @@ public final class Embedding implements Trainable {
         this.vocabSize = vocabSize;
         this.dModel = dModel;
         this.weight = parameters.random("weight", vocabSize, dModel, rnd);
+        outputType = parameters.activationType(weight.value.dtype());
     }
 
     public Tensor forward(int[] ids) {
         for (int id : ids) {
             if (id < 0 || id >= vocabSize) throw new IllegalArgumentException("Token id out of range: " + id);
         }
-        return Tensor.sliceRows(weight.value, ids, dModel).to(weight.value.dtype().accumulationType());
+        return Tensor.sliceRows(weight.value, ids, dModel).to(outputType);
     }
 
     public Tensor forwardBatch(int[][] sequences) {

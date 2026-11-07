@@ -6,8 +6,8 @@ import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 
 /**
- * Routes large compact products onto MPS through lossless FLOAT32 staging. BF16 operands are
- * always widened; a FLOAT16 left operand is widened when the right operand is FLOAT32 because
+ * Routes large compact products onto MPS through lossless FLOAT32 staging when needed.
+ * Eligible BF16 pairs stay compact through MPSGraph; a FLOAT16 left operand is widened against FLOAT32 because
  * MPS only mixes inputs as A=FLOAT32, B=FLOAT16. FLOAT32 x FLOAT16 and FLOAT16 x FLOAT16 go natively.
  */
 final class MetalMixedMatmul {
@@ -17,7 +17,7 @@ final class MetalMixedMatmul {
     private MetalMixedMatmul() {}
 
     static Tensor product(ComputeGraph graph, Tensor left, Tensor right) {
-        if (!stage(left, right)) return graph.layoutMatmul(left, right);
+        if (MetalCompactGraph.supports(left, right) || !stage(left, right)) return graph.layoutMatmul(left, right);
         try (var scope = TensorScope.open()) {
             Tensor result = graph.layoutMatmul(widenLeft(graph, left), widenRight(graph, right));
             return scope.escape(narrowResult(graph, result, left, right));

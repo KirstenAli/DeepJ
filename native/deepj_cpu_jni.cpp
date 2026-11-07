@@ -9,6 +9,7 @@
 #include <dispatch/dispatch.h>
 #include <jni.h>
 #include <limits>
+#include <memory>
 #include <vector>
 
 namespace deepj_cpu {
@@ -234,11 +235,16 @@ struct SerialBlas {
 };
 
 struct ProductScratch {
-    std::vector<float> left, right, output;
+    using Buffer = std::unique_ptr<float[]>;
+    Buffer left, right, output;
+    static Buffer allocate(size_t count) { return count ? Buffer(new float[count]) : nullptr; }
     explicit ProductScratch(const int* s)
-        : left(directLeft(s) ? 0 : size_t(s[0]) * s[2]),
-          right(s[0] == 1 && (s[8] == 1 || s[9] == 1) ? 0 : size_t(s[2]) * s[1]),
-          output(size_t(s[0]) * s[1]) {}
+        : left(allocate(directLeft(s) ? 0 : size_t(s[0]) * s[2])),
+          right(allocate(s[0] == 1 && (s[8] == 1 || s[9] == 1) ? 0 : size_t(s[2]) * s[1])),
+          output(allocate(size_t(s[0]) * s[1])) {
+        // GEMM with beta zero overwrites its output; vector kernels can accumulate into it.
+        if (s[0] == 1) std::fill_n(output.get(), s[1], 0.0f);
+    }
 };
 
 // Keep the Java fallback near FLOAT32 rounding boundaries, far beyond double-library rounding noise.
@@ -266,12 +272,17 @@ inline bool activationValues(const float* gate, const float* up, float* output,
     return true;
 }
 
-inline bool activationBlock(const float* gate, const float* up, float* output, int count) {
-    std::array<double, 256> input, exponentials;
+inline void activationExponents(const float* gate, double* output, int count) {
+    std::array<double, 256> input;
     for (int i = 0; i < count; i++) {
         input[i] = -double(gate[i]);
     }
-    vvexp(exponentials.data(), input.data(), &count);
+    vvexp(output, input.data(), &count);
+}
+
+inline bool activationBlock(const float* gate, const float* up, float* output, int count) {
+    std::array<double, 256> exponentials;
+    activationExponents(gate, exponentials.data(), count);
     return activationValues(gate, up, output, exponentials.data(), count);
 }
 
@@ -281,6 +292,21 @@ inline bool activation(const float* gate, const float* up, float* output, int co
     }
     return true;
 }
+inline bool compactPointwise(ProductArrays& arrays, const int* s) {
+    std::array<float, 256> left, right, output;
+    for (int first = 0; first < s[3]; first += 256) {
+        int count = std::min(256, s[3] - first);
+        pack(arrays.left.data, left.data(), 1, count, s[0] + first, 0, 1, s[4]);
+        pack(arrays.right.data, right.data(), 1, count, s[1] + first, 0, 1, s[5]);
+        if (s[7] != 0 && !activationBlock(left.data(), right.data(), output.data(), count)) return false;
+        for (int index = 0; index < count; index++) {
+            float value = s[7] == 0 ? left[index] + right[index] : output[index];
+            write(arrays.output.data, s[2] + first + index, value, s[6]);
+        }
+    }
+    return true;
+}
+
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -295,7 +321,7 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactProduct(
         deepj_cpu::ProductArrays arrays(env, left, right, output);
         if (arrays.valid()) {
             deepj_cpu::compactProduct(arrays.left.data, arrays.right.data, arrays.output.data,
-                                      s, scratch.left.data(), scratch.right.data(), scratch.output.data());
+                                      s, scratch.left.get(), scratch.right.get(), scratch.output.get());
         }
     } catch (const std::bad_alloc&) {
         env->ThrowNew(env->FindClass("java/lang/OutOfMemoryError"), "CPU tile allocation");
@@ -341,11 +367,75 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_swiGlu(JNIEnv* env, jclass, jfloa
     return deepj_cpu::activation(a, b, c, count);
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactPointwise(
+        JNIEnv* env, jclass, jarray left, jarray right, jarray output, jintArray shape) {
+    jint s[8];
+    env->GetIntArrayRegion(shape, 0, 8, s);
+    if (env->ExceptionCheck()) return false;
+    deepj_cpu::ProductArrays arrays(env, left, right, output);
+    return arrays.valid() && deepj_cpu::compactPointwise(arrays, s);
+}
+
+namespace deepj_cpu {
+struct ActivationGradients {
+    PinnedArray gradient, gate, up, gateGradient, upGradient;
+    ActivationGradients(JNIEnv* env, jarray dy, jarray a, jarray b, jfloatArray da, jfloatArray db)
+        : gradient(env, dy, JNI_ABORT), gate(env, a, JNI_ABORT, gradient.data != nullptr),
+          up(env, b, JNI_ABORT, gate.data != nullptr), gateGradient(env, da, 0, up.data != nullptr),
+          upGradient(env, db, 0, gateGradient.data != nullptr) {}
+};
+
+struct ActivationTile {
+    std::array<float, 256> gradient, gate, up;
+    std::array<double, 256> exponentials;
+};
+
+inline bool activationAdjoints(ActivationTile& tile, float* gateGradient, float* upGradient, int count) {
+    #pragma clang fp contract(off)
+    for (int index = 0; index < count; index++) {
+        float exponential;
+        if (!roundedExponential(tile.exponentials[index], exponential)) return false;
+        float sigmoid = 1.0f / (1.0f + exponential), activated = tile.gate[index] * sigmoid;
+        float derivative = sigmoid + activated * (1.0f - sigmoid);
+        gateGradient[index] = (tile.gradient[index] * tile.up[index]) * derivative;
+        upGradient[index] = tile.gradient[index] * activated;
+    }
+    return true;
+}
+
+inline bool compactActivationBackward(ActivationGradients& arrays, const int* s) {
+    ActivationTile tile;
+    for (int first = 0; first < s[4]; first += 256) {
+        int count = std::min(256, s[4] - first);
+        pack(arrays.gradient.data, tile.gradient.data(), 1, count, s[0] + first, 0, 1, s[5]);
+        pack(arrays.gate.data, tile.gate.data(), 1, count, s[1] + first, 0, 1, s[6]);
+        pack(arrays.up.data, tile.up.data(), 1, count, s[2] + first, 0, 1, s[7]);
+        activationExponents(tile.gate.data(), tile.exponentials.data(), count);
+        auto* da = static_cast<float*>(arrays.gateGradient.data) + s[3] + first;
+        auto* db = static_cast<float*>(arrays.upGradient.data) + s[3] + first;
+        if (!activationAdjoints(tile, da, db, count)) return false;
+    }
+    return true;
+}
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactSwiGluBackward(
+        JNIEnv* env, jclass, jarray gradient, jarray gate, jarray up,
+        jfloatArray gateGradient, jfloatArray upGradient, jintArray shape) {
+    jint s[8];
+    env->GetIntArrayRegion(shape, 0, 8, s);
+    if (env->ExceptionCheck()) return false;
+    deepj_cpu::ActivationGradients arrays(env, gradient, gate, up, gateGradient, upGradient);
+    return arrays.upGradient.data && deepj_cpu::compactActivationBackward(arrays, s);
+}
+
 namespace deepj_normalization {
 struct Arrays {
     deepj_cpu::PinnedArray input, gamma, beta, output, normalized, denominator;
-    Arrays(JNIEnv* env, jfloatArray x, jfloatArray g, jfloatArray b,
-            jfloatArray y, jfloatArray n, jfloatArray d)
+    Arrays(JNIEnv* env, jarray x, jarray g, jarray b,
+            jarray y, jfloatArray n, jfloatArray d)
         : input(env, x, JNI_ABORT), gamma(env, g, JNI_ABORT, input.data != nullptr),
           beta(env, b, JNI_ABORT, gamma.data != nullptr), output(env, y, 0, beta.data != nullptr),
           normalized(env, n, 0, output.data != nullptr), denominator(env, d, 0, normalized.data != nullptr) {}
@@ -370,22 +460,47 @@ static float denominator(const float* input, int width, float average, float eps
     return static_cast<float>(std::sqrt(static_cast<double>(variance)));
 }
 
-static void row(Arrays& arrays, const int* shape, int row, float epsilon) {
+struct Row {
+    const float* input;
+    const float* gamma;
+    const float* beta;
+    void* output;
+    float* normalized;
+    float* denominator;
+    int width, type;
+    bool centered;
+};
+
+static void normalize(Row row, float epsilon) {
     #pragma clang fp contract(off)
-    int width = shape[4], base = row * width;
-    const auto* input = static_cast<float*>(arrays.input.data) + shape[0] + base;
-    const auto* gamma = static_cast<float*>(arrays.gamma.data) + shape[1];
-    const auto* beta = static_cast<float*>(arrays.beta.data) + shape[2];
-    auto* output = static_cast<float*>(arrays.output.data) + base;
-    auto* normalized = static_cast<float*>(arrays.normalized.data) + base;
-    float average = mean(input, width, shape[5] != 0);
-    float scale = denominator(input, width, average, epsilon);
-    static_cast<float*>(arrays.denominator.data)[row] = scale;
-    for (int column = 0; column < width; column++) {
-        normalized[column] = (input[column] - average) / scale;
-        float value = normalized[column] * gamma[column];
-        output[column] = shape[5] ? value + beta[column] : value;
+    float average = mean(row.input, row.width, row.centered);
+    float scale = denominator(row.input, row.width, average, epsilon);
+    *row.denominator = scale;
+    for (int column = 0; column < row.width; column++) {
+        row.normalized[column] = (row.input[column] - average) / scale;
+        float value = row.normalized[column] * row.gamma[column];
+        deepj_cpu::write(row.output, column, row.centered ? value + row.beta[column] : value, row.type);
     }
+}
+
+static void row(Arrays& arrays, const int* shape, int row, float epsilon) {
+    int width = shape[4], base = row * width;
+    normalize({static_cast<float*>(arrays.input.data) + shape[0] + base,
+        static_cast<float*>(arrays.gamma.data) + shape[1], static_cast<float*>(arrays.beta.data) + shape[2],
+        static_cast<float*>(arrays.output.data) + base, static_cast<float*>(arrays.normalized.data) + base,
+        static_cast<float*>(arrays.denominator.data) + row, width, 1, shape[5] != 0}, epsilon);
+}
+
+static void compactRow(Arrays& arrays, const int* shape, int row, float epsilon) {
+    int width = shape[4], base = row * width;
+    std::array<float, 8192> gamma, beta;
+    auto* input = static_cast<float*>(arrays.normalized.data) + base;
+    deepj_cpu::pack(arrays.input.data, input, 1, width, shape[0] + base, 0, 1, shape[7]);
+    deepj_cpu::pack(arrays.gamma.data, gamma.data(), 1, width, shape[1], 0, 1, shape[8]);
+    if (shape[5]) deepj_cpu::pack(arrays.beta.data, beta.data(), 1, width, shape[2], 0, 1, shape[9]);
+    auto* output = static_cast<char*>(arrays.output.data) + base * (shape[10] == 1 ? 4 : 2);
+    normalize({input, gamma.data(), beta.data(), output, input,
+        static_cast<float*>(arrays.denominator.data) + row, width, shape[10], shape[5] != 0}, epsilon);
 }
 }
 
@@ -403,24 +518,33 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_normalize(
     });
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactNormalize(
+        JNIEnv* env, jclass, jarray input, jarray gamma, jarray beta, jarray output,
+        jfloatArray normalized, jfloatArray denominator, jintArray shape, jfloat epsilon) {
+    jint s[11];
+    env->GetIntArrayRegion(shape, 0, 11, s);
+    if (env->ExceptionCheck()) return;
+    deepj_normalization::Arrays arrays(env, input, gamma, beta, output, normalized, denominator);
+    if (!arrays.denominator.data) return;
+    deepj_cpu::parallelRows(s[3], s[6], [&](int row) {
+        deepj_normalization::compactRow(arrays, s, row, epsilon);
+    });
+}
+
 namespace deepj_normalization {
 struct Gradients {
     deepj_cpu::PinnedArray gradient, normalized, denominator, gamma, output;
-    Gradients(JNIEnv* env, jfloatArray g, jfloatArray n, jfloatArray d, jfloatArray w, jfloatArray y)
+    Gradients(JNIEnv* env, jarray g, jfloatArray n, jfloatArray d, jarray w, jfloatArray y)
         : gradient(env, g, JNI_ABORT), normalized(env, n, JNI_ABORT, gradient.data != nullptr),
           denominator(env, d, JNI_ABORT, normalized.data != nullptr),
           gamma(env, w, JNI_ABORT, denominator.data != nullptr), output(env, y, 0, gamma.data != nullptr) {}
 };
 
-static void gradientRow(Gradients& arrays, const int* shape, int row) {
+static void gradientValues(const float* g, const float* n, const float* w, float* output,
+                            float d, int width, bool centered) {
     #pragma clang fp contract(off)
-    int width = shape[5], base = row * width;
-    const auto* g = static_cast<float*>(arrays.gradient.data) + shape[0] + base;
-    const auto* n = static_cast<float*>(arrays.normalized.data) + shape[1] + base;
-    const auto* w = static_cast<float*>(arrays.gamma.data) + shape[3];
-    float d = static_cast<float*>(arrays.denominator.data)[shape[2] + row], inverse = 1.0f / d;
-    auto* output = static_cast<float*>(arrays.output.data) + base;
-    float sum = 0, dot = 0;
+    float sum = 0, dot = 0, inverse = 1.0f / d;
     for (int column = 0; column < width; column++) {
         float scaled = g[column] * w[column];
         sum += scaled;
@@ -428,9 +552,27 @@ static void gradientRow(Gradients& arrays, const int* shape, int row) {
     }
     for (int column = 0; column < width; column++) {
         float scaled = g[column] * w[column];
-        output[column] = shape[6] ? inverse * (scaled - sum / width - n[column] * (dot / width))
+        output[column] = centered ? inverse * (scaled - sum / width - n[column] * (dot / width))
             : (scaled - n[column] * (dot * (1.0f / width))) / d;
     }
+}
+
+static void gradientRow(Gradients& arrays, const int* shape, int row) {
+    int width = shape[5], base = row * width;
+    gradientValues(static_cast<float*>(arrays.gradient.data) + shape[0] + base,
+        static_cast<float*>(arrays.normalized.data) + shape[1] + base,
+        static_cast<float*>(arrays.gamma.data) + shape[3], static_cast<float*>(arrays.output.data) + base,
+        static_cast<float*>(arrays.denominator.data)[shape[2] + row], width, shape[6] != 0);
+}
+
+static void compactGradientRow(Gradients& arrays, const int* shape, int row) {
+    int width = shape[5], base = row * width;
+    std::array<float, 8192> gradient, gamma;
+    deepj_cpu::pack(arrays.gradient.data, gradient.data(), 1, width, shape[0] + base, 0, 1, shape[8]);
+    deepj_cpu::pack(arrays.gamma.data, gamma.data(), 1, width, shape[3], 0, 1, shape[9]);
+    gradientValues(gradient.data(), static_cast<float*>(arrays.normalized.data) + shape[1] + base,
+        gamma.data(), static_cast<float*>(arrays.output.data) + base,
+        static_cast<float*>(arrays.denominator.data)[shape[2] + row], width, shape[6] != 0);
 }
 }
 
@@ -445,6 +587,20 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_normalizationBackward(
     if (!arrays.output.data) return;
     deepj_cpu::parallelRows(s[4], s[7], [&](int row) {
         deepj_normalization::gradientRow(arrays, s, row);
+    });
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactNormalizationBackward(
+        JNIEnv* env, jclass, jarray gradient, jfloatArray normalized, jfloatArray denominator,
+        jarray gamma, jfloatArray output, jintArray shape) {
+    jint s[10];
+    env->GetIntArrayRegion(shape, 0, 10, s);
+    if (env->ExceptionCheck()) return;
+    deepj_normalization::Gradients arrays(env, gradient, normalized, denominator, gamma, output);
+    if (!arrays.output.data) return;
+    deepj_cpu::parallelRows(s[4], s[7], [&](int row) {
+        deepj_normalization::compactGradientRow(arrays, s, row);
     });
 }
 
@@ -508,4 +664,39 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_causalSoftmax(
     deepj_softmax::Rows operation{static_cast<float*>(source.data), static_cast<float*>(result.data),
         rows, width, std::max(1, std::min(workers, rows)), scale};
     return deepj_softmax::apply(operation);
+}
+
+namespace deepj_softmax {
+static bool compactRow(const void* input, void* output, const int* shape, int row, float scale) {
+    std::array<float, 4096> values;
+    int width = shape[3], count = shape[5] == 0 ? width : row % width + 1;
+    deepj_cpu::pack(input, values.data(), 1, count, shape[0] + row * width, 0, 1, shape[4]);
+    float maximum = -INFINITY, total = 0;
+    for (int column = 0; column < count; column++) {
+        values[column] *= scale;
+        if (values[column] > maximum) maximum = values[column];
+    }
+    if (!exponentials(values.data(), count, maximum, total)) return false;
+    for (int column = 0; column < width; column++) {
+        float value = column < count ? values[column] / total : 0.0f;
+        deepj_cpu::write(output, shape[1] + row * width + column, value, shape[4]);
+    }
+    return true;
+}
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_CpuBlas_compactSoftmax(
+        JNIEnv* env, jclass, jshortArray input, jshortArray output, jintArray shape, jfloat scale, jintArray fallback) {
+    jint s[7];
+    env->GetIntArrayRegion(shape, 0, 7, s);
+    if (env->ExceptionCheck()) return false;
+    deepj_cpu::PinnedArray source(env, input, JNI_ABORT);
+    deepj_cpu::PinnedArray result(env, output, 0, source.data != nullptr);
+    deepj_cpu::PinnedArray failed(env, fallback, 0, result.data != nullptr);
+    if (!failed.data) return false;
+    deepj_cpu::parallelRows(s[2], s[6], [&](int row) {
+        static_cast<jint*>(failed.data)[row] = !deepj_softmax::compactRow(source.data, result.data, s, row, scale);
+    });
+    return true;
 }

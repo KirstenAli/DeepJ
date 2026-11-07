@@ -32,7 +32,7 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 
 ## Fast inference and training, in Java
 
-In **FP32 tests on an Apple M4**, DeepJ was faster for CPU decoding and Metal inference and training; PyTorch was faster for CPU training.
+In **FP32 tests on an Apple M4**, DeepJ delivered higher decode throughput and faster small-Qwen training on CPU and Metal.
 
 | Measurement | DeepJ | PyTorch |
 |---|---:|---:|
@@ -40,10 +40,10 @@ In **FP32 tests on an Apple M4**, DeepJ was faster for CPU decoding and Metal in
 | CPU prompt processing | 292.8 ms | **286.5 ms** |
 | Metal / MPS cached decoding | **12.69 tokens/s** | 12.05 tokens/s |
 | Metal / MPS prompt processing | **119.7 ms** | 132.3 ms |
-| CPU training step (small Qwen) | 11.729 ms/step | **9.133 ms/step** |
-| Metal / MPS training step (small Qwen) | **4.320 ms/step** | 16.964 ms/step |
+| CPU training step (small Qwen) | **6.718 ms/step** | 9.016 ms/step |
+| Metal / MPS training step (small Qwen) | **4.113 ms/step** | 17.824 ms/step |
 
-[Qwen3-1.7B inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Small Qwen training measurements](docs/benchmarks/qwen-training-2026-11-07/REPORT.md)
+[Qwen3-1.7B inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Small Qwen training measurements](docs/benchmarks/compact-cpu-metal-2026-11-07/REPORT.md#fp32-training-and-regression-controls) · [FP16/BF16 measurements](docs/benchmarks/compact-cpu-metal-2026-11-07/REPORT.md#full-qwen3-17b-inference)
 
 ## Install
 

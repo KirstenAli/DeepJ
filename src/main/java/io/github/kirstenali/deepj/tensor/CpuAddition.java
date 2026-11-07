@@ -8,13 +8,16 @@ public final class CpuAddition {
     private CpuAddition() {}
 
     public static Tensor apply(Tensor left, Tensor right) {
-        if (!CpuDenseElementwise.supports(left, right)) return CpuNdElementwise.binary(left, right, Float::sum);
-        Tensor result = new Tensor(DType.FLOAT32, left.shape());
+        if (!CpuDenseElementwise.supports(left, right) && !CpuCompactPointwise.supports(left, right)) {
+            return CpuNdElementwise.binary(left, right, Float::sum);
+        }
+        Tensor result = new Tensor(DType.promote(left.dtype(), right.dtype()), left.shape());
         into(left, right, result);
         return result;
     }
 
     public static void into(Tensor left, Tensor right, Tensor output) {
+        if (CpuCompactPointwise.apply(left, right, output, CpuCompactPointwise.ADD)) return;
         if (!CpuDenseElementwise.supports(left, right, output) || overlaps(left, output) || overlaps(right, output)) {
             CpuNdElementwise.binaryInto(left, right, output, Float::sum);
             return;

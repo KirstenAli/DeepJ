@@ -11,7 +11,8 @@ public final class CpuNdNormalization {
         Tensor output = new Tensor(type, input.shape()), normalized = new Tensor(DType.FLOAT32, input.shape());
         Tensor denominator = new Tensor(DType.FLOAT32, NormalizationChecks.statisticsShape(input));
         var result = new NormalizationResult(output, normalized, denominator);
-        if (!CpuNativeNormalization.forward(input, gamma, beta, result, epsilon, centered)) {
+        if (!CpuNativeNormalization.forward(input, gamma, beta, result, epsilon, centered)
+                && !CpuCompactNormalization.forward(input, gamma, beta, result, epsilon, centered)) {
             normalizeRows(input, gamma, beta, result, epsilon, centered);
         }
         return result;
@@ -68,6 +69,7 @@ public final class CpuNdNormalization {
         materialize(gradient, normalized, denominator, gamma);
         Tensor output = new Tensor(DType.FLOAT32, gradient.shape());
         if (CpuNativeNormalization.backward(gradient, normalized, denominator, gamma, output, centered)) return output;
+        if (CpuCompactNormalization.backward(gradient, normalized, denominator, gamma, output, centered)) return output;
         int width = normalized.size(-1);
         for (int row = 0; row < output.numel() / width; row++) {
             gradientRow(output, gradient, normalized, denominator, gamma, row, width, centered);

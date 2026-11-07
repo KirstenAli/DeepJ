@@ -30,21 +30,27 @@ falls back to Java if unavailable. `-Ddeepj.cpu.javaOnly=true` disables it for a
 
 Batched FLOAT32 products pin their arrays once per batch operation. Compatible
 transposed inputs also use BLAS, including the products used for weight gradients.
-Dense FLOAT32 normalization uses native forward and backward loops with the same
-scalar reduction order as Java. Causal softmax uses native vector exponentials for
+Dense FLOAT32 and contiguous compact normalization use native forward and backward
+loops with the same scalar reduction order as Java. Compact statistics and gradients
+remain FLOAT32. Compact addition, SwiGLU and softmax avoid scalar Java dtype conversion;
+softmax retries individual numerically sensitive rows through Java when needed.
+FLOAT32 causal softmax uses native vector exponentials for
 4,096–262,144 elements, distributes independent rows within the configured thread
 limit, and retains the parallel Java path for larger matrices.
 Unsupported storage and values retain their Java fallback.
 
 Dense FLOAT32 rotary positions share an array-based CPU implementation for
 interleaved and half-split pairs, including backward. Large inputs use the CPU
-executor; small inputs execute directly. Typed and strided inputs keep their fallback.
+executor; small inputs execute directly. Contiguous compact rotary positions use the
+same pairing rules with direct compact storage access; strided inputs keep their fallback.
 
 Large compact matrices allocated through `CpuBackend.zeros(...)` can use column-major
 storage for contiguous dot products. Checkpoint slots allocated through
 `ParameterFactory.forLoading()` also use this layout for large FLOAT32 projections.
 Tall lookup tables retain row-major storage. Ordinary FLOAT32 zero tensors, gradient
 buffers and randomly initialized parameters retain their contiguous layout.
+Metal checkpoint slots also use column-major storage for eligible large compact
+projections; its FLOAT32 loading layout remains unchanged.
 Logical shapes, values, dtype promotion, gradients and checkpoint order stay the same;
 use tensor accessors rather than assuming a physical layout. `Tensor.zeros(...)`
 continues to create contiguous tensors. No expanded weight cache is retained.

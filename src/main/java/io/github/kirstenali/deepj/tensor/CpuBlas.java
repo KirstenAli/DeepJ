@@ -34,8 +34,16 @@ final class CpuBlas {
                                  float[] normalized, float[] denominator, int[] shape, float epsilon);
     static native void normalizationBackward(float[] gradient, float[] normalized, float[] denominator,
                                               float[] gamma, float[] output, int[] shape);
+    static native void compactNormalize(Object input, Object gamma, Object beta, Object output,
+                                         float[] normalized, float[] denominator, int[] shape, float epsilon);
+    static native void compactNormalizationBackward(Object gradient, float[] normalized, float[] denominator,
+                                                      Object gamma, float[] output, int[] shape);
     static native boolean causalSoftmax(float[] input, float[] output, int rows, int width, float scale, int workers);
     static native void product(float[] left, float[] right, float[] output, int[] shape);
     static native void compactProduct(Object left, Object right, Object output, int[] shape);
+    static native boolean compactSoftmax(short[] input, short[] output, int[] shape, float scale, int[] fallback);
+    static native boolean compactSwiGluBackward(Object gradient, Object gate, Object up,
+                                                float[] gateGradient, float[] upGradient, int[] shape);
+    static native boolean compactPointwise(Object left, Object right, Object output, int[] shape);
     static native boolean swiGlu(float[] gate, int go, float[] up, int uo, float[] output, int oo, int count);
 }

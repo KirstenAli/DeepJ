@@ -14,12 +14,16 @@ not training the full Qwen3-1.7B checkpoint.
 | DeepJ CPU | 6.646 ms | 6.621 ms | **6.633 ms** |
 | PyTorch CPU | 9.102 ms | 9.057 ms | 9.080 ms |
 
+The milestone JAR used the packaged native CPU library from before the subsequent
+rebuild. These timings therefore establish the Java-side improvements; they do not
+measure the native row-parallel change. See the [follow-up measurements](../compact-cpu-metal-2026-11-07/REPORT.md)
+for the rebuilt native libraries and compact execution work.
+
 ## Implementation
 
 - Dense FP32 cross-entropy shares the computed exponentials between loss and gradient.
 - RMSNorm backward reuses the existing fused normalization implementation.
 - Contiguous FP32 additions use a direct loop, with parallel work reserved for larger buffers.
-- Native CPU normalization distributes independent rows across workers; each row retains its arithmetic order.
 
 These are shared tensor/backend changes. No model-specific shortcut, optimizer
 change, or change to the loss, gradient-clipping policy or batch is involved.

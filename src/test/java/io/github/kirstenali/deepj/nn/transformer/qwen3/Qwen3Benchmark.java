@@ -19,7 +19,8 @@ public final class Qwen3Benchmark {
         if (metal && !MetalBackend.isAvailable()) throw new IllegalStateException("Physical Metal required");
         Tensor.setBackend(metal ? new MetalBackend() : new CpuBackend());
         DeepJExecutor.setNumThreads(args.length > 4 ? Integer.parseInt(args[4]) : 10);
-        Qwen3 model = Qwen3Pretrained.load(Path.of(args[0]), DType.valueOf(args[2]));
+        boolean compact = args.length > 7 && Boolean.parseBoolean(args[7]);
+        Qwen3 model = Qwen3Pretrained.load(Path.of(args[0]), DType.valueOf(args[2]), compact);
         try { measure(model, args); }
         finally {
             // This standalone process exits next; do not download the entire GPU model during teardown.

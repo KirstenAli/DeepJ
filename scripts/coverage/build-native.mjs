@@ -22,6 +22,8 @@ const compilerFlags = [
   'Metal',
   '-framework',
   'MetalPerformanceShaders',
+  '-framework',
+  'MetalPerformanceShadersGraph',
 ];
 
 function prepareSources() {

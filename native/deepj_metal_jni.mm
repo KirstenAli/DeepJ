@@ -2,6 +2,8 @@
 #include <Foundation/Foundation.h>
 #include <Metal/Metal.h>
 #include <MetalPerformanceShaders/MetalPerformanceShaders.h>
+#include <MetalPerformanceShadersGraph/MetalPerformanceShadersGraph.h>
+#include <map>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -31,6 +33,7 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutSoftmaxPSO;
     id<MTLComputePipelineState> layoutMaximumBackwardPSO;
     id<MTLComputePipelineState> layoutMatmulPSO;
+    id<MTLComputePipelineState> compactMatvecPSO;
     std::once_flag compactMatmulOnce;
     id<MTLComputePipelineState> halfMatmulPSO;
     id<MTLComputePipelineState> bfloatMatmulPSO;
@@ -694,6 +697,61 @@ kernel void kernel_layout_matmul(device const unsigned char* a [[buffer(0)]],
     storage_write_bits(output, index, params[4], as_type<uint>(sum));
 }
 
+struct MatvecInput {
+    device const unsigned char* left;
+    device const unsigned char* right;
+    constant uint* params;
+    ulong first, second, aStep, bStep, columnStep;
+};
+
+inline MatvecInput matvec_input(device const unsigned char* left, device const unsigned char* right,
+                                device const ulong* layouts, constant uint* params, uint batch) {
+    uint aRank = uint(layouts[params[0]]), bRank = uint(layouts[params[1]]);
+    return {left, right, params, layout_address(layouts, params[0], batch * params[7]),
+        layout_address(layouts, params[1], batch * params[7] * params[6]),
+        layouts[params[0] + 3 + 2 * aRank], layouts[params[1] + 2 + 2 * bRank],
+        layouts[params[1] + 3 + 2 * bRank]};
+}
+
+inline float matvec_partial(MatvecInput input, uint column, uint first, uint step) {
+    if (column >= input.params[6]) return 0.0f;
+    float sum = 0.0f;
+    ulong offset = input.second + column * input.columnStep;
+    for (uint inner = first; inner < input.params[7]; inner += step) {
+        float a = as_type<float>(storage_float_bits(input.left, uint(input.first + inner * input.aStep),
+                                                   input.params[2]));
+        float b = as_type<float>(storage_float_bits(input.right, uint(offset + inner * input.bStep),
+                                                   input.params[3]));
+        sum = fma(a, b, sum);
+    }
+    return sum;
+}
+
+inline float matvec_columns(MatvecInput input, threadgroup float* partials, uint column, uint lane) {
+    partials[lane] = matvec_partial(input, column, lane / 32, 4);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    uint index = lane % 32;
+    return (partials[index] + partials[index + 32]) + (partials[index + 64] + partials[index + 96]);
+}
+
+kernel void kernel_compact_matvec(device const unsigned char* left [[buffer(0)]],
+                                  device const unsigned char* right [[buffer(1)]],
+                                  device unsigned char* output [[buffer(2)]],
+                                  device const ulong* layouts [[buffer(3)]], constant uint* params [[buffer(4)]],
+                                  uint3 tile [[threadgroup_position_in_grid]],
+                                  uint lane [[thread_index_in_threadgroup]]) {
+    threadgroup float partials[128];
+    auto input = matvec_input(left, right, layouts, params, tile.z);
+    bool transposed = input.bStep == 1;
+    uint column = transposed ? tile.x * 4 + lane / 32 : tile.x * 32 + lane % 32;
+    float sum = transposed ? simd_sum(matvec_partial(input, column, lane % 32, 32))
+                          : matvec_columns(input, partials, column, lane);
+    bool writer = transposed ? lane % 32 == 0 : lane < 32;
+    if (writer && column < params[6]) {
+        storage_write_bits(output, tile.z * params[6] + column, params[4], as_type<uint>(sum));
+    }
+}
+
 kernel void kernel_layout_index_select(device const unsigned char* input [[buffer(0)]],
                                        device unsigned char* output [[buffer(1)]],
                                        device const ulong* layouts [[buffer(2)]],
@@ -828,28 +886,39 @@ struct LayoutNormInputs {
     device const unsigned char* beta;
 };
 
+inline float reduce_sum(threadgroup float* scratch, float value, uint tid, uint width);
+
+struct NormWork {
+    uint row, lane, threads;
+    threadgroup float* scratch;
+};
+
+inline float norm_sum(float value, NormWork work) {
+    return work.threads == 1 ? value : reduce_sum(work.scratch, value, work.lane, work.threads);
+}
+
+inline float layout_norm_moment(device const unsigned char* input, device const ulong* layouts,
+                                constant uint* params, NormWork work, float mean, bool squared) {
+    float sum = 0.0f;
+    for (uint column = work.lane; column < params[3]; column += work.threads) {
+        float value = layout_value(input, layouts, params[0], params[5], work.row * params[3] + column) - mean;
+        sum += squared ? value * value : value;
+    }
+    return norm_sum(sum, work) * (1.0f / float(params[3]));
+}
+
 inline float2 layout_normalization_statistics(device const unsigned char* input, device const ulong* layouts,
-                                              constant uint* params, uint row) {
-    uint width = params[3], base = row * width;
-    float inverse = 1.0f / float(width), mean = 0.0f, squares = 0.0f;
-    if (params[9] != 0) {
-        for (uint column = 0; column < width; column++) {
-            mean += layout_value(input, layouts, params[0], params[5], base + column);
-        }
-        mean *= inverse;
-    }
-    for (uint column = 0; column < width; column++) {
-        float difference = layout_value(input, layouts, params[0], params[5], base + column) - mean;
-        squares += difference * difference;
-    }
-    return float2(mean, sqrt(squares * inverse + as_type<float>(params[10])));
+                                              constant uint* params, NormWork work) {
+    float mean = params[9] == 0 ? 0.0f : layout_norm_moment(input, layouts, params, work, 0.0f, false);
+    float squares = layout_norm_moment(input, layouts, params, work, mean, true);
+    return float2(mean, sqrt(squares + as_type<float>(params[10])));
 }
 
 inline void write_layout_normalization(LayoutNormInputs inputs, device unsigned char* output,
                                        device float* normalized, device const ulong* layouts,
-                                       constant uint* params, uint row, float2 statistics) {
-    uint width = params[3], base = row * width;
-    for (uint column = 0; column < width; column++) {
+                                       constant uint* params, NormWork work, float2 statistics) {
+    uint width = params[3], base = work.row * width;
+    for (uint column = work.lane; column < width; column += work.threads) {
         float value = (layout_value(inputs.input, layouts, params[0], params[5], base + column)
                         - statistics.x) / statistics.y;
         normalized[base + column] = value;
@@ -865,10 +934,14 @@ kernel void kernel_layout_normalize(device const unsigned char* input [[buffer(0
                                     device unsigned char* output [[buffer(3)]],
                                     device float* normalized [[buffer(4)]], device float* denominator [[buffer(5)]],
                                     device const ulong* layouts [[buffer(6)]], constant uint* params [[buffer(7)]],
-                                    uint row [[thread_position_in_grid]]) {
-    float2 statistics = layout_normalization_statistics(input, layouts, params, row);
-    denominator[row] = statistics.y;
-    write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, row, statistics);
+                                    uint row [[threadgroup_position_in_grid]],
+                                    uint lane [[thread_index_in_threadgroup]],
+                                    uint threads [[threads_per_threadgroup]]) {
+    threadgroup float scratch[128];
+    NormWork work{row, lane, threads, scratch};
+    float2 statistics = layout_normalization_statistics(input, layouts, params, work);
+    if (lane == 0) denominator[row] = statistics.y;
+    write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, work, statistics);
 }
 
 struct LayoutNormBackwardInputs {
@@ -885,23 +958,25 @@ inline float layout_normalization_scaled(LayoutNormBackwardInputs inputs, device
 }
 
 inline float2 layout_normalization_sums(LayoutNormBackwardInputs inputs, device const ulong* layouts,
-                                        constant uint* params, uint base) {
+                                        constant uint* params, NormWork work) {
+    uint base = work.row * params[4];
     float sum = 0.0f, dot = 0.0f;
-    for (uint column = 0; column < params[4]; column++) {
+    for (uint column = work.lane; column < params[4]; column += work.threads) {
         float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
         sum += scaled;
         dot += scaled * layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
     }
-    return float2(sum, dot);
+    float total = norm_sum(sum, work);
+    return float2(total, norm_sum(dot, work));
 }
 
 inline void write_layout_normalization_gradient(LayoutNormBackwardInputs inputs, device float* output,
-                                                device const ulong* layouts, constant uint* params, uint row) {
-    uint width = params[4], base = row * width;
-    float2 sums = layout_normalization_sums(inputs, layouts, params, base);
-    float denominator = layout_value(inputs.denominator, layouts, params[2], params[8], row);
+                                                device const ulong* layouts, constant uint* params, NormWork work) {
+    uint width = params[4], base = work.row * width;
+    float2 sums = layout_normalization_sums(inputs, layouts, params, work);
+    float denominator = layout_value(inputs.denominator, layouts, params[2], params[8], work.row);
     float inverse = 1.0f / denominator;
-    for (uint column = 0; column < width; column++) {
+    for (uint column = work.lane; column < width; column += work.threads) {
         float scaled = layout_normalization_scaled(inputs, layouts, params, base + column, column);
         float norm = layout_value(inputs.normalized, layouts, params[1], params[7], base + column);
         output[base + column] = params[10] != 0
@@ -917,8 +992,12 @@ kernel void kernel_layout_normalization_backward(device const unsigned char* gra
                                                   device float* output [[buffer(4)]],
                                                   device const ulong* layouts [[buffer(5)]],
                                                   constant uint* params [[buffer(6)]],
-                                                  uint row [[thread_position_in_grid]]) {
-    write_layout_normalization_gradient({gradient, normalized, denominator, gamma}, output, layouts, params, row);
+                                                  uint row [[threadgroup_position_in_grid]],
+                                                  uint lane [[thread_index_in_threadgroup]],
+                                                  uint threads [[threads_per_threadgroup]]) {
+    threadgroup float scratch[128];
+    write_layout_normalization_gradient({gradient, normalized, denominator, gamma}, output, layouts, params,
+                                         {row, lane, threads, scratch});
 }
 
 kernel void kernel_layout_swiglu_backward(device const unsigned char* gradient [[buffer(0)]],
@@ -2485,6 +2564,7 @@ static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->layoutSoftmaxPSO = makePSO(library, @"kernel_layout_softmax");
     ctx->layoutMaximumBackwardPSO = makePSO(library, @"kernel_layout_maximum_backward");
     ctx->layoutMatmulPSO = makePSO(library, @"kernel_layout_matmul");
+    ctx->compactMatvecPSO = makePSO(library, @"kernel_compact_matvec");
     ctx->layoutIndexSelectPSO = makePSO(library, @"kernel_layout_index_select");
     ctx->layoutIndexAddPSO = makePSO(library, @"kernel_layout_index_add");
     ctx->layoutNormalizePSO = makePSO(library, @"kernel_layout_normalize");
@@ -2639,6 +2719,22 @@ Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsTypedAtte
 extern "C" JNIEXPORT jboolean JNICALL
 Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsWideAttention(JNIEnv* env, jclass) {
     try { return wideAttentionPipelines(getContext()).forward != nil ? JNI_TRUE : JNI_FALSE; }
+    catch (const std::exception& error) {
+        throwJavaRuntimeException(env, error.what());
+        return JNI_FALSE;
+    }
+}
+
+static bool supportsCompactGraph(MetalContext* ctx) {
+    if (@available(macOS 14.0, *)) {
+        return [ctx->device supportsFamily:MTLGPUFamilyApple7];
+    }
+    return false;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kirstenali_deepj_tensor_metal_MetalNative_nativeSupportsCompactGraph(JNIEnv* env, jclass) {
+    try { return supportsCompactGraph(getContext()); }
     catch (const std::exception& error) {
         throwJavaRuntimeException(env, error.what());
         return JNI_FALSE;
@@ -3784,7 +3880,7 @@ static std::array<uint32_t, 11> layoutNormalizationBackwardParams(GraphState& st
 
 template <typename T>
 static void encodeLayoutMany(GraphState& state, id<MTLComputePipelineState> pipeline, const jint* cmd,
-                              int pos, int buffers, const T& params, uint32_t count) {
+                              int pos, int buffers, const T& params, uint32_t count, uint32_t threads = 0) {
     auto encoder = graphEncoder(state);
     [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
     [encoder setComputePipelineState:pipeline];
@@ -3793,17 +3889,22 @@ static void encodeLayoutMany(GraphState& state, id<MTLComputePipelineState> pipe
     }
     [encoder setBuffer:layoutGpuBuffer(state) offset:0 atIndex:buffers];
     bindValue(encoder, params, buffers + 1);
-    dispatch1D(encoder, pipeline, count);
+    if (threads == 0) dispatch1D(encoder, pipeline, count);
+    else [encoder dispatchThreadgroups:MTLSizeMake(count, 1, 1) threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
 }
 
 static void encodeLayoutNormalization(GraphState& state, const jint* cmd, int pos) {
     auto params = layoutNormalizationParams(state, cmd, pos);
-    encodeLayoutMany(state, state.ctx->layoutNormalizePSO, cmd, pos, 6, params, params[4]);
+    bool compact = params[5] != 1 || params[6] != 1 || params[7] != 1;
+    uint32_t threads = compact && params[3] >= 128 ? 128 : 1;
+    encodeLayoutMany(state, state.ctx->layoutNormalizePSO, cmd, pos, 6, params, params[4], threads);
 }
 
 static void encodeLayoutNormalizationBackward(GraphState& state, const jint* cmd, int pos) {
     auto params = layoutNormalizationBackwardParams(state, cmd, pos);
-    encodeLayoutMany(state, state.ctx->layoutNormalizationBackwardPSO, cmd, pos, 5, params, params[5]);
+    bool compact = params[6] != 1 || params[7] != 1 || params[8] != 1 || params[9] != 1;
+    uint32_t threads = compact && params[4] >= 128 ? 128 : 1;
+    encodeLayoutMany(state, state.ctx->layoutNormalizationBackwardPSO, cmd, pos, 5, params, params[5], threads);
 }
 
 static std::array<uint32_t, 7> layoutSwiGluBackwardParams(GraphState& state, const jint* cmd, int pos) {
@@ -4584,12 +4685,16 @@ static bool mpsOperandPair(uint32_t leftType, uint32_t rightType) {
     return rightType == 2 && (leftType == 1 || leftType == 2);
 }
 
+static bool largeCompactVector(const LayoutMatmulSpec& spec) {
+    return spec.rows == 1 && spec.columns >= 256 && spec.inner >= 256;
+}
+
 static bool supportsLayoutMpsMatmul(MetalContext* ctx, const LayoutMatmulSpec& spec) {
     // Preserve small-matrix accumulation order and avoid MPS setup on tiny products.
     // FLOAT32 always; MPS-supported FLOAT16 pairs once every dimension reaches the tile floor.
     if (spec.leftType == 1 && spec.rightType == 1) return true;
     return mpsOperandPair(spec.leftType, spec.rightType)
-        && spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64
+        && ((spec.rows >= 64 && spec.columns >= 64 && spec.inner >= 64) || largeCompactVector(spec))
         && [ctx->device supportsFamily:MTLGPUFamilyApple7];
 }
 
@@ -4610,11 +4715,98 @@ static bool encodeLayoutMpsMatmul(GraphState& state, const jint* cmd, int pos, c
     return true;
 }
 
+struct CompactGraph {
+    MPSGraph* graph;
+    MPSGraphTensor* left;
+    MPSGraphTensor* right;
+    MPSGraphTensor* output;
+};
+
+static MPSGraphTensor* compactGraphOperand(MPSGraph* graph, MPSGraphTensor* input, bool transpose) {
+    return transpose ? [graph transposeTensor:input dimension:0 withDimension:1 name:nil] : input;
+}
+
+static CompactGraph makeCompactGraph(const MpsLayoutMatrix& a, const MpsLayoutMatrix& b, uint32_t dtype) {
+    auto graph = [MPSGraph new];
+    graph.options = MPSGraphOptionsNone;
+    MPSDataType type = dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeBFloat16;
+    auto left = [graph placeholderWithShape:@[@(a.rows), @(a.columns)] dataType:type name:nil];
+    auto right = [graph placeholderWithShape:@[@(b.rows), @(b.columns)] dataType:type name:nil];
+    auto output = [graph matrixMultiplicationWithPrimaryTensor:compactGraphOperand(graph, left, a.transposed)
+        secondaryTensor:compactGraphOperand(graph, right, b.transposed) name:nil];
+    return {graph, left, right, output};
+}
+
+static const CompactGraph& compactGraph(const MpsLayoutMatrix& a, const MpsLayoutMatrix& b, uint32_t dtype) {
+    static std::map<std::array<uint32_t, 7>, CompactGraph> cache;
+    std::array<uint32_t, 7> key{a.rows, a.columns, b.rows, b.columns, uint32_t(a.transposed),
+        uint32_t(b.transposed), dtype};
+    auto found = cache.find(key);
+    if (found != cache.end()) return found->second;
+    if (cache.size() >= 128) cache.clear();
+    return cache.emplace(key, makeCompactGraph(a, b, dtype)).first->second;
+}
+
+static MPSGraphTensorData* compactGraphData(id<MTLBuffer> buffer, const MpsLayoutMatrix& matrix,
+                                          NSUInteger offset, uint32_t dtype) {
+    MPSDataType type = dtype == 2 ? MPSDataTypeFloat16 : MPSDataTypeBFloat16;
+    auto descriptor = [MPSMatrixDescriptor matrixDescriptorWithRows:matrix.rows columns:matrix.columns
+        rowBytes:matrix.rowStride * sizeof(uint16_t) dataType:type];
+    auto storage = [[MPSMatrix alloc] initWithBuffer:buffer offset:offset * sizeof(uint16_t) descriptor:descriptor];
+    return [[MPSGraphTensorData alloc] initWithMPSMatrix:storage rank:2];
+}
+
+static bool compactGraphShape(MetalContext* ctx, const LayoutMatmulSpec& spec) {
+    return spec.leftType != 1 && spec.leftType == spec.rightType && spec.batches == 1
+        && (spec.rows == 1 || spec.rows >= 64)
+        && spec.inner >= 256 && spec.columns >= 256 && spec.columns % 8 == 0 && supportsCompactGraph(ctx);
+}
+
+static void encodeCompactGraphProduct(GraphState& state, const jint* cmd, int pos,
+                                      const LayoutMatmulSpec& spec,
+                                      const MpsLayoutMatrix& a, const MpsLayoutMatrix& b) {
+    const auto& operation = compactGraph(a, b, spec.leftType);
+    auto left = compactGraphData(requireStorageBuffer(cmd[pos + 1], "graph left"), a,
+        spec.left.offset, spec.leftType);
+    auto right = compactGraphData(requireStorageBuffer(cmd[pos + 2], "graph right"), b,
+        spec.right.offset, spec.rightType);
+    auto output = compactGraphData(requireStorageBuffer(cmd[pos + 3], "graph result"),
+        {spec.rows, spec.columns, spec.columns, false}, 0, spec.outputType);
+    endGraphEncoder(state);
+    if (![state.commandBuffer isKindOfClass:[MPSCommandBuffer class]]) {
+        state.commandBuffer = [MPSCommandBuffer commandBufferWithCommandBuffer:state.commandBuffer];
+    }
+    [operation.graph encodeToCommandBuffer:(MPSCommandBuffer*)state.commandBuffer
+        feeds:@{operation.left:left, operation.right:right} targetOperations:nil
+        resultsDictionary:@{operation.output:output} executionDescriptor:nil];
+}
+
+static bool compactGraphMatrix(const MpsLayoutMatrix& matrix, NSUInteger offset) {
+    // MPSGraph's MPSMatrix import pads compact rows to eight elements.
+    return matrix.rowStride == matrix.columns && matrix.columns % 8 == 0 && offset % 8 == 0;
+}
+
+static bool encodeCompactGraph(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
+    if (!compactGraphShape(state.ctx, spec)) return false;
+    MpsLayoutMatrix a, b;
+    if (!mpsLayoutMatrix(spec.left, a) || !mpsLayoutMatrix(spec.right, b)
+        || !compactGraphMatrix(a, spec.left.offset) || !compactGraphMatrix(b, spec.right.offset)) return false;
+    encodeCompactGraphProduct(state, cmd, pos, spec, a, b);
+    return true;
+}
+
+
 static id<MTLComputePipelineState> compactMatmulPipeline(MetalContext* ctx, const LayoutMatmulSpec& spec) {
     if (spec.leftType == 1 && spec.rightType == 1) return nil;
+    if (largeCompactVector(spec)) return ctx->compactMatvecPSO;
     ensureCompactMatmul(ctx);
     if (spec.leftType != spec.rightType) return ctx->mixedMatmulPSO;
     return spec.leftType == 2 ? ctx->halfMatmulPSO : ctx->bfloatMatmulPSO;
+}
+
+static MTLSize compactProductGrid(const LayoutMatmulSpec& spec) {
+    uint32_t columns = largeCompactVector(spec) && spec.right.axes[2 * spec.right.rank - 2] == 1 ? 4 : 32;
+    return MTLSizeMake((spec.columns + columns - 1) / columns, (spec.rows + 31) / 32, spec.batches);
 }
 
 static bool encodeCompactMatmul(GraphState& state, const jint* cmd, int pos, const LayoutMatmulSpec& spec) {
@@ -4630,13 +4822,14 @@ static bool encodeCompactMatmul(GraphState& state, const jint* cmd, int pos, con
     std::array<uint32_t, 8> params{(uint32_t)cmd[pos + 4], (uint32_t)cmd[pos + 5], spec.leftType,
         spec.rightType, spec.outputType, spec.rows, spec.columns, spec.inner};
     bindValue(encoder, params, 4);
-    [encoder dispatchThreadgroups:MTLSizeMake((spec.columns + 31) / 32, (spec.rows + 31) / 32, spec.batches)
+    [encoder dispatchThreadgroups:compactProductGrid(spec)
         threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
     return true;
 }
 
 static void encodeLayoutMatmul(GraphState& state, const jint* cmd, int pos) {
     auto spec = layoutMatmulSpec(state, cmd, pos);
+    if (encodeCompactGraph(state, cmd, pos, spec)) return;
     if (encodeLayoutMpsMatmul(state, cmd, pos, spec)) return;
     if (encodeCompactMatmul(state, cmd, pos, spec)) return;
     auto encoder = graphEncoder(state);

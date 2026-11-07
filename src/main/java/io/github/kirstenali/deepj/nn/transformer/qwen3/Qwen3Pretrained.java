@@ -27,9 +27,16 @@ public final class Qwen3Pretrained {
 
     /** A null dtype preserves each source tensor's storage format. */
     public static Qwen3 load(Path directory, DType dtype) throws IOException {
+        return load(directory, dtype, false);
+    }
+
+    /** Optionally retain compact activations as well as parameter storage. Gradients remain FLOAT32. */
+    public static Qwen3 load(Path directory, DType dtype, boolean storageActivations) throws IOException {
         Layout layout = layout(directory, dtype);
         requireTiedHead(layout.source());
-        Qwen3 model = Qwen3.forLoading(layout.config(), new ParameterFactory(layout.descriptors()));
+        ParameterFactory factory = new ParameterFactory(layout.descriptors());
+        if (storageActivations) factory = factory.withStorageActivations();
+        Qwen3 model = Qwen3.forLoading(layout.config(), factory);
         Map<String, Tensor> targets = new HashMap<>();
         model.parameters().forEach(parameter -> targets.put(parameter.name(), parameter.value));
         for (var weight : layout.weights()) {

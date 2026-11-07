@@ -11,7 +11,8 @@ import java.util.Random;
 
 /**
  * Explicit parameter storage policy: a requested dtype applies to multi-row parameters;
- * one-row parameters remain FLOAT32. Descriptor-based loading preserves each stored dtype.
+ * one-row parameters remain FLOAT32 unless uniform storage is requested.
+ * Descriptor-based loading preserves each stored dtype.
  * Names do not depend on allocation order.
  */
 public final class ParameterFactory {
@@ -19,32 +20,50 @@ public final class ParameterFactory {
     private final DType defaultType;
     private final Map<String, TensorDescriptor> descriptors;
     private final boolean randomInitialization;
+    private enum Precision { MIXED, STORAGE_ACTIVATIONS, UNIFORM }
+    private final Precision precision;
 
     public ParameterFactory(DType dtype) {
-        this("", Objects.requireNonNull(dtype, "dtype"), Map.of(), true);
+        this("", Objects.requireNonNull(dtype, "dtype"), Map.of(), true, Precision.MIXED);
     }
 
     public ParameterFactory(Map<String, TensorDescriptor> descriptors) {
-        this("", null, Map.copyOf(descriptors), true);
+        this("", null, Map.copyOf(descriptors), true, Precision.MIXED);
     }
 
     private ParameterFactory(String prefix, DType defaultType, Map<String, TensorDescriptor> descriptors,
-                              boolean randomInitialization) {
+                              boolean randomInitialization, Precision precision) {
         this.prefix = prefix;
         this.defaultType = defaultType;
         this.descriptors = descriptors;
         this.randomInitialization = randomInitialization;
+        this.precision = precision;
     }
 
     public static ParameterFactory float32() { return new ParameterFactory(DType.FLOAT32); }
 
+    /** Use the requested dtype for every parameter and keep embedding activations in that dtype. */
+    public static ParameterFactory uniform(DType dtype) {
+        return new ParameterFactory("", Objects.requireNonNull(dtype, "dtype"), Map.of(), true, Precision.UNIFORM);
+    }
+
+    /** Preserve parameter dtypes and use the embedding's stored dtype for its output. */
+    public ParameterFactory withStorageActivations() {
+        Precision next = precision == Precision.UNIFORM ? precision : Precision.STORAGE_ACTIVATIONS;
+        return new ParameterFactory(prefix, defaultType, descriptors, randomInitialization, next);
+    }
+
+    public DType activationType(DType parameterType) {
+        return precision == Precision.MIXED ? parameterType.accumulationType() : parameterType;
+    }
+
     /** Zero-filled slots for weights that will be restored from a complete checkpoint. */
     public ParameterFactory forLoading() {
-        return new ParameterFactory(prefix, defaultType, descriptors, false);
+        return new ParameterFactory(prefix, defaultType, descriptors, false, precision);
     }
 
     public ParameterFactory scope(String name) {
-        return new ParameterFactory(path(name), defaultType, descriptors, randomInitialization);
+        return new ParameterFactory(path(name), defaultType, descriptors, randomInitialization, precision);
     }
 
     public Parameter random(String name, int rows, int columns, Random random) {
@@ -67,13 +86,17 @@ public final class ParameterFactory {
 
     private DType dtype(String name, int rows, int columns) {
         if (rows < 1 || columns < 1) throw new IllegalArgumentException("Parameter dimensions must be positive");
-        if (defaultType != null) return rows == 1 ? DType.FLOAT32 : defaultType;
+        if (defaultType != null) return defaultDtype(rows);
         TensorDescriptor descriptor = descriptors.get(path(name));
         if (descriptor == null) throw new IllegalArgumentException("Missing parameter: " + path(name));
         if (!Arrays.equals(descriptor.shape(), new int[]{rows, columns})) {
             throw new IllegalArgumentException("Parameter shape mismatch: " + path(name));
         }
         return descriptor.dtype();
+    }
+
+    private DType defaultDtype(int rows) {
+        return rows == 1 && precision != Precision.UNIFORM ? DType.FLOAT32 : defaultType;
     }
 
     private String path(String name) {

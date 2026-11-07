@@ -41,6 +41,12 @@ Training additionally allocates gradients, activations, and optimizer state. Loa
 `Qwen3Pretrained.load(Path)` reads a local Hugging Face snapshot containing `config.json` and either
 `model.safetensors` or `model.safetensors.index.json` plus its shards. It preserves source storage dtypes.
 The overload accepting `DType` converts every parameter to that format.
+`Qwen3Pretrained.load(directory, dtype, true)` also keeps embedding activations in the
+stored dtype. With all parameters in FLOAT16 or BFLOAT16, the model uses compact
+activations through the shared tensor operations. The existing one- and two-argument
+overloads retain their FLOAT32 embedding outputs. For new training models, pass
+`ParameterFactory.uniform(dtype)` to the factory-accepting `Qwen3` constructor;
+gradients and optimizer state remain FLOAT32.
 
 The importer validates names, shapes, byte ranges, shard membership, and supported configuration settings before
 constructing the model. It transposes projection matrices into DeepJ's layout and retains one shared embedding
@@ -50,6 +56,9 @@ parameter. If a separate `lm_head.weight` is present, it must be identical to th
 Hugging Face format. The destination must not exist. Publication uses an atomic directory move after both files
 have been written. `Qwen3Checkpoint.load(Path)` reconstructs the saved model. Tokenizer assets and optimizer state
 are managed separately. Loading and saving do not reset the backend or invalidate other live models.
+To restore compact activations from a saved Qwen snapshot, use
+`Qwen3Pretrained.load(directory, null, true)`; the Hugging Face weight files preserve
+parameter dtypes but do not store DeepJ's activation policy.
 
 These entry points are independent of the existing model format registry.
 The implementation targets the released dense, tied-embedding Qwen3 configuration with default RoPE and full causal
@@ -68,8 +77,12 @@ java -Xmx12g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
   --backend metal chat ./qwen3-1.7b --dtype float32
 ```
 
-The option converts weights in memory at load time. FP32 uses twice the weight storage of BF16 and
-can decode faster on Metal. The `--dtype` option also accepts `float16` and `bfloat16`.
+The option converts weights in memory at load time. The `--dtype` option also accepts
+`float16` and `bfloat16`; those explicit selections use compact activations as well as
+weights through the shared CPU/Metal kernels. In the desktop launcher, select them
+with `-Ddeepj.chat.qwen3.dtype=float16` or `-Ddeepj.chat.qwen3.dtype=bfloat16`.
+The desktop default remains FLOAT32. Omitted CLI dtype preserves the existing loading
+policy. Relative speed depends on the backend and workload.
 
 In the desktop chat app, choose `config.json` or a safetensors file through the model picker. Keep the configuration,
 tokenizer, index, and shards together in the snapshot directory. Thinking is off by default in both interfaces.

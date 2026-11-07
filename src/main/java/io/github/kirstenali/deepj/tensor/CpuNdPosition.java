@@ -20,6 +20,7 @@ public final class CpuNdPosition {
         requireScale(scale);
         input.materialize();
         Tensor output = new Tensor(input.dtype(), input.shape());
+        if (CpuNativeAttention.compactSoftmax(input, output, length, scale, true)) return output;
         for (int row = 0; row < input.matrixRows(); row++) { softmaxRow(input, output, row, length, scale); }
         return output;
     }
@@ -28,7 +29,7 @@ public final class CpuNdPosition {
         if (!Float.isFinite(scale)) throw new IllegalArgumentException("Attention scale must be finite");
     }
 
-    private static void softmaxRow(Tensor input, Tensor output, int row, int width, float scale) {
+    static void softmaxRow(Tensor input, Tensor output, int row, int width, float scale) {
         int count = row % width + 1, base = row * width;
         float maximum = Float.NEGATIVE_INFINITY, total = 0;
         for (int column = 0; column < count; column++) {
@@ -54,6 +55,7 @@ public final class CpuNdPosition {
         sine.materialize();
         Tensor output = new Tensor(input.dtype(), input.shape());
         if (CpuDenseRotary.apply(input, cosine, sine, output, length, inverse, halfSplit)) return output;
+        if (CpuCompactRotary.apply(input, cosine, sine, output, length, inverse, halfSplit)) return output;
         for (int index = 0; index < input.numel(); index += 2) {
             rotatePair(input, cosine, sine, output, index, length, inverse, halfSplit);
         }

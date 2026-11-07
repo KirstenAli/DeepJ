@@ -48,11 +48,15 @@ different ranges and precision. Select them explicitly or use `tensor.to(dtype)`
 For binary tensor operations, identical input dtypes stay in that dtype; differing dtypes promote to FLOAT32,
 including FLOAT16 mixed with BFLOAT16. A FLOAT32 operand is never silently narrowed.
 
-Supported Metal compact-matrix paths use native compact operands with FLOAT32
-accumulation. Eligible larger FLOAT16 products use Apple MPS on supported Apple GPUs.
-MPS accepts FLOAT16 on both sides or FLOAT32 on the left and FLOAT16 on the right;
-it does not directly accept the reverse mixed order or BFLOAT16 operands.
-For eligible products, DeepJ losslessly widens BFLOAT16 operands, or a FLOAT16 left
+Supported Metal compact-matrix paths use compact operands with FLOAT32 accumulation.
+On macOS 14 or newer with an Apple-family-7 GPU or newer, eligible unbatched FLOAT16
+and BFLOAT16 matrix products use MPSGraph without widening the weights. This route
+requires inner and output dimensions of at least 256 and compatible aligned storage.
+It handles one-row products and matrices with at least 64 rows; smaller matrices
+retain their existing accumulation order.
+Other eligible FLOAT16 products use MPSMatrixMultiplication, which accepts FLOAT16
+on both sides or FLOAT32 on the left and FLOAT16 on the right.
+Where compact execution is unavailable, DeepJ losslessly widens BFLOAT16 operands, or a FLOAT16 left
 operand paired with FLOAT32, into scoped GPU buffers. Staging is used only when all
 matrix dimensions are at least 64 and the widened element count times 128 is no more
 than rows x inner x columns, so the cast stays small next to the arithmetic. Products
@@ -73,16 +77,28 @@ Embedding lookups widen to FLOAT32, keeping the activation stream eligible for f
 FLOAT32 kernels while larger weight matrices retain two-byte storage. This is an explicit
 parameter policy, not automatic autocast. A descriptor-based factory and loaded
 checkpoints preserve their individual stored dtypes, so a checkpoint whose one-row
-vectors are two-byte will keep them two-byte on load and run those ops on the generic
-rather than the fused kernels. Checkpoints saved by this policy already store them FLOAT32.
+vectors are two-byte will keep them two-byte on load. Checkpoints saved by this policy
+already store them FLOAT32.
 
-General compact, strided and broadcast CPU matrix products stage their operands in
-temporary contiguous FLOAT32 arrays before the parallel product, then round the result
-to its output dtype. This avoids repeated address calculations and compact-value decoding
-inside every multiply, at the cost of temporary host memory, including expanded batches.
-The dtype-converting contiguous copy also runs in parallel. These CPU products use
-FLOAT32 arithmetic, so compact storage adds decoding/encoding work rather than native
-16-bit arithmetic. The existing dense FLOAT32 matrix fast path remains separate.
+`ParameterFactory.uniform(dtype)` instead stores every parameter in that dtype and
+keeps embedding outputs compact. Networks that accept a parameter factory can use
+this explicit policy for inference or training. Qwen, Loop and Prism have compact
+forward/backward training checks on CPU and Metal. Gradients, optimizer master weights
+and moments remain FLOAT32; normalization statistics also use FLOAT32.
+`factory.withStorageActivations()` retains the factory's parameter dtype choices while
+keeping embedding outputs in their stored dtype. Subsequent operations follow normal
+dtype promotion, so a FLOAT32 norm gain can widen a compact activation.
+
+The activation policy is a construction option, not a field in weight archives or
+training checkpoints. Restore into a model constructed with the same factory policy.
+Automatic DeepJ model loading retains the established FLOAT32 embedding-output policy.
+
+On supported Apple Silicon CPUs, compact matrix-vector products read two-byte weights
+directly with SIMD and accumulate in FLOAT32. Matrix-matrix products convert bounded
+tiles to FLOAT32 for Accelerate BLAS, then round the output once. Portable Java products
+use temporary contiguous FLOAT32 arrays where necessary. No expanded model copy is
+retained. Contiguous compact addition, SwiGLU, normalization and softmax also have
+native CPU paths; unsupported layouts and numerical edge cases retain Java execution.
 
 Relative dtype speed depends on the operation, shape, backend and device. Short manual
 timing probes are exploratory, not a guarantee that compact training matches or exceeds
