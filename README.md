@@ -53,6 +53,7 @@ In **Apple M4 tests**, DeepJ achieved higher **Qwen3-1.7B decode throughput** ac
 | CPU training step (small Qwen) | FP32 | **6.718 ms/step** | 9.016 ms/step |
 | CPU training step (small Gemma) | FP32 | **7.163 ms/step** | 7.656 ms/step |
 | Metal / MPS training step (small Qwen) | FP32 | **4.113 ms/step** | 17.824 ms/step |
+| Metal / MPS training step (small Gemma) | FP32 | **10.792 ms/step** | 18.072 ms/step |
 
 ## Install
 
