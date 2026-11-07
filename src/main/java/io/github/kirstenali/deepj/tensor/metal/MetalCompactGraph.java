@@ -13,8 +13,7 @@ final class MetalCompactGraph {
     }
 
     private static boolean dimensions(Tensor left, Tensor right) {
-        return (left.size(-2) == 1 || left.size(-2) >= MetalMixedMatmul.MPS_FLOOR)
-                && left.size(-1) == right.size(-2) && left.size(-1) >= 256
+        return left.size(-2) >= 1 && left.size(-1) == right.size(-2) && left.size(-1) >= 256
                 && right.size(-1) >= 256 && right.size(-1) % 8 == 0;
     }
 

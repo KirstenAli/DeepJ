@@ -604,7 +604,7 @@ inline uint storage_decode_half(ushort bits) {
     uint exponent = (uint(bits) >> 10) & 31u;
     uint fraction = uint(bits) & 1023u;
     if (exponent == 31) return sign | 0x7f800000u | (fraction << 13);
-    if (exponent != 0) return sign | ((exponent + 112u) << 23) | (fraction << 13);
+    if (exponent != 0) return as_type<uint>(float(as_type<half>(bits)));
     if (fraction == 0) return sign;
     uint shift = clz(fraction) - 21u;
     return sign | ((113u - shift) << 23) | (((fraction << shift) & 1023u) << 13);
@@ -617,7 +617,7 @@ inline ushort storage_encode_half(uint bits) {
     if (exponent == 128) return ushort(sign | 0x7c00u | (fraction == 0 ? 0u : 0x0200u | (fraction >> 13)));
     if (exponent > 15) return ushort(sign | 0x7c00u);
     if (exponent >= -14) {
-        return ushort(sign | ((uint(exponent + 15) << 10) + storage_round_shift(fraction, 13)));
+        return as_type<ushort>(half(as_type<float>(bits)));
     }
     if (exponent < -25) return ushort(sign);
     return ushort(sign | storage_round_shift(fraction | 0x00800000u, uint(-exponent - 1)));
@@ -895,7 +895,21 @@ struct NormWork {
 };
 
 inline float norm_sum(float value, NormWork work) {
-    return work.threads == 1 ? value : reduce_sum(work.scratch, value, work.lane, work.threads);
+    if (work.threads == 1) return value;
+    work.scratch[work.lane] = value;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = work.threads >> 1; stride >= 32; stride >>= 1) {
+        if (work.lane < stride) work.scratch[work.lane] += work.scratch[work.lane + stride];
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    value = work.scratch[work.lane];
+    for (uint stride = 16; stride > 0; stride >>= 1) {
+        float other = simd_shuffle_down(value, stride);
+        if (work.lane < stride) value += other;
+    }
+    if (work.lane == 0) work.scratch[0] = value;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    return work.scratch[0];
 }
 
 inline float layout_norm_moment(device const unsigned char* input, device const ulong* layouts,
@@ -922,7 +936,7 @@ inline void write_layout_normalization(LayoutNormInputs inputs, device unsigned 
     for (uint column = work.lane; column < width; column += work.threads) {
         float value = (layout_value(inputs.input, layouts, params[0], params[5], base + column)
                         - statistics.x) / statistics.y;
-        normalized[base + column] = value;
+        if (params[11] == 0) normalized[base + column] = value;
         float scaled = value * layout_value(inputs.gamma, layouts, params[1], params[6], column);
         if (params[9] != 0) scaled += layout_value(inputs.beta, layouts, params[2], params[7], column);
         storage_write_bits(output, base + column, params[8], as_type<uint>(scaled));
@@ -941,7 +955,7 @@ kernel void kernel_layout_normalize(device const unsigned char* input [[buffer(0
     threadgroup float scratch[128];
     NormWork work{row, lane, threads, scratch};
     float2 statistics = layout_normalization_statistics(input, layouts, params, work);
-    if (lane == 0) denominator[row] = statistics.y;
+    if (lane == 0 && params[11] == 0) denominator[row] = statistics.y;
     write_layout_normalization({input, gamma, beta}, output, normalized, layouts, params, work, statistics);
 }
 
@@ -3933,22 +3947,33 @@ static uint32_t normalizationMode(int mode) {
     return (uint32_t)mode;
 }
 
-static std::array<uint32_t, 11> layoutNormalizationParams(GraphState& state, const jint* cmd, int pos) {
+static uint32_t normalizationFlags(int flags) {
+    if (flags < 0 || flags > 3) throw std::runtime_error("Invalid normalization flags");
+    return (uint32_t)flags;
+}
+
+static void requireNormalizationOutputs(const jint* cmd, int pos, uint32_t type,
+                                         uint32_t count, uint32_t rows, bool statistics) {
+    requireOutputSeparation(cmd, pos, 3, statistics ? 6 : 4);
+    requireTypedCount(cmd[pos + 4], type, count);
+    if (!statistics) return;
+    requireTypedCount(cmd[pos + 5], 1, count);
+    requireTypedCount(cmd[pos + 6], 1, rows);
+}
+
+static std::array<uint32_t, 12> layoutNormalizationParams(GraphState& state, const jint* cmd, int pos) {
     auto input = commandLayout(state, cmd, pos, 1, 7);
     uint32_t width = normalizationWidth(input), rows = input.count / width;
     requireNormalizationParameter(commandLayout(state, cmd, pos, 2, 8), width);
     requireNormalizationParameter(commandLayout(state, cmd, pos, 3, 9), width);
-    uint32_t mode = normalizationMode(cmd[pos + 11]);
+    uint32_t flags = normalizationFlags(cmd[pos + 11]), mode = flags & 1;
     float epsilon = floatFromBits(cmd[pos + 10]);
     if (!std::isfinite(epsilon) || epsilon <= 0) throw std::runtime_error("Invalid normalization epsilon");
     uint32_t a = bufferDType(cmd[pos + 1]), b = bufferDType(cmd[pos + 2]);
     uint32_t c = bufferDType(cmd[pos + 3]), output = a == b && (mode == 0 || a == c) ? a : 1;
-    requireOutputSeparation(cmd, pos, 3, 6);
-    requireTypedCount(cmd[pos + 4], output, input.count);
-    requireTypedCount(cmd[pos + 5], 1, input.count);
-    requireTypedCount(cmd[pos + 6], 1, rows);
+    requireNormalizationOutputs(cmd, pos, output, input.count, rows, flags < 2);
     return {(uint32_t)cmd[pos + 7], (uint32_t)cmd[pos + 8], (uint32_t)cmd[pos + 9], width,
-            rows, a, b, c, output, mode, (uint32_t)cmd[pos + 10]};
+            rows, a, b, c, output, mode, (uint32_t)cmd[pos + 10], flags >> 1};
 }
 
 static std::array<uint32_t, 11> layoutNormalizationBackwardParams(GraphState& state, const jint* cmd, int pos) {
@@ -4852,7 +4877,7 @@ static MPSGraphTensorData* compactGraphData(id<MTLBuffer> buffer, const MpsLayou
 
 static bool compactGraphShape(MetalContext* ctx, const LayoutMatmulSpec& spec) {
     return spec.leftType != 1 && spec.leftType == spec.rightType && spec.batches == 1
-        && (spec.rows == 1 || spec.rows >= 64)
+        && spec.rows >= 1
         && spec.inner >= 256 && spec.columns >= 256 && spec.columns % 8 == 0 && supportsCompactGraph(ctx);
 }
 

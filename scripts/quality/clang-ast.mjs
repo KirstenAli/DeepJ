@@ -34,7 +34,7 @@ function dumpAst(args) {
     return execFileSync('xcrun', args, {
       encoding: 'utf8',
       stdio: 'pipe',
-      maxBuffer: 32 * 1024 * 1024,
+      maxBuffer: 64 * 1024 * 1024,
     });
   } catch (error) {
     const diagnostic = error.stderr?.toString().trim() || error.message;

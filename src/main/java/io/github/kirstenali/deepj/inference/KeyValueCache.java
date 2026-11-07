@@ -80,6 +80,21 @@ final class KeyValueCache implements AutoCloseable {
                 .reshape(query.shape());
     }
 
+    KeyValueCache grown(int target) {
+        if (target <= capacity || processed > capacity) throw new IllegalArgumentException("Invalid cache growth");
+        var result = new KeyValueCache(target, keys.size(0), keys.size(1), keys.size(3), keys.dtype(), values.dtype());
+        try {
+            Tensor.backend().writeHeadCache(HeadLayout.pack(result.keys), HeadLayout.pack(keys), heads, 0);
+            Tensor.backend().writeHeadCache(HeadLayout.pack(result.values), HeadLayout.pack(values), heads, 0);
+            result.length = length;
+            result.processed = processed;
+            return result;
+        } catch (RuntimeException | Error failure) {
+            result.close();
+            throw failure;
+        }
+    }
+
     @Override
     public void close() {
         keys.releaseDeviceBufferRetention();

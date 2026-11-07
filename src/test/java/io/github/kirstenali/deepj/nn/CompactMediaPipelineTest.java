@@ -20,7 +20,7 @@ class CompactMediaPipelineTest {
     }
 
     @ParameterizedTest @ValueSource(strings = {"cpu", "metal"})
-    void compactDenoisersPassThroughFloat32SamplingAndImageDecoding(String name) throws Exception {
+    void compactImagePipelinesUseFloat32SamplingAndSelectedDecoderPrecision(String name) throws Exception {
         backend(name);
         var pipeline = new SanaSprint(Path.of("src/test/resources/sana/pipeline"));
         for (DType dtype : new DType[]{DType.FLOAT16, DType.BFLOAT16}) {

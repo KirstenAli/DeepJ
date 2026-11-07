@@ -37,6 +37,35 @@ class MetalCompactImportTest extends MetalDifferentialTestSupport {
         constant(weight.grad(), 13440);
     }
 
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void shortProductsUseCompactOperandsAndPreserveFloat32Gradients(DType dtype) {
+        for (int rows : new int[]{2, 17, 33, 63}) {
+            Tensor input = Tensor.ones(dtype, rows, 256).requiresGrad(true);
+            Tensor weight = Tensor.ones(dtype, 256, 256).requiresGrad(true);
+            Tensor output = input.matmul(weight);
+            constant(output, 256);
+            output.sumTensor().backward();
+            constant(input.grad(), 256);
+            constant(weight.grad(), rows);
+            assertEquals(DType.FLOAT32, input.grad().dtype());
+            assertEquals(DType.FLOAT32, weight.grad().dtype());
+        }
+    }
+
+    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
+    void shortProductsAccumulateBeforeCompactRounding(DType dtype) {
+        Tensor weight = Tensor.ones(dtype, 256, 256);
+        for (int rows : new int[]{2, 17, 33, 63}) {
+            float[] values = new float[rows * 256];
+            for (int row = 0; row < rows; row++) {
+                values[row * 256] = 4096;
+                values[row * 256 + 1] = 1;
+                values[row * 256 + 2] = -4096;
+            }
+            constant(Tensor.from(values, dtype, rows, 256).matmul(weight), 1);
+        }
+    }
+
     private static void constant(Tensor value, float expected) {
         for (float actual : value.toFloatArray()) { assertEquals(expected, actual); }
     }

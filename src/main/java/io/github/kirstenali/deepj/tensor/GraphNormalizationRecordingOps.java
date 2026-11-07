@@ -15,12 +15,24 @@ abstract class GraphNormalizationRecordingOps extends GraphIndexRecordingOps {
         GpuBuffer[] values = storageBuffers(sources);
         var result = new NormalizationResult(output(dtype, input.shape()), output(DType.FLOAT32, input.shape()),
                 output(DType.FLOAT32, NormalizationChecks.statisticsShape(input)));
-        normalizeCommand(sources, values, result, epsilon, centered);
+        normalizeCommand(sources, values, result, epsilon, centered, true);
+        return result;
+    }
+
+    public Tensor layoutNormalizeInference(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
+        NormalizationChecks.forward(input, gamma, beta, epsilon, centered);
+        DType dtype = NormalizationChecks.outputType(input, gamma, beta, centered);
+        if (input.numel() == 0) return Tensor.deviceOnly(dtype, input.shape());
+        requireLayoutSupport();
+        Tensor[] sources = {input, gamma, centered ? beta : gamma};
+        GpuBuffer[] values = storageBuffers(sources);
+        Tensor result = output(dtype, input.shape());
+        normalizeCommand(sources, values, new NormalizationResult(result, result, result), epsilon, centered, false);
         return result;
     }
 
     private void normalizeCommand(Tensor[] sources, GpuBuffer[] values, NormalizationResult result,
-                                  float epsilon, boolean centered) {
+                                  float epsilon, boolean centered, boolean statistics) {
         int[] offsets = layoutOffsets(sources);
         beginOp(12);
         emitInt(OP_LAYOUT_NORMALIZE);
@@ -30,7 +42,7 @@ abstract class GraphNormalizationRecordingOps extends GraphIndexRecordingOps {
         emitStorageBuffer((GpuBuffer) result.denominator().getGpuTag());
         for (int offset : offsets) { emitInt(offset); }
         emitFloatBits(epsilon);
-        emitInt(centered ? 1 : 0);
+        emitInt((centered ? 1 : 0) | (statistics ? 0 : 2));
         endOp();
     }
 

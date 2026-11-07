@@ -43,7 +43,9 @@ Start the desktop app and choose **Open video model folder…** from the model m
 SANA-Video snapshot, then describe a scene and its movement in the composer. The settings chip opens
 resolution, frame count, sampling steps, FPS, seed, guidance, and precision controls.
 FP32 is the default. FP16/BF16 select compact Gemma and video-denoiser execution;
-the sampler and Wan frame decoder continue to use FP32.
+the sampler and Wan frame decoder continue to use FP32. The published
+[Diffusers example](https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/sana_video/pipeline_sana_video.py)
+also combines a BF16 text encoder/denoiser with an FP32 Wan decoder; its sampler keeps FP32 latent state.
 
 The resolution menu also offers **192 × 128 · Test only** for execution checks.
 Its output does not establish full-resolution video quality.

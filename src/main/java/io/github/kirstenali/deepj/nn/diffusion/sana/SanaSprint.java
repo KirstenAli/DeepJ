@@ -55,7 +55,7 @@ public final class SanaSprint {
             ModelMemory.checkCancelled();
             PromptFeatures features = encode(prompt);
             Tensor latent = sample(features, options);
-            return decode(latent);
+            return decode(latent, options.dtype());
         } finally {
             Tensor.backend().releaseTemporaryResources();
         }
@@ -107,13 +107,13 @@ public final class SanaSprint {
         }
     }
 
-    private BufferedImage decode(Tensor latent) throws IOException {
+    private BufferedImage decode(Tensor latent, DType dtype) throws IOException {
         stage("Decoding image with DC-AE");
         Path stage = directory.resolve("vae");
         var config = new HuggingFaceConfig(stage.resolve("config.json"));
-        try (var scope = TensorScope.open(); var weights = TensorWeights.open(stage, DType.FLOAT32)) {
+        try (var scope = TensorScope.open(); var weights = TensorWeights.open(stage, dtype)) {
             var decoder = new DcAeDecoder(stage.resolve("config.json"), weights);
-            return SanaImages.rgb(decoder.forward(latent.divideScalar(config.decimal("scaling_factor"))));
+            return SanaImages.rgb(decoder.forward(latent.to(dtype).divideScalar(config.decimal("scaling_factor"))));
         }
     }
 

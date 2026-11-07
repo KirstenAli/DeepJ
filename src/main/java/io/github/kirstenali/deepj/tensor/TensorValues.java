@@ -43,6 +43,7 @@ final class TensorValues {
 
     static float[] toFloatArray(TensorStorageAccess tensor) {
         tensor.materialize();
+        if (tensor.layout().contiguous()) return tensor.memory().copyFloats(tensor.layout().offset(), tensor.numel());
         float[] result = new float[tensor.numel()];
         for (int index = 0; index < result.length; index++) {
             result[index] = tensor.memory().get(tensor.layout().addressAt(index));

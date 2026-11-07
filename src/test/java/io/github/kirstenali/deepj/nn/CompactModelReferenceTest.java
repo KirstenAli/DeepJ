@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.nn;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.diffusion.sana.SanaTransformer;
+import io.github.kirstenali.deepj.nn.diffusion.sana.DcAeDecoder;
 import io.github.kirstenali.deepj.nn.diffusion.sanavideo.SanaVideoTransformer;
 import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Backbone;
 import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Config;
@@ -50,6 +51,18 @@ class CompactModelReferenceTest {
                 var model = new SanaTransformer(ROOT.resolve("sana/transformer/config.json"), weights);
                 compare("sana", dtype, model.forward(fixture.tensor("transformer.input"),
                         fixture.tensor("transformer.text"), ids(fixture.tensor("transformer.mask")), .6f, 4.5f));
+            }
+        }
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"cpu", "metal"})
+    void imageDecoderMatchesDiffusersInTheSelectedCompactPrecision(String backend) throws Exception {
+        backend(backend);
+        for (DType dtype : TYPES) {
+            try (var weights = TensorWeights.open(ROOT.resolve("sana/vae"), dtype);
+                 var fixture = TensorWeights.open(ROOT.resolve("sana"), dtype); var ignored = GradMode.noGrad()) {
+                var model = new DcAeDecoder(ROOT.resolve("sana/vae/config.json"), weights);
+                compare("decoder", dtype, model.forward(fixture.tensor("vae2.input")));
             }
         }
     }

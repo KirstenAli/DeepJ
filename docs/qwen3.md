@@ -109,7 +109,8 @@ message objects are outside its input contract.
 `openGeneration()` supplies the existing generation-session contract with a KV cache. Sessions support batched
 prompt prefill, single-token continuation, and prompt resets. The `ContextWindowMode.ROLLING` overload retains a
 rolling cache with absolute rotary positions; the default rebuilds at the context boundary. Close sessions when
-finished. Cache capacity starts small and grows with the context, rebuilding the current prefix when necessary.
+finished. Cache capacity starts small and grows by copying existing keys and values; appended tokens do not
+recompute the previous prefix when capacity increases. Changed prompts and context-boundary rebuilds reset the cache.
 Updating weights or switching backends requires a new session. Qwen3 uses the same tensor-scope and
 single-threaded model/session ownership conventions as the existing decoder implementations.
 

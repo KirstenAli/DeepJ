@@ -3,9 +3,17 @@ package io.github.kirstenali.deepj.tensor.metal;
 import io.github.kirstenali.deepj.tensor.NormalizationChecks;
 import io.github.kirstenali.deepj.tensor.NormalizationResult;
 import io.github.kirstenali.deepj.tensor.Tensor;
+import io.github.kirstenali.deepj.tensor.InferenceNormalizationBackend;
+import io.github.kirstenali.deepj.autograd.GradMode;
 
 /** General normalization never falls back to CPU numerical evaluation. */
-abstract class MetalGeneralNormalizationOps extends MetalInPlaceOps {
+abstract class MetalGeneralNormalizationOps extends MetalInPlaceOps implements InferenceNormalizationBackend {
+    @Override
+    public Tensor normalizeForInference(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
+        if (GradMode.isEnabled()) throw new IllegalStateException("Inference normalization requires noGrad");
+        return graph.layoutNormalizeInference(input, gamma, beta, epsilon, centered);
+    }
+
     @Override
     public NormalizationResult normalize(Tensor input, Tensor gamma, Tensor beta, float epsilon, boolean centered) {
         NormalizationChecks.forward(input, gamma, beta, epsilon, centered);

@@ -43,7 +43,7 @@ In **FP32 tests on an Apple M4**, DeepJ delivered higher decode throughput and f
 | CPU training step (small Qwen) | **6.718 ms/step** | 9.016 ms/step |
 | Metal / MPS training step (small Qwen) | **4.113 ms/step** | 17.824 ms/step |
 
-[Qwen3-1.7B inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Small Qwen training measurements](docs/benchmarks/compact-cpu-metal-2026-11-07/REPORT.md#fp32-training-and-regression-controls) · [FP16/BF16 measurements](docs/benchmarks/compact-followup-2026-11-07/REPORT.md#full-qwen3-17b-inference)
+[Qwen3-1.7B inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Small Qwen training measurements](docs/benchmarks/compact-cpu-metal-2026-11-07/REPORT.md#fp32-training-and-regression-controls) · [FP16/BF16 measurements](docs/benchmarks/demo-compact-2026-11-07/REPORT.md)
 
 ## Install
 

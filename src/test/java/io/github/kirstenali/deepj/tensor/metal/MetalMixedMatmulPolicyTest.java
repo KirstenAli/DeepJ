@@ -13,7 +13,7 @@ class MetalMixedMatmulPolicyTest {
         boolean available = MetalNative.AVAILABLE && MetalNative.nativeSupportsCompactGraph();
         assertEquals(available, MetalCompactGraph.supports(right, right));
         assertEquals(available, MetalCompactGraph.supports(lazy(DType.BFLOAT16, 1, 256), right));
-        assertFalse(MetalCompactGraph.supports(lazy(DType.BFLOAT16, 63, 256), right));
+        assertEquals(available, MetalCompactGraph.supports(lazy(DType.BFLOAT16, 63, 256), right));
         assertFalse(MetalCompactGraph.supports(lazy(DType.FLOAT32, 256, 256), right));
         assertFalse(MetalCompactGraph.supports(right, lazy(DType.FLOAT32, 256, 256)));
         assertFalse(MetalCompactGraph.supports(lazy(DType.BFLOAT16, 256), right));

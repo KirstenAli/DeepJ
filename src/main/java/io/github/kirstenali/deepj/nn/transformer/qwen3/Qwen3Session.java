@@ -60,8 +60,16 @@ final class Qwen3Session implements GenerationSession {
 
     private boolean prepare(int[] tokens, boolean continuation) {
         if (continuation && tokens.length <= capacity) return true;
+        if (continuation) {
+            int target = (int) Math.min(model.config().maxSeqLen(), Math.max(tokens.length, 2L * capacity));
+            InferenceContext previous = cache;
+            cache = cache.grown(target);
+            previous.close();
+            capacity = target;
+            return true;
+        }
         reset();
-        long requested = continuation ? Math.max(tokens.length, 2L * capacity) : promptCapacity(tokens.length);
+        long requested = promptCapacity(tokens.length);
         capacity = (int) Math.min(model.config().maxSeqLen(), requested);
         cache = new InferenceContext(capacity, rolling);
         return false;

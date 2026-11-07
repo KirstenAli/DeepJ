@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class MetalCompactGraphTest extends MetalDifferentialTestSupport {
     @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
     void compactGraphsRespectOffsetsPaddingAndBothTransposes(DType type) {
-        for (int rows : new int[]{1, 64, 256}) {
+        for (int rows : new int[]{1, 2, 17, 33, 63, 64, 256}) {
             Tensor left = values(type, rows + 2, 259).slice(0, 1, rows + 1).slice(1, 1, 258);
             Tensor transposed = values(type, 257, rows).transpose(-2, -1);
             Tensor right = values(type, 259, 261).slice(0, 1, 258).slice(1, 1, 260);
