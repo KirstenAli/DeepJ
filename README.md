@@ -30,7 +30,7 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 | Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, Loop, Qwen3, and Gemma 2 for causal language modeling |
 | Diffusion models | SANA-Sprint 0.6B for text-to-image and [SANA-Video 2B](docs/sana-video.md) for text-to-video generation |
 
-## Serious inference speed, in Java
+## Fast inference and training, in Java
 
 Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an Apple M4**, CPU cached decoding was faster than PyTorch, CPU prompt processing was within 3%, and Metal was faster in both prompt processing and cached decoding than PyTorch MPS.
 
@@ -44,6 +44,29 @@ Qwen3-1.7B runs through DeepJ's own tensor backend. In short **FP32 tests on an 
 Both engines used FP32 weights, batch size one, a KV cache, a 64-token prompt and the same 16 fixed continuation tokens, with full logit readback and no sampling.
 
 [Measurements, setup and validation](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Individual trials](docs/benchmarks/full-qwen-2026-11-07/results.json)
+
+### Training step time
+
+Separate **FP32 training tests on the same Apple M4** measured complete steps, including forward, loss, backward, optimizer updates and synchronization. Lower milliseconds per step means faster training.
+
+For an FNN with 64 examples per step, MSE loss and AdamW, the two fresh-process medians were:
+
+| Backend | DeepJ (ms/step) | PyTorch (ms/step) |
+|---|---:|---:|
+| CPU | 1.526, 1.491 | **1.456, 1.445** |
+| Metal / MPS | **2.257, 1.248** | 2.591, 2.967 |
+
+DeepJ's Metal step times were lower in both runs; GPU timings varied between runs. [FNN setup and results](docs/benchmarks/shared-tensor-2026-11-06/REPORT.md#pytorch-reference).
+
+Small decoder configurations with width 256 and 64-token sequences also measured:
+
+| DeepJ model | CPU (ms/step) | Metal (ms/step) |
+|---|---:|---:|
+| Qwen | 11.500 | 3.962 |
+| Loop | 10.379 | 4.230 |
+| Prism | 9.688 | 4.590 |
+
+These steps include gradient clipping and AdamW. The training checks preserved identical loss sequences and final parameter/gradient hashes across the latest CPU optimization. [Training configurations and validation](docs/benchmarks/full-qwen-2026-11-07/REPORT.md#training-and-correctness-controls).
 
 ## Install
 
