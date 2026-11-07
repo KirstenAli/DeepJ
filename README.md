@@ -32,19 +32,27 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 
 ## Fast inference and training, in Java
 
-In **FP32 tests on an Apple M4**, DeepJ achieved higher decode throughput and lower training step times in the configurations below.
+In **Apple M4 tests**, DeepJ achieved higher **Qwen3-1.7B decode throughput** across **FP32, FP16 and BF16**, plus lower **FP32 training step times** for the small Qwen and Gemma configurations below.
 
-| Measurement | DeepJ | PyTorch |
-|---|---:|---:|
-| CPU cached decoding | **12.72 tokens/s** | 9.02 tokens/s |
-| CPU prompt processing | 292.8 ms | **286.5 ms** |
-| Metal / MPS cached decoding | **12.69 tokens/s** | 12.05 tokens/s |
-| Metal / MPS prompt processing | **119.7 ms** | 132.3 ms |
-| CPU training step (small Qwen) | **6.718 ms/step** | 9.016 ms/step |
-| CPU training step (small Gemma) | **7.163 ms/step** | 7.656 ms/step |
-| Metal / MPS training step (small Qwen) | **4.113 ms/step** | 17.824 ms/step |
-
-[Qwen3-1.7B inference measurements](docs/benchmarks/full-qwen-2026-11-07/REPORT.md) · [Small Qwen training measurements](docs/benchmarks/compact-cpu-metal-2026-11-07/REPORT.md#fp32-training-and-regression-controls) · [Small Gemma training measurements](docs/benchmarks/gemma-cpu-indexing-2026-11-07/REPORT.md) · [FP16/BF16 measurements](docs/benchmarks/demo-compact-2026-11-07/REPORT.md)
+| Measurement | Precision | DeepJ | PyTorch |
+|---|---|---:|---:|
+| CPU cached decoding | FP32 | **12.72 tokens/s** | 9.02 tokens/s |
+| CPU cached decoding | FP16 | **21.60 tokens/s** | 20.93 tokens/s |
+| CPU cached decoding | BF16 | **22.29 tokens/s** | 20.09 tokens/s |
+| CPU prompt processing | FP32 | 292.8 ms | **286.5 ms** |
+| CPU prompt processing | FP16 | **322.3 ms** | 707.9 ms |
+| CPU prompt processing | BF16 | **725.9 ms** | 1028.6 ms |
+| Metal / MPS cached decoding | FP32 | **12.69 tokens/s** | 12.05 tokens/s |
+| Metal / MPS cached decoding | FP16 | **24.00 tokens/s** | 23.48 tokens/s |
+| Metal / MPS cached decoding | BF16 | **24.02 tokens/s** | 23.63 tokens/s |
+| Metal / MPS prompt processing | FP32 | **119.7 ms** | 132.3 ms |
+| Metal / MPS prompt processing | FP16 | **104.7 ms** | 106.1 ms |
+| Metal / MPS prompt processing | BF16 | **104.2 ms** | 105.6 ms |
+| Metal / MPS streaming chat | FP16 | **22.93 tokens/s** | 22.40 tokens/s |
+| Metal / MPS streaming chat | BF16 | **23.08 tokens/s** | 22.61 tokens/s |
+| CPU training step (small Qwen) | FP32 | **6.718 ms/step** | 9.016 ms/step |
+| CPU training step (small Gemma) | FP32 | **7.163 ms/step** | 7.656 ms/step |
+| Metal / MPS training step (small Qwen) | FP32 | **4.113 ms/step** | 17.824 ms/step |
 
 ## Install
 
