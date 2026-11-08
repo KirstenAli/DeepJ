@@ -61,6 +61,35 @@ class ImageWorkspaceTest extends ChatDesktopTestSupport {
         }
     }
 
+    @Test void lateImageLoadsKeepEarlierResultsVisibleAndSaveable() throws Exception {
+        var fixture = open();
+        try (var state = attach(fixture, new Service(false))) {
+            state.load(temporary);
+            awaitScript(fixture, "!element('imageSettings').hidden && !element('prompt').disabled");
+            for (int count = 1; count <= 3; count++) {
+                generateImage(fixture, count);
+            }
+            verify(fixture, ImageWorkspaceTest::verifyEarlierResults);
+        }
+    }
+
+    private static void verifyEarlierResults(WebView view) {
+        script(view, "conversation.scrollTop=0;"
+                + "document.querySelector('.generated-image').dispatchEvent(new Event('load'));"
+                + "element('imageModeLabel').click()");
+        assertEquals(0, ((Number) script(view, "conversation.scrollTop")).intValue());
+        assertEquals(3, ((Number) script(view, "document.querySelectorAll('.image-save').length")).intValue());
+        assertEquals(true, script(view, "[...document.querySelectorAll('.generated-image')]"
+                + ".every(i=>i.complete && i.naturalWidth===1024)"));
+    }
+
+    private static void generateImage(Fixture fixture, int count) throws Exception {
+        verifyWithoutClosing(fixture, view -> script(view,
+                "imageBridge.generate('Image " + count + "',1024,1024,2," + count + ",4.5)"));
+        awaitScript(fixture, "document.querySelectorAll('.generated-image').length === " + count
+                + " && !element('prompt').disabled");
+    }
+
     @Test void pngSavingUsesTheExactEncodedBytesOnTheSaveWorker() throws Exception {
         CountDownLatch saved = new CountDownLatch(1);
         Path target = temporary.resolve("output.png");

@@ -76,9 +76,9 @@ java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
 
 For desktop chat, select `config.json` from the same folder in the model picker. See the [Qwen3 guide](docs/qwen3.md) for model details, pretrained loading, and training support.
 
-The desktop **Chat options** menu lets Qwen3 use **Thinking** and **Agent mode** together. The regular desktop app supports both, alongside image and video generation. [Try Agent mode](docs/agent-launchers.md).
+Qwen3 supports **Thinking** in the desktop UI and **Agent mode** in both the UI and CLI. [Try Agent mode](docs/agent-launchers.md).
 
-![Qwen3 using Thinking and Agent mode together in DeepJ](docs/qwen3-agent-thinking-ui.png)
+![Qwen3 using Thinking and Agent mode in DeepJ](docs/qwen3-agent-thinking-ui.png)
 
 ## Create images with SANA-Sprint
 

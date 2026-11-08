@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fixture, finish } from './fixture.mjs';
+import { fixture, finish, scrollAway } from './fixture.mjs';
 
 function images(context) {
   const ui = fixture(context);
@@ -104,6 +104,36 @@ test('finished image offers a single consistent save action for its own response
   response.querySelector('.image-save').click();
   image.dispatchEvent(new ui.window.Event('load'));
   assert.deepEqual(ui.calls, [['save', 5]]);
+});
+
+test('completing a later image keeps the reader on an earlier image', (context) => {
+  const ui = images(context);
+  ui.window.startImage('First image', 1);
+  ui.window.finishImage(1, 'data:image/png;base64,Zmlyc3Q=', 1024, 1024, 2, 1);
+  const first = ui.element('response-image-1').querySelector('img');
+  ui.window.startImage('Second image', 2);
+  scrollAway(ui);
+  ui.window.finishImage(2, 'data:image/png;base64,c2Vjb25k', 1024, 1024, 2, 2);
+  assert.equal(ui.element('conversation').scrollTop, 0);
+  assert.equal(ui.element('response-image-1').querySelector('img'), first);
+  assert.equal(ui.window.document.querySelectorAll('.generated-image').length, 2);
+});
+
+test('late image loads and clicking the Images label preserve the reading position', (context) => {
+  const ui = images(context);
+  ui.window.startImage('A fox', 1);
+  ui.window.finishImage(1, 'data:image/png;base64,Zm94', 1024, 1024, 2, 1);
+  const image = ui.element('response-image-1').querySelector('img');
+  scrollAway(ui);
+  image.dispatchEvent(new ui.window.Event('load'));
+  ui.click('imageModeLabel');
+  assert.equal(ui.element('conversation').scrollTop, 0);
+  assert.equal(ui.element('response-image-1').querySelector('img'), image);
+  ui.element('response-image-1').querySelector('.image-save').click();
+  assert.deepEqual(ui.calls, [['save', 1]]);
+  ui.element('conversation').scrollTop = 900;
+  image.dispatchEvent(new ui.window.Event('load'));
+  assert.equal(ui.element('conversation').scrollTop, 1000);
 });
 
 test('stopping, cancelling and failures keep the image card and composer coherent', (context) => {

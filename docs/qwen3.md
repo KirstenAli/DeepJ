@@ -94,7 +94,7 @@ to a maximum of 2,048 generated tokens; generation also respects the model's
 context window and end-of-sequence tokens.
 
 In the desktop chat app, choose `config.json` or a safetensors file through the model picker. Keep the configuration,
-tokenizer, index, and shards together in the snapshot directory. Thinking is off by default in both interfaces.
+tokenizer, index, and shards together in the snapshot directory. Desktop Thinking is off by default.
 In the desktop app, open **Chat options** beside the message field and enable **Thinking** to use Qwen3's thinking
 template, with or without Agent mode. The expandable **Thought process** appears above the answer in both modes.
 Agent mode includes reasoning across tool calls in the same panel; its tool approval flow is unchanged.

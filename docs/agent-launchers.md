@@ -38,6 +38,9 @@ java -Xmx3g --enable-native-access=ALL-UNNAMED -cp target/deepj-cli.jar \
   io.github.kirstenali.deepj.cli.AgentCli ./qwen3-1.7b --workdir . --backend metal --dtype bfloat16
 ```
 
+The CLI agent uses Qwen3's non-thinking mode. The desktop Thinking switch supports
+reasoning with tool calls.
+
 Use `--backend cpu` to run on CPU. In an interactive terminal, answer `y` to approve a
 requested command once. Enter defaults to denial. Use `/exit` to close the chat.
 

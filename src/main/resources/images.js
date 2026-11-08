@@ -124,6 +124,7 @@ function imageStage(message) {
 function finishImage(id, dataUrl, width, height, steps, seed) {
   const response = element('response-image-' + id);
   if (!response) return;
+  const follow = nearLatest();
   const content = response.querySelector('.message-content');
   response.classList.remove('pending');
   content.classList.add('image-card');
@@ -131,7 +132,7 @@ function finishImage(id, dataUrl, width, height, steps, seed) {
     imagePreview(dataUrl, width, height, response.dataset.imagePrompt),
     imageActions(id, width, height, steps, seed),
   );
-  followLatest();
+  if (follow) followLatest();
 }
 
 function imagePreview(dataUrl, width, height, prompt) {
@@ -140,7 +141,9 @@ function imagePreview(dataUrl, width, height, prompt) {
   image.alt = 'Generated image: ' + prompt;
   image.width = width;
   image.height = height;
-  image.onload = followLatest;
+  image.onload = () => {
+    if (nearLatest()) followLatest();
+  };
   image.src = dataUrl;
   return image;
 }
