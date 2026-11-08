@@ -4,6 +4,8 @@ import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class CpuStridedElementwiseTest {
@@ -38,6 +40,20 @@ class CpuStridedElementwiseTest {
         Tensor zero = Tensor.from(new float[]{0}, new int[0]);
         assertArrayEquals(new float[]{0, -3, 2, Float.NaN}, input.add(zero).toFloatArray());
         assertArrayEquals(new float[0], new Tensor(2, 0, 3).add(zero).toFloatArray());
+    }
+
+    @ParameterizedTest @EnumSource(DType.class)
+    void storagePairsBroadcastIntoPermutedOutputsWithoutIntermediateRounding(DType type) {
+        Tensor input = values(2, 17, 1025).to(type).permute(1, 0, 2);
+        for (DType other : DType.values()) {
+            Tensor row = values(1025).to(other);
+            DType promoted = DType.promote(type, other);
+            Tensor output = new Tensor(promoted, 2, 17, 1025).permute(1, 0, 2);
+            float[] expected = input.toFloatArray(), bias = row.toFloatArray();
+            for (int index = 0; index < expected.length; index++) { expected[index] -= bias[index % bias.length]; }
+            CpuNdElementwise.binaryInto(input, row, output, (left, right) -> left - right);
+            assertArrayEquals(Tensor.from(expected, promoted, expected.length).toFloatArray(), output.toFloatArray());
+        }
     }
 
     private static Tensor values(int... shape) {

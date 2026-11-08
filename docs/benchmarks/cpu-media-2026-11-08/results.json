@@ -1,0 +1,1806 @@
+{
+  "baseline_commit": "8eb703abe7570f8dd40d28e6a09da1b9d228afc8",
+  "threads": 10,
+  "environment": {
+    "engine": "PyTorch/Diffusers",
+    "torch": "2.8.0",
+    "transformers": "5.22.1",
+    "diffusers": "0.42.1",
+    "backend": "cpu",
+    "dtype": "FLOAT32",
+    "width": 64,
+    "height": 64,
+    "steps": 2,
+    "guidance": 4.5,
+    "stages": [
+      {
+        "stage": "Gemma load and encode",
+        "seconds": 17.954813415999524
+      },
+      {
+        "stage": "Transformer load and two steps",
+        "seconds": 9.66641616699053
+      },
+      {
+        "stage": "DC-AE load and decode",
+        "seconds": 2.6476295000175014
+      }
+    ],
+    "generation_seconds": 30.26905645802617
+  },
+  "timings": [
+    {
+      "kind": "image",
+      "dtype": "FLOAT32",
+      "final_deepj_seconds": 19.767996875,
+      "deepj_observations": [
+        {
+          "engine": "DeepJ",
+          "kind": "image",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "generation_seconds": 18.776604666,
+          "frames": 1,
+          "width": 64,
+          "height": 64,
+          "stages": [
+            {
+              "stage": "setup",
+              "seconds": 0.002028291,
+              "next": "Encoding prompt with Gemma 2",
+              "elapsed_seconds": 0.002028291
+            },
+            {
+              "stage": "Encoding prompt with Gemma 2",
+              "seconds": 14.496586709,
+              "next": "Loading SANA-Sprint transformer",
+              "elapsed_seconds": 14.498615
+            },
+            {
+              "stage": "Loading SANA-Sprint transformer",
+              "seconds": 0.006507666,
+              "next": "Denoising step 1/2",
+              "elapsed_seconds": 14.505122666
+            },
+            {
+              "stage": "Denoising step 1/2",
+              "seconds": 2.59256475,
+              "next": "Denoising step 2/2",
+              "elapsed_seconds": 17.097687416
+            },
+            {
+              "stage": "Denoising step 2/2",
+              "seconds": 0.410241417,
+              "next": "Decoding image with DC-AE",
+              "elapsed_seconds": 17.507928833
+            },
+            {
+              "stage": "Decoding image with DC-AE",
+              "seconds": 1.268582417,
+              "next": "complete",
+              "elapsed_seconds": 18.77651125
+            }
+          ]
+        },
+        {
+          "engine": "DeepJ",
+          "kind": "image",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "generation_seconds": 19.767996875,
+          "frames": 1,
+          "width": 64,
+          "height": 64,
+          "stages": [
+            {
+              "elapsed_seconds": 0.001812,
+              "stage": "setup",
+              "seconds": 0.001812,
+              "next": "Encoding prompt with Gemma 2"
+            },
+            {
+              "elapsed_seconds": 14.830542958,
+              "stage": "Encoding prompt with Gemma 2",
+              "seconds": 14.828730958,
+              "next": "Loading SANA-Sprint transformer"
+            },
+            {
+              "elapsed_seconds": 14.838255292,
+              "stage": "Loading SANA-Sprint transformer",
+              "seconds": 0.007712334,
+              "next": "Denoising step 1/2"
+            },
+            {
+              "elapsed_seconds": 17.86486725,
+              "stage": "Denoising step 1/2",
+              "seconds": 3.026611958,
+              "next": "Denoising step 2/2"
+            },
+            {
+              "elapsed_seconds": 18.294948458,
+              "stage": "Denoising step 2/2",
+              "seconds": 0.430081208,
+              "next": "Decoding image with DC-AE"
+            },
+            {
+              "elapsed_seconds": 19.767905875,
+              "stage": "Decoding image with DC-AE",
+              "seconds": 1.472957417,
+              "next": "complete"
+            }
+          ]
+        }
+      ],
+      "python_observations": [
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "width": 64,
+          "height": 64,
+          "steps": 2,
+          "guidance": 4.5,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 17.954813415999524
+            },
+            {
+              "stage": "Transformer load and two steps",
+              "seconds": 9.66641616699053
+            },
+            {
+              "stage": "DC-AE load and decode",
+              "seconds": 2.6476295000175014
+            }
+          ],
+          "generation_seconds": 30.26905645802617
+        },
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "width": 64,
+          "height": 64,
+          "steps": 2,
+          "guidance": 4.5,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 18.54985458299052
+            },
+            {
+              "stage": "Transformer load and two steps",
+              "seconds": 11.673004167038016
+            },
+            {
+              "stage": "DC-AE load and decode",
+              "seconds": 5.104489749995992
+            }
+          ],
+          "generation_seconds": 35.32853620901005
+        }
+      ],
+      "python_seconds": [
+        30.26905645802617,
+        35.32853620901005
+      ],
+      "python_summary_seconds": 32.79879633351811,
+      "python_method": "median of two complete generations"
+    },
+    {
+      "kind": "image",
+      "dtype": "FLOAT16",
+      "final_deepj_seconds": 19.5808605,
+      "deepj_observations": [
+        {
+          "engine": "DeepJ",
+          "kind": "image",
+          "backend": "cpu",
+          "dtype": "FLOAT16",
+          "generation_seconds": 19.058749542,
+          "frames": 1,
+          "width": 64,
+          "height": 64,
+          "stages": [
+            {
+              "next": "Encoding prompt with Gemma 2",
+              "elapsed_seconds": 0.003522375,
+              "stage": "setup",
+              "seconds": 0.003522375
+            },
+            {
+              "next": "Loading SANA-Sprint transformer",
+              "elapsed_seconds": 14.224945709,
+              "stage": "Encoding prompt with Gemma 2",
+              "seconds": 14.221423334
+            },
+            {
+              "next": "Denoising step 1/2",
+              "elapsed_seconds": 14.231931459,
+              "stage": "Loading SANA-Sprint transformer",
+              "seconds": 0.00698575
+            },
+            {
+              "next": "Denoising step 2/2",
+              "elapsed_seconds": 16.958128125,
+              "stage": "Denoising step 1/2",
+              "seconds": 2.726196666
+            },
+            {
+              "next": "Decoding image with DC-AE",
+              "elapsed_seconds": 17.510115042,
+              "stage": "Denoising step 2/2",
+              "seconds": 0.551986917
+            },
+            {
+              "next": "complete",
+              "elapsed_seconds": 19.058645417,
+              "stage": "Decoding image with DC-AE",
+              "seconds": 1.548530375
+            }
+          ]
+        },
+        {
+          "engine": "DeepJ",
+          "kind": "image",
+          "backend": "cpu",
+          "dtype": "FLOAT16",
+          "generation_seconds": 19.5808605,
+          "frames": 1,
+          "width": 64,
+          "height": 64,
+          "stages": [
+            {
+              "elapsed_seconds": 0.00177775,
+              "stage": "setup",
+              "seconds": 0.00177775,
+              "next": "Encoding prompt with Gemma 2"
+            },
+            {
+              "elapsed_seconds": 14.384289708,
+              "stage": "Encoding prompt with Gemma 2",
+              "seconds": 14.382511958,
+              "next": "Loading SANA-Sprint transformer"
+            },
+            {
+              "elapsed_seconds": 14.391648291,
+              "stage": "Loading SANA-Sprint transformer",
+              "seconds": 0.007358583,
+              "next": "Denoising step 1/2"
+            },
+            {
+              "elapsed_seconds": 17.411717916,
+              "stage": "Denoising step 1/2",
+              "seconds": 3.020069625,
+              "next": "Denoising step 2/2"
+            },
+            {
+              "elapsed_seconds": 17.967596291,
+              "stage": "Denoising step 2/2",
+              "seconds": 0.555878375,
+              "next": "Decoding image with DC-AE"
+            },
+            {
+              "elapsed_seconds": 19.580757,
+              "stage": "Decoding image with DC-AE",
+              "seconds": 1.613160709,
+              "next": "complete"
+            }
+          ]
+        }
+      ],
+      "python_observations": [
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "FLOAT16",
+          "width": 64,
+          "height": 64,
+          "steps": 2,
+          "guidance": 4.5,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 18.051308166002855
+            },
+            {
+              "stage": "Transformer load and two steps",
+              "seconds": 9.684904250025284
+            },
+            {
+              "stage": "DC-AE load and decode",
+              "seconds": 3.54119991697371
+            }
+          ],
+          "generation_seconds": 31.277622500027064
+        },
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "FLOAT16",
+          "width": 64,
+          "height": 64,
+          "steps": 2,
+          "guidance": 4.5,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 18.673622165981214
+            },
+            {
+              "stage": "Transformer load and two steps",
+              "seconds": 9.735870499978773
+            },
+            {
+              "stage": "DC-AE load and decode",
+              "seconds": 3.5272431669873185
+            }
+          ],
+          "generation_seconds": 31.93695933301933
+        }
+      ],
+      "python_seconds": [
+        31.277622500027064,
+        31.93695933301933
+      ],
+      "python_summary_seconds": 31.607290916523198,
+      "python_method": "median of two complete generations"
+    },
+    {
+      "kind": "image",
+      "dtype": "BFLOAT16",
+      "final_deepj_seconds": 19.440789292,
+      "deepj_observations": [
+        {
+          "engine": "DeepJ",
+          "kind": "image",
+          "backend": "cpu",
+          "dtype": "BFLOAT16",
+          "generation_seconds": 19.6628085,
+          "frames": 1,
+          "width": 64,
+          "height": 64,
+          "stages": [
+            {
+              "seconds": 0.002149792,
+              "stage": "setup",
+              "elapsed_seconds": 0.002149792,
+              "next": "Encoding prompt with Gemma 2"
+            },
+            {
+              "seconds": 14.625616542,
+              "stage": "Encoding prompt with Gemma 2",
+              "elapsed_seconds": 14.627766334,
+              "next": "Loading SANA-Sprint transformer"
+            },
+            {
+              "seconds": 0.006859166,
+              "stage": "Loading SANA-Sprint transformer",
+              "elapsed_seconds": 14.6346255,
+              "next": "Denoising step 1/2"
+            },
+            {
+              "seconds": 2.530641459,
+              "stage": "Denoising step 1/2",
+              "elapsed_seconds": 17.165266959,
+              "next": "Denoising step 2/2"
+            },
+            {
+              "seconds": 0.801599583,
+              "stage": "Denoising step 2/2",
+              "elapsed_seconds": 17.966866542,
+              "next": "Decoding image with DC-AE"
+            },
+            {
+              "seconds": 1.69584825,
+              "stage": "Decoding image with DC-AE",
+              "elapsed_seconds": 19.662714792,
+              "next": "complete"
+            }
+          ]
+        },
+        {
+          "engine": "DeepJ",
+          "kind": "image",
+          "backend": "cpu",
+          "dtype": "BFLOAT16",
+          "generation_seconds": 19.440789292,
+          "frames": 1,
+          "width": 64,
+          "height": 64,
+          "stages": [
+            {
+              "elapsed_seconds": 0.001740292,
+              "next": "Encoding prompt with Gemma 2",
+              "seconds": 0.001740292,
+              "stage": "setup"
+            },
+            {
+              "elapsed_seconds": 14.633859334,
+              "next": "Loading SANA-Sprint transformer",
+              "seconds": 14.632119042,
+              "stage": "Encoding prompt with Gemma 2"
+            },
+            {
+              "elapsed_seconds": 14.6409115,
+              "next": "Denoising step 1/2",
+              "seconds": 0.007052166,
+              "stage": "Loading SANA-Sprint transformer"
+            },
+            {
+              "elapsed_seconds": 17.079699375,
+              "next": "Denoising step 2/2",
+              "seconds": 2.438787875,
+              "stage": "Denoising step 1/2"
+            },
+            {
+              "elapsed_seconds": 17.807244667,
+              "next": "Decoding image with DC-AE",
+              "seconds": 0.727545292,
+              "stage": "Denoising step 2/2"
+            },
+            {
+              "elapsed_seconds": 19.44069075,
+              "next": "complete",
+              "seconds": 1.633446083,
+              "stage": "Decoding image with DC-AE"
+            }
+          ]
+        }
+      ],
+      "python_observations": [
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "BFLOAT16",
+          "width": 64,
+          "height": 64,
+          "steps": 2,
+          "guidance": 4.5,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 18.127893499971833
+            },
+            {
+              "stage": "Transformer load and two steps",
+              "seconds": 9.70987741695717
+            },
+            {
+              "stage": "DC-AE load and decode",
+              "seconds": 3.5409162919968367
+            }
+          ],
+          "generation_seconds": 31.378897375019733
+        },
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "BFLOAT16",
+          "width": 64,
+          "height": 64,
+          "steps": 2,
+          "guidance": 4.5,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 18.614617291954346
+            },
+            {
+              "stage": "Transformer load and two steps",
+              "seconds": 9.862514625012409
+            },
+            {
+              "stage": "DC-AE load and decode",
+              "seconds": 3.5673245830112137
+            }
+          ],
+          "generation_seconds": 32.04467387497425
+        }
+      ],
+      "python_seconds": [
+        31.378897375019733,
+        32.04467387497425
+      ],
+      "python_summary_seconds": 31.711785624996992,
+      "python_method": "median of two complete generations"
+    },
+    {
+      "kind": "video",
+      "dtype": "FLOAT32",
+      "final_deepj_seconds": 19.5721455,
+      "deepj_observations": [
+        {
+          "engine": "DeepJ",
+          "kind": "video",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "generation_seconds": 22.027878208,
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "stages": [
+            {
+              "seconds": 0.04345475,
+              "stage": "setup",
+              "elapsed_seconds": 0.04345475,
+              "next": "Encoding video prompt with Gemma 2"
+            },
+            {
+              "seconds": 13.467180958,
+              "stage": "Encoding video prompt with Gemma 2",
+              "elapsed_seconds": 13.510635708,
+              "next": "Loading SANA-Video transformer"
+            },
+            {
+              "seconds": 0.072975542,
+              "stage": "Loading SANA-Video transformer",
+              "elapsed_seconds": 13.58361125,
+              "next": "Video denoising step 1/1"
+            },
+            {
+              "seconds": 6.943069666,
+              "stage": "Video denoising step 1/1",
+              "elapsed_seconds": 20.526680916,
+              "next": "Decoding frames with Wan video VAE"
+            },
+            {
+              "seconds": 1.501081417,
+              "stage": "Decoding frames with Wan video VAE",
+              "elapsed_seconds": 22.027762333,
+              "next": "complete"
+            }
+          ]
+        },
+        {
+          "engine": "DeepJ",
+          "kind": "video",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "generation_seconds": 19.5721455,
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "stages": [
+            {
+              "seconds": 0.02779,
+              "stage": "setup",
+              "elapsed_seconds": 0.02779,
+              "next": "Encoding video prompt with Gemma 2"
+            },
+            {
+              "seconds": 13.328962041,
+              "stage": "Encoding video prompt with Gemma 2",
+              "elapsed_seconds": 13.356752041,
+              "next": "Loading SANA-Video transformer"
+            },
+            {
+              "seconds": 0.073697834,
+              "stage": "Loading SANA-Video transformer",
+              "elapsed_seconds": 13.430449875,
+              "next": "Video denoising step 1/1"
+            },
+            {
+              "seconds": 4.809589375,
+              "stage": "Video denoising step 1/1",
+              "elapsed_seconds": 18.24003925,
+              "next": "Decoding frames with Wan video VAE"
+            },
+            {
+              "seconds": 1.331720583,
+              "stage": "Decoding frames with Wan video VAE",
+              "elapsed_seconds": 19.571759833,
+              "next": "complete"
+            }
+          ]
+        }
+      ],
+      "python_observations": [
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "steps": 1,
+          "guidance": 6,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 12.026926624996122,
+              "load_seconds": 0.013481958012562245
+            },
+            {
+              "stage": "Transformer load and one guided step",
+              "seconds": 21.910355583007913,
+              "load_seconds": 0.21504487498896196
+            },
+            {
+              "stage": "Wan load and decode",
+              "seconds": 1.052954957995098,
+              "load_seconds": 0.023802958021406084
+            }
+          ],
+          "generation_seconds": 34.99088433297584,
+          "guidance_batch": 2,
+          "caption_batch": 2,
+          "vae_dtype": "FLOAT32",
+          "sampler_dtype": "FLOAT32",
+          "scheduler_device": "cpu",
+          "gemma_weights": "streamed",
+          "fp16_stability": "upstream"
+        },
+        {
+          "engine": "PyTorch/Diffusers",
+          "torch": "2.8.0",
+          "transformers": "5.22.1",
+          "diffusers": "0.42.1",
+          "backend": "cpu",
+          "dtype": "FLOAT32",
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "steps": 1,
+          "guidance": 6,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 12.572971000045072,
+              "load_seconds": 0.021813791012391448
+            },
+            {
+              "stage": "Transformer load and one guided step",
+              "seconds": 22.47675666696159,
+              "load_seconds": 0.09829008398810402
+            },
+            {
+              "stage": "Wan load and decode",
+              "seconds": 1.0791982089867815,
+              "load_seconds": 0.023488833976443857
+            }
+          ],
+          "generation_seconds": 36.13147495803423,
+          "guidance_batch": 2,
+          "caption_batch": 2,
+          "vae_dtype": "FLOAT32",
+          "sampler_dtype": "FLOAT32",
+          "scheduler_device": "cpu",
+          "gemma_weights": "streamed",
+          "fp16_stability": "upstream"
+        }
+      ],
+      "python_seconds": [
+        34.99088433297584,
+        36.13147495803423
+      ],
+      "python_summary_seconds": 35.561179645505035,
+      "python_method": "median of two complete generations"
+    },
+    {
+      "kind": "video",
+      "dtype": "FLOAT16",
+      "final_deepj_seconds": 27.093388458,
+      "deepj_observations": [
+        {
+          "engine": "DeepJ",
+          "kind": "video",
+          "backend": "cpu",
+          "dtype": "FLOAT16",
+          "generation_seconds": 26.031245459,
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "stages": [
+            {
+              "stage": "setup",
+              "seconds": 0.026688792,
+              "next": "Encoding video prompt with Gemma 2",
+              "elapsed_seconds": 0.026688792
+            },
+            {
+              "stage": "Encoding video prompt with Gemma 2",
+              "seconds": 18.478535833,
+              "next": "Loading SANA-Video transformer",
+              "elapsed_seconds": 18.505224625
+            },
+            {
+              "stage": "Loading SANA-Video transformer",
+              "seconds": 0.086207209,
+              "next": "Video denoising step 1/1",
+              "elapsed_seconds": 18.591431834
+            },
+            {
+              "stage": "Video denoising step 1/1",
+              "seconds": 6.078586,
+              "next": "Decoding frames with Wan video VAE",
+              "elapsed_seconds": 24.670017834
+            },
+            {
+              "stage": "Decoding frames with Wan video VAE",
+              "seconds": 1.361118875,
+              "next": "complete",
+              "elapsed_seconds": 26.031136709
+            }
+          ]
+        },
+        {
+          "engine": "DeepJ",
+          "kind": "video",
+          "backend": "cpu",
+          "dtype": "FLOAT16",
+          "generation_seconds": 27.093388458,
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "stages": [
+            {
+              "next": "Encoding video prompt with Gemma 2",
+              "elapsed_seconds": 0.029727792,
+              "stage": "setup",
+              "seconds": 0.029727792
+            },
+            {
+              "next": "Loading SANA-Video transformer",
+              "elapsed_seconds": 19.114698042,
+              "stage": "Encoding video prompt with Gemma 2",
+              "seconds": 19.08497025
+            },
+            {
+              "next": "Video denoising step 1/1",
+              "elapsed_seconds": 19.205225417,
+              "stage": "Loading SANA-Video transformer",
+              "seconds": 0.090527375
+            },
+            {
+              "next": "Decoding frames with Wan video VAE",
+              "elapsed_seconds": 25.668222042,
+              "stage": "Video denoising step 1/1",
+              "seconds": 6.462996625
+            },
+            {
+              "next": "complete",
+              "elapsed_seconds": 27.09325625,
+              "stage": "Decoding frames with Wan video VAE",
+              "seconds": 1.425034208
+            }
+          ]
+        }
+      ],
+      "python_observations": [
+        {
+          "stage": "decode",
+          "seconds": 0.7610744999838062,
+          "stages": [
+            {
+              "stage": "Wan load and decode",
+              "seconds": 0.7608454169821925,
+              "load_seconds": 0.023469791980460286
+            }
+          ]
+        },
+        {
+          "stage": "diffusion",
+          "seconds": 21.141262666031253,
+          "stages": [
+            {
+              "stage": "Transformer load and one guided step",
+              "seconds": 21.137909749988467,
+              "load_seconds": 0.16872008400969207
+            }
+          ]
+        },
+        {
+          "stage": "text",
+          "seconds": 40.51381533301901,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 40.51265933300601,
+              "load_seconds": 0.013691250002011657
+            }
+          ]
+        }
+      ],
+      "python_seconds": [
+        62.41615249903407
+      ],
+      "python_summary_seconds": 62.41615249903407,
+      "python_method": "isolated stage sum"
+    },
+    {
+      "kind": "video",
+      "dtype": "BFLOAT16",
+      "final_deepj_seconds": 35.107752,
+      "deepj_observations": [
+        {
+          "engine": "DeepJ",
+          "kind": "video",
+          "backend": "cpu",
+          "dtype": "BFLOAT16",
+          "generation_seconds": 34.573538916,
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "stages": [
+            {
+              "stage": "setup",
+              "seconds": 0.027744875,
+              "next": "Encoding video prompt with Gemma 2",
+              "elapsed_seconds": 0.027744875
+            },
+            {
+              "stage": "Encoding video prompt with Gemma 2",
+              "seconds": 26.037237041,
+              "next": "Loading SANA-Video transformer",
+              "elapsed_seconds": 26.064981916
+            },
+            {
+              "stage": "Loading SANA-Video transformer",
+              "seconds": 0.071411542,
+              "next": "Video denoising step 1/1",
+              "elapsed_seconds": 26.136393458
+            },
+            {
+              "stage": "Video denoising step 1/1",
+              "seconds": 6.667503542,
+              "next": "Decoding frames with Wan video VAE",
+              "elapsed_seconds": 32.803897
+            },
+            {
+              "stage": "Decoding frames with Wan video VAE",
+              "seconds": 1.769482,
+              "next": "complete",
+              "elapsed_seconds": 34.573379
+            }
+          ]
+        },
+        {
+          "engine": "DeepJ",
+          "kind": "video",
+          "backend": "cpu",
+          "dtype": "BFLOAT16",
+          "generation_seconds": 35.107752,
+          "frames": 5,
+          "width": 32,
+          "height": 32,
+          "stages": [
+            {
+              "elapsed_seconds": 0.030253417,
+              "next": "Encoding video prompt with Gemma 2",
+              "seconds": 0.030253417,
+              "stage": "setup"
+            },
+            {
+              "elapsed_seconds": 27.438246959,
+              "next": "Loading SANA-Video transformer",
+              "seconds": 27.407993542,
+              "stage": "Encoding video prompt with Gemma 2"
+            },
+            {
+              "elapsed_seconds": 27.505186917,
+              "next": "Video denoising step 1/1",
+              "seconds": 0.066939958,
+              "stage": "Loading SANA-Video transformer"
+            },
+            {
+              "elapsed_seconds": 33.707245625,
+              "next": "Decoding frames with Wan video VAE",
+              "seconds": 6.202058708,
+              "stage": "Video denoising step 1/1"
+            },
+            {
+              "elapsed_seconds": 35.107634834,
+              "next": "complete",
+              "seconds": 1.400389209,
+              "stage": "Decoding frames with Wan video VAE"
+            }
+          ]
+        }
+      ],
+      "python_observations": [
+        {
+          "stage": "decode",
+          "seconds": 1.0159214999875985,
+          "stages": [
+            {
+              "stage": "Wan load and decode",
+              "seconds": 1.0157035000156611,
+              "load_seconds": 0.02420195803279057
+            }
+          ]
+        },
+        {
+          "stage": "diffusion",
+          "seconds": 20.285448499955237,
+          "stages": [
+            {
+              "stage": "Transformer load and one guided step",
+              "seconds": 20.279931625002064,
+              "load_seconds": 0.04539425001712516
+            }
+          ]
+        },
+        {
+          "stage": "text",
+          "seconds": 39.32014062500093,
+          "stages": [
+            {
+              "stage": "Gemma load and encode",
+              "seconds": 39.319024625001475,
+              "load_seconds": 0.014379500003997236
+            }
+          ]
+        }
+      ],
+      "python_seconds": [
+        60.62151062494377
+      ],
+      "python_summary_seconds": 60.62151062494377,
+      "python_method": "isolated stage sum"
+    }
+  ],
+  "photos": [
+    {
+      "dtype": "FLOAT32",
+      "baseline": {
+        "mean": 0.0,
+        "maximum": 0,
+        "p99": 0.0,
+        "identical": true
+      },
+      "python": {
+        "mean": 21.162923177083332,
+        "maximum": 254,
+        "p99": 157.0,
+        "identical": false
+      },
+      "same_features": {
+        "mean": 0.007161458333333333,
+        "maximum": 1,
+        "p99": 0.0,
+        "identical": false
+      },
+      "python_text_control": {
+        "mean": 17.857421875,
+        "maximum": 238,
+        "p99": 145.1299999999992,
+        "identical": false
+      },
+      "python_rounding_control": {
+        "mean": 0.0146484375,
+        "maximum": 1,
+        "p99": 1.0,
+        "identical": false
+      },
+      "versus_rounding_control": {
+        "mean": 0.008138020833333334,
+        "maximum": 1,
+        "p99": 0.0,
+        "identical": false
+      }
+    },
+    {
+      "dtype": "FLOAT16",
+      "baseline": {
+        "mean": 0.0,
+        "maximum": 0,
+        "p99": 0.0,
+        "identical": true
+      },
+      "python": {
+        "mean": 21.021565755208332,
+        "maximum": 234,
+        "p99": 140.1299999999992,
+        "identical": false
+      },
+      "same_features": {
+        "mean": 13.097737630208334,
+        "maximum": 229,
+        "p99": 105.0,
+        "identical": false
+      },
+      "python_text_control": {
+        "mean": 17.721354166666668,
+        "maximum": 213,
+        "p99": 142.0,
+        "identical": false
+      },
+      "python_rounding_control": {
+        "mean": 22.121988932291668,
+        "maximum": 238,
+        "p99": 152.0,
+        "identical": false
+      },
+      "versus_rounding_control": {
+        "mean": 20.698567708333332,
+        "maximum": 223,
+        "p99": 133.0,
+        "identical": false
+      }
+    },
+    {
+      "dtype": "BFLOAT16",
+      "baseline": {
+        "mean": 0.0,
+        "maximum": 0,
+        "p99": 0.0,
+        "identical": true
+      },
+      "python": {
+        "mean": 15.686604817708334,
+        "maximum": 235,
+        "p99": 119.0,
+        "identical": false
+      },
+      "same_features": {
+        "mean": 15.69873046875,
+        "maximum": 243,
+        "p99": 122.1299999999992,
+        "identical": false
+      },
+      "python_text_control": {
+        "mean": 16.366780598958332,
+        "maximum": 243,
+        "p99": 130.0,
+        "identical": false
+      },
+      "python_rounding_control": {
+        "mean": 18.555501302083332,
+        "maximum": 255,
+        "p99": 129.0,
+        "identical": false
+      },
+      "versus_rounding_control": {
+        "mean": 14.550130208333334,
+        "maximum": 238,
+        "p99": 124.0,
+        "identical": false
+      }
+    }
+  ],
+  "videos": [
+    {
+      "dtype": "FLOAT32",
+      "python": {
+        "mean": 0.0001953125,
+        "maximum": 1,
+        "p99": 0.0,
+        "identical": false
+      },
+      "baseline": {
+        "mean": 0.0,
+        "maximum": 0,
+        "p99": 0.0,
+        "identical": true
+      },
+      "latent_identical": true,
+      "same_features": {
+        "mean": 0.0001953125,
+        "maximum": 1,
+        "p99": 0.0,
+        "identical": false
+      }
+    },
+    {
+      "dtype": "FLOAT16",
+      "python": {
+        "mean": 0.12805989583333333,
+        "maximum": 1,
+        "p99": 1.0,
+        "identical": false
+      },
+      "baseline": {
+        "mean": 0.0,
+        "maximum": 0,
+        "p99": 0.0,
+        "identical": true
+      },
+      "latent_identical": true,
+      "same_features": {
+        "mean": 0.15696614583333332,
+        "maximum": 1,
+        "p99": 1.0,
+        "identical": false
+      }
+    },
+    {
+      "dtype": "BFLOAT16",
+      "python": {
+        "mean": 2.07890625,
+        "maximum": 15,
+        "p99": 9.0,
+        "identical": false
+      },
+      "baseline": {
+        "mean": 0.0,
+        "maximum": 0,
+        "p99": 0.0,
+        "identical": true
+      },
+      "latent_identical": true,
+      "same_features": {
+        "mean": 1.7025390625,
+        "maximum": 16,
+        "p99": 8.0,
+        "identical": false
+      },
+      "python_rounding_control": {
+        "mean": 1.6384114583333333,
+        "maximum": 14,
+        "p99": 8.0,
+        "identical": false
+      },
+      "versus_rounding_control": {
+        "mean": 1.3686848958333333,
+        "maximum": 11,
+        "p99": 5.0,
+        "identical": false
+      }
+    }
+  ],
+  "training": [
+    {
+      "model": "qwen",
+      "dtype": "FLOAT32",
+      "losses_equal": true,
+      "tensors_equal": {
+        "gradients.safetensors": true,
+        "logits.safetensors": true,
+        "weights.safetensors": true
+      }
+    },
+    {
+      "model": "qwen",
+      "dtype": "FLOAT16",
+      "losses_equal": true,
+      "tensors_equal": {
+        "gradients.safetensors": true,
+        "logits.safetensors": true,
+        "weights.safetensors": true,
+        "masters.safetensors": true
+      }
+    },
+    {
+      "model": "qwen",
+      "dtype": "BFLOAT16",
+      "losses_equal": true,
+      "tensors_equal": {
+        "gradients.safetensors": true,
+        "logits.safetensors": true,
+        "weights.safetensors": true,
+        "masters.safetensors": true
+      }
+    },
+    {
+      "model": "gemma",
+      "dtype": "FLOAT32",
+      "losses_equal": true,
+      "tensors_equal": {
+        "gradients.safetensors": true,
+        "logits.safetensors": true,
+        "weights.safetensors": true
+      }
+    },
+    {
+      "model": "gemma",
+      "dtype": "FLOAT16",
+      "losses_equal": true,
+      "tensors_equal": {
+        "gradients.safetensors": true,
+        "logits.safetensors": true,
+        "weights.safetensors": true,
+        "masters.safetensors": true
+      }
+    },
+    {
+      "model": "gemma",
+      "dtype": "BFLOAT16",
+      "losses_equal": true,
+      "tensors_equal": {
+        "gradients.safetensors": true,
+        "logits.safetensors": true,
+        "weights.safetensors": true,
+        "masters.safetensors": true
+      }
+    },
+    {
+      "model": "loop",
+      "dtype": "FLOAT32",
+      "steps": 101,
+      "losses_equal": true,
+      "parameters_equal": true,
+      "gradients_equal": true,
+      "baseline_ms": 3.022708,
+      "candidate_ms": 2.97125
+    },
+    {
+      "model": "prism",
+      "dtype": "FLOAT32",
+      "steps": 101,
+      "losses_equal": true,
+      "parameters_equal": true,
+      "gradients_equal": true,
+      "baseline_ms": 1.786791,
+      "candidate_ms": 1.78425
+    },
+    {
+      "model": "qwen",
+      "dtype": "FLOAT32",
+      "steps": 101,
+      "losses_equal": true,
+      "parameters_equal": true,
+      "gradients_equal": true,
+      "baseline_ms": 1.613834,
+      "candidate_ms": 1.59075
+    }
+  ],
+  "guards": {
+    "accepted": [
+      {
+        "file": "baseline-image-BFLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 32.398697791970335,
+        "peak_rss_kib": 5481792.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "baseline-image-BFLOAT16-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 36.41240166599164,
+        "peak_rss_kib": 4467440.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "baseline-image-FLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 34.402045833005104,
+        "peak_rss_kib": 5526352.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "baseline-image-FLOAT16-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 36.406445375003386,
+        "peak_rss_kib": 4466096.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "baseline-image-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 35.42166279198136,
+        "peak_rss_kib": 5518080.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "baseline-image-FLOAT32-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 35.409835166996345,
+        "peak_rss_kib": 4470368.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "baseline-video-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 41.47434787498787,
+        "peak_rss_kib": 7663232.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "baseline-video-FLOAT32-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 40.41749970795354,
+        "peak_rss_kib": 3810000.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-image-BFLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 20.33695304201683,
+        "peak_rss_kib": 5764096.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-image-BFLOAT16-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 37.44468958303332,
+        "peak_rss_kib": 4470496.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-image-FLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 20.272102874994744,
+        "peak_rss_kib": 5202016.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-image-FLOAT16-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 37.42445291701006,
+        "peak_rss_kib": 4497264.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-image-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 19.30597470898647,
+        "peak_rss_kib": 5757744.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-image-FLOAT32-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 40.39284933300223,
+        "peak_rss_kib": 4471728.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-video-BFLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 35.50869295903249,
+        "peak_rss_kib": 7025408.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-video-FLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 27.378500874969177,
+        "peak_rss_kib": 6575040.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-video-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 23.29659395897761,
+        "peak_rss_kib": 6009184.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate1-video-FLOAT32-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 41.40399483399233,
+        "peak_rss_kib": 3817312.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate2-image-BFLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 20.298099832958542,
+        "peak_rss_kib": 5218992.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate2-image-FLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 20.3074239170528,
+        "peak_rss_kib": 5721168.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate2-image-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 20.27519175002817,
+        "peak_rss_kib": 5621568.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate2-video-BFLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 35.643137749983,
+        "peak_rss_kib": 6473616.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate2-video-FLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 28.403308458044194,
+        "peak_rss_kib": 6315120.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "candidate2-video-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 20.270555624971166,
+        "peak_rss_kib": 6009104.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "diagnostic-image-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 28.299882417020854,
+        "peak_rss_kib": 5602368.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-BFLOAT16-alternate-text-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.176297041005455,
+        "peak_rss_kib": 2176528.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-BFLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 4.054443209024612,
+        "peak_rss_kib": 2875072.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-BFLOAT16-same-text-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.169092416996136,
+        "peak_rss_kib": 2184224.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-BFLOAT16-split-bias-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.17159941699356,
+        "peak_rss_kib": 2178640.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT16-alternate-text-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.169066708011087,
+        "peak_rss_kib": 2819488.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT16-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 4.053330208000261,
+        "peak_rss_kib": 3642208.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT16-same-text-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 18.175810750050005,
+        "peak_rss_kib": 2673904.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT16-split-bias-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.173088832991198,
+        "peak_rss_kib": 2841952.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT32-alternate-text-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.16533950000303,
+        "peak_rss_kib": 3826448.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT32-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 5.0599550000042655,
+        "peak_rss_kib": 5481504.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT32-same-text-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.173298834008165,
+        "peak_rss_kib": 3831984.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-image-FLOAT32-split-bias-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.169391833012924,
+        "peak_rss_kib": 3831440.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-video-BFLOAT16-baseline.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 9.101325416006148,
+        "peak_rss_kib": 4365408.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-video-BFLOAT16-candidate.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 7.087517707957886,
+        "peak_rss_kib": 4350592.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-video-FLOAT16-baseline.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 20.20741175004514,
+        "peak_rss_kib": 4045680.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-video-FLOAT16-candidate.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 8.103170374990441,
+        "peak_rss_kib": 4049920.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-video-FLOAT32-baseline.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 16.174468499957584,
+        "peak_rss_kib": 3861536.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "replay-video-FLOAT32-candidate.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 6.075127416988835,
+        "peak_rss_kib": 4040800.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "split-video-BFLOAT16-python/decode.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 6.071848999999929,
+        "peak_rss_kib": 808352.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "split-video-BFLOAT16-python/diffusion.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 25.261494375008624,
+        "peak_rss_kib": 762336.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "split-video-BFLOAT16-python/text.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 44.510174875031225,
+        "peak_rss_kib": 735440.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "split-video-FLOAT16-python/decode.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 5.048247208993416,
+        "peak_rss_kib": 815904.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "split-video-FLOAT16-python/diffusion.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 26.255380374961533,
+        "peak_rss_kib": 848672.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "split-video-FLOAT16-python/text.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 45.552801957994234,
+        "peak_rss_kib": 2654416.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "split-video-FLOAT32-python/text.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 17.163846875017043,
+        "peak_rss_kib": 3810192.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "text-deepj.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 16.298465582949575,
+        "peak_rss_kib": 5579504.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "text-python.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 23.24693241697969,
+        "peak_rss_kib": 4470960.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "video-BFLOAT16-split-bias-python/decode.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 5.059034874953795,
+        "peak_rss_kib": 794208.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      },
+      {
+        "file": "video-BFLOAT16-split-bias-python/diffusion.metrics.json",
+        "returncode": 0,
+        "elapsed_seconds": 22.219095999957062,
+        "peak_rss_kib": 768144.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": null
+      }
+    ],
+    "excluded": [
+      {
+        "file": "baseline-video-FLOAT16-deepj.metrics.json",
+        "returncode": 143,
+        "elapsed_seconds": 61.09161908301758,
+        "peak_rss_kib": 7870256.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": "time limit"
+      },
+      {
+        "file": "candidate1-video-BFLOAT16-python.metrics.json",
+        "returncode": -15,
+        "elapsed_seconds": 60.74745695805177,
+        "peak_rss_kib": 906592.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": "time limit"
+      },
+      {
+        "file": "candidate1-video-FLOAT16-python.metrics.json",
+        "returncode": -15,
+        "elapsed_seconds": 60.77110258297762,
+        "peak_rss_kib": 2661504.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": "time limit"
+      },
+      {
+        "file": "diagnostic-video-FLOAT16-deepj.metrics.json",
+        "returncode": 143,
+        "elapsed_seconds": 60.8758305410156,
+        "peak_rss_kib": 5777584.0,
+        "swap_out_before_mib": 31708.953125,
+        "swap_out_after_mib": 31708.953125,
+        "stopped_for": "time limit"
+      },
+      {
+        "file": "pilot-image-FLOAT32-deepj.metrics.json",
+        "returncode": 143,
+        "elapsed_seconds": 23.537442874978296,
+        "peak_rss_kib": 4244992.0,
+        "swap_out_before_mib": 31389.015625,
+        "swap_out_after_mib": 31514.203125,
+        "stopped_for": "swap growth limit"
+      },
+      {
+        "file": "undersized-heap-image-FLOAT32-deepj.metrics.json",
+        "returncode": 1,
+        "elapsed_seconds": 24.31470641697524,
+        "peak_rss_kib": 4574640.0,
+        "swap_out_before_mib": 31183.9375,
+        "swap_out_after_mib": 31183.9375,
+        "stopped_for": null
+      }
+    ]
+  }
+}
