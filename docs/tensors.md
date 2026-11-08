@@ -90,6 +90,8 @@ dtype promotion, so a FLOAT32 norm gain can widen a compact activation.
 The activation policy is a construction option, not a field in weight archives or
 training checkpoints. Restore into a model constructed with the same factory policy.
 Automatic DeepJ model loading retains the established FLOAT32 embedding-output policy.
+Qwen chat loading instead follows the checkpoint's parameter and activation dtype by default;
+explicit chat dtype options override both.
 
 On supported Apple Silicon CPUs, compact matrix-vector products read two-byte weights
 directly with SIMD and accumulate in FLOAT32. Eligible FP16 matrix-matrix products

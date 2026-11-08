@@ -44,6 +44,21 @@ class Qwen3MetalTest {
         Qwen3CompactTest.compareReference(dtype);
     }
 
+    @ParameterizedTest @EnumSource(DType.class)
+    void defaultChatPrecisionFollowsTheCheckpointOnMetal(DType dtype) throws IOException {
+        Path snapshot = Qwen3ChatFixture.createUniform(directory.resolve("chat"), dtype);
+        var chat = Qwen3ChatModel.load(snapshot);
+        try (var ignored = GradMode.noGrad(); var session = chat.model().openGeneration()) {
+            for (int[] tokens : new int[][]{{1, 10}, {1, 10, 120}}) {
+                Tensor output = session.apply(tokens);
+                assertEquals(dtype, output.dtype());
+                assertNotNull(output.getGpuTag());
+                assertArrayEquals(chat.model().forward(tokens).select(0, tokens.length - 1).toFloatArray(),
+                        output.toFloatArray(), 0.002f);
+            }
+        }
+    }
+
     @ParameterizedTest @ValueSource(strings = {"float32", "float16", "bfloat16"})
     void officialReferenceLogitsGradientsAndCachedDecodingRunOnMetal(String dtype) throws IOException {
         Qwen3 model = Qwen3Pretrained.load(Qwen3Fixtures.path(dtype));

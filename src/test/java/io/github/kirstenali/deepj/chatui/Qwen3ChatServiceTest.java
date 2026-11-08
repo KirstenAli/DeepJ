@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class Qwen3ChatServiceTest {
@@ -65,6 +66,20 @@ class Qwen3ChatServiceTest {
         } finally {
             if (previous == null) System.clearProperty(property);
             else System.setProperty(property, previous);
+        }
+    }
+
+    @ParameterizedTest @EnumSource(DType.class)
+    void desktopDefaultsToTheCheckpointWeightAndActivationPrecision(DType dtype) throws Exception {
+        Tensor.setBackend(new CpuBackend());
+        var snapshot = Qwen3ChatFixture.createUniform(directory.resolve("model"), dtype);
+        String property = "deepj.chat.qwen3.dtype", previous = System.clearProperty(property);
+        try (var ignored = io.github.kirstenali.deepj.autograd.GradMode.noGrad()) {
+            var chat = Qwen3ChatService.loadSnapshot(snapshot);
+            assertTrue(chat.model().parameters().stream().allMatch(weight -> weight.value.dtype() == dtype));
+            assertEquals(dtype, chat.model().forward(new int[]{1, 10}).dtype());
+        } finally {
+            if (previous != null) System.setProperty(property, previous);
         }
     }
 }

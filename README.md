@@ -55,7 +55,7 @@ Add DeepJ to your project:
 Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`, then start desktop chat on Apple Silicon with BF16 weights and activations:
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx3g -Ddeepj.chat.qwen3.dtype=bfloat16" mvn compile javafx:run
+JAVA_TOOL_OPTIONS="-Xmx3g" mvn compile javafx:run
 ```
 
 Select `config.json` in the model picker, then open **Chat options** for **Thinking** and **Agent mode**. See the [CLI instructions](docs/qwen3.md#cli-and-desktop-ui) and [Agent guide](docs/agent-launchers.md) for terminal commands.

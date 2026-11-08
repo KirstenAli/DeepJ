@@ -6,7 +6,7 @@ Other supported checkpoints open in regular chat.
 ## Desktop
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx3g -Ddeepj.chat.qwen3.dtype=bfloat16" mvn compile javafx:run
+JAVA_TOOL_OPTIONS="-Xmx3g" mvn compile javafx:run
 ```
 
 Choose the Qwen3 snapshot's `config.json` in the model picker. After the model loads, open
@@ -27,15 +27,15 @@ The regular desktop application includes Agent mode for Qwen3. The older
 Thinking both start off. Desktop and CLI responses allow up to 2,048 generated
 tokens by default, shared with reasoning when Thinking is enabled.
 
-The command selects BF16 weights and activations. FP16 and FP32 remain selectable
-through the Qwen dtype setting.
+Qwen chat follows the checkpoint precision by default: BF16 weights and activations
+for the official Qwen3-1.7B files. FP16 and FP32 remain selectable through the Qwen dtype setting.
 
 ## CLI
 
 ```bash
 mvn package -Pcli
 java -Xmx3g --enable-native-access=ALL-UNNAMED -cp target/deepj-cli.jar \
-  io.github.kirstenali.deepj.cli.AgentCli ./qwen3-1.7b --workdir . --backend metal --dtype bfloat16 --thinking
+  io.github.kirstenali.deepj.cli.AgentCli ./qwen3-1.7b --workdir . --backend metal --thinking
 ```
 
 Add `--thinking` to enable Qwen3 reasoning with tool calls. Reasoning streams before

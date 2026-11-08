@@ -33,6 +33,10 @@ The model works with the existing `CausalLMTraining`, differentiable losses, gra
 and data-parallel training APIs. Parameters require gradients; their gradient buffers are allocated when training
 needs them. FLOAT32 gradients and accumulation are retained with FLOAT16/BFLOAT16 parameter storage.
 
+New models default to FP32. Compact training is selected explicitly with a dtype or
+`ParameterFactory.uniform(dtype)`; gradients and optimizer state remain FP32. Chat loading
+follows the checkpoint's precision independently of these training construction options.
+
 The preset holds about 3.44 GB of parameters in BFLOAT16/FLOAT16, or 6.88 GB in FLOAT32.
 Training additionally allocates gradients, activations, and optimizer state. Loading uses bounded per-tensor staging.
 
@@ -70,24 +74,28 @@ The normal `deepj chat`, `deepj generate`, and `deepj inspect` commands accept a
 its `config.json`, or a safetensors weight/index file inside that directory. Existing backend and sampling flags
 apply. Inspection reads configuration and tensor metadata without constructing the model or selecting a backend.
 
-The recommended Metal command explicitly selects BF16 weights and activations:
+Chat uses the checkpoint dtype for weights and activations by default. The official
+Qwen3-1.7B checkpoint therefore uses BF16 without an additional precision flag:
 
 ```bash
 mvn package -Pcli
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
-  --backend metal chat ./qwen3-1.7b --dtype bfloat16
+  --backend metal chat ./qwen3-1.7b
 ```
 
-The option selects the in-memory format at load time. Explicit `float16` and
+Use `--dtype` to select a different in-memory format at load time. Explicit `float16` and
 `bfloat16` selections use compact activations and weights through the shared
 CPU/Metal kernels. `float32` remains available when FP32 execution is wanted.
-Omitting the dtype preserves checkpoint storage and the existing activation policy.
+Omitting the dtype preserves checkpoint storage and keeps embedding activations in that format.
+The lower-level `Qwen3Pretrained.load` overloads retain their established activation policy.
 For BF16 CPU chat, use `--backend cpu` with `-Xmx6g` so the weights fit in the Java heap.
+The [default-chat precision audit](benchmarks/precision-audit-2026-11-08/REPORT.md)
+records CPU/Metal measurements and checkpoint-loading controls.
 
 For desktop BF16 chat, Thinking and Agent mode, run:
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx3g -Ddeepj.chat.qwen3.dtype=bfloat16" mvn compile javafx:run
+JAVA_TOOL_OPTIONS="-Xmx3g" mvn compile javafx:run
 ```
 
 For CLI Thinking, add `--thinking` to `chat` or `generate`. During terminal chat,

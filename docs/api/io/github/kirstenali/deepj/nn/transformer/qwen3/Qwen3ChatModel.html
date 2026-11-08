@@ -146,7 +146,7 @@ loadScripts(document, 'script');</script>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#load(java.nio.file.Path,io.github.kirstenali.deepj.tensor.DType)" class="member-name-link">load</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;selection,
  <a href="../../../tensor/DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Explicit compact chat uses compact weights and activations; null preserves the checkpoint loading policy.</div>
+<div class="block">Chat preserves checkpoint weights and activations unless a different dtype is requested.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Qwen3.html" title="class in io.github.kirstenali.deepj.nn.transformer.qwen3">Qwen3</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#model()" class="member-name-link">model</a>()</code></div>
@@ -276,7 +276,7 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="Qwen3ChatModel.html" title="class in io.github.kirstenali.deepj.nn.transformer.qwen3">Qwen3ChatModel</a></span>&nbsp;<span class="element-name">load</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/nio/file/Path.html" title="class or interface in java.nio.file" class="external-link">Path</a>&nbsp;selection,
  <a href="../../../tensor/DType.html" title="enum class in io.github.kirstenali.deepj.tensor">DType</a>&nbsp;dtype)</span>
                            throws <span class="exceptions"><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/io/IOException.html" title="class or interface in java.io" class="external-link">IOException</a></span></div>
-<div class="block">Explicit compact chat uses compact weights and activations; null preserves the checkpoint loading policy.</div>
+<div class="block">Chat preserves checkpoint weights and activations unless a different dtype is requested.</div>
 <dl class="notes">
 <dt>Throws:</dt>
 <dd><code><a href="https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/io/IOException.html" title="class or interface in java.io" class="external-link">IOException</a></code></dd>

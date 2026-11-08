@@ -1,6 +1,7 @@
 package io.github.kirstenali.deepj.nn.transformer.qwen3;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
+import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorEncoding;
@@ -17,8 +18,16 @@ public final class Qwen3ChatFixture {
     }
 
     public static Path create(Path directory, DType dtype) throws IOException {
+        return create(directory, new ParameterFactory(dtype));
+    }
+
+    public static Path createUniform(Path directory, DType dtype) throws IOException {
+        return create(directory, ParameterFactory.uniform(dtype));
+    }
+
+    private static Path create(Path directory, ParameterFactory factory) throws IOException {
         var config = new Qwen3Config(263, 256, 12, 4, 2, 1, 20, 4, 1_000_000, 0.02f, 1);
-        Qwen3 model = new Qwen3(config, 4, dtype);
+        Qwen3 model = new Qwen3(config, 4, factory);
         try (var ignored = GradMode.noGrad()) {
             for (var parameter : model.parameters()) {
                 if (!parameter.name().endsWith(".gamma")) parameter.value.multiplyScalarInPlace(0);
@@ -26,7 +35,8 @@ public final class Qwen3ChatFixture {
             float[] embedding = new float[263 * 12];
             embedding[10 * 12] = 1;
             embedding[120 * 12] = 2;
-            TensorEncoding.restore(model.parameters().get(0).value, Tensor.from(embedding, dtype, 263, 12));
+            Tensor weight = model.parameters().get(0).value;
+            TensorEncoding.restore(weight, Tensor.from(embedding, weight.dtype(), 263, 12));
         }
         Qwen3Checkpoint.save(model, directory);
         Qwen3TokenizerFixture.write(directory);

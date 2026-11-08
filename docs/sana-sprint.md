@@ -68,6 +68,10 @@ The Gemma backbone is also used for [standalone Gemma 2 chat](gemma2.md). Loadin
 
 ## Validation and references
 
+The [precision audit](benchmarks/precision-audit-2026-11-08/REPORT.md) compares
+pretrained FP32/FP16/BF16 outputs, isolates same-input transformer blocks and
+decoder stages, and records the FP16 self-attention overflow-clipping regression.
+
 Small deterministic checkpoints and expected outputs are generated independently with PyTorch 2.8.0, Transformers 4.51.3, and Diffusers 0.33.1 by `scripts/sana-reference.py`. Java tests compare Gemma sliding attention, masked image-transformer attention, DC-AE decoding, convolution outputs and gradients, and all one-to-four-step sampler schedules. The image transformer also has a finite-difference autograd check. Metal regression tests cover large finite GELU and tanh outputs and gradients in FLOAT32, FLOAT16, and BFLOAT16 storage.
 
 ```sh

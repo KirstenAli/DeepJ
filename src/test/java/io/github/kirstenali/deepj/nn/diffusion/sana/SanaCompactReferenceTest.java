@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,6 +53,27 @@ class SanaCompactReferenceTest {
                         reference.tensor(label(dtype) + ".vae" + size), dtype);
             }
         }
+    }
+
+    @Test void halfSelfAttentionClipsProjectionOverflowLikeDiffusers() throws Exception {
+        try (var weights = TensorWeights.open(ROOT.resolve("transformer"), DType.FLOAT16);
+             var ignored = GradMode.noGrad()) {
+            String prefix = "transformer_blocks.0.attn1";
+            for (String name : new String[]{"to_q", "to_k", "to_v"}) {
+                fill(weights, prefix + "." + name + ".weight", 1);
+            }
+            fill(weights, prefix + ".to_out.0.weight", 65504);
+            var model = new SanaTransformer(ROOT.resolve("transformer/config.json"), weights);
+            var method = SanaTransformer.class.getDeclaredMethod("selfAttention", Tensor.class, String.class);
+            method.setAccessible(true);
+            Tensor result = (Tensor) method.invoke(model, Tensor.ones(DType.FLOAT16, 1, 4, 16), prefix);
+            for (float value : result.toFloatArray()) { assertEquals(65504, value); }
+        }
+    }
+
+    private static void fill(TensorWeights weights, String name, float value) {
+        Tensor target = weights.tensor(name);
+        target.copyFrom(Tensor.ones(target.dtype(), target.shape()).multiplyScalar(value));
     }
 
     private static TensorWeights reference() throws Exception {
