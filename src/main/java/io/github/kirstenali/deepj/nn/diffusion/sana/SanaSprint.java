@@ -98,12 +98,14 @@ public final class SanaSprint {
         try (var scope = TensorScope.open(); var pinned = ModelMemory.retain(latent)) {
             ModelMemory.checkCancelled();
             Tensor input = SanaScm.modelInput(latent, SanaScm.time(times[index]));
-            Tensor predicted = model.forward(input.to(options.dtype()), text.to(options.dtype()), mask,
-                    SanaScm.time(times[index]), options.guidance()).to(DType.FLOAT32);
-            Tensor denoised = SanaScm.denoise(latent, input, predicted, times[index]);
-            Tensor next = index == options.steps() - 1 ? denoised
-                    : SanaScm.advance(denoised, SanaScm.noise(random, latent.shape()), times[index + 1]);
-            return scope.escape(ModelMemory.finish(next));
+            try (var samplerInput = ModelMemory.retain(input)) {
+                Tensor predicted = model.forward(input.to(options.dtype()), text.to(options.dtype()), mask,
+                        SanaScm.time(times[index]), options.guidance()).to(DType.FLOAT32);
+                Tensor denoised = SanaScm.denoise(latent, input, predicted, times[index]);
+                Tensor next = index == options.steps() - 1 ? denoised
+                        : SanaScm.advance(denoised, SanaScm.noise(random, latent.shape()), times[index + 1]);
+                return scope.escape(ModelMemory.finish(next));
+            }
         }
     }
 

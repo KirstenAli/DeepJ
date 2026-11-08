@@ -1,5 +1,11 @@
 # SANA image and video throughput
 
+The compact photo results in this report predate the
+[sampler input-lifetime correction](../photo-sampler-2026-11-08/REPORT.md).
+They measured a path that released an FP32 sampler input too early during compact
+denoising. Use the corrected full-photo measurements in the follow-up. The
+historical trials below are retained; the fix does not change video calculations.
+
 Apple M4, 16 GiB unified memory, macOS 15.5. This follow-up starts from
 `aa38704a` on `feature/media-throughput`. It measures complete, staged generation
 on Metal/MPS with the official pretrained checkpoints.
