@@ -134,17 +134,25 @@ function finishImage(id, dataUrl, width, height, steps, seed) {
   if (follow) followLatest();
 }
 
+// Retain displayed pixels independently of WebKit's decoded image cache.
 function imagePreview(dataUrl, width, height, prompt) {
+  const preview = document.createElement('canvas');
+  preview.className = 'generated-image';
+  preview.setAttribute('role', 'img');
+  preview.setAttribute('aria-label', 'Generated image: ' + prompt);
+  preview.width = width;
+  preview.height = height;
   const image = document.createElement('img');
-  image.className = 'generated-image';
-  image.alt = 'Generated image: ' + prompt;
-  image.width = width;
-  image.height = height;
-  image.onload = () => {
-    if (nearLatest()) followLatest();
-  };
+  image.onload = () => drawImagePreview(preview, image);
+  preview.addEventListener('contextrestored', () => drawImagePreview(preview, image));
   image.src = dataUrl;
-  return image;
+  return preview;
+}
+
+function drawImagePreview(preview, image) {
+  preview.getContext('2d').drawImage(image, 0, 0);
+  preview.dataset.ready = 'true';
+  if (nearLatest()) followLatest();
 }
 
 function imageActions(id, width, height, steps, seed) {

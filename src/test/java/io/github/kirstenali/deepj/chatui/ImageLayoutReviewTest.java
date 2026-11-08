@@ -43,6 +43,6 @@ class ImageLayoutReviewTest extends ChatDesktopTestSupport {
             window.call("finishImage", 1, uri, 1024, 1024, 2, 42);
             script(view, "setGenerating(false); setBusy(false); setStatus('Ready on Metal')");
         });
-        awaitScript(fixture, "document.querySelector('.generated-image').naturalWidth === 1024");
+        awaitScript(fixture, "document.querySelector('.generated-image').dataset.ready === 'true'");
     }
 }

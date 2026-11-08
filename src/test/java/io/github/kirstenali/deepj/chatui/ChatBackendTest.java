@@ -19,7 +19,7 @@ class ChatBackendTest {
     void selectsAvailableBackendBeforeLoadingModels() {
         TensorBackend previous = Tensor.backend();
         try {
-            ChatBackend.configure();
+            ChatBackend.configureChoice(DesktopBackend.AUTO);
             Class<? extends TensorBackend> expected = MetalBackend.isAvailable()
                     ? MetalBackend.class : CpuBackend.class;
             assertInstanceOf(expected, Tensor.backend());
@@ -34,7 +34,7 @@ class ChatBackendTest {
     void repeatedStreamingKeepsTheSelectedBackendWorking() {
         TensorBackend previous = Tensor.backend();
         try {
-            ChatBackend.configure();
+            ChatBackend.configureChoice(DesktopBackend.AUTO);
             var config = new DeepJPrismConfig(ByteTokenizer.VOCAB_SIZE, 16, 16, 4, 1, 32, 8, 8);
             var model = new DeepJPrism(config, 42L);
             var tokenizer = new ByteTokenizer();
@@ -47,5 +47,15 @@ class ChatBackendTest {
             Tensor.backend().releaseResources();
             Tensor.setBackend(previous);
         }
+    }
+
+    @Test
+    void explicitCpuSelectionWorksEvenWhenMetalIsAvailable() {
+        TensorBackend previous = Tensor.backend();
+        try {
+            ChatBackend.configureChoice(DesktopBackend.CPU);
+            assertInstanceOf(CpuBackend.class, Tensor.backend());
+            assertEquals("Ready on CPU", ChatBackend.readyStatus());
+        } finally { Tensor.setBackend(previous); }
     }
 }

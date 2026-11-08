@@ -17,6 +17,7 @@ const bridgeCallbacks = [
   'finishAlternative',
   'stopAlternative',
   'bridgeReady',
+  'executionReady',
   'setRollingCacheAvailable',
   'setThinkingAvailable',
   'showGenerationStatus',

@@ -48,7 +48,7 @@ class ImagePretrainedDesktopTest extends ChatDesktopTestSupport {
         var ready = new java.util.concurrent.atomic.AtomicBoolean();
         while (!ready.get() && System.nanoTime() < deadline) {
             verifyWithoutClosing(fixture, view -> ready.set(Boolean.TRUE.equals(script(view,
-                    "document.querySelector('.generated-image')?.naturalWidth === 1024"))));
+                    "document.querySelector('.generated-image')?.dataset.ready === 'true'"))));
             Thread.sleep(100);
         }
         assertTrue(ready.get(), "No full-checkpoint desktop image appeared");

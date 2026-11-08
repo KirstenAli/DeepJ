@@ -4,6 +4,7 @@ import { fixture, finish, scrollAway } from './fixture.mjs';
 
 function images(context) {
   const ui = fixture(context);
+  ui.window.HTMLCanvasElement.prototype.getContext = () => ({ drawImage: () => {} });
   ui.window.imageBridge = Object.fromEntries(
     ['chooseModel', 'generateWithPrecision', 'stop', 'save'].map((name) => [
       name,
@@ -97,13 +98,14 @@ test('finished image offers a single consistent save action for its own response
   ui.window.startImage('A fox <script>', 5);
   ui.window.finishImage(5, 'data:image/png;base64,aGVsbG8=', 1024, 1024, 2, 42);
   const response = ui.element('response-image-5');
-  const image = response.querySelector('img');
+  const image = response.querySelector('canvas');
   assert.equal(image.width, 1024);
+  assert.equal(image.getAttribute('aria-label'), 'Generated image: A fox <script>');
   assert.equal(response.querySelectorAll('.image-save').length, 1);
   assert.equal(response.querySelector('.copy-button'), null);
   assert.equal(response.querySelector('.image-meta').textContent, '1024 × 1024 · 2 steps');
   response.querySelector('.image-save').click();
-  image.dispatchEvent(new ui.window.Event('load'));
+  image.dispatchEvent(new ui.window.Event('contextrestored'));
   assert.deepEqual(ui.calls, [['save', 5]]);
 });
 
@@ -111,12 +113,12 @@ test('completing a later image keeps the reader on an earlier image', (context) 
   const ui = images(context);
   ui.window.startImage('First image', 1);
   ui.window.finishImage(1, 'data:image/png;base64,Zmlyc3Q=', 1024, 1024, 2, 1);
-  const first = ui.element('response-image-1').querySelector('img');
+  const first = ui.element('response-image-1').querySelector('canvas');
   ui.window.startImage('Second image', 2);
   scrollAway(ui);
   ui.window.finishImage(2, 'data:image/png;base64,c2Vjb25k', 1024, 1024, 2, 2);
   assert.equal(ui.element('conversation').scrollTop, 0);
-  assert.equal(ui.element('response-image-1').querySelector('img'), first);
+  assert.equal(ui.element('response-image-1').querySelector('canvas'), first);
   assert.equal(ui.window.document.querySelectorAll('.generated-image').length, 2);
 });
 
@@ -124,15 +126,15 @@ test('late image loads preserve the reading position', (context) => {
   const ui = images(context);
   ui.window.startImage('A fox', 1);
   ui.window.finishImage(1, 'data:image/png;base64,Zm94', 1024, 1024, 2, 1);
-  const image = ui.element('response-image-1').querySelector('img');
+  const image = ui.element('response-image-1').querySelector('canvas');
   scrollAway(ui);
-  image.dispatchEvent(new ui.window.Event('load'));
+  image.dispatchEvent(new ui.window.Event('contextrestored'));
   assert.equal(ui.element('conversation').scrollTop, 0);
-  assert.equal(ui.element('response-image-1').querySelector('img'), image);
+  assert.equal(ui.element('response-image-1').querySelector('canvas'), image);
   ui.element('response-image-1').querySelector('.image-save').click();
   assert.deepEqual(ui.calls, [['save', 1]]);
   ui.element('conversation').scrollTop = 900;
-  image.dispatchEvent(new ui.window.Event('load'));
+  image.dispatchEvent(new ui.window.Event('contextrestored'));
   assert.equal(ui.element('conversation').scrollTop, 1000);
 });
 

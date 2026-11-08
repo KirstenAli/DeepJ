@@ -475,6 +475,34 @@ function bridgeReady() {
   setStatus('Choose a model to begin');
 }
 
+function executionReady() {
+  const bridge = window.executionBridge;
+  const field = element('executionBackend');
+  field.value = bridge.selected();
+  field.dataset.startup = bridge.startup();
+  field.dataset.current = bridge.current();
+  field.querySelector('[value="metal"]').disabled = !bridge.metalAvailable();
+  field.disabled = false;
+  executionHelp();
+}
+
+function executionHelp() {
+  const field = element('executionBackend');
+  element('executionHelp').textContent =
+    field.value === field.dataset.startup
+      ? 'Using ' + field.dataset.current + '. Changes apply after restarting DeepJ.'
+      : 'Restart DeepJ to use ' + field.selectedOptions[0].textContent + '.';
+}
+
+function changeExecution() {
+  const field = element('executionBackend');
+  if (!window.executionBridge.save(field.value)) {
+    field.value = window.executionBridge.selected();
+    toast('Could not save the backend setting. Please try again.');
+  }
+  executionHelp();
+}
+
 element('collapseSidebar').onclick = () => app.classList.add('collapsed');
 element('reopenSidebar').onclick = () => app.classList.remove('collapsed');
 element('newChat').onclick = newChat;
@@ -486,6 +514,7 @@ element('agentMode').onchange = changeAgentMode;
 element('chooseAgentDirectory').onclick = () =>
   setAgentDirectory(window.agentBridge.chooseDirectory());
 element('openSettings').onclick = openSettings;
+element('executionBackend').onchange = changeExecution;
 element('conversationHistory').onchange = (event) =>
   window.chatBridge?.setConversationHistory(event.currentTarget.checked);
 element('closeSettings').onclick = closeSettings;
