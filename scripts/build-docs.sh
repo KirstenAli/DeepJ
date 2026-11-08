@@ -9,3 +9,5 @@ rsync -a --delete --exclude='javadoc.sh' --exclude='options' --exclude='packages
     target/reports/apidocs/ docs/api/
 sed -i.bak "/resources\\/fonts\\/dejavu.css/d" docs/api/stylesheet.css
 rm docs/api/stylesheet.css.bak
+find docs/api -type f -name '*.html' -exec sed -i.bak 's/[[:blank:]]*$//' {} +
+find docs/api -type f -name '*.html.bak' -delete

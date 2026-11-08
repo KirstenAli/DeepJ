@@ -4,6 +4,18 @@ Optional ONNX graph import and execution using DeepJ tensors, autograd and the s
 
 This is a separate `deepj-onnx` artifact. Existing DeepJ model, checkpoint, CLI, desktop and training code is unchanged.
 
+## Install
+
+```xml
+<dependency>
+    <groupId>io.github.kirstenali</groupId>
+    <artifactId>deepj-onnx</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+This release depends on DeepJ `1.0.0` and requires JDK 20 or newer.
+
 ## Build
 
 Use Java 20 and install the DeepJ core from the same checkout before building the optional artifact:
@@ -13,7 +25,17 @@ mvn install
 mvn -f onnx/pom.xml verify
 ```
 
-The artifact coordinates are `io.github.kirstenali:deepj-onnx:0.1.0-alpha-SNAPSHOT`. Add it alongside DeepJ after installing it with `mvn -f onnx/pom.xml install`. Maven generates the Java protobuf bindings from the pinned official ONNX schema.
+Maven generates the Java protobuf bindings from the pinned official ONNX schema.
+
+## Release
+
+With DeepJ `1.0.0` published and Central credentials and signing configured, publish the ONNX artifact with:
+
+```sh
+mvn -f onnx/pom.xml clean deploy -Pcentral-release
+```
+
+The release profile attaches source and Javadoc JARs, signs the artifacts, and publishes through the Central Portal.
 
 ## Code quality
 

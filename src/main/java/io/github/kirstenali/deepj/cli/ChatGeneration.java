@@ -15,7 +15,7 @@ final class ChatGeneration {
 
     String run(String prompt, List<Agent.Turn> history, SamplingSettings settings, CliView view, String title) {
         view.response(title);
-        StreamedText output = new StreamedText(console.out());
+        StreamedText output = new StreamedText(console.out(), settings.thinking());
         Thread generation = Thread.currentThread();
         try (var ignored = console.interrupt(generation::interrupt)) {
             String reply = model.streamConversation(prompt, history, settings, output::update);

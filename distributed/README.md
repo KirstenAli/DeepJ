@@ -1,9 +1,14 @@
 # DeepJ distributed training
 
 An optional, separate artifact for synchronous data-parallel training with DeepJ
-`0.13.0-alpha`. Each worker holds a full model and optimizer, computes its local
+`1.0.0`. Each worker holds a full model and optimizer, computes its local
 loss with DeepJ tensors and autograd, and exchanges FP32 gradients before the
 optimizer update. Workers can select DeepJ's CPU or Metal backend.
+
+The artifact coordinates are `io.github.kirstenali:deepj-distributed:1.0.0`.
+Maintainers publish it after the core artifact with
+`mvn -f distributed/pom.xml clean deploy -Pcentral-release`, using their Central
+credentials and signing configuration. The profile attaches source and Javadoc JARs.
 
 This directory adds no dependency, hook, conditional, or extra call to the
 existing library or ordinary training paths. It has its own Maven build; the root

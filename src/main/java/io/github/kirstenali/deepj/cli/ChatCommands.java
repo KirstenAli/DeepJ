@@ -38,10 +38,14 @@ final class ChatCommands {
     }
 
     static boolean historyEnabled(String value) {
+        return toggleEnabled("history", value);
+    }
+
+    static boolean toggleEnabled(String setting, String value) {
         return switch (value.toLowerCase(Locale.ROOT)) {
             case "on" -> true;
             case "off" -> false;
-            default -> throw new IllegalArgumentException("Use /set history on or /set history off.");
+            default -> throw new IllegalArgumentException("Use /set " + setting + " on or /set " + setting + " off.");
         };
     }
 

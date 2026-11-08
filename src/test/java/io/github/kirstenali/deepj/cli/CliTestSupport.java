@@ -67,12 +67,13 @@ abstract class CliTestSupport {
         final List<String> prompts = new ArrayList<>();
         final List<SamplingSettings> settings = new ArrayList<>();
         final List<List<Agent.Turn>> histories = new ArrayList<>();
-        boolean closed, cancel;
+        boolean closed, cancel, canThink;
         RuntimeException failure, cancellation = new java.util.concurrent.CancellationException();
 
         @Override public String name() { return "Frisky test"; }
         @Override public String backend() { return "CPU"; }
         @Override public ModelInspection inspection() { return info(); }
+        @Override public boolean supportsThinking() { return canThink; }
         @Override public void close() { closed = true; }
 
         @Override

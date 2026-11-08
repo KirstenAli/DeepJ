@@ -221,8 +221,8 @@ public final class DeepJModelBundle {
     }
 
     private static String releaseDependency() {
-        return "Use [DeepJ 0.12.0-alpha](https://github.com/KirstenAli/DeepJ/releases/tag/"
-                + "v0.12.0-alpha) or newer:\n\n"
+        return "Use [DeepJ 1.0.0](https://github.com/KirstenAli/DeepJ/releases/tag/"
+                + "v1.0.0) or newer:\n\n"
                 + dependency();
     }
 
@@ -232,7 +232,7 @@ public final class DeepJModelBundle {
                 <dependency>
                     <groupId>io.github.kirstenali</groupId>
                     <artifactId>deepj</artifactId>
-                    <version>0.12.0-alpha</version>
+                    <version>1.0.0</version>
                 </dependency>
                 ```
 

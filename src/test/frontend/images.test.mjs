@@ -17,6 +17,7 @@ function images(context) {
 test('image mode adapts the existing composer and settings, and switching back restores chat', (context) => {
   const ui = images(context);
   assert.equal(ui.element('imageSettings').hidden, false);
+  assert.equal(ui.element('imageModeLabel'), null);
   assert.equal(ui.element('chatSettings').hidden, true);
   assert.equal(ui.element('newChatLabel').textContent, 'New image');
   assert.equal(ui.element('prompt').getAttribute('aria-label'), 'Image description');
@@ -119,14 +120,13 @@ test('completing a later image keeps the reader on an earlier image', (context) 
   assert.equal(ui.window.document.querySelectorAll('.generated-image').length, 2);
 });
 
-test('late image loads and clicking the Images label preserve the reading position', (context) => {
+test('late image loads preserve the reading position', (context) => {
   const ui = images(context);
   ui.window.startImage('A fox', 1);
   ui.window.finishImage(1, 'data:image/png;base64,Zm94', 1024, 1024, 2, 1);
   const image = ui.element('response-image-1').querySelector('img');
   scrollAway(ui);
   image.dispatchEvent(new ui.window.Event('load'));
-  ui.click('imageModeLabel');
   assert.equal(ui.element('conversation').scrollTop, 0);
   assert.equal(ui.element('response-image-1').querySelector('img'), image);
   ui.element('response-image-1').querySelector('.image-save').click();

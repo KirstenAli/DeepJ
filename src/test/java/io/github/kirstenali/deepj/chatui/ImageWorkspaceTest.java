@@ -75,8 +75,7 @@ class ImageWorkspaceTest extends ChatDesktopTestSupport {
 
     private static void verifyEarlierResults(WebView view) {
         script(view, "conversation.scrollTop=0;"
-                + "document.querySelector('.generated-image').dispatchEvent(new Event('load'));"
-                + "element('imageModeLabel').click()");
+                + "document.querySelector('.generated-image').dispatchEvent(new Event('load'))");
         assertEquals(0, ((Number) script(view, "conversation.scrollTop")).intValue());
         assertEquals(3, ((Number) script(view, "document.querySelectorAll('.image-save').length")).intValue());
         assertEquals(true, script(view, "[...document.querySelectorAll('.generated-image')]"

@@ -23,6 +23,7 @@ interface CliModel extends AutoCloseable {
     String name();
     String backend();
     ModelInspection inspection();
+    default boolean supportsThinking() { return false; }
     String stream(String prompt, SamplingSettings settings, Consumer<String> listener);
     default String streamConversation(String prompt, List<Agent.Turn> history, SamplingSettings settings,
                                       Consumer<String> listener) {
