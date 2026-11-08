@@ -119,7 +119,15 @@ jobs:
           java-version: '20'
           cache: maven
       - name: Run CPU, fallback, Metal, desktop and code-quality checks
-        run: mvn --batch-mode clean verify -Pfull-coverage
+        run: mvn --batch-mode clean verify -Pfull-coverage,cli,desktop
+      - name: Check standalone desktop and CLI archives
+        run: |
+          java --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar --version
+          jar tf target/deepj-desktop.jar > target/desktop-entries.txt
+          rg --quiet '^io/github/kirstenali/deepj/chatui/DesktopLauncher.class$' target/desktop-entries.txt
+          rg --quiet '^io/github/kirstenali/deepj/nn/diffusion/sanavideo/SanaVideoWorker.class$' target/desktop-entries.txt
+          rg --quiet '^libglass.dylib$' target/desktop-entries.txt
+          rg --quiet '^libjfxwebkit.dylib$' target/desktop-entries.txt
       - name: Report coverage details when the full build fails
         if: failure()
         run: |

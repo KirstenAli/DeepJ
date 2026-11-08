@@ -187,7 +187,7 @@ public abstract class DecoderOnlyModel implements CausalLM, Persistable {
     }
 
     private static boolean isFilledWith(Tensor tensor, float value) {
-        float[] values = tensor.dtype() == DType.FLOAT32 ? tensor.rawData() : null;
+        float[] values = tensor.dtype() == DType.FLOAT32 && tensor.coversStorage() ? tensor.rawData() : null;
         Tensor flat = values == null ? tensor.reshape(tensor.numel()) : null;
         for (int index = 0; index < tensor.numel(); index++) {
             if ((values == null ? flat.get(index) : values[index]) != value) return false;

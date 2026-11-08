@@ -43,6 +43,12 @@ class ModelLoadingInitializationTest {
     }
 
     private static Object invoke(CpuBackend cpu, Method method, Object[] arguments) throws Throwable {
+        if (method.getName().equals("zerosForLoading")) {
+            int[] shape = (int[]) arguments[1];
+            Tensor value = new Tensor((DType) arguments[0], shape[1], shape[0]);
+            value.set(0, 0, 0);
+            return value.transpose(0, 1);
+        }
         if (method.getName().equals("multiplyScalarInPlace")) {
             throw new AssertionError("Checkpoint loading initialized weights that the file immediately replaces");
         }

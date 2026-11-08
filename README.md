@@ -54,8 +54,10 @@ Add DeepJ to your project:
 
 Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`, then start desktop chat on Apple Silicon with BF16 weights and activations:
 
+Download the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) and run it with JDK 20 or newer:
+
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx3g" mvn compile javafx:run
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
 Select `config.json` in the model picker, then open **Chat options** for **Thinking** and **Agent mode**. See the [CLI instructions](docs/qwen3.md#cli-and-desktop-ui) and [Agent guide](docs/agent-launchers.md) for terminal commands.
@@ -66,10 +68,10 @@ Select `config.json` in the model picker, then open **Chat options** for **Think
 
 [SANA-Sprint 0.6B](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers) brings local text-to-image generation to DeepJ. Describe an image in the desktop app, choose its size and sampling settings, then save the full-resolution result as a PNG.
 
-Download the checkpoint using the [SANA-Sprint guide](docs/sana-sprint.md), start the desktop app, and choose **Open image model folder…** from the model menu.
+Download the checkpoint using the [SANA-Sprint guide](docs/sana-sprint.md) and the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar). Start the app, then choose **Open image model folder…** from the model menu.
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx3g" mvn javafx:run
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
 The pipeline runs through DeepJ tensors on CPU or Apple Metal. A standalone image launcher is also available in the guide.
@@ -80,10 +82,10 @@ The pipeline runs through DeepJ tensors on CPU or Apple Metal. A standalone imag
 
 [SANA-Video 2B](docs/sana-video.md) brings local text-to-video generation to DeepJ on CPU or Apple Metal. Describe a scene and its movement in the desktop app, then play the clip and save an MP4.
 
-Download the checkpoint using the [SANA-Video guide](docs/sana-video.md), then start the desktop app:
+Download the checkpoint using the [SANA-Video guide](docs/sana-video.md) and the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then start the app:
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx2560m" mvn compile javafx:run
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
 Choose **Open video model folder…** from the model menu and select `checkpoints/sana-video`.
@@ -96,31 +98,29 @@ Choose **Open video model folder…** from the model menu and select `checkpoint
 
 [Gemma 2 2B-IT](https://huggingface.co/google/gemma-2-2b-it) is available for local chat in DeepJ's CLI and desktop app. It supports streamed replies and optional conversation history, using the same Gemma backbone that encodes prompts for SANA.
 
-Download the model and tokenizer files using the [Gemma 2 guide](docs/gemma2.md), build the CLI from the current source, then run:
+Download the model and tokenizer files using the [Gemma 2 guide](docs/gemma2.md) and the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then run:
 
 ```bash
-mvn package -Pcli
-java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
-  --backend metal chat checkpoints/gemma-2-2b-it --max-tokens 256
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
-For desktop chat, select `config.json` in the model picker. Already have SANA-Sprint? Its `text_encoder` folder can also be loaded for Gemma chat.
+Select `config.json` in the model picker. Already have SANA-Sprint? Its `text_encoder` folder can also be loaded for Gemma chat. [CLI instructions](docs/gemma2.md).
 
 ![Gemma 2 answering a question in the DeepJ desktop UI](docs/gemma2-chat-ui.png)
 
 ## Try Frisky 90M
 
-[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Download it and chat locally with the DeepJ CLI.
+[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Download it and chat locally in the desktop app.
 
-Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into a folder named `frisky-90m`. Place the [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-cli.jar) alongside that folder, then run:
+Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into a folder named `frisky-90m`. Download the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then run:
 
 ```bash
-java --enable-native-access=ALL-UNNAMED -jar deepj-cli.jar chat ./frisky-90m
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
-The CLI streams responses, supports selectable themes, and uses Metal when available with CPU fallback. See the [CLI guide](docs/cli.md) for commands and controls, and the [model card](https://huggingface.co/netsrik/frisky-90m) for training details.
+Select `model.dj` in the model picker. The app streams responses and uses Metal when available with CPU fallback. See the [desktop guide](docs/desktop.md), [CLI guide](docs/cli.md), and [model card](https://huggingface.co/netsrik/frisky-90m).
 
-![Frisky 90M in the DeepJ CLI, with the DeepJ wordmark and three prompt-and-answer exchanges](docs/cli.png)
+![Frisky 90M in the DeepJ desktop app, preserving the original three prompts and replies](docs/frisky-ui.png)
 
 ## Documentation
 
@@ -136,6 +136,7 @@ Start with the [documentation index](docs/README.md), or go directly to:
 | [ONNX support](onnx/README.md) | Importing graphs, supported operators, CPU/Metal execution, and trainable weights |
 | [Saving and loading](docs/persistence.md) | Network weights, persistent buffers, and model checkpoints |
 | [CPU and Metal](docs/backends.md) | Backend selection, GPU execution, and temporary tensor ownership |
+| [Desktop app](docs/desktop.md) | Downloading, launching, and choosing chat, image, and video models |
 | <a id="desktop-chat"></a>[Language models](docs/language-models.md) | Decoder architectures, tokenization, text generation, chat, and model bundles |
 
 ## Build and release

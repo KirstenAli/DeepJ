@@ -1,0 +1,20 @@
+{
+  "image": "frisky-ui.png",
+  "source_image": "cli.png",
+  "source_sha256": "2d84bdb382f6012ae52516b29d591d9d60fdd700e3579e302e4705c5ec74660d",
+  "capture": "Production WebView snapshot rendering the original recorded CPU CLI conversation, with all prompts and replies unchanged.",
+  "turns": [
+    {
+      "prompt": "Hello",
+      "reply": "Hello! How can I help you today?"
+    },
+    {
+      "prompt": "What is the meaning of life?",
+      "reply": "Life refers to the entire process of growth, learning, and development in a person's life. It is the gradual process of learning, development, and transformation that occurs over time, often in response to a set of inputs or experiences."
+    },
+    {
+      "prompt": "python program to print 'hello world'",
+      "reply": "```python\ndef print_hello():\n    print(\"Hello world\")\n    print(\"Hello world\")\n    print(\"Goodbye\")\n\n# Get the name of the program\nprint_hello()\n```"
+    }
+  ]
+}
