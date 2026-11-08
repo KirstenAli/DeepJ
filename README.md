@@ -60,7 +60,7 @@ Download the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
-Select `config.json` in the model picker, then open **Chat options** for **Thinking** and **Agent mode**. See the [CLI instructions](docs/qwen3.md#cli-and-desktop-ui) and [Agent guide](docs/agent-launchers.md) for terminal commands.
+Select `config.json` in the model picker, then open **Chat options** for **Thinking** and **Agent mode**. [CLI access](docs/qwen3.md#cli-and-desktop-ui) is also available.
 
 ![Qwen3 using Thinking and Agent mode in DeepJ](docs/qwen3-agent-thinking-ui.png)
 
@@ -76,7 +76,7 @@ java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 
 Choose **Open local model…** from the model menu and select the pipeline's `model_index.json`.
 
-The pipeline runs through DeepJ tensors on CPU or Apple Metal. A standalone image launcher is also available in the guide.
+[CLI access](docs/sana-sprint.md#generate-an-image) is also available.
 
 ![The SANA-Sprint desktop UI showing the image prompt, generated fox and compact Save image action](docs/sana-sprint-ui.png)
 
@@ -112,17 +112,17 @@ Select `config.json` in the model picker. Already have SANA-Sprint? Its `text_en
 
 ## Try Frisky 90M
 
-[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Download it and chat locally in the desktop app.
+[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Chat locally with the DeepJ CLI.
 
-Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into a folder named `frisky-90m`. Download the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then run:
+Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into `frisky-90m`, then download the [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-cli.jar) and run:
 
 ```bash
-java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
+java --enable-native-access=ALL-UNNAMED -jar deepj-cli.jar chat ./frisky-90m
 ```
 
-Select `model.dj` in the model picker. The app streams responses and uses Metal when available with CPU fallback. See the [desktop guide](docs/desktop.md), [CLI guide](docs/cli.md), and [model card](https://huggingface.co/netsrik/frisky-90m).
+The CLI streams replies and supports selectable themes. [Desktop chat](docs/desktop.md) is also available.
 
-![Frisky 90M in the DeepJ desktop app, preserving the original three prompts and replies](docs/frisky-ui.png)
+![Frisky 90M in the DeepJ CLI, with the DeepJ wordmark and three prompt-and-answer exchanges](docs/cli.png)
 
 ## Documentation
 

@@ -75,11 +75,11 @@ class ImageWorkspaceTest extends ChatDesktopTestSupport {
 
     private static void verifyEarlierResults(WebView view) {
         script(view, "conversation.scrollTop=0;"
-                + "document.querySelector('.generated-image').dispatchEvent(new Event('load'))");
+                + "document.querySelector('.generated-image').dispatchEvent(new Event('contextrestored'))");
         assertEquals(0, ((Number) script(view, "conversation.scrollTop")).intValue());
         assertEquals(3, ((Number) script(view, "document.querySelectorAll('.image-save').length")).intValue());
         assertEquals(true, script(view, "[...document.querySelectorAll('.generated-image')]"
-                + ".every(i=>i.complete && i.naturalWidth===1024)"));
+                + ".every(i=>i.dataset.ready==='true' && i.width===1024)"));
     }
 
     private static void generateImage(Fixture fixture, int count) throws Exception {

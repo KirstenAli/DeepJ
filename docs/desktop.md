@@ -17,6 +17,13 @@ The downloaded JAR contains macOS ARM64 native libraries. Other operating system
 and architectures can build a desktop JAR on their own machine using the source
 instructions below. Model weights are downloaded separately.
 
+## CPU or Metal
+
+Open **Settings → Execution → Backend** and choose **Auto**, **CPU**, or **Metal**.
+Restart DeepJ to apply the saved choice. Auto uses Metal when available, otherwise
+CPU. The setting applies to chat, images, and videos; Settings shows the backend
+currently in use.
+
 ## Choose a model
 
 Choose **Open local model…** from the model menu in the upper left. This opens
