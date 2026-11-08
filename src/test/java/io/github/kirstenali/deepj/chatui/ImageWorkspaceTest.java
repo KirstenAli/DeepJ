@@ -64,6 +64,7 @@ class ImageWorkspaceTest extends ChatDesktopTestSupport {
     @Test void lateImageLoadsKeepEarlierResultsVisibleAndSaveable() throws Exception {
         var fixture = open();
         try (var state = attach(fixture, new Service(false))) {
+            delayImageLoads(fixture);
             state.load(temporary);
             awaitScript(fixture, "!element('imageSettings').hidden && !element('prompt').disabled");
             for (int count = 1; count <= 3; count++) {
@@ -86,7 +87,17 @@ class ImageWorkspaceTest extends ChatDesktopTestSupport {
         verifyWithoutClosing(fixture, view -> script(view,
                 "imageBridge.generate('Image " + count + "',1024,1024,2," + count + ",4.5)"));
         awaitScript(fixture, "document.querySelectorAll('.generated-image').length === " + count
-                + " && !element('prompt').disabled");
+                + " && !element('prompt').disabled && [...document.querySelectorAll('.generated-image')]"
+                + ".every(image=>image.dataset.ready==='true')");
+    }
+
+    private static void delayImageLoads(Fixture fixture) throws Exception {
+        verifyWithoutClosing(fixture, view -> script(view,
+                "const create=document.createElement.bind(document);"
+                + "document.createElement=tag=>{const image=create(tag);"
+                + "if(tag==='img')image.addEventListener('load',event=>{"
+                + "event.stopImmediatePropagation();setTimeout(()=>image.onload.call(image,event),100);});"
+                + "return image;};"));
     }
 
     @Test void pngSavingUsesTheExactEncodedBytesOnTheSaveWorker() throws Exception {
