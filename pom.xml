@@ -40,6 +40,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.build.outputTimestamp>2026-11-08T00:00:00Z</project.build.outputTimestamp>
         <javafx.version>21.0.2</javafx.version>
+        <desktop.javafx.primary>*</desktop.javafx.primary>
+        <desktop.javafx.secondary>*</desktop.javafx.secondary>
         <pmd.version>7.17.0</pmd.version>
         <jacocoArgLine></jacocoArgLine>
         <coverage.mode>--portable</coverage.mode>
@@ -278,7 +280,8 @@
                                     <createDependencyReducedPom>false</createDependencyReducedPom>
                                     <artifactSet>
                                         <includes>
-                                            <include>org.openjfx:*</include>
+                                            <include>org.openjfx:*:jar:${desktop.javafx.primary}</include>
+                                            <include>org.openjfx:*:jar:${desktop.javafx.secondary}</include>
                                             <include>org.jcodec:*</include>
                                             <include>info.picocli:*</include>
                                             <include>org.jline:*</include>
@@ -312,6 +315,75 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>desktop-mac-windows</id>
+            <properties>
+                <desktop.javafx.primary>mac-aarch64</desktop.javafx.primary>
+                <desktop.javafx.secondary>win</desktop.javafx.secondary>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-base</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>mac-aarch64</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-graphics</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>mac-aarch64</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-controls</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>mac-aarch64</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-media</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>mac-aarch64</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-web</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>mac-aarch64</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-base</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>win</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-graphics</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>win</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-controls</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>win</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-media</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>win</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-web</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>win</classifier>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>cli</id>

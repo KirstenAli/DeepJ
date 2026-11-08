@@ -5,17 +5,17 @@ image generation, video playback, and saving generated media.
 
 ## Download and launch
 
-Download the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar).
-It includes JavaFX and the app's runtime dependencies. Install an Apple Silicon
+Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar).
+It includes JavaFX and the app's runtime dependencies. Install a matching
 JDK 20 or newer, place the JAR in a convenient directory, and run:
 
 ```bash
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
-The downloaded JAR contains macOS ARM64 native libraries. Other operating systems
-and architectures can build a desktop JAR on their own machine using the source
-instructions below. Model weights are downloaded separately.
+The same JAR includes JavaFX for Apple Silicon macOS and Windows x64; JavaFX
+selects the matching libraries automatically. Auto uses Metal on supported Macs
+and CPU on Windows. Model weights are downloaded separately.
 
 ## CPU or Metal
 
@@ -55,7 +55,8 @@ mvn package -Pdesktop
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-desktop.jar
 ```
 
-The profile packages the host's JavaFX native libraries. To produce the CLI and
-desktop JARs together, use `mvn package -Pcli,desktop`.
+The profile packages the host's JavaFX libraries. To build the combined Mac and
+Windows download, use `mvn package -Pdesktop,desktop-mac-windows`. Add `cli` to
+the profile list to build the CLI JAR as well.
 The [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-cli.jar)
 and [CLI guide](cli.md) remain available for terminal chat.

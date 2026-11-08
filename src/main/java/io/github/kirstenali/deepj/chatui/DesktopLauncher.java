@@ -1,6 +1,6 @@
 package io.github.kirstenali.deepj.chatui;
 
-/** Classpath entry point for the desktop JAR, which bundles the host JavaFX runtime. */
+/** Classpath entry point for the desktop JAR, which bundles its JavaFX runtimes. */
 public final class DesktopLauncher {
     private DesktopLauncher() {}
 
