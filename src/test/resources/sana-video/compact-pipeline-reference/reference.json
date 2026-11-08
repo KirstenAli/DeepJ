@@ -1,0 +1,19 @@
+{
+  "torch": "2.8.0",
+  "transformers": "5.22.1",
+  "diffusers": "0.42.1",
+  "device": "cpu",
+  "generator": "scripts/sana-video-compact-pipeline-reference.py",
+  "inputs": "../pipeline-inputs.json",
+  "weights": "../pipeline",
+  "steps": 3,
+  "guidance": 6,
+  "seed": 123,
+  "frames": 9,
+  "width": 16,
+  "height": 16,
+  "precisions": ["float32", "float16", "bfloat16"],
+  "rotary": "FP32 constructor buffers",
+  "sampler_dtype": "float32",
+  "decoder_dtype": "float32"
+}
