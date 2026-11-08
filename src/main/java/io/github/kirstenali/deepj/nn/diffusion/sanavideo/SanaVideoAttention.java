@@ -43,7 +43,7 @@ final class SanaVideoAttention {
     private Tensor stagedValues(Tensor q, Tensor k, Tensor v, String name, VideoRotary rotary) {
         Tensor numerator = stagedNumerator(q, k, v, rotary);
         try (var fixed = ModelMemory.retain(numerator)) {
-            Tensor divisor = VideoMemory.stage(() -> k.sum(-2, true).matmul(q.transpose(-1, -2)).addScalar(1e-15f));
+            Tensor divisor = VideoMemory.stage(() -> divisor(q, k));
             Tensor output = VideoMemory.stage(() -> numerator.multiply(Tensor.from(new float[]{1}, 1)
                     .divide(divisor).to(divisor.dtype())).transpose(-1, -2));
             return VideoMemory.stage(() -> finish(output, name));
@@ -67,9 +67,14 @@ final class SanaVideoAttention {
         Tensor qr = rotary.apply(q).to(DType.FLOAT32), kr = rotary.apply(k).to(DType.FLOAT32);
         // Keep the upstream multiplication layout to limit rounding drift across denoising steps.
         Tensor numerator = v.to(DType.FLOAT32).transpose(-1, -2).matmul(kr).matmul(qr.transpose(-1, -2));
-        Tensor divisor = k.sum(-2, true).matmul(q.transpose(-1, -2)).addScalar(1e-15f);
+        Tensor divisor = divisor(q, k);
         Tensor reciprocal = Tensor.from(new float[]{1}, 1).divide(divisor).to(divisor.dtype());
         return finish(numerator.multiply(reciprocal).transpose(-1, -2), name);
+    }
+
+    private static Tensor divisor(Tensor query, Tensor key) {
+        DType dtype = query.dtype() == DType.FLOAT16 ? DType.FLOAT32 : query.dtype();
+        return key.to(dtype).sum(-2, true).matmul(query.to(dtype).transpose(-1, -2)).addScalar(1e-15f);
     }
 
     Tensor cross(Tensor input, Tensor caption, Tensor mask, String name) {
@@ -96,9 +101,17 @@ final class SanaVideoAttention {
     }
 
     private Tensor project(Tensor input, String name, String kind) {
-        Tensor projected = ModelOps.linear(input, weights, name + ".to_" + kind);
+        Tensor projected = projection(input, name + ".to_" + kind);
         return ModelOps.heads(ModelOps.rms(projected, weights.tensor(name + ".norm_" + kind + ".weight"),
-                null, 1e-5f, false), heads);
+                null, 1e-5f, false).to(weights.tensor(name + ".to_" + kind + ".weight").dtype()), heads);
+    }
+
+    private Tensor projection(Tensor input, String name) {
+        if (weights.tensor(name + ".weight").dtype() != DType.FLOAT16) return ModelOps.linear(input, weights, name);
+        Tensor result = input.to(DType.FLOAT32).matmul(weights.tensor(name + ".weight")
+                .to(DType.FLOAT32).transpose(-1, -2));
+        return weights.contains(name + ".bias") ? result.add(weights.tensor(name + ".bias").to(DType.FLOAT32))
+                : result;
     }
 
     private Tensor finish(Tensor input, String name) {

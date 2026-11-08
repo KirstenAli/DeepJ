@@ -60,7 +60,13 @@ for worker cleanup before enabling another request, and starting a new conversat
 The pipeline loads Gemma, samples video latents, and decodes video in separate stages. By default the text encoder, video Transformer, sampler, and video decoder use FP32
 working weights and activations. `--dtype float16` or `--dtype bfloat16` selects
 compact text-encoder and Transformer weights and activations. The sampler and video
-decoder retain FP32, while attention and normalization follow the upstream precision policy. Positive and unconditional predictions run sequentially for classifier-free guidance.
+decoder retain FP32. FP16 query/key projections, RMS statistics,
+linear-attention denominators, and gated residual accumulation use FP32 to avoid
+overflow and preserve the stabilizing epsilon. Projections return to FP16 after
+normalization; convolution and other linear layers retain FP16 execution.
+Gemma encodes the positive and unconditional captions together. Small previews
+also batch the guided Transformer predictions; larger grids retain bounded
+sequential guidance execution.
 
 Gemma and the video Transformer use the same budgeted weight loader. Each caches its weights when their original checkpoint storage fits the cache budget; otherwise it streams groups of weights. Cached values retain their original storage dtype, and active groups are converted to the selected working dtype for calculation. Compact checkpoint files remain supported and are never overwritten. Expanding a BF16 checkpoint to FP32 preserves its stored values; it cannot recover information lost before that checkpoint was saved. The decoder uses its stage loader.
 

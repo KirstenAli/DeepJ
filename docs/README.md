@@ -43,6 +43,7 @@ See the [release notes](releases/0.13.0-alpha.md) and
 
 ## Development and verification
 
+- [Performance benchmarks](performance.md): Apple M4 inference and training comparisons with PyTorch.
 - [Tests and coverage](testing.md): portable and full Metal/desktop build profiles.
 - [Coding and regression standards](quality-and-regression.md): code quality, numerical
   references, state restoration, performance, and memory qualification.

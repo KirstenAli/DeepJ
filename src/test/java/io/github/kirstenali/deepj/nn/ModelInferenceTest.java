@@ -15,6 +15,21 @@ class ModelInferenceTest {
 
     @AfterEach void restore() { Tensor.setBackend(previous); }
 
+    @Test void evaluatedBlocksCompleteOnceInInferenceAndPreserveOrdinaryTrainingGradients() {
+        var cleanups = new AtomicInteger();
+        Tensor.setBackend(counting(cleanups));
+        Tensor input = Tensor.from(new float[]{1, 2}).requiresGrad(true);
+        ModelInference.evaluate(() -> input.multiplyScalar(3)).sumTensor().backward();
+        assertArrayEquals(new float[]{3, 3}, input.grad().toFloatArray());
+        assertEquals(0, cleanups.get());
+        try (var ignored = GradMode.noGrad()) {
+            Tensor result = ModelInference.evaluate(() -> ModelMemory.finish(input.multiplyScalar(4)));
+            assertArrayEquals(new float[]{4, 8}, result.toFloatArray());
+            assertEquals(1, cleanups.get());
+            assertFalse(ModelInference.active());
+        }
+    }
+
     @Test void scopedInferenceDefersBlockFinishesAndRestoresTheDefaultBoundary() {
         var cleanups = new AtomicInteger();
         Tensor.setBackend(counting(cleanups));

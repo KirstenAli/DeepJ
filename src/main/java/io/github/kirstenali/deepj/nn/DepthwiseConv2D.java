@@ -14,6 +14,15 @@ public final class DepthwiseConv2D {
 
     public static Tensor apply(Tensor input, Tensor weight, Tensor bias) {
         validate(input, weight, bias);
+        try (var scope = TensorScope.open()) {
+            Tensor result = ConvolutionExecution.inference(input, weight, input.size(1));
+            if (result == null) result = composed(input, weight);
+            if (bias != null) result = result.add(bias.reshape(1, input.size(1), 1, 1));
+            return scope.escape(result);
+        }
+    }
+
+    private static Tensor composed(Tensor input, Tensor weight) {
         int channels = tileChannels(input, weight);
         List<Tensor> output = new ArrayList<>();
         try (var scope = TensorScope.open()) {
@@ -22,9 +31,7 @@ public final class DepthwiseConv2D {
                 int end = Math.min(input.size(1), start + channels);
                 output.add(evaluate(input.slice(1, start, end), weight.slice(0, start, end)));
             }
-            Tensor result = TensorJoin.concatenate(1, output.toArray(Tensor[]::new));
-            if (bias != null) result = result.add(bias.reshape(1, input.size(1), 1, 1));
-            return scope.escape(result);
+            return scope.escape(TensorJoin.concatenate(1, output.toArray(Tensor[]::new)));
         }
     }
 

@@ -4,6 +4,7 @@ import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
 import io.github.kirstenali.deepj.persistence.HuggingFaceConfig;
 import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.nn.ModelMemory;
+import io.github.kirstenali.deepj.nn.ModelInference;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 import java.io.IOException;
@@ -37,9 +38,15 @@ public final class DcAeDecoder {
             for (int stage = channels.length - 1; stage >= 0; stage--) {
                 hidden = stage(hidden, stage);
             }
-            hidden = SanaConvolution.channelNorm(hidden, weights, "decoder.norm_out").reluActivation();
-            return scope.escape(SanaConvolution.apply(hidden, weights, "decoder.conv_out"));
+            return scope.escape(output(hidden));
         }
+    }
+
+    private Tensor output(Tensor input) {
+        return ModelInference.evaluate(() -> {
+            Tensor hidden = SanaConvolution.channelNorm(input, weights, "decoder.norm_out").reluActivation();
+            return SanaConvolution.apply(hidden, weights, "decoder.conv_out");
+        });
     }
 
     private Tensor stage(Tensor input, int stage) {
@@ -51,11 +58,15 @@ public final class DcAeDecoder {
                 ModelMemory.checkCancelled();
                 hidden = block(hidden, stage, prefix + (layer + offset));
             }
-            return scope.escape(ModelMemory.finish(hidden));
+            return scope.escape(hidden);
         }
     }
 
     private Tensor block(Tensor input, int stage, String name) {
+        return ModelInference.evaluate(() -> blockValues(input, stage, name));
+    }
+
+    private Tensor blockValues(Tensor input, int stage, String name) {
         String kind = (String) config.array("decoder_block_types").get(stage);
         try (var scope = TensorScope.open()) {
             Tensor output = switch (kind) {
@@ -64,7 +75,7 @@ public final class DcAeDecoder {
                         weights, name + ".conv_out", true);
                 default -> throw new IllegalArgumentException("Unsupported DC-AE decoder block: " + kind);
             };
-            return scope.escape(ModelMemory.finish(output));
+            return scope.escape(output);
         }
     }
 
@@ -75,6 +86,10 @@ public final class DcAeDecoder {
     }
 
     private Tensor upsample(Tensor input, String name) {
+        return ModelInference.evaluate(() -> upsampleValues(input, name));
+    }
+
+    private Tensor upsampleValues(Tensor input, String name) {
         Tensor result = SanaConvolution.apply(ModelOps.upsample(input), weights, name + ".conv");
         int repeats = result.size(1) * 4 / input.size(1);
         return result.add(ModelOps.pixelShuffle(ModelOps.repeat(input, 1, repeats)));

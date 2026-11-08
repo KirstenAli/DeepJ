@@ -7,7 +7,7 @@ import io.github.kirstenali.deepj.tensor.BackwardBuffers;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Same-padded grouped cross-correlation, using existing patch gathering and backend matrix multiplication. */
+/** Same-padded grouped cross-correlation with differentiable patch composition and optional native execution. */
 public final class GroupedConv2D {
     private static final long TILE_ELEMENTS = 8L * 1024 * 1024;
 
@@ -16,11 +16,16 @@ public final class GroupedConv2D {
     public static Tensor apply(Tensor input, Tensor weight, Tensor bias, int groups) {
         validate(input, weight, bias, groups);
         try (var scope = TensorScope.open()) {
-            Tensor result = weight.size(2) == 1 && weight.size(3) == 1
-                    ? pointwise(input, weight, groups) : tiled(input, weight, groups);
+            Tensor result = ConvolutionExecution.inference(input, weight, groups);
+            if (result == null) result = composed(input, weight, groups);
             if (bias != null) result = result.add(bias.reshape(1, weight.size(0), 1, 1));
             return scope.escape(result);
         }
+    }
+
+    private static Tensor composed(Tensor input, Tensor weight, int groups) {
+        return weight.size(2) == 1 && weight.size(3) == 1
+                ? pointwise(input, weight, groups) : tiled(input, weight, groups);
     }
 
     private static void validate(Tensor input, Tensor weight, Tensor bias, int groups) {

@@ -13,6 +13,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
 import java.util.function.Consumer;
@@ -72,17 +73,33 @@ public final class SanaVideo {
         Path stage = directory.resolve("text_encoder");
         try (var scope = TensorScope.open(); var weights = new VideoTextWeights(stage, dtype)) {
             var encoder = new Gemma2Backbone(Gemma2Config.read(stage.resolve("config.json")), weights::tensor);
-            Features positive = encode(encoder, new SanaVideoPrompt(tokenizer, prompt, true));
-            Features negative = guidance ? encode(encoder, new SanaVideoPrompt(tokenizer, "", false)) : positive;
-            return new Features[]{positive, negative};
+            var positive = new SanaVideoPrompt(tokenizer, prompt, true);
+            if (guidance) return encode(encoder, positive, new SanaVideoPrompt(tokenizer, "", false));
+            Features features = encode(encoder, positive);
+            return new Features[]{features, features};
         }
     }
 
     private static Features encode(Gemma2Backbone encoder, SanaVideoPrompt prompt) {
         try (var scope = TensorScope.open()) {
-            Tensor selected = encoder.forward(prompt.tokens(), prompt.valid()).indexSelect(1, prompt.selected());
-            return new Features(ModelMemory.finite(selected, "Gemma video prompt"), selected.shape(), prompt.mask());
+            return features(encoder.forward(prompt.tokens(), prompt.valid()), prompt);
         }
+    }
+
+    private static Features[] encode(Gemma2Backbone encoder, SanaVideoPrompt positive, SanaVideoPrompt negative) {
+        int length = Math.max(positive.tokens().length, negative.tokens().length);
+        int[][] tokens = {Arrays.copyOf(positive.tokens(), length), Arrays.copyOf(negative.tokens(), length)};
+        int[][] valid = {Arrays.copyOf(positive.valid(), length), Arrays.copyOf(negative.valid(), length)};
+        try (var scope = TensorScope.open()) {
+            Tensor hidden = encoder.forward(tokens, valid);
+            return new Features[]{features(hidden.slice(0, 0, 1), positive),
+                    features(hidden.slice(0, 1, 2), negative)};
+        }
+    }
+
+    private static Features features(Tensor hidden, SanaVideoPrompt prompt) {
+        Tensor selected = hidden.indexSelect(1, prompt.selected());
+        return new Features(ModelMemory.finite(selected, "Gemma video prompt"), selected.shape(), prompt.mask());
     }
 
     private Tensor sample(Features[] features, Options options) throws IOException {
@@ -116,16 +133,8 @@ public final class SanaVideo {
     private static Tensor advance(SanaVideoTransformer model, FlowDpmSolver solver, Tensor text,
                                   Tensor negative, Features[] features, Tensor latent, float guidance, DType dtype) {
         try (var scope = TensorScope.open(); var pinned = ModelMemory.retain(latent)) {
-            Tensor flow = model.forward(latent.to(dtype), text.to(dtype), features[0].mask(), solver.timestep())
-                    .to(DType.FLOAT32);
-            if (guidance > 1) {
-                try (var fixed = ModelMemory.retain(flow)) {
-                    Tensor unconditional = model.forward(latent.to(dtype), negative.to(dtype),
-                            features[1].mask(), solver.timestep())
-                            .to(DType.FLOAT32);
-                    flow = unconditional.add(flow.subtract(unconditional).multiplyScalar(guidance));
-                }
-            }
+            Tensor flow = VideoGuidance.predict(model, latent, text, negative, features[0].mask(),
+                    features[1].mask(), solver.timestep(), guidance, dtype);
             return scope.escape(solver.step(latent, flow));
         }
     }

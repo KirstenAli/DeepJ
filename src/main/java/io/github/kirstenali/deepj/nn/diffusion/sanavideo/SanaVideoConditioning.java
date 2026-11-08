@@ -33,6 +33,10 @@ final class SanaVideoConditioning {
         return ModelOps.rms(result, weights.tensor("caption_norm.weight"), null, 1e-5f, false);
     }
 
+    static Tensor mask(int[] valid, Tensor text) {
+        return mask(valid).reshape(text.size(0), 1, 1, text.size(1));
+    }
+
     static Tensor mask(int[] valid) {
         float[] bias = new float[valid.length];
         for (int token = 0; token < valid.length; token++) {

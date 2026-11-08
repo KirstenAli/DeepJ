@@ -1,6 +1,8 @@
 package io.github.kirstenali.deepj.nn;
 
 import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
+import io.github.kirstenali.deepj.autograd.ActivationOps;
+import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.stream.IntStream;
@@ -14,18 +16,26 @@ public final class ModelOps {
         return weights.contains(name + ".bias") ? result.add(weights.tensor(name + ".bias")) : result;
     }
 
-    public static Tensor silu(Tensor input) { return input.multiply(input.sigmoidActivation()); }
+    public static Tensor silu(Tensor input) {
+        if (input.dtype() == DType.FLOAT32) return input.multiply(input.sigmoidActivation());
+        Tensor unit = Tensor.backend().usesDeviceStorage()
+                ? Tensor.backend().expand(Tensor.from(new float[]{1}, input.dtype(), new int[0]), input.shape())
+                : Tensor.ones(input.dtype(), input.shape());
+        return ActivationOps.swiGlu(input, unit);
+    }
 
     public static Tensor rms(Tensor input, Tensor gain, Tensor bias, float epsilon, boolean gemma) {
         if (ModelRms.supports(input, gain, epsilon)) return ModelRms.inference(input, gain, bias, epsilon, gemma);
         Tensor value = input.to(DType.FLOAT32);
         Tensor result = value.divide(value.multiply(value).mean(-1, true).addScalar(epsilon).sqrt());
+        if (gain != null && !gemma && gain.dtype() != DType.FLOAT32) result = result.to(gain.dtype());
         if (gain != null) result = result.multiply(gemma ? gain.to(DType.FLOAT32).addScalar(1) : gain);
         if (bias != null) result = result.add(bias);
         return result.to(input.dtype());
     }
 
     public static Tensor norm(Tensor input, float epsilon) {
+        if (ModelNorm.supports(input, epsilon)) return ModelNorm.inference(input, epsilon);
         Tensor value = input.to(DType.FLOAT32);
         Tensor centered = value.subtract(value.mean(-1, true));
         return centered.divide(centered.multiply(centered).mean(-1, true).addScalar(epsilon).sqrt())
@@ -69,6 +79,9 @@ public final class ModelOps {
 
     public static Tensor linearAttention(Tensor query, Tensor key, Tensor value, float epsilon) {
         Tensor q = query.to(DType.FLOAT32).reluActivation(), k = key.to(DType.FLOAT32).reluActivation();
+        if (!GradMode.isEnabled()) {
+            return ModelLinearAttention.apply(q, k, value, epsilon);
+        }
         Tensor result = q.matmul(k.transpose(-1, -2).matmul(value.to(DType.FLOAT32)));
         Tensor divisor = q.matmul(k.sum(-2, true).transpose(-1, -2)).addScalar(epsilon);
         return result.divide(divisor).to(value.dtype());

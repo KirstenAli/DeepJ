@@ -5,7 +5,7 @@ import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.InferenceNormalizationBackend;
 import io.github.kirstenali.deepj.tensor.Tensor;
 
-/** Keeps compact model normalization in FP32 while reusing the backend's output-only kernel. */
+/** Reuses output-only RMS kernels during captured model inference. */
 final class ModelRms {
     private ModelRms() {}
 
@@ -15,8 +15,16 @@ final class ModelRms {
     }
 
     private static boolean compactInference(Tensor input, float epsilon) {
-        return !GradMode.isEnabled() && input.dtype() != DType.FLOAT32 && input.rank() > 0 && input.numel() > 0
+        return !GradMode.isEnabled() && eligibleLayout(input) && input.rank() > 0 && input.numel() > 0
                 && Float.isFinite(epsilon) && epsilon > 0;
+    }
+
+    private static boolean eligibleLayout(Tensor input) {
+        return input.dtype() != DType.FLOAT32 || channelLayout(input);
+    }
+
+    private static boolean channelLayout(Tensor input) {
+        return input.rank() == 4 && input.strides()[3] != 1;
     }
 
     private static boolean parameterShape(Tensor input, Tensor gain) {
@@ -26,6 +34,12 @@ final class ModelRms {
 
     static Tensor inference(Tensor input, Tensor gain, Tensor bias, float epsilon, boolean gemma) {
         var backend = (InferenceNormalizationBackend) Tensor.backend();
+        if (!gemma && gain.dtype() != DType.FLOAT32) return backend.storedRmsForInference(input, gain, bias, epsilon);
+        if (channelLayout(input)) {
+            Tensor scale = gain.to(DType.FLOAT32);
+            if (gemma) scale = scale.addScalar(1);
+            return backend.composedRmsForInference(input, scale, bias, epsilon);
+        }
         if (bias == null) return backend.affineRmsForInference(input, gain, epsilon, gemma);
         Tensor scale = gain.to(DType.FLOAT32);
         if (gemma) scale = scale.addScalar(1);

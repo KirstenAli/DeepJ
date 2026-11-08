@@ -32,7 +32,8 @@ Use `--backend cpu` for CPU execution. The defaults are 1024 × 1024 pixels, two
 
 The pipeline loads and releases each model stage in sequence. Gemma uses BF16 weights and activations. The image denoiser defaults to FP32; select
 `--dtype float16` or `--dtype bfloat16` for compact denoiser and DC-AE decoder weights and activations.
-The sampler keeps FP32 state, as in the Python pipeline; the DC-AE decoder follows the selected precision. The
+The sampler keeps FP32 state, as in the Python pipeline; the DC-AE decoder follows the selected precision.
+RMS statistics use FP32, with normalized values, scale and bias rounded in the weight dtype as in Diffusers. The
 published [0.6B Python example](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers)
 uses BF16 model weights, including DC-AE. During generation, DeepJ disables autograd graph recording. Image arithmetic stays on the selected tensor backend; small prompt features and final latents pass through host memory between model stages. Output is an RGB PNG.
 
@@ -63,7 +64,7 @@ The Gemma backbone is also used for [standalone Gemma 2 chat](gemma2.md). Loadin
 
 ![SANA-Sprint generated fox in the DeepJ desktop UI](sana-sprint-ui.png)
 
-`GroupedConv2D` adds grouped and depthwise, odd-kernel, same-padded NCHW cross-correlation. It reuses DeepJ's spatial patch gathering, tensor joins, matrix multiplication, and gradients. Spatial work is tiled to bound the patch allocation.
+`GroupedConv2D` provides grouped and depthwise, odd-kernel, same-padded NCHW cross-correlation. Supported Metal inference shapes use MPSGraph convolution; training and fallback reuse DeepJ's spatial patch gathering, tensor joins, matrix multiplication, and gradients. Spatial work is tiled to bound the patch allocation.
 
 ## Validation and references
 
