@@ -63,21 +63,23 @@ The reports record each configuration, measured revision, raw trials and numeric
 
 Complete staged generation on Apple M4 Metal/MPS, including stage loading.
 Lower seconds means faster generation. Photos use two fresh-process runs per
-engine and precision; videos use one short preview per engine and precision.
+engine and precision. Three-step video previews use two runs per engine for
+BF16 and one per engine for FP32 and FP16.
 
 | Workload | Precision | DeepJ Metal | PyTorch / Diffusers MPS |
 |---|---|---:|---:|
 | SANA-Sprint image, 1024×1024, 2 steps | FP32 | **18.04 s** | 18.86 s |
 | SANA-Sprint image, 1024×1024, 2 steps | FP16 | **16.70 s** | 17.80 s |
 | SANA-Sprint image, 1024×1024, 2 steps | BF16 | **16.39 s** | 16.73 s |
-| SANA-Video preview, 192×128, 5 frames, 1 step | FP32 | **14.62 s** | 23.59 s |
-| SANA-Video preview, 192×128, 5 frames, 1 step | FP16¹ | **12.87 s** | 24.88 s |
-| SANA-Video preview, 192×128, 5 frames, 1 step | BF16 | **13.74 s** | 14.64 s |
+| SANA-Video preview, 192×128, 5 frames, 3 steps | FP32 | **22.20 s** | 35.89 s |
+| SANA-Video preview, 192×128, 5 frames, 3 steps | FP16¹ | **16.93 s** | 24.84 s |
+| SANA-Video preview, 192×128, 5 frames, 3 steps | BF16 | **15.65 s** | 17.51 s |
 
 ¹ FP16 video uses the same range-preserving FP32 projection, attention-denominator
-and residual policy in both engines. Python FP32 video streams weights to fit
-the 16 GiB machine. See the [setup, raw trials and numerical checks](benchmarks/media-throughput-2026-11-07/REPORT.md)
-for the staged Python reference, precision settings and timing scope. Photo figures
+and residual policy in both engines. Video figures include staged loading and use
+the corrected CPU reference scheduler. See the
+[three-step video setup, raw trials and output checks](benchmarks/video-bf16-performance-2026-11-08/REPORT.md)
+for the Python reference, precision settings and timing scope. Photo figures
 use the corrected sampler and reversed-order pairs in the
 [full-photo follow-up](benchmarks/photo-sampler-2026-11-08/REPORT.md), which also
 records output differences and the input-lifetime regression.

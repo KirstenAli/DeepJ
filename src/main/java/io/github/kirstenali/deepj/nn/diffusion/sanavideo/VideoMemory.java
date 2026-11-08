@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.nn.diffusion.sanavideo;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.ModelMemory;
+import io.github.kirstenali.deepj.nn.ModelInference;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 import java.util.function.Supplier;
@@ -17,7 +18,7 @@ final class VideoMemory {
     }
 
     static Tensor finish(Tensor output) {
-        if (!GradMode.isEnabled()) {
+        if (!GradMode.isEnabled() && !ModelInference.active()) {
             try (var pinned = ModelMemory.retain(output)) { Tensor.backend().releaseTemporaryResources(); }
         }
         return output;

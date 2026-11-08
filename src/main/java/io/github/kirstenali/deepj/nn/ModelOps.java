@@ -12,8 +12,29 @@ public final class ModelOps {
     private ModelOps() {}
 
     public static Tensor linear(Tensor input, TensorWeights weights, String name) {
-        Tensor result = input.matmul(weights.tensor(name + ".weight").transpose(-1, -2));
+        Tensor result = project(input, weights.tensor(name + ".weight").transpose(-1, -2));
         return weights.contains(name + ".bias") ? result.add(weights.tensor(name + ".bias")) : result;
+    }
+
+    /** Projects independent rows with a right-hand [input, output] matrix, preserving leading dimensions. */
+    public static Tensor project(Tensor input, Tensor weight) {
+        if (!compactBatch(input, weight)) return input.matmul(weight);
+        int[] shape = input.shape();
+        shape[shape.length - 1] = weight.size(-1);
+        return input.reshape(-1, input.size(-1)).matmul(weight).reshape(shape);
+    }
+
+    private static boolean compactBatch(Tensor input, Tensor weight) {
+        return !GradMode.isEnabled() && Tensor.backend().usesDeviceStorage()
+                && input.dtype() == DType.BFLOAT16 && weight.dtype() == DType.BFLOAT16 && weight.rank() == 2
+                && weight.size(-1) >= 256 && weight.size(-1) % 8 == 0
+                && independentRows(input);
+    }
+
+    private static boolean independentRows(Tensor input) {
+        return input.rank() > 2 && input.isContiguous() && input.storageOffset() == 0
+                && input.size(-2) >= 64 && input.size(-1) >= 256
+                && input.numel() > (long) input.size(-2) * input.size(-1);
     }
 
     public static Tensor silu(Tensor input) {

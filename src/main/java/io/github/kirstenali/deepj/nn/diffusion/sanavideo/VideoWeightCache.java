@@ -21,6 +21,7 @@ final class VideoWeightCache implements AutoCloseable {
     private final Map<DType, TensorWeights> sources = new EnumMap<>(DType.class);
     private final boolean cached;
     private final DType workingType;
+    private final VideoBlockCache blocks;
     private boolean closed;
 
     VideoWeightCache(Path directory, long budget) throws IOException { this(directory, budget, DType.FLOAT32); }
@@ -33,6 +34,7 @@ final class VideoWeightCache implements AutoCloseable {
             descriptors = metadata.descriptors();
         }
         cached = descriptors.values().stream().mapToLong(TensorDescriptor::bytes).sum() <= budget;
+        blocks = new VideoBlockCache(budget);
     }
 
     static long defaultBudget() {
@@ -60,6 +62,14 @@ final class VideoWeightCache implements AutoCloseable {
         }
     }
 
+    VideoBlockCache.Selection selectRepeated(String prefix) throws IOException {
+        if (closed) throw new IllegalStateException("Video weights are closed");
+        var held = blocks.borrow(prefix);
+        if (held != null) return held;
+        TensorWeights weights = select(name -> name.startsWith(prefix));
+        return cached ? new VideoBlockCache.Selection(weights, true) : blocks.keep(prefix, weights);
+    }
+
     private Tensor read(String name, TensorWeights stream) {
         Tensor value = stream == null ? source(descriptors.get(name).dtype()).tensor(name) : stream.tensor(name);
         Tensor alias = Tensor.backend().expand(value, value.shape());
@@ -74,6 +84,7 @@ final class VideoWeightCache implements AutoCloseable {
     }
 
     @Override public void close() {
+        blocks.close();
         sources.values().forEach(TensorWeights::close);
         sources.clear();
         closed = true;

@@ -35,5 +35,6 @@ public final class ModelInference {
         }
     }
 
-    static boolean active() { return Boolean.TRUE.equals(BATCHED.get()); }
+    /** Whether this thread is currently capturing a bounded inference block. */
+    public static boolean active() { return Boolean.TRUE.equals(BATCHED.get()); }
 }
