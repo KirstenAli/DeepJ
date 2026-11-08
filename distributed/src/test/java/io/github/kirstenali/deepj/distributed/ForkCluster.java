@@ -50,6 +50,7 @@ final class ForkCluster implements AutoCloseable {
         String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         List<String> command = new ArrayList<>(List.of(java,
                 "--enable-native-access=ALL-UNNAMED", "-Xmx512m", "-cp", classpath(), ForkWorker.class.getName()));
+        ForkCoverage.attach(command);
         command.addAll(List.of(family, dtype.name(), "" + rank, "" + batches.length, "" + batches[rank], "" + steps,
                 backend, mode, root == null ? "pipe" : "" + root.address().getPort(), checkpoints.toString()));
         children.add(new ProcessBuilder(command).redirectError(error.toFile()).start());

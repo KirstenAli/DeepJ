@@ -175,6 +175,11 @@ mvn --batch-mode install -Pfull-coverage
 mvn --batch-mode -f distributed/pom.xml verify
 ```
 
+Verification enforces the shared Checkstyle, PMD and duplicate-code rules, plus
+at least **85% line coverage** and **70% branch coverage** for this module.
+JaCoCo combines the test JVM and worker JVM results; each run starts with fresh
+coverage data. Open `distributed/target/site/jacoco/index.html` for the report.
+
 The portable suite runs real worker JVMs over process pipes using the production
 coordinator, framing, reductions and deadlines. It compares 15 model types
 and three storage dtypes against the existing single-worker training APIs,
@@ -203,7 +208,8 @@ exercise training and checkpoint continuation in separate Metal worker JVMs.
 Without these properties, the TCP rendezvous and Metal-specific tests are reported
 as skipped. A portable pass is not a TCP, Metal or multi-machine qualification.
 
-The separate `Distributed training` workflow runs TCP checks on pull requests and
+The separate `Distributed training` workflow runs TCP and coverage checks on
+pull requests and master pushes affecting this module, core code or shared rules. It
 can run the Metal checks through `workflow_dispatch` on a self-hosted runner
 labelled `deepj-metal`. These tests use one host; actual multi-Mac throughput,
 reliability and mixed-backend behavior still require measurements on the target

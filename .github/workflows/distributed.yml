@@ -2,10 +2,10 @@ name: Distributed training
 
 on:
   pull_request:
-    paths: ['distributed/**', '.github/workflows/distributed.yml']
+    paths: ['distributed/**', 'src/main/**', 'src/test/**', 'pom.xml', 'config/**', '.github/workflows/distributed.yml']
   push:
-    branches: [codex/distributed-training-exploration]
-    paths: ['distributed/**', '.github/workflows/distributed.yml']
+    branches: [master, codex/distributed-training-exploration]
+    paths: ['distributed/**', 'src/main/**', 'src/test/**', 'pom.xml', 'config/**', '.github/workflows/distributed.yml']
   workflow_dispatch:
     inputs:
       require_metal:
@@ -35,7 +35,13 @@ jobs:
         if: always()
         with:
           name: distributed-tcp-reports
-          path: distributed/target/surefire-reports/
+          path: |
+            distributed/target/surefire-reports/
+            distributed/target/site/jacoco/
+            distributed/target/jacoco.exec
+            distributed/target/checkstyle-result.xml
+            distributed/target/pmd.xml
+            distributed/target/cpd.xml
 
   metal:
     if: github.event_name == 'workflow_dispatch' && inputs.require_metal
@@ -58,4 +64,10 @@ jobs:
         if: always()
         with:
           name: distributed-metal-reports
-          path: distributed/target/surefire-reports/
+          path: |
+            distributed/target/surefire-reports/
+            distributed/target/site/jacoco/
+            distributed/target/jacoco.exec
+            distributed/target/checkstyle-result.xml
+            distributed/target/pmd.xml
+            distributed/target/cpd.xml
