@@ -32,7 +32,7 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 
 ## Fast inference and training, in Java
 
-In Apple M4 tests, DeepJ delivered faster Qwen3-1.7B decoding across FP32, FP16 and BF16, alongside faster FP32 training for small Qwen and Gemma models. [See the benchmarks](docs/performance.md).
+In Apple M4 tests, DeepJ delivered faster Qwen3-1.7B decoding across FP32, FP16 and BF16, alongside faster FP32 and mixed-precision training for small Qwen and Gemma models. [See the benchmarks](docs/performance.md).
 
 ## Install
 

@@ -1,8 +1,8 @@
 # Inference and training benchmarks
 
 In **Apple M4 tests**, DeepJ achieved higher **Qwen3-1.7B decode throughput** across
-**FP32, FP16 and BF16**, plus lower **FP32 training step times** for the small Qwen
-and Gemma configurations below.
+**FP32, FP16 and BF16**, plus lower **training step times** for the small Qwen and Gemma configurations
+in FP32 and mixed precision below.
 
 | Measurement | Precision | DeepJ | PyTorch |
 |---|---|---:|---:|
@@ -24,6 +24,17 @@ and Gemma configurations below.
 | CPU training step (small Gemma) | FP32 | **7.163 ms/step** | 7.656 ms/step |
 | Metal / MPS training step (small Qwen) | FP32 | **4.113 ms/step** | 17.824 ms/step |
 | Metal / MPS training step (small Gemma) | FP32 | **10.792 ms/step** | 18.072 ms/step |
+| CPU training step (small Qwen) | FP16 (mixed) | **10.709 ms/step** | 81.029 ms/step |
+| CPU training step (small Qwen) | BF16 (mixed) | **10.925 ms/step** | 81.784 ms/step |
+| CPU training step (small Gemma) | FP16 (mixed) | **19.198 ms/step** | 60.181 ms/step |
+| CPU training step (small Gemma) | BF16 (mixed) | **26.569 ms/step** | 60.583 ms/step |
+| Metal / MPS training step (small Qwen) | FP16 (mixed) | **4.937 ms/step** | 18.008 ms/step |
+| Metal / MPS training step (small Qwen) | BF16 (mixed) | **5.124 ms/step** | 17.484 ms/step |
+| Metal / MPS training step (small Gemma) | FP16 (mixed) | **6.823 ms/step** | 19.228 ms/step |
+| Metal / MPS training step (small Gemma) | BF16 (mixed) | **6.864 ms/step** | 16.324 ms/step |
+
+FP16/BF16 training rows compare DeepJ compact training with PyTorch AMP, using
+FP32 gradients and optimizer state. [Training precision policies and measurements](benchmarks/compact-training-2026-11-08/REPORT.md).
 
 ## Setup and measurements
 
@@ -34,7 +45,7 @@ with full final-position logit readback and no sampling. Streaming-chat tests
 generate and render their replies. Higher tokens/s and lower milliseconds are better.
 
 Training uses separate small, randomly initialized Qwen and Gemma configurations,
-with FP32 parameters and calculations. Complete steps include forward, loss,
+using FP32 or the mixed-precision policies linked above. Complete steps include forward, loss,
 backward, gradient clipping, AdamW and synchronization. These are separate runs
 from the full-checkpoint inference measurements.
 
