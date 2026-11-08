@@ -83,7 +83,12 @@ See the [CLI guide](cli.md) for commands and controls.
 
 Meet [Frisky 90M](https://huggingface.co/netsrik/frisky-90m), a 90-million-parameter DeepJ Prism model trained from scratch through pretraining, mid-training, and instruction fine-tuning.
 
-Download its `model.dj` and `tokenizer.bpe` files to try the model-loading section above or chat in the desktop UI or CLI. Although Frisky can produce coherent responses, it is a small experimental model and can repeat itself or make factual, reasoning, maths and coding errors. The [training examples](../src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
+Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true)
+and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true)
+into a folder named `frisky-90m`. Use this folder with the CLI, or select `model.dj`
+in the desktop model picker.
+
+Although Frisky can produce coherent responses, it is a small experimental model and can repeat itself or make factual, reasoning, maths and coding errors. The [training examples](../src/main/java/io/github/kirstenali/deepj/examples) remain available for exploration; their prepared datasets are not included in the repository.
 
 ## Text data and persistence
 

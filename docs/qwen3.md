@@ -7,6 +7,13 @@ SiLU-gated feed-forward layers, final RMS normalization, and tied input/output e
 All network arithmetic and differentiation use DeepJ's existing tensor operations and selected CPU or Metal backend.
 The Qwen3 classes supply the model composition, checkpoint layout, and tokenization rules.
 
+## Download the model
+
+Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both
+`.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main)
+into a folder named `qwen3-1.7b`. Keep all files together. Desktop chat uses the
+checkpoint's BF16 weights and activations by default.
+
 ## Model and training
 
 `io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3` implements `CausalLM`.

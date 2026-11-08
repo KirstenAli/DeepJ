@@ -52,7 +52,7 @@ Add DeepJ to your project:
 
 [Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) is a pretrained 1.7-billion-parameter language model you can run locally with DeepJ on CPU or Apple Metal.
 
-Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`, then start desktop chat with BF16 weights and activations.
+Download the model and tokenizer files using the [Qwen3 guide](docs/qwen3.md#download-the-model).
 
 Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) and run it with JDK 20 or newer:
 
@@ -124,7 +124,9 @@ Select `config.json` in the model picker.
 
 [Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Chat locally with the DeepJ CLI.
 
-Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into `frisky-90m`, then download the [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-cli.jar) and run:
+Download the model files using the [Frisky 90M guide](docs/language-models.md#frisky-90m).
+
+Download the [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-cli.jar) and run it with JDK 20 or newer:
 
 ```bash
 java --enable-native-access=ALL-UNNAMED -jar deepj-cli.jar chat ./frisky-90m
