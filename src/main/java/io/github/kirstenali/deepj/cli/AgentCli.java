@@ -29,7 +29,6 @@ public final class AgentCli implements Callable<Integer> {
 
     private AgentCli(CliServices services) {
         this.services = services;
-        sampling.maxTokens = 256;
         sampling.temperature = 0.7f;
         sampling.topK = 20;
     }

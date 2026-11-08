@@ -70,19 +70,28 @@ The normal `deepj chat`, `deepj generate`, and `deepj inspect` commands accept a
 its `config.json`, or a safetensors weight/index file inside that directory. Existing backend and sampling flags
 apply. Inspection reads configuration and tensor metadata without constructing the model or selecting a backend.
 
-The chat command uses the checkpoint's weight format by default. For FP32 weights on Metal, run:
+The recommended Metal command explicitly selects BF16 weights and activations:
 
 ```bash
-java -Xmx12g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
-  --backend metal chat ./qwen3-1.7b --dtype float32
+mvn package -Pcli
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
+  --backend metal chat ./qwen3-1.7b --dtype bfloat16
 ```
 
-The option converts weights in memory at load time. The `--dtype` option also accepts
-`float16` and `bfloat16`; those explicit selections use compact activations as well as
-weights through the shared CPU/Metal kernels. In the desktop launcher, select them
-with `-Ddeepj.chat.qwen3.dtype=float16` or `-Ddeepj.chat.qwen3.dtype=bfloat16`.
-The desktop default remains FLOAT32. Omitted CLI dtype preserves the existing loading
-policy. Relative speed depends on the backend and workload.
+The option selects the in-memory format at load time. Explicit `float16` and
+`bfloat16` selections use compact activations and weights through the shared
+CPU/Metal kernels. `float32` remains available when FP32 execution is wanted.
+Omitting the dtype preserves checkpoint storage and the existing activation policy.
+
+For desktop BF16 chat, Thinking and Agent mode, run:
+
+```bash
+JAVA_TOOL_OPTIONS="-Xmx3g -Ddeepj.chat.qwen3.dtype=bfloat16" mvn compile javafx:run
+```
+
+Use `-Ddeepj.chat.qwen3.dtype=float16` to select FP16. The desktop and CLI default
+to a maximum of 2,048 generated tokens; generation also respects the model's
+context window and end-of-sequence tokens.
 
 In the desktop chat app, choose `config.json` or a safetensors file through the model picker. Keep the configuration,
 tokenizer, index, and shards together in the snapshot directory. Thinking is off by default in both interfaces.

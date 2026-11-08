@@ -110,7 +110,7 @@ public final class ChatWindow {
     }
 
     private void refreshAgentWorkspace() {
-        if (agentWorkspace != null) call("setAgentWorkspace", agentWorkspace.directoryLabel());
+        call("setAgentWorkspace", agentWorkspace == null ? "" : agentWorkspace.directoryLabel());
     }
 
     private void loadFailed(Throwable error) {

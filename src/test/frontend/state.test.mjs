@@ -60,7 +60,7 @@ test('enter sends the prompt with exactly the selected generation settings', (co
   ui.element('repetitionPenalty').value = '1.1';
   const enter = keyboard(ui, ui.element('prompt'), 'Enter');
   assert.equal(enter.defaultPrevented, true);
-  assert.deepEqual(ui.calls, [['sendWithSettings', 'Hello', 80, 0.8, 40, 1234, 1.1]]);
+  assert.deepEqual(ui.calls, [['sendWithSettings', 'Hello', 2048, 0.8, 40, 1234, 1.1]]);
 });
 
 test('shift-enter and ordinary keys do not submit', (context) => {
@@ -78,7 +78,7 @@ test('rolling cache is opt-in and reaches Java with unchanged sampling settings'
   ui.element('rollingCache').checked = true;
   ui.element('prompt').value = 'Hello';
   ui.window.submitPrompt();
-  assert.deepEqual(ui.calls, [['sendWithWindowSettings', 'Hello', 80, 0.8, 40, 1234, 1, true]]);
+  assert.deepEqual(ui.calls, [['sendWithWindowSettings', 'Hello', 2048, 0.8, 40, 1234, 1, true]]);
 });
 
 test('conversation history starts off and the Settings switch can enable or disable it', (context) => {

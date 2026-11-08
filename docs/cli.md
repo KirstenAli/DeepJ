@@ -38,8 +38,13 @@ The screenshot illustrates the interface, not a guarantee of response accuracy.
 
 Use `--help` after any command for its options. Generation options match the [desktop settings](language-models.md#desktop-chat): `--max-tokens`, `--temperature`, `--top-k`, `--seed` and `--repetition-penalty`.
 
-Qwen3 and Gemma 2 chat also accept `--dtype float32` to load weights as FP32. By default Qwen3 chat keeps the
-checkpoint's weight format. See [Qwen3 chat on Metal](qwen3.md#cli-and-desktop-ui) for the command.
+The default response limit is 2,048 generated tokens, including reasoning when
+Thinking is enabled. End-of-sequence tokens and the model's context window can
+end a response earlier.
+
+Qwen3 and Gemma 2 chat accept `--dtype float32`, `float16`, or `bfloat16`.
+The [recommended Qwen3 Metal command](qwen3.md#cli-and-desktop-ui) selects BF16;
+omitting the option keeps the checkpoint's weight format.
 Gemma 2 defaults to BF16 storage; see the [Gemma 2 guide](gemma2.md) for checkpoint and desktop setup.
 
 For Orbit, Prism, Nova and Loop, `--rolling-cache` keeps incremental decoding after the context
