@@ -34,6 +34,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <deepj.version>1.0.0</deepj.version>
         <project.build.outputTimestamp>2026-11-08T00:00:00Z</project.build.outputTimestamp>
+        <jacocoArgLine></jacocoArgLine>
     </properties>
     <dependencies>
         <dependency>
@@ -53,13 +54,66 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions><execution>
+                    <id>reset-coverage-data</id><phase>initialize</phase><goals><goal>run</goal></goals>
+                    <configuration><target>
+                        <delete dir="${project.build.directory}/coverage-data"/>
+                        <delete file="${project.build.directory}/jacoco.exec"/>
+                        <delete dir="${project.build.directory}/site/jacoco"/>
+                    </target></configuration>
+                </execution></executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.1</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
-                <configuration><argLine>--enable-native-access=ALL-UNNAMED</argLine></configuration>
+                <configuration>
+                    <argLine>@{jacocoArgLine} --enable-native-access=ALL-UNNAMED</argLine>
+                    <systemPropertyVariables>
+                        <deepj.distributed.coverageDirectory>${project.build.directory}/coverage-data</deepj.distributed.coverageDirectory>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId><artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.15</version>
+                <executions>
+                    <execution>
+                        <id>measure-distributed-java</id><goals><goal>prepare-agent</goal></goals>
+                        <configuration>
+                            <propertyName>jacocoArgLine</propertyName>
+                            <destFile>${project.build.directory}/coverage-data/tests.exec</destFile>
+                            <append>false</append>
+                            <includes><include>io.github.kirstenali.deepj.distributed.*</include></includes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>merge-worker-coverage</id><phase>verify</phase><goals><goal>merge</goal></goals>
+                        <configuration>
+                            <fileSets><fileSet>
+                                <directory>${project.build.directory}/coverage-data</directory>
+                                <includes><include>*.exec</include></includes>
+                            </fileSet></fileSets>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>report-distributed-java</id><phase>verify</phase><goals><goal>report</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>enforce-distributed-coverage</id><phase>verify</phase><goals><goal>check</goal></goals>
+                        <configuration>
+                            <rules><rule><element>BUNDLE</element><limits>
+                                <limit><counter>LINE</counter><value>COVEREDRATIO</value><minimum>0.85</minimum></limit>
+                                <limit><counter>BRANCH</counter><value>COVEREDRATIO</value><minimum>0.70</minimum></limit>
+                            </limits></rule></rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-checkstyle-plugin</artifactId>
