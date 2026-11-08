@@ -1,9 +1,6 @@
 # Automatic differentiation
 
-Available in DeepJ `0.10.0-alpha` and newer.
-
-The ND/compact-dtype and `TensorScope` details below require DeepJ `0.12.0-alpha` or newer;
-see [tensors and precision](tensors.md) for availability and matrix-API migration.
+See [tensors and precision](tensors.md) for N-dimensional tensors, compact dtypes, and storage.
 
 DeepJ records differentiable tensor operations when at least one input requires gradients.
 Calling `backward()` follows those operations in reverse and accumulates gradients on leaf tensors.

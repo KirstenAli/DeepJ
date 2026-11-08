@@ -10,18 +10,29 @@ import org.jline.reader.UserInterruptException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CancellationException;
+import java.util.function.Function;
 
 final class AgentCliSession {
     private final CliConsole console;
     private final CliView view;
-    private final Agent agent;
+    private final InteractiveTerminal terminal;
+    private final Function<Boolean, AgentModel> models;
+    private Agent agent;
     private final AgentHistory history = new AgentHistory();
     private boolean historyEnabled;
+    private boolean thinking;
 
     AgentCliSession(CliConsole console, CliView view, AgentModel model, Path directory) {
+        this(console, view, directory, enabled -> plainModel(model, enabled), false);
+    }
+
+    AgentCliSession(CliConsole console, CliView view, Path directory,
+                    Function<Boolean, AgentModel> models, boolean thinking) {
         this.console = console;
         this.view = view;
-        agent = new InteractiveTerminal(directory, this::approve).agent(model);
+        this.models = models;
+        terminal = new InteractiveTerminal(directory, this::approve);
+        setThinking(thinking);
     }
 
     void run() {
@@ -49,31 +60,58 @@ final class AgentCliSession {
     private void dispatch(String prompt) throws InterruptedException {
         String[] words = prompt.split("\\s+");
         switch (words[0]) {
-            case "/help" -> view.note("/set history on|off · /settings · /exit · Ctrl+C stops the current turn");
-            case "/settings" -> view.history(historyEnabled);
-            case "/set" -> setHistory(words);
+            case "/help" -> view.note("/set history on|off · /set thinking on|off · /settings · /exit · Ctrl+C stops");
+            case "/settings" -> settings();
+            case "/set" -> setSetting(words);
             default -> answer(prompt);
         }
     }
 
-    private void setHistory(String[] words) {
-        if (words.length != 3 || !words[1].equals("history")) {
-            throw new IllegalArgumentException("Use /set history on or /set history off.");
+    private void setSetting(String[] words) {
+        if (words.length != 3) throw new IllegalArgumentException("Use /set history|thinking on|off.");
+        boolean enabled = ChatCommands.toggleEnabled(words[1], words[2]);
+        switch (words[1]) {
+            case "history" -> historyEnabled = enabled;
+            case "thinking" -> setThinking(enabled);
+            default -> throw new IllegalArgumentException("Use /set history|thinking on|off.");
         }
-        historyEnabled = ChatCommands.historyEnabled(words[2]);
+        settings();
+    }
+
+    private void settings() {
         view.history(historyEnabled);
+        view.thinking(thinking);
+    }
+
+    private void setThinking(boolean enabled) {
+        Agent candidate = terminal.agent(models.apply(enabled));
+        agent = candidate;
+        thinking = enabled;
     }
 
     private void answer(String prompt) throws InterruptedException {
         Thread worker = Thread.currentThread();
         try (var ignored = console.interrupt(worker::interrupt)) {
-            var turn = agent.runTurn(historyEnabled ? history.snapshot() : List.of(), prompt, null);
+            var turn = runTurn(prompt);
             history.remember(turn);
             view.response("DeepJ Agent");
             view.out().println(CliText.safe(turn.reply()));
         } finally {
             Thread.interrupted();
         }
+    }
+
+    private Agent.Turn runTurn(String prompt) throws InterruptedException {
+        var context = historyEnabled ? history.snapshot() : List.<Agent.Turn>of();
+        if (!thinking) return agent.runTurn(context, prompt, null);
+        try (var reasoning = new CliReasoning(view)) {
+            return agent.runTurn(context, prompt, null, reasoning);
+        }
+    }
+
+    private static AgentModel plainModel(AgentModel model, boolean thinking) {
+        if (thinking) throw new IllegalArgumentException("Thinking is unavailable for this model.");
+        return model;
     }
 
     private boolean approve(InteractiveTerminal.Request request) {

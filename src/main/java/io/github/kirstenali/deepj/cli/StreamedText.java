@@ -5,21 +5,27 @@ import java.io.PrintWriter;
 /** Append cumulative updates without leaking terminal controls or incomplete UTF-8 replacement tails. */
 final class StreamedText {
     private final PrintWriter output;
+    private final boolean thinking;
     private String written = "";
 
     StreamedText(PrintWriter output) {
+        this(output, false);
+    }
+
+    StreamedText(PrintWriter output, boolean thinking) {
         this.output = output;
+        this.thinking = thinking;
     }
 
     void update(String text) {
         if (!Thread.currentThread().isInterrupted()) append(stable(clean(text)));
     }
 
-    void complete(String text) { append(clean(text)); }
+    void complete(String text) { append(clean(text) + (thinking ? ThinkingText.completionNote(text) : "")); }
     boolean empty() { return written.isBlank(); }
     boolean endsWithNewline() { return written.endsWith("\n"); }
 
-    private String clean(String text) { return CliText.safe(text); }
+    private String clean(String text) { return CliText.safe(thinking ? ThinkingText.display(text) : text); }
 
     private void append(String text) {
         if (!text.startsWith(written)) throw new IllegalStateException("Model revised already-streamed text");

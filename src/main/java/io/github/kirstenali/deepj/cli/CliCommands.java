@@ -60,7 +60,8 @@ final class CliCommands {
             SamplingSettings settings = sampling.settings();
             String prompt = input.read(services);
             try (CliModel model = services.models().load(path, options.backend, null)) {
-                StreamedText output = new StreamedText(services.out());
+                settings.checkModel(model);
+                StreamedText output = new StreamedText(services.out(), settings.thinking());
                 output.complete(model.stream(prompt, settings, output::update));
                 if (!output.endsWithNewline()) services.out().println();
             }

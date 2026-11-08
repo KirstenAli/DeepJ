@@ -82,6 +82,7 @@ The option selects the in-memory format at load time. Explicit `float16` and
 `bfloat16` selections use compact activations and weights through the shared
 CPU/Metal kernels. `float32` remains available when FP32 execution is wanted.
 Omitting the dtype preserves checkpoint storage and the existing activation policy.
+For BF16 CPU chat, use `--backend cpu` with `-Xmx6g` so the weights fit in the Java heap.
 
 For desktop BF16 chat, Thinking and Agent mode, run:
 
@@ -89,12 +90,17 @@ For desktop BF16 chat, Thinking and Agent mode, run:
 JAVA_TOOL_OPTIONS="-Xmx3g -Ddeepj.chat.qwen3.dtype=bfloat16" mvn compile javafx:run
 ```
 
+For CLI Thinking, add `--thinking` to `chat` or `generate`. During terminal chat,
+use `/set thinking on` or `/set thinking off`; `/settings` shows the current value.
+Thinking is also available in the [CLI Agent launcher](agent-launchers.md#cli).
+Reasoning is displayed separately from the answer and shares the generation token budget.
+
 Use `-Ddeepj.chat.qwen3.dtype=float16` to select FP16. The desktop and CLI default
 to a maximum of 2,048 generated tokens; generation also respects the model's
 context window and end-of-sequence tokens.
 
 In the desktop chat app, choose `config.json` or a safetensors file through the model picker. Keep the configuration,
-tokenizer, index, and shards together in the snapshot directory. Desktop Thinking is off by default.
+tokenizer, index, and shards together in the snapshot directory. Thinking is off by default in both interfaces.
 In the desktop app, open **Chat options** beside the message field and enable **Thinking** to use Qwen3's thinking
 template, with or without Agent mode. The expandable **Thought process** appears above the answer in both modes.
 Agent mode includes reasoning across tool calls in the same panel; its tool approval flow is unchanged.

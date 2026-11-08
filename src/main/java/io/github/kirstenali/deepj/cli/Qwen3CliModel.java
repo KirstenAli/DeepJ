@@ -27,18 +27,25 @@ record Qwen3CliModel(Qwen3ChatModel chat, ModelInspection inspection, TensorBack
     }
 
     @Override public String name() { return "Qwen3"; }
+    @Override public boolean supportsThinking() { return true; }
     @Override public String backend() { return computation instanceof MetalBackend ? "Metal" : "CPU"; }
-    @Override public void close() { computation.releaseResources(); }
+    @Override public void close() {
+        for (var parameter : chat.model().parameters()) {
+            parameter.value.releaseDeviceBufferRetention();
+            parameter.value.setGpuTag(null);
+        }
+        computation.releaseResources();
+    }
 
     @Override public String stream(String prompt, SamplingSettings settings, Consumer<String> listener) {
-        return chat.stream(prompt, settings.maxTokens(), settings.temperature(), settings.topK(), settings.seed(),
-                settings.repetitionPenalty(), settings.contextWindow(), listener);
+        return streamConversation(prompt, List.of(), settings, listener);
     }
 
     @Override
     public String streamConversation(String prompt, List<Agent.Turn> history, SamplingSettings settings,
                                      Consumer<String> listener) {
-        return chat.streamConversation(prompt, history, settings.maxTokens(), settings.temperature(), settings.topK(),
-                settings.seed(), settings.repetitionPenalty(), settings.contextWindow(), listener);
+        return chat.withThinking(settings.thinking()).streamConversation(prompt, history, settings.maxTokens(),
+                settings.temperature(), settings.topK(), settings.seed(), settings.repetitionPenalty(),
+                settings.contextWindow(), listener);
     }
 }

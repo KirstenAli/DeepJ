@@ -63,10 +63,10 @@ public final class AgentCli implements Callable<Integer> {
     }
 
     private void runAgent(CliConsole console, Qwen3CliModel qwen, SamplingSettings settings) {
-        var model = new Qwen3AgentModel(qwen.chat(), settings.maxTokens(), settings.temperature(),
-                settings.topK(), settings.seed(), settings.repetitionPenalty(), settings.contextWindow());
         var view = new CliView(console, options, services.environment());
         view.welcome(qwen);
-        new AgentCliSession(console, view, model, directory).run();
+        new AgentCliSession(console, view, directory, thinking -> new Qwen3AgentModel(qwen.chat(),
+                settings.maxTokens(), settings.temperature(), settings.topK(), settings.seed(),
+                settings.repetitionPenalty(), settings.contextWindow(), thinking), settings.thinking()).run();
     }
 }

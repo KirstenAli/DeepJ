@@ -20,6 +20,7 @@ final class ChatSession {
 
     ChatSession(CliConsole console, CliModel model, CliOptions options,
                 CliServices services, SamplingSettings settings) {
+        settings.checkModel(model);
         this.console = console;
         this.model = model;
         this.options = options;
@@ -79,10 +80,14 @@ final class ChatSession {
 
     void edit(String name, String value) {
         if (name.equals("history")) historyEnabled = ChatCommands.historyEnabled(value);
-        else settings = settings.edit(name, value);
+        else {
+            SamplingSettings changed = settings.edit(name, value);
+            changed.checkModel(model);
+            settings = changed;
+        }
     }
 
-    void settings() { view.settings(settings, historyEnabled); }
+    void settings() { view.settings(settings, historyEnabled, model.supportsThinking()); }
     void help() { view.help(); }
     void clear() { console.clear(); }
 

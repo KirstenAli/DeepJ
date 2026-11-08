@@ -37,9 +37,9 @@ differentiation, composable layers, and shared CPU/Metal execution.
 
 ## Availability
 
-These guides and the generated API reference document DeepJ `0.13.0-alpha`.
-See the [release notes](releases/0.13.0-alpha.md) and
-[tagged source](https://github.com/KirstenAli/DeepJ/tree/v0.13.0-alpha) for this version.
+These guides and the generated API reference document DeepJ `1.0.0`.
+See the [release notes](releases/1.0.0.md) and
+[tagged source](https://github.com/KirstenAli/DeepJ/tree/v1.0.0) for this version.
 
 ## Development and verification
 

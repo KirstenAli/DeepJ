@@ -42,6 +42,11 @@ The default response limit is 2,048 generated tokens, including reasoning when
 Thinking is enabled. End-of-sequence tokens and the model's context window can
 end a response earlier.
 
+For Qwen3, add `--thinking` to chat or one-shot generation to show reasoning before
+the answer. Thinking starts off. Use `/set thinking on` or `/set thinking off`
+during chat; `/settings` displays its value. The [Agent launcher](agent-launchers.md#cli)
+supports the same flag and toggle while retaining command approval.
+
 Qwen3 and Gemma 2 chat accept `--dtype float32`, `float16`, or `bfloat16`.
 The [recommended Qwen3 Metal command](qwen3.md#cli-and-desktop-ui) selects BF16;
 omitting the option keeps the checkpoint's weight format.

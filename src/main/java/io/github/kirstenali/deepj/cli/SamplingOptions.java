@@ -25,8 +25,11 @@ final class SamplingOptions {
     @Option(names = "--rolling-cache", description = "Reuse a rolling KV cache beyond the window (RoPE models only).")
     boolean rollingCache;
 
+    @Option(names = "--thinking", description = "Enable Qwen3 reasoning before its answer (default: false).")
+    boolean thinking;
+
     SamplingSettings settings() {
         return new SamplingSettings(maxTokens, temperature, topK, seed, penalty,
-                rollingCache ? ContextWindowMode.ROLLING : ContextWindowMode.REBUILD);
+                rollingCache ? ContextWindowMode.ROLLING : ContextWindowMode.REBUILD, thinking);
     }
 }

@@ -6,7 +6,6 @@ function setImageMode(enabled) {
     element('agentControls').hidden = true;
     showAgentMenu(false);
   }
-  element('imageModeLabel').hidden = !enabled;
   element('imageSettingsButton').hidden = !enabled;
   element('imageSettings').hidden = !enabled;
   element('chatSettings').hidden = enabled;

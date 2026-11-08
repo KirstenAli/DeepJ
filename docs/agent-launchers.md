@@ -35,11 +35,13 @@ through the Qwen dtype setting.
 ```bash
 mvn package -Pcli
 java -Xmx3g --enable-native-access=ALL-UNNAMED -cp target/deepj-cli.jar \
-  io.github.kirstenali.deepj.cli.AgentCli ./qwen3-1.7b --workdir . --backend metal --dtype bfloat16
+  io.github.kirstenali.deepj.cli.AgentCli ./qwen3-1.7b --workdir . --backend metal --dtype bfloat16 --thinking
 ```
 
-The CLI agent uses Qwen3's non-thinking mode. The desktop Thinking switch supports
-reasoning with tool calls.
+Add `--thinking` to enable Qwen3 reasoning with tool calls. Reasoning streams before
+each command approval and the final answer. Use `/set thinking on` or
+`/set thinking off` between turns; `/settings` shows the current value. Thinking
+starts off when the flag is omitted and shares each model response's token budget.
 
 Use `--backend cpu` to run on CPU. In an interactive terminal, answer `y` to approve a
 requested command once. Enter defaults to denial. Use `/exit` to close the chat.

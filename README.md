@@ -44,39 +44,21 @@ Add DeepJ to your project:
 <dependency>
     <groupId>io.github.kirstenali</groupId>
     <artifactId>deepj</artifactId>
-    <version>0.13.0-alpha</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
-## Try Frisky 90M
-
-[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Download it and chat locally with the DeepJ CLI.
-
-Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into a folder named `frisky-90m`. Place the [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v0.13.0-alpha/deepj-cli.jar) alongside that folder, then run:
-
-```bash
-java --enable-native-access=ALL-UNNAMED -jar deepj-cli.jar chat ./frisky-90m
-```
-
-The CLI streams responses, supports selectable themes, and uses Metal when available with CPU fallback. See the [CLI guide](docs/cli.md) for commands and controls, and the [model card](https://huggingface.co/netsrik/frisky-90m) for training details.
-
-![Frisky 90M in the DeepJ CLI, with the DeepJ wordmark and three prompt-and-answer exchanges](docs/cli.png)
-
 ## Try Qwen3-1.7B
 
-[Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) is a pretrained 1.7-billion-parameter language model you can run locally with DeepJ on CPU or Apple Metal. Chat through the CLI or load it in the desktop app.
+[Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) is a pretrained 1.7-billion-parameter language model you can run locally with DeepJ on CPU or Apple Metal.
 
-Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`. Build the CLI from the current source and start chatting on Apple Silicon.
+Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`, then start desktop chat on Apple Silicon with BF16 weights and activations:
 
 ```bash
-mvn package -Pcli
-java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
-  --backend metal chat ./qwen3-1.7b --dtype bfloat16
+JAVA_TOOL_OPTIONS="-Xmx3g -Ddeepj.chat.qwen3.dtype=bfloat16" mvn compile javafx:run
 ```
 
-For desktop chat, select `config.json` from the same folder in the model picker. See the [Qwen3 guide](docs/qwen3.md) for model details, pretrained loading, and training support.
-
-Qwen3 supports **Thinking** in the desktop UI and **Agent mode** in both the UI and CLI. [Try Agent mode](docs/agent-launchers.md).
+Select `config.json` in the model picker, then open **Chat options** for **Thinking** and **Agent mode**. See the [CLI instructions](docs/qwen3.md#cli-and-desktop-ui) and [Agent guide](docs/agent-launchers.md) for terminal commands.
 
 ![Qwen3 using Thinking and Agent mode in DeepJ](docs/qwen3-agent-thinking-ui.png)
 
@@ -126,6 +108,20 @@ For desktop chat, select `config.json` in the model picker. Already have SANA-Sp
 
 ![Gemma 2 answering a question in the DeepJ desktop UI](docs/gemma2-chat-ui.png)
 
+## Try Frisky 90M
+
+[Frisky 90M](https://huggingface.co/netsrik/frisky-90m) is a 90-million-parameter language model trained from scratch with DeepJ. Download it and chat locally with the DeepJ CLI.
+
+Download [`model.dj`](https://huggingface.co/netsrik/frisky-90m/resolve/main/model.dj?download=true) and [`tokenizer.bpe`](https://huggingface.co/netsrik/frisky-90m/resolve/main/tokenizer.bpe?download=true) into a folder named `frisky-90m`. Place the [CLI JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-cli.jar) alongside that folder, then run:
+
+```bash
+java --enable-native-access=ALL-UNNAMED -jar deepj-cli.jar chat ./frisky-90m
+```
+
+The CLI streams responses, supports selectable themes, and uses Metal when available with CPU fallback. See the [CLI guide](docs/cli.md) for commands and controls, and the [model card](https://huggingface.co/netsrik/frisky-90m) for training details.
+
+![Frisky 90M in the DeepJ CLI, with the DeepJ wordmark and three prompt-and-answer exchanges](docs/cli.png)
+
 ## Documentation
 
 Start with the [documentation index](docs/README.md), or go directly to:
@@ -156,6 +152,13 @@ Maintainers can create signed source, Javadoc, and binary artifacts and publish 
 
 ```bash
 mvn clean deploy -Pcentral-release
+```
+
+Publish the optional modules with the same release profile after the core artifact:
+
+```bash
+mvn -f onnx/pom.xml clean deploy -Pcentral-release
+mvn -f distributed/pom.xml clean deploy -Pcentral-release
 ```
 
 Maven Central releases are immutable; update the project version before publishing another release.

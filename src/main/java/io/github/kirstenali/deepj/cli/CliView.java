@@ -34,7 +34,7 @@ final class CliView {
     void note(String text) { out().println(style.dim(CliText.safe(text))); }
     void error(String text) { out().println(style.warning(CliText.safe(text))); }
 
-    void settings(SamplingSettings settings, boolean historyEnabled) {
+    void settings(SamplingSettings settings, boolean historyEnabled, boolean supportsThinking) {
         out().println();
         row("max-tokens", settings.maxTokens());
         row("temperature", settings.temperature());
@@ -43,10 +43,12 @@ final class CliView {
         row("repetition-penalty", settings.repetitionPenalty());
         row("context-window", settings.contextWindow().name().toLowerCase(Locale.ROOT));
         history(historyEnabled);
+        if (supportsThinking) thinking(settings.thinking());
         note("\n/set <setting> <value> changes the next response.");
     }
 
     void history(boolean enabled) { row("history", enabled ? "on" : "off"); }
+    void thinking(boolean enabled) { row("thinking", enabled ? "on" : "off"); }
 
     void help() {
         out().println();

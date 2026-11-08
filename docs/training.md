@@ -4,7 +4,7 @@ DeepJ networks train through the same tensor operations, autograd engine, parame
 objects, and optimizers. This guide covers feed-forward networks, CNNs, recurrent
 networks, autoencoders, Transformer encoders, and causal language models.
 
-This guide describes the DeepJ `0.13.0-alpha` training APIs. See
+This guide describes the DeepJ `1.0.0` training APIs. See
 [version compatibility](README.md#availability) when using an older dependency.
 
 ## Choose a training API
