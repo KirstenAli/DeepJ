@@ -1,0 +1,28 @@
+{
+  "projection_vs_pytorch": {
+    "elements": 860160,
+    "max_abs": 0.0,
+    "relative_rmse": 0.0,
+    "matching_elements": 860160
+  },
+  "pretrained_block_grouped_vs_staged": {
+    "FLOAT32": {
+      "elements": 860160,
+      "max_abs": 0.015625,
+      "relative_rmse": 9.970366840110254e-07,
+      "matching_elements": 26426
+    },
+    "FLOAT16": {
+      "elements": 860160,
+      "max_abs": 7.7373046875,
+      "relative_rmse": 0.0005166502711120227,
+      "matching_elements": 113579
+    },
+    "BFLOAT16": {
+      "elements": 860160,
+      "max_abs": 64.0,
+      "relative_rmse": 0.004265846232916489,
+      "matching_elements": 410363
+    }
+  }
+}

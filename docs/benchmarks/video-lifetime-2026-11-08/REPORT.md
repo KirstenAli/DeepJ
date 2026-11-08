@@ -1,5 +1,9 @@
 # Video sampler and compact precision follow-up
 
+The later [performance follow-up](../video-bf16-performance-2026-11-08/REPORT.md)
+closes the BF16 timing gap recorded here and provides updated three-step timings
+and output checks. The observations below preserve this earlier revision's results.
+
 The follow-up to the [photo sampler fix](../photo-sampler-2026-11-08/REPORT.md)
 checks video for the same lost-input lifetime error. Video already retains its
 FP32 latent across denoiser cleanup and retains the solver's previous prediction.

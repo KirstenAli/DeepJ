@@ -121,7 +121,7 @@ public final class Gemma2Backbone {
 
     private Tensor linear(Tensor input, String name) {
         Tensor weight = weights.apply(name + ".weight").transpose(-1, -2);
-        if (!GradMode.isEnabled()) return input.matmul(weight);
+        if (!GradMode.isEnabled()) return ModelOps.project(input, weight);
         return input.reshape(-1, input.size(-1)).matmul(weight)
                 .reshape(input.size(0), input.size(1), weight.size(-1));
     }

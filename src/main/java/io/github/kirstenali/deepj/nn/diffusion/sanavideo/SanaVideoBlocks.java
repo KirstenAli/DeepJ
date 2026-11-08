@@ -3,6 +3,7 @@ package io.github.kirstenali.deepj.nn.diffusion.sanavideo;
 
 import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.nn.ModelMemory;
+import io.github.kirstenali.deepj.nn.ModelInference;
 import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.persistence.HuggingFaceConfig;
 import io.github.kirstenali.deepj.persistence.safetensors.TensorWeights;
@@ -32,8 +33,8 @@ final class SanaVideoBlocks implements AutoCloseable {
         if (source == null) return block(shared, input, caption, mask, time, rotary, layer, shape);
         if (GradMode.isEnabled()) throw new IllegalStateException("Streamed video blocks require GradMode.noGrad()");
         Tensor output = null;
-        try (var pinned = ModelMemory.retain(input); var weights = weights(layer)) {
-            output = block(weights, input, caption, mask, time, rotary, layer, shape);
+        try (var pinned = ModelMemory.retain(input); var selected = weights(layer)) {
+            output = evaluate(selected.weights(), input, caption, mask, time, rotary, layer, shape);
             output.retainDeviceBuffer();
             return output;
         } catch (IOException failure) {
@@ -43,12 +44,20 @@ final class SanaVideoBlocks implements AutoCloseable {
         }
     }
 
-    private TensorWeights weights(int layer) throws IOException {
+    private VideoBlockCache.Selection weights(int layer) throws IOException {
         String prefix = "transformer_blocks." + layer + ".";
-        return source.select(name -> name.startsWith(prefix));
+        return source.selectRepeated(prefix);
     }
 
     @Override public void close() { if (source != null) source.close(); }
+
+    private Tensor evaluate(TensorWeights weights, Tensor input, Tensor caption, Tensor mask, Tensor time,
+                            VideoRotary rotary, int layer, int[] shape) {
+        if ((long) input.size(0) * input.size(1) > 512 || input.numel() > (1 << 20)) {
+            return block(weights, input, caption, mask, time, rotary, layer, shape);
+        }
+        return ModelInference.evaluate(() -> block(weights, input, caption, mask, time, rotary, layer, shape));
+    }
 
     private Tensor block(TensorWeights weights, Tensor input, Tensor caption, Tensor mask, Tensor time,
                          VideoRotary rotary, int layer, int[] shape) {
