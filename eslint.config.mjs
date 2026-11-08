@@ -134,6 +134,7 @@ export default [
           'setGenerating',
           'setStatus',
           'followLatest',
+          'nearLatest',
           'showFailure',
           'showAgentMode',
           'showAgentMenu',
