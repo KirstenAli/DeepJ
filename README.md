@@ -104,7 +104,7 @@ Choose **Open local model…** from the model menu and select `checkpoints/sana-
 
 ## Try Gemma 2 2B-IT
 
-[Gemma 2 2B-IT](https://huggingface.co/google/gemma-2-2b-it) is available for local chat in DeepJ's CLI and desktop app.
+[Gemma 2 2B-IT](https://huggingface.co/google/gemma-2-2b-it) is a pretrained language model you can run locally with DeepJ on CPU or Apple Metal.
 
 Download the model and tokenizer files using the [Gemma 2 guide](docs/gemma2.md).
 
