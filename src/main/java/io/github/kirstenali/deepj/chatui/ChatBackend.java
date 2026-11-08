@@ -5,17 +5,21 @@ import io.github.kirstenali.deepj.tensor.cpu.CpuBackend;
 import io.github.kirstenali.deepj.tensor.metal.MetalBackend;
 
 final class ChatBackend {
-    private static final DesktopBackendPreference PREFERENCE = DesktopBackendPreference.local();
-    private static final DesktopBackend STARTUP = PREFERENCE.selected();
+    private static DesktopBackend startup = DesktopBackend.AUTO;
 
     private ChatBackend() {}
 
     static void configure() {
-        configureChoice(STARTUP);
+        configureChoice(startup);
     }
+
+    static void select(DesktopBackend choice) { startup = choice; }
 
     static void configureChoice(DesktopBackend choice) {
         boolean metal = choice != DesktopBackend.CPU && DesktopPlatform.metalAvailable();
+        if (choice == DesktopBackend.METAL && !metal) {
+            throw new IllegalStateException("Metal backend is not available on this computer");
+        }
         Tensor.setBackend(metal ? new MetalBackend() : new CpuBackend());
     }
 
@@ -24,6 +28,4 @@ final class ChatBackend {
     }
 
     static String name() { return Tensor.backend() instanceof MetalBackend ? "Metal" : "CPU"; }
-    static DesktopBackendPreference preference() { return PREFERENCE; }
-    static DesktopBackend startupSelection() { return STARTUP; }
 }

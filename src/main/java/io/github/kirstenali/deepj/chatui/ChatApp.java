@@ -17,6 +17,6 @@ public class ChatApp extends BaseChatApp {
     }
 
     public static void main(String[] args) {
-        launch();
+        launch(args);
     }
 }

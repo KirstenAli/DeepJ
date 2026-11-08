@@ -57,7 +57,7 @@ Download the model and tokenizer files using the [Qwen3 guide](docs/qwen3.md#dow
 Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) and run it with JDK 20 or newer:
 
 ```bash
-java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
+java -Xmx6g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
 Select `config.json` in the model picker, then open **Chat options** for **Thinking** and **Agent mode**. [CLI access](docs/qwen3.md#cli-and-desktop-ui) is also available.

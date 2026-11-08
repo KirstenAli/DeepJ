@@ -13,6 +13,11 @@ public abstract class BaseChatApp extends Application {
     private ChatWindow chatWindow;
 
     @Override
+    public void init() {
+        ChatBackend.select(DesktopBackend.fromArguments(getParameters().getRaw()));
+    }
+
+    @Override
     public void start(Stage stage) {
         ChatBackend.configure();
         WebView view = new WebView();

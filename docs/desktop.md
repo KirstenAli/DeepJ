@@ -19,10 +19,33 @@ and CPU on Windows. Model weights are downloaded separately.
 
 ## CPU or Metal
 
-Open **Settings → Execution → Backend** and choose **Auto**, **CPU**, or **Metal**.
-Restart DeepJ to apply the saved choice. Auto uses Metal when available, otherwise
-CPU. The setting applies to chat, images, and videos; Settings shows the backend
-currently in use.
+Pass `--backend cpu`, `--backend metal`, or `--backend auto` after the JAR name.
+Without an argument, Auto uses Metal when available, otherwise CPU. The startup
+choice applies to chat, images, and videos.
+Requesting Metal on an unsupported computer reports an error.
+
+For Qwen3-1.7B on CPU, allow room for weights and working buffers in Java's heap:
+
+```bash
+java -Xmx6g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar --backend cpu
+```
+
+CPU heap starting points for the bundled model examples:
+
+| Model | CPU heap |
+| --- | --- |
+| Frisky 90M | `-Xmx3g` |
+| Qwen3-1.7B, BF16 | `-Xmx6g` |
+| Gemma 2 2B-IT, BF16 | `-Xmx8g` |
+| SANA-Sprint | `-Xmx8g` |
+| SANA-Video, short preview | `-Xmx12g` |
+
+Image and video memory use grows with resolution, clip length, and precision.
+These are starting budgets, not limits on total process memory. The video worker
+inherits the CPU heap limit; its Metal heap budget remains separate.
+
+For Metal, use `--backend metal`. From source, pass
+`-Djavafx.args="--backend cpu"` to `mvn compile javafx:run`.
 
 ## Choose a model
 

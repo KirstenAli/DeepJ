@@ -46,10 +46,13 @@ and launch it with JDK 20 or newer:
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
+For CPU execution, use `-Xmx12g` and append `--backend cpu` after the JAR
+name. CPU video workers inherit this heap budget; larger clips may need more. See [CPU launch options](desktop.md#cpu-or-metal).
+
 Choose **Open local model…** from the model menu in the upper left and select
 `checkpoints/sana-video/model_index.json`. DeepJ reads the text encoder,
 Transformer, scheduler and decoder configuration files automatically. See the
-[desktop guide](desktop.md) for source builds and other platforms.
+[desktop guide](desktop.md#cpu-or-metal) for source builds and other platforms.
 
 Describe a scene and its movement in the composer. The settings chip opens
 resolution, frame count, sampling steps, FPS, seed, guidance, and precision controls.

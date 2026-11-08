@@ -7,6 +7,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.animation.AnimationTimer;
+import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.web.WebView;
@@ -18,24 +19,32 @@ import netscape.javascript.JSObject;
 public final class DesktopPackageSmoke {
     private static final CountDownLatch FINISHED = new CountDownLatch(1);
     private static final AtomicReference<Throwable> FAILURE = new AtomicReference<>();
-    private static ChatApp application;
 
     private DesktopPackageSmoke() {}
 
     public static void main(String[] args) throws Exception {
         try {
-            Platform.startup(DesktopPackageSmoke::open);
+            new Thread(() -> launch(args), "desktop-smoke-launcher").start();
             require(FINISHED.await(30, TimeUnit.SECONDS), "Desktop startup timed out");
             if (FAILURE.get() != null) throw new AssertionError("Packaged desktop check failed", FAILURE.get());
             System.out.println("DESKTOP_PACKAGE_SMOKE_PASS backend=" + ChatBackend.name());
         } finally { Platform.exit(); }
     }
 
-    private static void open() {
+    private static void launch(String[] args) {
+        try { Application.launch(SmokeApp.class, args); }
+        catch (Throwable error) { fail(error); }
+    }
+
+    public static final class SmokeApp extends ChatApp {
+        @Override public void start(Stage stage) {
+            super.start(stage);
+            observe(stage);
+        }
+    }
+
+    private static void observe(Stage stage) {
         try {
-            application = new ChatApp();
-            var stage = new Stage();
-            application.start(stage);
             var view = (WebView) stage.getScene().getRoot();
             view.getEngine().getLoadWorker().stateProperty().addListener((observable, before, state) -> {
                 if (state == Worker.State.SUCCEEDED) ready(view);
@@ -48,7 +57,8 @@ public final class DesktopPackageSmoke {
         try {
             require(WebView.class.getProtectionDomain().getCodeSource().getLocation().equals(
                     ChatApp.class.getProtectionDomain().getCodeSource().getLocation()), "External JavaFX runtime used");
-            require(Boolean.TRUE.equals(script(view, "!!window.chatBridge && !!window.executionBridge")),
+            require(Boolean.TRUE.equals(script(view,
+                    "!!window.chatBridge && !!window.imageBridge && !!window.videoBridge")),
                     "Desktop bridges did not connect");
             showPreview(view);
             awaitPreview(view);
@@ -89,7 +99,7 @@ public final class DesktopPackageSmoke {
                             + ".getImageData(0,0,1,1).data).join(',')")),
                     "Preview pixels changed");
             script(view, "setModel('Chat');openSettings()");
-            require(Boolean.FALSE.equals(script(view, "element('executionBackend').disabled")), "Backend unavailable");
+            require(script(view, "element('executionBackend')") == null, "Unexpected backend setting");
             require("2048".equals(script(view, "element('maxTokens').value")), "Generation controls did not load");
             script(view, "closeSettings();setVideoModel('Video');openSettings()");
             require(Boolean.FALSE.equals(script(view, "element('videoSettings').hidden")),
