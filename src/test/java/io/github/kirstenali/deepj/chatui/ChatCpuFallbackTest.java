@@ -32,4 +32,16 @@ class ChatCpuFallbackTest {
             assertEquals("Metal is not available on this system", failure.getCause().getMessage());
         }
     }
+
+    @Test
+    void desktopMetalArgumentReportsAnUnavailableBackend() throws Exception {
+        try (var isolated = new MetalUnavailableClassLoader()) {
+            Class<?> type = isolated.loadClass("io.github.kirstenali.deepj.chatui.DesktopBackend");
+            Object metal = isolated.method("chatui.DesktopBackend", "parse", String.class).invoke(null, "metal");
+            var configure = isolated.method("chatui.ChatBackend", "configureChoice", type);
+            var failure = assertThrows(InvocationTargetException.class, () -> configure.invoke(null, metal));
+            assertInstanceOf(IllegalStateException.class, failure.getCause());
+            assertEquals("Metal backend is not available on this computer", failure.getCause().getMessage());
+        }
+    }
 }

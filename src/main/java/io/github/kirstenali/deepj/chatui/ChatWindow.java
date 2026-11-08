@@ -26,7 +26,6 @@ public final class ChatWindow {
     private final AgentWorkspace agentWorkspace;
     private final ImageWorkspace imageWorkspace;
     private final VideoWorkspace videoWorkspace;
-    private final DesktopExecution execution = new DesktopExecution();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deepj-chat-worker");
         thread.setDaemon(true);
@@ -75,7 +74,7 @@ public final class ChatWindow {
     }
 
     private void connect() {
-        DesktopBridges.connect(window(), this, imageWorkspace, videoWorkspace, agentWorkspace, execution);
+        DesktopBridges.connect(window(), this, imageWorkspace, videoWorkspace, agentWorkspace);
         refreshAgentWorkspace();
         call("setThinkingAvailable", service.supportsThinking());
     }

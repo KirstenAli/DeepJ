@@ -48,10 +48,13 @@ and launch it with JDK 20 or newer:
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
+For CPU execution, use `-Xmx8g` and append `--backend cpu` after the JAR
+name. See [CPU launch options](desktop.md#cpu-or-metal).
+
 Choose **Open local model…** from the model menu in the upper left and select
 `checkpoints/sana-sprint/model_index.json`. DeepJ reads the text encoder,
 Transformer and decoder configuration files automatically. See the
-[desktop guide](desktop.md) for source builds and other platforms.
+[desktop guide](desktop.md#cpu-or-metal) for source builds and other platforms.
 
 The composer switches to image descriptions. Its image-size button opens the existing Settings dialog, where you can choose size, sampling steps, seed, prompt guidance, and precision. The precision control selects the denoiser and image-decoder dtype. The window shows generation stages and keeps the Stop action available. After stopping, it waits for the current work to unwind before accepting another generation.
 

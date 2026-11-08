@@ -757,13 +757,6 @@ svg {
   color: var(--muted);
   font-size: 12px;
 }
-.backend-settings {
-  grid-template-columns: minmax(0, 1fr);
-}
-#executionHelp {
-  font-size: 12px;
-  line-height: 1.5;
-}
 .settings-grid input,
 .settings-grid select {
   width: 100%;

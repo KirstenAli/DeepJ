@@ -105,6 +105,10 @@ For desktop BF16 chat, Thinking and Agent mode, run:
 JAVA_TOOL_OPTIONS="-Xmx6g" mvn compile javafx:run
 ```
 
+For CPU desktop chat, add `-Djavafx.args="--backend cpu"` to the Maven command.
+For the downloaded desktop JAR, append `--backend cpu` after its filename and use
+`-Xmx6g`. See [desktop launch options](desktop.md#cpu-or-metal).
+
 For CLI Thinking, add `--thinking` to `chat` or `generate`. During terminal chat,
 use `/set thinking on` or `/set thinking off`; `/settings` shows the current value.
 Thinking is also available in the [CLI Agent launcher](agent-launchers.md#cli).

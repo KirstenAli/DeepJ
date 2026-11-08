@@ -58,4 +58,19 @@ class ChatBackendTest {
             assertEquals("Ready on CPU", ChatBackend.readyStatus());
         } finally { Tensor.setBackend(previous); }
     }
+
+    @Test
+    void startupArgumentKeepsCpuSelectedWhenModelsAreReloaded() {
+        TensorBackend previous = Tensor.backend();
+        try {
+            ChatBackend.select(DesktopBackend.fromArguments(java.util.List.of("--backend", "cpu")));
+            ChatBackend.configure();
+            assertInstanceOf(CpuBackend.class, Tensor.backend());
+            ChatBackend.configure();
+            assertEquals("Ready on CPU", ChatBackend.readyStatus());
+        } finally {
+            ChatBackend.select(DesktopBackend.AUTO);
+            Tensor.setBackend(previous);
+        }
+    }
 }

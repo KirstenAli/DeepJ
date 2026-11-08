@@ -34,6 +34,10 @@ The existing `/set history on`, `/set history off`, `/clear`, sampling settings,
 JAVA_TOOL_OPTIONS="-Xmx3g" mvn javafx:run
 ```
 
+For CPU desktop chat, use `JAVA_TOOL_OPTIONS="-Xmx8g"` and add
+`-Djavafx.args="--backend cpu"`. The [desktop guide](desktop.md#cpu-or-metal)
+also covers the downloaded JAR.
+
 Choose **Open local model…** and select `config.json` from the Gemma checkpoint folder. For an existing SANA download, select `text_encoder/config.json`; select SANA's `model_index.json` when you want image generation instead.
 
 Gemma uses the existing chat composer, response streaming, themes, and optional conversation-history control. Its standard KV cache is automatic. The separate rolling-cache option is hidden for Gemma.
