@@ -27,7 +27,7 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 | Recurrent networks | `RNN`, `GRU`, `LSTM`, individual cells, explicit state, and per-sample sequence lengths |
 | Autoencoders | Composable `Autoencoder` with separate encoder and decoder access |
 | Transformer encoders | Bidirectional attention, padding masks, and masked mean pooling |
-| Decoder Transformers | DeepJ Origin, Orbit, Prism, Nova, Loop, Qwen3, and Gemma 2 for causal language modeling |
+| Decoder Transformers | Prism, Nova, Loop, Qwen3, and Gemma 2 for causal language modeling |
 | Diffusion models | SANA-Sprint 0.6B for text-to-image and [SANA-Video 2B](docs/sana-video.md) for text-to-video generation |
 
 ## Fast inference and training, in Java
