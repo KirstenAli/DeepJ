@@ -39,6 +39,10 @@ A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use diffe
 
 ## Desktop playback and saving
 
+```sh
+JAVA_TOOL_OPTIONS="-Xmx2560m" mvn compile javafx:run
+```
+
 Start the desktop app and choose **Open video model folder…** from the model menu. Select the complete
 SANA-Video snapshot, then describe a scene and its movement in the composer. The settings chip opens
 resolution, frame count, sampling steps, FPS, seed, guidance, and precision controls.
