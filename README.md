@@ -82,7 +82,7 @@ Choose **Open local model…** from the model menu and select the pipeline's `mo
 
 ## Create videos with SANA-Video
 
-[SANA-Video 2B](docs/sana-video.md) brings local text-to-video generation to DeepJ on CPU or Apple Metal. Describe a scene and its movement in the desktop app, then play the clip and save an MP4.
+[SANA-Video 2B](docs/sana-video.md) brings local text-to-video generation to DeepJ on CPU or Apple Metal. Describe a scene and its movement in the desktop app, then play and save the clip.
 
 Download the checkpoint using the [SANA-Video guide](docs/sana-video.md) and the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then start the app:
 
