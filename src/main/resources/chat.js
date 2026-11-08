@@ -55,13 +55,21 @@ function setRollingCacheAvailable(available) {
 
 function setBusy(value) {
   busy = value;
-  promptBox.disabled = value;
+  setPromptBusy(value);
   ['composerModel', 'menuLoad', 'menuLoadImage', 'menuLoadVideo', 'agentPicker'].forEach(
     (id) => (element(id).disabled = value),
   );
   if (value) showAgentMenu(false);
   document.querySelectorAll('.alternatives-button').forEach((button) => (button.disabled = value));
   updateSend();
+}
+
+function setPromptBusy(value) {
+  if (value) promptBox.blur();
+  promptBox.disabled = value;
+  if (!value && document.activeElement === document.body && settings.hidden && approval.hidden) {
+    promptBox.focus();
+  }
 }
 
 function setGenerating(value) {
