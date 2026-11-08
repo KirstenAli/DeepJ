@@ -19,15 +19,21 @@ instructions below. Model weights are downloaded separately.
 
 ## Choose a model
 
-Use the model menu in the upper left:
+Choose **Open local model…** from the model menu in the upper left. This opens
+a file picker; select the file listed for your model:
 
 | Model | Files to select | Guide |
 | --- | --- | --- |
 | Qwen3-1.7B | `config.json` beside the tokenizer and weight shards | [Qwen3](qwen3.md) |
 | Gemma 2 | `config.json` beside the tokenizer and weight shards | [Gemma 2](gemma2.md) |
 | Frisky 90M | `model.dj` with `tokenizer.bpe` in the same directory | [Language models](language-models.md#frisky-90m) |
-| SANA-Sprint | **Open image model folder…**, then the full pipeline directory | [Image generation](sana-sprint.md) |
-| SANA-Video | **Open video model folder…**, then the full pipeline directory | [Video generation](sana-video.md) |
+| SANA-Sprint | `model_index.json` in the full pipeline's root directory | [Image generation](sana-sprint.md) |
+| SANA-Video | `model_index.json` in the full pipeline's root directory | [Video generation](sana-video.md) |
+
+For images and videos, **Open image model folder…** and **Open video model folder…**
+are separate folder pickers. They accept the complete pipeline directory containing
+`model_index.json`. Choose either the file route or the folder route once; DeepJ
+reads the component configuration files automatically.
 
 Qwen defaults to the checkpoint's precision for weights and activations, normally
 BF16. Open **Chat options** for Thinking, Agent mode, and conversation history.

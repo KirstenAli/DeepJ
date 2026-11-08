@@ -39,12 +39,25 @@ A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use diffe
 
 ## Desktop playback and saving
 
+Download the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar)
+and launch it with JDK 20 or newer:
+
 ```sh
-JAVA_TOOL_OPTIONS="-Xmx2560m" mvn compile javafx:run
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
-Start the desktop app and choose **Open video model folder…** from the model menu. Select the complete
-SANA-Video snapshot, then describe a scene and its movement in the composer. The settings chip opens
+Choose either route from the model menu in the upper left:
+
+- **Open local model…** opens a file picker. Select `checkpoints/sana-video/model_index.json`.
+- **Open video model folder…** opens a folder picker. Select the complete
+  `checkpoints/sana-video` directory containing `model_index.json`.
+
+Only one selection is needed. DeepJ reads the text encoder, Transformer, scheduler
+and decoder configuration files automatically. Selecting `transformer/config.json`
+through the file picker also resolves the parent video pipeline. See the
+[desktop guide](desktop.md) for source builds and other platforms.
+
+Describe a scene and its movement in the composer. The settings chip opens
 resolution, frame count, sampling steps, FPS, seed, guidance, and precision controls.
 FP32 is the default. FP16/BF16 select compact Gemma and video-denoiser execution;
 the sampler and Wan frame decoder continue to use FP32. The published
