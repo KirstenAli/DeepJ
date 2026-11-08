@@ -39,7 +39,7 @@ A fixed seed repeats DeepJ's Gaussian noise sequence. Java and PyTorch use diffe
 
 ## Desktop playback and saving
 
-Download the [desktop JAR for Apple Silicon macOS](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar)
+Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar)
 and launch it with JDK 20 or newer:
 
 ```sh

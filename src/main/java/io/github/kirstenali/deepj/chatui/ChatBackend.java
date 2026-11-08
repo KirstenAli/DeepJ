@@ -15,7 +15,7 @@ final class ChatBackend {
     }
 
     static void configureChoice(DesktopBackend choice) {
-        boolean metal = choice != DesktopBackend.CPU && MetalBackend.isAvailable();
+        boolean metal = choice != DesktopBackend.CPU && DesktopPlatform.metalAvailable();
         Tensor.setBackend(metal ? new MetalBackend() : new CpuBackend());
     }
 
