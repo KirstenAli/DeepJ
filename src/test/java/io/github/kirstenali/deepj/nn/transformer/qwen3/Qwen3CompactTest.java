@@ -22,14 +22,21 @@ class Qwen3CompactTest {
     @TempDir Path directory;
     @BeforeEach void cpu() { Tensor.setBackend(new CpuBackend()); }
 
-    @ParameterizedTest @EnumSource(value = DType.class, names = {"FLOAT16", "BFLOAT16"})
-    void sharedChatLoaderUsesCompactActivationsOnlyWhenExplicitlyRequested(DType dtype) throws IOException {
-        Path snapshot = Qwen3ChatFixture.create(directory.resolve("chat"), dtype);
+    @ParameterizedTest @EnumSource(DType.class)
+    void sharedChatLoaderDefaultsToCheckpointPrecisionAndPreservesOverrides(DType dtype) throws IOException {
+        Path snapshot = Qwen3ChatFixture.createUniform(directory.resolve("chat"), dtype);
         var compact = Qwen3ChatModel.load(snapshot, dtype);
-        var legacy = Qwen3ChatModel.load(snapshot);
+        var automatic = Qwen3ChatModel.load(snapshot);
+        var full = Qwen3ChatModel.load(snapshot, DType.FLOAT32);
+        var legacy = Qwen3Pretrained.load(snapshot);
         try (var ignored = GradMode.noGrad()) {
             assertEquals(dtype, compact.model().forward(new int[]{1, 10}).dtype());
-            assertEquals(DType.FLOAT32, legacy.model().forward(new int[]{1, 10}).dtype());
+            Tensor expected = compact.model().forward(new int[]{1, 10});
+            Tensor actual = automatic.model().forward(new int[]{1, 10});
+            assertEquals(dtype, actual.dtype());
+            assertArrayEquals(expected.toFloatArray(), actual.toFloatArray());
+            assertEquals(DType.FLOAT32, full.model().forward(new int[]{1, 10}).dtype());
+            assertEquals(DType.FLOAT32, legacy.forward(new int[]{1, 10}).dtype());
         }
         assertEquals("xx", compact.stream("hello", 2, 0.8f, 1, 5, 1,
                 io.github.kirstenali.deepj.nn.transformer.ContextWindowMode.REBUILD, text -> {}));

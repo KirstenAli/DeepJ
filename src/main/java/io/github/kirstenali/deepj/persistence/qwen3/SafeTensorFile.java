@@ -1,5 +1,6 @@
 package io.github.kirstenali.deepj.persistence.qwen3;
 
+import io.github.kirstenali.deepj.autograd.GradMode;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorDescriptor;
@@ -90,6 +91,20 @@ public final class SafeTensorFile {
             TensorEncoding.readValues(file, result, ByteOrder.LITTLE_ENDIAN);
         }
         return result;
+    }
+
+    /** Restores matching CPU storage directly; device transfers and dtype conversions retain private staging. */
+    public static void restore(Entry entry, Tensor target, boolean transpose) throws IOException {
+        if (Tensor.backend().usesDeviceStorage() || target.dtype() != entry.descriptor().dtype()) {
+            TensorEncoding.restoreWeight(target, read(entry), transpose);
+            return;
+        }
+        try (var ignored = GradMode.noGrad(); var file = new RandomAccessFile(entry.file().toFile(), "r")) {
+            Tensor view = transpose ? target.transpose(0, 1) : target.view(entry.descriptor().shape());
+            entry.descriptor().requireMatches(view);
+            file.seek(entry.offset());
+            TensorEncoding.readValues(file, view, ByteOrder.LITTLE_ENDIAN);
+        }
     }
 
     public static void requireIdentical(Entry left, Entry right) throws IOException {

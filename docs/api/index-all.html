@@ -3387,7 +3387,7 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/github/kirstenali/deepj/nn/transformer/qwen3/Qwen3ChatModel.html#load(java.nio.file.Path,io.github.kirstenali.deepj.tensor.DType)" class="member-name-link">load(Path, DType)</a> - Static method in record class io.github.kirstenali.deepj.nn.transformer.qwen3.<a href="io/github/kirstenali/deepj/nn/transformer/qwen3/Qwen3ChatModel.html" title="class in io.github.kirstenali.deepj.nn.transformer.qwen3">Qwen3ChatModel</a></dt>
 <dd>
-<div class="block">Explicit compact chat uses compact weights and activations; null preserves the checkpoint loading policy.</div>
+<div class="block">Chat preserves checkpoint weights and activations unless a different dtype is requested.</div>
 </dd>
 <dt><a href="io/github/kirstenali/deepj/nn/transformer/qwen3/Qwen3Pretrained.html#load(java.nio.file.Path,io.github.kirstenali.deepj.tensor.DType)" class="member-name-link">load(Path, DType)</a> - Static method in class io.github.kirstenali.deepj.nn.transformer.qwen3.<a href="io/github/kirstenali/deepj/nn/transformer/qwen3/Qwen3Pretrained.html" title="class in io.github.kirstenali.deepj.nn.transformer.qwen3">Qwen3Pretrained</a></dt>
 <dd>
@@ -5145,6 +5145,10 @@ loadScripts(document, 'script');</script>
 <dt><a href="io/github/kirstenali/deepj/data/ResponseOnlyTextDataset.Example.html#responseStart()" class="member-name-link">responseStart()</a> - Method in record class io.github.kirstenali.deepj.data.<a href="io/github/kirstenali/deepj/data/ResponseOnlyTextDataset.Example.html" title="class in io.github.kirstenali.deepj.data">ResponseOnlyTextDataset.Example</a></dt>
 <dd>
 <div class="block">Returns the value of the <code>responseStart</code> record component.</div>
+</dd>
+<dt><a href="io/github/kirstenali/deepj/persistence/qwen3/SafeTensorFile.html#restore(io.github.kirstenali.deepj.persistence.qwen3.SafeTensorFile.Entry,io.github.kirstenali.deepj.tensor.Tensor,boolean)" class="member-name-link">restore(SafeTensorFile.Entry, Tensor, boolean)</a> - Static method in class io.github.kirstenali.deepj.persistence.qwen3.<a href="io/github/kirstenali/deepj/persistence/qwen3/SafeTensorFile.html" title="class in io.github.kirstenali.deepj.persistence.qwen3">SafeTensorFile</a></dt>
+<dd>
+<div class="block">Restores matching CPU storage directly; device transfers and dtype conversions retain private staging.</div>
 </dd>
 <dt><a href="io/github/kirstenali/deepj/tensor/TensorEncoding.html#restore(io.github.kirstenali.deepj.tensor.Tensor,io.github.kirstenali.deepj.tensor.Tensor)" class="member-name-link">restore(Tensor, Tensor)</a> - Static method in class io.github.kirstenali.deepj.tensor.<a href="io/github/kirstenali/deepj/tensor/TensorEncoding.html" title="class in io.github.kirstenali.deepj.tensor">TensorEncoding</a></dt>
 <dd>

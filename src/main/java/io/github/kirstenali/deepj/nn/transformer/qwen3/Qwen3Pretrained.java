@@ -9,7 +9,6 @@ import io.github.kirstenali.deepj.persistence.qwen3.SafeTensorFile;
 import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorDescriptor;
-import io.github.kirstenali.deepj.tensor.TensorEncoding;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -40,8 +39,8 @@ public final class Qwen3Pretrained {
         Map<String, Tensor> targets = new HashMap<>();
         model.parameters().forEach(parameter -> targets.put(parameter.name(), parameter.value));
         for (var weight : layout.weights()) {
-            Tensor source = SafeTensorFile.read(layout.source().get(weight.source()));
-            TensorEncoding.restoreWeight(targets.get(weight.name()), source, weight.transpose());
+            SafeTensorFile.restore(layout.source().get(weight.source()),
+                    targets.get(weight.name()), weight.transpose());
         }
         return model;
     }

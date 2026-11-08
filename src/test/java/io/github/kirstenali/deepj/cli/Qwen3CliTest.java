@@ -51,7 +51,7 @@ class Qwen3CliTest {
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void chatPreservesBfloat16WeightsUnlessFloat32IsRequested(boolean useFloat32) throws Exception {
         Tensor.setBackend(new CpuBackend());
-        Path snapshot = Qwen3ChatFixture.create(directory.resolve("model"), DType.BFLOAT16);
+        Path snapshot = Qwen3ChatFixture.createUniform(directory.resolve("model"), DType.BFLOAT16);
         StringWriter output = new StringWriter(), errors = new StringWriter();
         DType expected = useFloat32 ? DType.FLOAT32 : DType.BFLOAT16;
         var args = new ArrayList<>(List.of("chat", snapshot.toString(), "--backend", "cpu",
@@ -69,8 +69,10 @@ class Qwen3CliTest {
         return new CliServices(input, defaults.out(), defaults.err(), false, Map.of(), (path, backend, dtype) -> {
             var loaded = (Qwen3CliModel) defaults.models().load(path, backend, dtype);
             for (var parameter : loaded.chat().model().parameters()) {
-                assertEquals(parameter.value.matrixRows() == 1 ? DType.FLOAT32 : expected,
-                        parameter.value.dtype(), parameter.name());
+                assertEquals(expected, parameter.value.dtype(), parameter.name());
+            }
+            try (var ignored = io.github.kirstenali.deepj.autograd.GradMode.noGrad()) {
+                assertEquals(expected, loaded.chat().model().forward(new int[]{1, 10}).dtype());
             }
             return loaded;
         }, defaults.consoles(), defaults.inspector(), defaults.metalAvailable());

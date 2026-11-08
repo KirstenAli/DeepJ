@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.persistence.HuggingFaceConfig;
 import io.github.kirstenali.deepj.nn.ModelOps;
 import io.github.kirstenali.deepj.nn.ModelMemory;
 import io.github.kirstenali.deepj.nn.ModelInference;
+import io.github.kirstenali.deepj.tensor.DType;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import io.github.kirstenali.deepj.tensor.TensorScope;
 import java.io.IOException;
@@ -101,7 +102,8 @@ public final class SanaTransformer {
         Tensor value = ModelOps.linear(input, weights, name + ".to_v");
         Tensor result = ModelOps.linearAttention(ModelOps.heads(query, heads), ModelOps.heads(key, heads),
                 ModelOps.heads(value, heads), 1e-15f);
-        return ModelOps.linear(ModelOps.mergeHeads(result), weights, name + ".to_out.0");
+        Tensor output = ModelOps.linear(ModelOps.mergeHeads(result), weights, name + ".to_out.0");
+        return output.dtype() == DType.FLOAT16 ? output.clamp(-65504, 65504) : output;
     }
 
     private Tensor crossAttention(Tensor input, Tensor text, Tensor mask, String name) {

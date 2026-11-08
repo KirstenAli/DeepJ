@@ -34,6 +34,31 @@ class SafeTensorFileTest {
         assertArrayEquals(view.toFloatArray(), read.toFloatArray());
     }
 
+    @ParameterizedTest @EnumSource(DType.class)
+    void directCpuRestorationPreservesTransposedStorageBitsAndAutograd(DType dtype) throws IOException {
+        Tensor source = Tensor.from(new float[]{-1.25f, 0.003f, 23, -0.0f, 1.0078125f, 5}, dtype, 2, 3);
+        Path path = directory.resolve("source"), restored = directory.resolve("restored");
+        SafeTensorWriter.write(path, Map.of("weight", source));
+        Tensor target = new Tensor(dtype, 2, 3).transpose(0, 1).requiresGrad(true);
+        SafeTensorFile.restore(SafeTensorFile.inspect(path).get("weight"), target, true);
+        assertArrayEquals(source.transpose().toFloatArray(), target.toFloatArray());
+        SafeTensorWriter.write(restored, Map.of("weight", target.transpose()));
+        assertArrayEquals(Files.readAllBytes(path), Files.readAllBytes(restored));
+        target.sumTensor().backward();
+        assertEquals(DType.FLOAT32, target.grad().dtype());
+        assertArrayEquals(new float[]{1, 1, 1, 1, 1, 1}, target.grad().toFloatArray());
+    }
+
+    @ParameterizedTest @EnumSource(DType.class)
+    void restorationStillConvertsExplicitlySelectedWeightTypes(DType dtype) throws IOException {
+        Tensor source = Tensor.from(new float[]{-1.25f, 0.003f, 23, -0.0f, 1.0078125f, 5}, dtype, 2, 3);
+        Path path = directory.resolve("source");
+        SafeTensorWriter.write(path, Map.of("weight", source));
+        Tensor target = new Tensor(DType.FLOAT32, 3, 2);
+        SafeTensorFile.restore(SafeTensorFile.inspect(path).get("weight"), target, true);
+        assertArrayEquals(source.transpose().toFloatArray(), target.toFloatArray());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "{\"x\":{\"dtype\":\"I8\",\"shape\":[1],\"data_offsets\":[0,1]}}",
