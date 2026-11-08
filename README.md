@@ -52,9 +52,9 @@ Add DeepJ to your project:
 
 [Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) is a pretrained 1.7-billion-parameter language model you can run locally with DeepJ on CPU or Apple Metal.
 
-Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`, then start desktop chat with BF16 weights and activations:
+Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and both `.safetensors` shards from the [official model files](https://huggingface.co/Qwen/Qwen3-1.7B/tree/main) into a folder named `qwen3-1.7b`, then start desktop chat with BF16 weights and activations.
 
-Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) for Apple Silicon macOS or Windows x64 and run it with JDK 20 or newer:
+Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) and run it with JDK 20 or newer:
 
 ```bash
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
@@ -68,7 +68,9 @@ Select `config.json` in the model picker, then open **Chat options** for **Think
 
 [SANA-Sprint 0.6B](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers) brings local text-to-image generation to DeepJ. Describe an image in the desktop app, choose its size and sampling settings, then save the full-resolution result as a PNG.
 
-Download the checkpoint using the [SANA-Sprint guide](docs/sana-sprint.md) and the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then start the app:
+Download the checkpoint using the [SANA-Sprint guide](docs/sana-sprint.md).
+
+Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) and run it with JDK 20 or newer:
 
 ```bash
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
@@ -84,7 +86,9 @@ Choose **Open local model…** from the model menu and select the pipeline's `mo
 
 [SANA-Video 2B](docs/sana-video.md) brings local text-to-video generation to DeepJ on CPU or Apple Metal. Describe a scene and its movement in the desktop app, then play and save the clip.
 
-Download the checkpoint using the [SANA-Video guide](docs/sana-video.md) and the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then start the app:
+Download the checkpoint using the [SANA-Video guide](docs/sana-video.md).
+
+Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) and run it with JDK 20 or newer:
 
 ```bash
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
@@ -102,7 +106,9 @@ Choose **Open local model…** from the model menu and select `checkpoints/sana-
 
 [Gemma 2 2B-IT](https://huggingface.co/google/gemma-2-2b-it) is available for local chat in DeepJ's CLI and desktop app.
 
-Download the model and tokenizer files using the [Gemma 2 guide](docs/gemma2.md) and the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar), then run:
+Download the model and tokenizer files using the [Gemma 2 guide](docs/gemma2.md).
+
+Download the [desktop JAR](https://github.com/KirstenAli/DeepJ/releases/download/v1.0.0/deepj-desktop.jar) and run it with JDK 20 or newer:
 
 ```bash
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
