@@ -24,6 +24,10 @@ Restart DeepJ to apply the saved choice. Auto uses Metal when available, otherwi
 CPU. The setting applies to chat, images, and videos; Settings shows the backend
 currently in use.
 
+For Qwen3-1.7B on CPU, launch with `-Xmx6g` to leave room for weights and working
+buffers in the Java heap. Restarting with a different backend does not change the
+heap limit supplied in the launch command.
+
 ## Choose a model
 
 Choose **Open local model…** from the model menu in the upper left. This opens

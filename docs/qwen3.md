@@ -102,7 +102,7 @@ records CPU/Metal measurements and checkpoint-loading controls.
 For desktop BF16 chat, Thinking and Agent mode, run:
 
 ```bash
-JAVA_TOOL_OPTIONS="-Xmx3g" mvn compile javafx:run
+JAVA_TOOL_OPTIONS="-Xmx6g" mvn compile javafx:run
 ```
 
 For CLI Thinking, add `--thinking` to `chat` or `generate`. During terminal chat,
