@@ -30,10 +30,8 @@ a file picker; select the file listed for your model:
 | SANA-Sprint | `model_index.json` in the full pipeline's root directory | [Image generation](sana-sprint.md) |
 | SANA-Video | `model_index.json` in the full pipeline's root directory | [Video generation](sana-video.md) |
 
-For images and videos, **Open image model folder…** and **Open video model folder…**
-are separate folder pickers. They accept the complete pipeline directory containing
-`model_index.json`. Choose either the file route or the folder route once; DeepJ
-reads the component configuration files automatically.
+For images and videos, select the pipeline's `model_index.json` once. DeepJ reads
+the component configuration files automatically.
 
 Qwen defaults to the checkpoint's precision for weights and activations, normally
 BF16. Open **Chat options** for Thinking, Agent mode, and conversation history.

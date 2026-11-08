@@ -48,16 +48,9 @@ and launch it with JDK 20 or newer:
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
-Choose either route from the model menu in the upper left:
-
-- **Open local model…** opens a file picker. Select `model_index.json` in the
-  downloaded pipeline's root directory, such as `checkpoints/sana-sprint/model_index.json`.
-- **Open image model folder…** opens a folder picker. Select the complete pipeline
-  directory containing `model_index.json`.
-
-Only one selection is needed. DeepJ reads the text encoder, Transformer and decoder
-configuration files automatically. Selecting `transformer/config.json` through
-the file picker also resolves the parent image pipeline. See the
+Choose **Open local model…** from the model menu in the upper left and select
+`checkpoints/sana-sprint/model_index.json`. DeepJ reads the text encoder,
+Transformer and decoder configuration files automatically. See the
 [desktop guide](desktop.md) for source builds and other platforms.
 
 The composer switches to image descriptions. Its image-size button opens the existing Settings dialog, where you can choose size, sampling steps, seed, prompt guidance, and precision. The precision control selects the denoiser and image-decoder dtype. The window shows generation stages and keeps the Stop action available. After stopping, it waits for the current work to unwind before accepting another generation.

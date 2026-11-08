@@ -46,15 +46,9 @@ and launch it with JDK 20 or newer:
 java -Xmx3g --enable-native-access=ALL-UNNAMED -jar deepj-desktop.jar
 ```
 
-Choose either route from the model menu in the upper left:
-
-- **Open local model…** opens a file picker. Select `checkpoints/sana-video/model_index.json`.
-- **Open video model folder…** opens a folder picker. Select the complete
-  `checkpoints/sana-video` directory containing `model_index.json`.
-
-Only one selection is needed. DeepJ reads the text encoder, Transformer, scheduler
-and decoder configuration files automatically. Selecting `transformer/config.json`
-through the file picker also resolves the parent video pipeline. See the
+Choose **Open local model…** from the model menu in the upper left and select
+`checkpoints/sana-video/model_index.json`. DeepJ reads the text encoder,
+Transformer, scheduler and decoder configuration files automatically. See the
 [desktop guide](desktop.md) for source builds and other platforms.
 
 Describe a scene and its movement in the composer. The settings chip opens
