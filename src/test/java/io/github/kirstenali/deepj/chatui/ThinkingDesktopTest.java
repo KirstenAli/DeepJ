@@ -10,6 +10,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @EnabledIfSystemProperty(named = "deepj.uiTests", matches = "true")
 class ThinkingDesktopTest extends ChatDesktopTestSupport {
+    @Test void thinkingOnlyServicesHideUnavailableAgentControls() throws Exception {
+        var fixture = open(new ThinkingService());
+        verify(fixture, view -> {
+            assertEquals(false, script(view, "element('agentControls').hidden"));
+            assertEquals(true, script(view, "element('agentModeRow').hidden"));
+            assertEquals(true, script(view, "document.querySelector('.directory-row').hidden"));
+            assertEquals("undefined", script(view, "typeof window.agentBridge"));
+        });
+    }
+
     @Test void initialThinkingHeadingKeepsItsFontAndHeightWhenReasoningStarts() throws Exception {
         var fixture = open(new ThinkingService());
         verify(fixture, view -> {

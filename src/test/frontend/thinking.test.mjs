@@ -41,10 +41,10 @@ test('alternative responses use the same compact thinking placeholder', (context
 
 test('thinking appears beside agent mode only for a supported model and defaults off', (context) => {
   const ui = fixture(context);
-  ui.window.setAgentWorkspace('');
   ui.window.setThinkingAvailable(true);
   assert.equal(ui.element('agentControls').hidden, false);
   assert.equal(ui.element('agentModeRow').hidden, true);
+  assert.equal(ui.window.document.querySelector('.directory-row').hidden, true);
   assert.equal(ui.element('thinkingMode').checked, false);
   ui.window.setAgentWorkspace('/tmp');
   assert.equal(ui.element('thinkingRow').hidden, false);

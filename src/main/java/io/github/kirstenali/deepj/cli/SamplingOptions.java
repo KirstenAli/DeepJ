@@ -5,7 +5,7 @@ import io.github.kirstenali.deepj.nn.transformer.ContextWindowMode;
 
 final class SamplingOptions {
     @Option(names = "--max-tokens", description = "Maximum generated tokens (default: ${DEFAULT-VALUE}).")
-    int maxTokens = 80;
+    int maxTokens = 2048;
 
     @Option(names = "--temperature", description = "Lower values favor likely next tokens (default: ${DEFAULT-VALUE}).")
     float temperature = 0.8f;

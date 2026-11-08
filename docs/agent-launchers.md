@@ -6,8 +6,7 @@ Other supported checkpoints open in regular chat.
 ## Desktop
 
 ```bash
-MAVEN_OPTS="-Xmx12g --enable-native-access=ALL-UNNAMED -Ddeepj.chat.qwen3.dtype=float32" \
-  mvn compile exec:java -Dexec.mainClass=io.github.kirstenali.deepj.chatui.AgentDesktopApp
+JAVA_TOOL_OPTIONS="-Xmx3g -Ddeepj.chat.qwen3.dtype=bfloat16" mvn compile javafx:run
 ```
 
 Choose the Qwen3 snapshot's `config.json` in the model picker. After the model loads, open
@@ -23,14 +22,20 @@ maximum tokens for reasoning and an answer. Both modes show reasoning in the exp
 above the answer. In Agent mode, the panel includes reasoning before and after tool calls.
 Terminal commands still require the same approval.
 
-This command loads Qwen3 weights in FP32, which uses more memory than the BF16 checkpoint.
+The regular desktop application includes Agent mode for Qwen3. The older
+`AgentDesktopApp` entry point also opens the same interface. Agent mode and
+Thinking both start off. Desktop and CLI responses allow up to 2,048 generated
+tokens by default, shared with reasoning when Thinking is enabled.
+
+The command selects BF16 weights and activations. FP16 and FP32 remain selectable
+through the Qwen dtype setting.
 
 ## CLI
 
 ```bash
 mvn package -Pcli
-java -Xmx12g --enable-native-access=ALL-UNNAMED -cp target/deepj-cli.jar \
-  io.github.kirstenali.deepj.cli.AgentCli ./qwen3-1.7b --workdir . --backend metal --dtype float32
+java -Xmx3g --enable-native-access=ALL-UNNAMED -cp target/deepj-cli.jar \
+  io.github.kirstenali.deepj.cli.AgentCli ./qwen3-1.7b --workdir . --backend metal --dtype bfloat16
 ```
 
 Use `--backend cpu` to run on CPU. In an interactive terminal, answer `y` to approve a

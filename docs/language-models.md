@@ -50,7 +50,7 @@ Under Settings → Generation settings:
 |---|---|
 | Temperature | Lower values favor likely next tokens; higher values give other choices a better chance. |
 | Top-k | Samples from the top `k` token choices; `0` considers all. |
-| Max tokens | Limits how many new tokens are generated; they are not words. |
+| Max tokens | Limits new generated tokens; defaults to 2,048, subject to the model's context window. Tokens are not words. |
 | Seed | Controls sampling randomness; changing it can change the response. |
 | Repetition penalty | Makes the model less likely to repeat itself. `1.0` turns it off; try `1.1` if responses loop. |
 | Rolling KV cache | Keeps decoding incremental after the window fills for RoPE models. Off by default; long responses may change. |

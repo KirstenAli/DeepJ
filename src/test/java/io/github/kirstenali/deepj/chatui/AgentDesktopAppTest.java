@@ -10,6 +10,8 @@ import javafx.stage.Stage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -27,13 +29,17 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
 
     @TempDir Path directory;
 
-    @Test
-    void launchesWithTheChatWebViewFillingTheWindow() throws Exception {
-        Stage stage = openAgent();
+    @ParameterizedTest
+    @CsvSource({"false, DeepJ Chat", "true, DeepJ Agent"})
+    void launchesWithTheChatWebViewFillingTheWindow(boolean legacy, String title) throws Exception {
+        Stage stage = openApp(legacy);
         try {
+            WebView view = onFx(() -> (WebView) stage.getScene().getRoot());
+            awaitCondition(view, "typeof window.agentBridge !== 'undefined'");
             onFx(() -> {
-                assertEquals("DeepJ Agent", stage.getTitle());
+                assertEquals(title, stage.getTitle());
                 assertInstanceOf(WebView.class, stage.getScene().getRoot());
+                assertEquals(true, script(view, "element('agentControls').hidden"));
                 return null;
             });
         } finally {
@@ -148,10 +154,15 @@ class AgentDesktopAppTest extends ChatDesktopTestSupport {
     }
 
     private static Stage openAgent() throws Exception {
+        return openApp(true);
+    }
+
+    private static Stage openApp(boolean legacy) throws Exception {
         Stage stage = onFx(Stage::new, STARTUP_TIMEOUT_SECONDS);
         try {
             onFx(() -> {
-                new AgentDesktopApp().start(stage);
+                ChatApp application = legacy ? new AgentDesktopApp() : new ChatApp();
+                application.start(stage);
                 return null;
             }, STARTUP_TIMEOUT_SECONDS);
             return stage;

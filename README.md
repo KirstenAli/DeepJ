@@ -70,13 +70,15 @@ Download `config.json`, `tokenizer.json`, `model.safetensors.index.json`, and bo
 
 ```bash
 mvn package -Pcli
-java -Xmx12g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
-  --backend metal chat ./qwen3-1.7b --dtype float32
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
+  --backend metal chat ./qwen3-1.7b --dtype bfloat16
 ```
 
 For desktop chat, select `config.json` from the same folder in the model picker. See the [Qwen3 guide](docs/qwen3.md) for model details, pretrained loading, and training support.
 
-The desktop **Thinking** switch lets Qwen3 reason before answering. Qwen3 also supports **Agent mode** in DeepJ’s desktop and CLI agent launchers. [Try Agent mode](docs/agent-launchers.md).
+The desktop **Chat options** menu lets Qwen3 use **Thinking** and **Agent mode** together. The regular desktop app supports both, alongside image and video generation. [Try Agent mode](docs/agent-launchers.md).
+
+![Qwen3 using Thinking and Agent mode together in DeepJ](docs/qwen3-agent-thinking-ui.png)
 
 ## Create images with SANA-Sprint
 

@@ -186,7 +186,7 @@
                     hidden
                   >
                     <h2 id="agentTitle">Chat options</h2>
-                    <label id="agentModeRow" class="toggle-row">
+                    <label id="agentModeRow" class="toggle-row" hidden>
                       <span class="control-copy">
                         <strong id="agentModeTitle">Agent mode</strong>
                         <small id="agentHelp">Ask before running terminal commands.</small>
@@ -216,7 +216,7 @@
                         aria-describedby="thinkingHelp"
                       />
                     </label>
-                    <div class="directory-row">
+                    <div class="directory-row" hidden>
                       <svg aria-hidden="true"><use href="#icon-folder" /></svg>
                       <span class="control-copy">
                         <strong>Working directory</strong>
@@ -317,7 +317,7 @@
               </label>
               <label>
                 <span>Maximum tokens</span>
-                <input id="maxTokens" type="number" min="1" step="1" value="80" />
+                <input id="maxTokens" type="number" min="1" step="1" value="2048" />
               </label>
               <label>
                 <span>Seed</span>
