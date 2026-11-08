@@ -6,6 +6,13 @@ PyTorch 2.8.0, Transformers 5.22.1 and Diffusers 0.42.1. The source baseline is
 checkpoint-loading memory, and restore SANA's FP16 overflow clamp.
 Raw numerical summaries and Qwen timed trials are in [results.json](results.json).
 
+The compact photo results below predate the
+[SANA sampler input-lifetime correction](../photo-sampler-2026-11-08/REPORT.md).
+The full-pipeline follow-up found that an FP32 sampler input was released during
+compact denoising. The roughly 18.5-level photo gap was therefore not explained
+by the component rounding checks in this report. Corrected measurements and the
+regression are recorded in the follow-up; the historical data below are retained.
+
 ## Qwen chat default
 
 The official Qwen3-1.7B files store BF16 parameters. Automatic chat loading now
@@ -69,9 +76,9 @@ differed by **5.13%** and **11.08%**, respectively. PyTorch CPU versus MPS also
 diverged in these formats: **0.78%** and **7.97%**. The isolated decoder's mean
 normalized-pixel differences were **0.000111** and **0.000906**.
 
-The full compact foxes remain visibly different from their same-dtype Python
-references. Local block agreement does not imply matching full images. The
-FP32 result and the compact result should therefore be described separately.
+The pre-fix full compact foxes were visibly different from their same-dtype Python
+references. Local block agreement did not detect the sampler input-lifetime bug.
+Use the follow-up above for current complete-photo comparisons.
 
 One concrete port omission was found: Diffusers clips SANA self-attention's
 FP16 output projection to `[-65504, 65504]`. DeepJ now applies that same guard.
