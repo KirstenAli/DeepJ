@@ -83,3 +83,26 @@ for the Python reference, precision settings and timing scope. Photo figures
 use the corrected sampler and reversed-order pairs in the
 [full-photo follow-up](benchmarks/photo-sampler-2026-11-08/REPORT.md), which also
 records output differences and the input-lifetime regression.
+
+### CPU generation probes
+
+Full pretrained checkpoints at small resolutions, including loading, prompt
+encoding, sampling and decoding. Lower seconds means faster generation.
+
+| Workload | Precision | DeepJ CPU | PyTorch / Diffusers CPU |
+|---|---|---:|---:|
+| SANA-Sprint image, 64×64, 2 steps | FP32 | **19.77 s** | 32.80 s |
+| SANA-Sprint image, 64×64, 2 steps | FP16 | **19.58 s** | 31.61 s |
+| SANA-Sprint image, 64×64, 2 steps | BF16 | **19.44 s** | 31.71 s |
+| SANA-Video preview, 32×32, 5 frames, 1 step | FP32 | **19.57 s** | 35.56 s |
+| SANA-Video preview, 32×32, 5 frames, 1 step | FP16¹ | **27.09 s** | 62.42 s² |
+| SANA-Video preview, 32×32, 5 frames, 1 step | BF16 | **35.11 s** | 60.62 s² |
+
+DeepJ values are final-code fresh-process confirmations. Python photo and FP32
+video values are medians of two complete observations. ² Python compact video
+uses the sum of three separately timed stages to keep each process below a
+one-minute limit; these are stage totals, rather than completed single-process
+generation timings. Photos keep the Gemma encoder in BF16 in both engines.
+
+The CPU optimization preserves previous DeepJ photo/video outputs and training
+results exactly. [Setup, Python accuracy controls and raw measurements](benchmarks/cpu-media-2026-11-08/REPORT.md).

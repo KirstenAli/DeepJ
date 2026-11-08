@@ -32,6 +32,23 @@ final class CpuDenseElementwise {
         }
     }
 
+    static boolean compactUnary(Tensor input, Tensor output, CpuNdElementwise.Unary operation) {
+        if (!input.isContiguous() || !output.isContiguous()) return false;
+        input.memory().ensureHost();
+        output.memory().ensureHost();
+        ranges(output.numel(), (first, last) -> compactValues(input, output, operation, first, last));
+        return true;
+    }
+
+    private static void compactValues(Tensor input, Tensor output, CpuNdElementwise.Unary operation,
+                                       int first, int last) {
+        TensorMemory source = input.memory(), result = output.memory();
+        int start = input.storageOffset(), destination = output.storageOffset();
+        for (int index = first; index < last; index++) {
+            result.set(destination + index, operation.apply(source.get(start + index)));
+        }
+    }
+
     static void binary(Tensor left, Tensor right, Tensor output, CpuNdElementwise.Binary operation) {
         var a = CpuFloatSpan.of(left);
         var b = CpuFloatSpan.of(right);

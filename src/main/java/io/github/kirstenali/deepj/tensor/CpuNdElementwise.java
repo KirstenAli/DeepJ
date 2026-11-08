@@ -34,6 +34,7 @@ public final class CpuNdElementwise {
             CpuDenseElementwise.unary(input, output, operation);
             return;
         }
+        if (CpuDenseElementwise.compactUnary(input, output, operation)) return;
         for (int index = 0; index < output.numel(); index++) {
             float value = input.memory().get(input.layout().addressAt(index));
             output.memory().set(output.layout().addressAt(index), operation.apply(value));
@@ -89,6 +90,7 @@ public final class CpuNdElementwise {
         if (input.dtype() == dtype) return input;
         input.materialize();
         Tensor result = new Tensor(dtype, input.shape());
+        if (CpuDenseElementwise.compactUnary(input, result, value -> value)) return result;
         for (int index = 0; index < input.numel(); index++) {
             result.memory().set(index, input.memory().get(input.layout().addressAt(index)));
         }
