@@ -32,7 +32,7 @@ The optional [ONNX module](onnx/README.md) imports supported ONNX graphs for inf
 
 ## Fast inference and training, in Java
 
-On an Apple M4, DeepJ outperformed the PyTorch baselines in the reported CPU and GPU benchmarks for decoding, training, and image and video generation. The tests cover FP32, FP16, and BF16. The GPU comparisons use DeepJ Metal and PyTorch MPS, and the image and video baselines use Hugging Face Diffusers. [See the benchmarks](docs/performance.md).
+On an Apple M4, DeepJ outperformed the PyTorch baselines in CPU and GPU benchmarks for decoding, training, and image and video generation. [See the benchmarks](docs/performance.md).
 
 ## Install
 
