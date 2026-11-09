@@ -39,9 +39,9 @@ The release profile attaches source and Javadoc JARs, signs the artifacts, and p
 
 ## Code quality
 
-`mvn -f onnx/pom.xml verify` enforces the shared Java standards in production and test code: 20 non-empty lines and 15 executable statements per function, complexity and nesting limits, 120-character lines, and copy/paste detection from 100 tokens. Spotless also checks a pinned four-space Java format. Use `mvn -f onnx/pom.xml spotless:apply` to apply that format before verification.
+`mvn -f onnx/pom.xml verify` enforces the shared Java standards in production and test code. The checks cover function length (20 non-empty lines and 15 executable statements), complexity, nesting, line length (120 characters), and duplication (100 tokens).
 
-JaCoCo enforces at least 85% line coverage and 70% branch coverage for DeepJ's ONNX importer and execution code. The generated protobuf bindings are the only Java code excluded from formatting, style and coverage analysis; they are generated from the pinned official schema. PMD and duplication checks fail the build on violations or analysis errors.
+JaCoCo enforces at least 85% line coverage and 70% branch coverage for DeepJ's ONNX importer and execution code. The protobuf bindings generated from the pinned official schema are the only Java code excluded from style and coverage analysis. PMD and duplication checks fail the build on violations or analysis errors.
 
 ## Import and execution
 

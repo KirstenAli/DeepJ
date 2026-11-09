@@ -42,9 +42,9 @@ Hardware-dependent Metal and desktop tests are opt-in; skipped tests are not evi
 those paths passed. The portable build remains usable without an Apple GPU or desktop session.
 
 The optional ONNX artifact uses the same Java readability and duplication rules for its
-production and test sources. Its Maven build also checks a pinned four-space Java format
-and enforces 85% line coverage and 70% branch coverage. Only generated protobuf bindings
-are excluded. After installing the core from the same checkout, run
+production and test sources. Its Maven build enforces 85% line coverage and 70% branch
+coverage. Only generated protobuf bindings are excluded. After installing the core from
+the same checkout, run
 `mvn -f onnx/pom.xml verify`; see [ONNX code quality](../onnx/README.md#code-quality).
 
 On a supported Apple Silicon Mac with Metal and an available desktop session, also run:
