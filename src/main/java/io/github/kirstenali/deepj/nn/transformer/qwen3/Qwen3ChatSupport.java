@@ -47,7 +47,7 @@ public record Qwen3ChatSupport(Qwen3Config config, Qwen3Tokenizer tokenizer, boo
         return text.stripLeading().startsWith("<think>") && !text.contains("</think>");
     }
 
-    private String fitConversation(List<Qwen3Chat.Message> messages, int maxTokens) {
+    String fitConversation(List<Qwen3Chat.Message> messages, int maxTokens) {
         int window = config.maxSeqLen();
         int budget = window - Math.min(maxTokens, window / 2);
         int end = messages.size();

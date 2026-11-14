@@ -30,7 +30,7 @@ class Qwen3GgufTest {
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void matchesDenseLogitsForPrefillAndIncrementalDecoding(boolean metal) throws Exception {
         if (metal) assumeTrue(MetalBackend.isAvailable());
-        var path = fixture("qwen3", false);
+        var path = fixture("qwen3", false, true);
         assertEquals(CONFIG, Qwen3Gguf.inspect(path).settings().config());
         TensorBackend previous = Tensor.backend(), backend = metal ? new MetalBackend() : new CpuBackend();
         Tensor.setBackend(backend);
@@ -47,8 +47,8 @@ class Qwen3GgufTest {
     }
 
     @Test void rejectsWrongArchitectureAndOverlappingTensors() throws Exception {
-        assertThrows(IOException.class, () -> Qwen3Gguf.inspect(fixture("qwen3moe", false)));
-        assertThrows(IOException.class, () -> Qwen3Gguf.inspect(fixture("qwen3", true)));
+        assertThrows(IOException.class, () -> Qwen3Gguf.inspect(fixture("qwen3moe", false, false)));
+        assertThrows(IOException.class, () -> Qwen3Gguf.inspect(fixture("qwen3", true, false)));
     }
 
     private static GenerationSession denseSession() {
@@ -75,16 +75,16 @@ class Qwen3GgufTest {
         return values;
     }
 
-    private Path fixture(String architecture, boolean overlap) throws IOException {
+    private Path fixture(String architecture, boolean overlap, boolean tiedOutput) throws IOException {
         Path file = Files.createTempFile(directory, "qwen3-", ".gguf");
-        var weights = Qwen3Weights.inventory(CONFIG);
+        List<Entry> entries = entries(tiedOutput);
         try (var raw = new java.io.ByteArrayOutputStream(); var out = new DataOutputStream(raw)) {
             out.writeBytes("GGUF");
             integer(out, 3);
-            number(out, weights.size());
+            number(out, entries.size());
             number(out, 12);
             metadata(out, architecture);
-            var entries = headers(out, weights, overlap);
+            headers(out, entries, overlap);
             pad(out, raw.size());
             for (var entry : entries) {
                 payload(out, entry);
@@ -94,28 +94,36 @@ class Qwen3GgufTest {
         return file;
     }
 
-    private static List<Entry> headers(DataOutputStream out, List<Qwen3Weights.Weight> weights, boolean overlap)
-            throws IOException {
+    private static List<Entry> entries(boolean tiedOutput) {
         List<Entry> result = new ArrayList<>();
-        long offset = 0;
-        for (var weight : weights) {
+        for (var weight : Qwen3Weights.inventory(CONFIG)) {
             int[] shape = weight.sourceShape();
-            var entry = new Entry(Qwen3GgufNames.weight(weight.name()), shape[shape.length - 1],
-                    shape.length == 1 ? 1 : shape[0], weight.norm());
+            String name = Qwen3GgufNames.weight(weight.name());
+            result.add(new Entry(name, shape[shape.length - 1], shape.length == 1 ? 1 : shape[0],
+                    weight.norm(), name.hashCode()));
+        }
+        if (tiedOutput) {
+            var embedding = result.get(0);
+            result.add(new Entry("output.weight", embedding.width(), embedding.rows(), false, embedding.seed()));
+        }
+        return result;
+    }
+
+    private static void headers(DataOutputStream out, List<Entry> entries, boolean overlap) throws IOException {
+        long offset = 0;
+        for (var entry : entries) {
             string(out, entry.name());
-            integer(out, shape.length);
+            integer(out, entry.norm() ? 1 : 2);
             number(out, entry.width());
             if (!entry.norm()) number(out, entry.rows());
             integer(out, entry.norm() ? 0 : 8);
             number(out, overlap ? 0 : offset);
             offset += entry.bytes() + padding(entry.bytes());
-            result.add(entry);
         }
-        return result;
     }
 
     private static void payload(DataOutputStream out, Entry entry) throws IOException {
-        int seed = entry.name().hashCode();
+        int seed = entry.seed();
         if (entry.norm()) {
             for (int i = 0; i < entry.width(); i++) { integer(out, Float.floatToRawIntBits(1f)); }
         } else {
@@ -176,7 +184,7 @@ class Qwen3GgufTest {
     private static int padding(int bytes) { return (-bytes) & 31; }
     private static void pad(DataOutputStream out, int bytes) throws IOException { out.write(new byte[padding(bytes)]); }
 
-    private record Entry(String name, int width, int rows, boolean norm) {
+    private record Entry(String name, int width, int rows, boolean norm, int seed) {
         int bytes() { return norm ? width * 4 : rows * (width / 32) * 34; }
     }
 }

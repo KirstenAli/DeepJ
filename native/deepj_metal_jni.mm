@@ -794,7 +794,9 @@ struct Q8Prefill {
     uint3 shape;
     uint2 origin;
 };
-struct Q8Sums { simdgroup_float8x8 a, b, c, d; };
+struct Q8Sums {
+    simdgroup_float8x8 a, b, c, d;
+};
 
 inline void q8_fill_tile(Q8Prefill job, threadgroup float* activations, threadgroup float* weights,
                          uint start, uint lane) {
@@ -840,7 +842,8 @@ inline void q8_store_tile(Q8Prefill job, device float* output, threadgroup float
 kernel void kernel_q8_prefill(device const float* input [[buffer(0)]],
                               device const ushort* weights [[buffer(1)]], device float* output [[buffer(2)]],
                               constant uint3& shape [[buffer(3)]], uint2 tile [[threadgroup_position_in_grid]],
-                              uint group [[simdgroup_index_in_threadgroup]], uint lane [[thread_index_in_threadgroup]]) {
+                              uint group [[simdgroup_index_in_threadgroup]],
+                              uint lane [[thread_index_in_threadgroup]]) {
     threadgroup float activations[1024], transposedWeights[1024];
     Q8Prefill job{input, weights, shape, {tile.x * 32, tile.y * 32}};
     Q8Sums sums{simdgroup_float8x8(0.0f), simdgroup_float8x8(0.0f),
@@ -5952,7 +5955,10 @@ static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
 }
 
 static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
-    if (cmd[pos] == OP_Q8_PROJECT || cmd[pos] == OP_Q8_GATHER) { encodeQ8(state, cmd, pos); return; }
+    if (cmd[pos] == OP_Q8_PROJECT || cmd[pos] == OP_Q8_GATHER) {
+        encodeQ8(state, cmd, pos);
+        return;
+    }
     if (encodeLayoutCommand(state, cmd, pos)) return;
     if (encodeBasicCommand(state, cmd, pos)) return;
     if (encodeSpecialCommand(state, cmd, pos)) return;

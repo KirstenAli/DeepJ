@@ -94,7 +94,8 @@ GGUF uses the precision written in the checkpoint, so omit `--dtype`.
 Select the backend before loading, then open a generation session from the model.
 
 Q8_0 stores 32 signed weights and one FP16 scale in each 34-byte block. Weights stay packed
-in CPU heap or Metal device buffers. Activations and normalization weights use FP32.
+in CPU heap or Metal device buffers. A byte-identical output projection shares the packed embedding.
+Activations and normalization weights use FP32.
 The loader supports GGUF v3 with Q8_0 matrices and F32 normalization vectors for dense Qwen3.
 
 ## CLI and desktop UI

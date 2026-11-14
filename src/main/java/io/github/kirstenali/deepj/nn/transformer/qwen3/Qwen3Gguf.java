@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,7 +50,24 @@ public final class Qwen3Gguf {
             }
         }
         var output = file.tensors().get("output.weight");
-        if (output != null) loadMatrix(input, packed, "lm_head.weight", output);
+        var embedding = file.tensors().get("token_embd.weight");
+        if (output != null && !identical(input, embedding, output)) {
+            loadMatrix(input, packed, "lm_head.weight", output);
+        }
+    }
+
+    private static boolean identical(RandomAccessFile input, GgufFile.Entry first, GgufFile.Entry second)
+            throws IOException {
+        byte[] left = new byte[1 << 18], right = new byte[left.length];
+        for (long offset = 0; offset < first.bytes(); offset += left.length) {
+            int length = (int) Math.min(left.length, first.bytes() - offset);
+            input.seek(first.offset() + offset);
+            input.readFully(left, 0, length);
+            input.seek(second.offset() + offset);
+            input.readFully(right, 0, length);
+            if (!Arrays.equals(left, 0, length, right, 0, length)) return false;
+        }
+        return true;
     }
 
     private static void loadMatrix(RandomAccessFile input, Map<String, PackedQ8> packed, String name,

@@ -898,7 +898,9 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_sumSquares(JNIEnv* env, jclass, j
 }
 
 namespace deepj_cpu {
-struct Q8Shape { int rows, width, batch, workers; };
+struct Q8Shape {
+    int rows, width, batch, workers;
+};
 
 inline float q8Block(const float* input, const int8_t* bytes, float scale) {
     float32x4_t sum = vdupq_n_f32(0);
