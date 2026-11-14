@@ -2903,8 +2903,9 @@ static void initNormalizationPipelines(MetalContext* ctx, id<MTLLibrary> library
 
 static void initQuantizedPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     ctx->q8ProjectPSO = makePSO(library, @"kernel_q8_project");
-    if ([ctx->device supportsFamily:MTLGPUFamilyApple7]) {
-        ctx->q8PrefillPSO = makePSO(library, @"kernel_q8_prefill");
+    if (ctx->attentionPSO != nil) {
+        auto prefill = makePSO(library, @"kernel_q8_prefill");
+        if (supportsAttentionThreads(prefill, 128)) ctx->q8PrefillPSO = prefill;
     }
     ctx->q8GatherPSO = makePSO(library, @"kernel_q8_gather");
 }
