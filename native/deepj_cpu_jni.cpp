@@ -925,35 +925,39 @@ void q8Expand(const uint16_t* blocks, float* result, int width) {
     for (int block = 0; block < width / 32; block++) {
         float scale = read<2>(blocks, block * 17);
         auto bytes = reinterpret_cast<const int8_t*>(blocks + block * 17 + 1);
-        for (int i = 0; i < 32; i++) {
-            result[block * 32 + i] = bytes[i] * scale;
+        for (int i = 0; i < 32; i += 8) {
+            int16x8_t values = vmovl_s8(vld1_s8(bytes + i));
+            float* dest = result + block * 32 + i;
+            vst1q_f32(dest, vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_low_s16(values))), scale));
+            vst1q_f32(dest + 4, vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_high_s16(values))), scale));
         }
     }
 }
 
-constexpr int q8TileRows = 64;
+constexpr int q8TileRows = 256;
 
-void q8Matrix(const uint16_t* blocks, const float* input, float* output, Q8Shape shape, float* tile) {
-    for (int first = 0; first < shape.rows; first += q8TileRows) {
-        int rows = std::min(q8TileRows, shape.rows - first);
-        for (int row = 0; row < rows; row++) {
+void q8Matrix(const uint16_t* blocks, const float* input, float* output, Q8Shape shape, float* tile, int tileRows) {
+    for (int first = 0; first < shape.rows; first += tileRows) {
+        int rows = std::min(tileRows, shape.rows - first);
+        parallelRows(rows, shape.workers, [&](int row) {
             auto source = blocks + size_t(first + row) * (shape.width / 32) * 17;
             q8Expand(source, tile + size_t(row) * shape.width, shape.width);
-        }
+        });
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, shape.batch, rows, shape.width,
                     1, input, shape.width, tile, shape.width, 0, output + first, shape.rows);
     }
 }
 
 void q8Pinned(JNIEnv* env, jshortArray packed, jfloatArray input, jfloatArray output, Q8Shape shape) {
-    std::vector<float> tile(shape.batch > 1 ? size_t(q8TileRows) * shape.width : 0);
+    int tileRows = std::min(q8TileRows, shape.rows);
+    std::vector<float> tile(shape.batch > 1 ? size_t(tileRows) * shape.width : 0);
     ProductArrays arrays(env, packed, input, output);
     if (!arrays.valid()) return;
     auto blocks = static_cast<const uint16_t*>(arrays.left.data);
     auto left = static_cast<const float*>(arrays.right.data);
     auto result = static_cast<float*>(arrays.output.data);
     if (shape.batch > 1) {
-        q8Matrix(blocks, left, result, shape, tile.data());
+        q8Matrix(blocks, left, result, shape, tile.data(), tileRows);
         return;
     }
     parallelRows(shape.rows, shape.workers, [&](int row) {
