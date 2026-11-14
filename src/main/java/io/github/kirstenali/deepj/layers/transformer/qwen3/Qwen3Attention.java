@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.autograd.LayoutOps;
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.layers.BiasFreeLinear;
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.Projection;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Config;
 import io.github.kirstenali.deepj.optimisers.Parameter;
@@ -16,7 +17,7 @@ import java.util.stream.Stream;
 
 public final class Qwen3Attention implements Layer {
     private final Qwen3Config config;
-    private final BiasFreeLinear query, key, value, output;
+    private final Projection query, key, value, output;
     private final RMSNorm1D queryNorm, keyNorm;
     private final Qwen3Rotary rotary;
 
@@ -27,6 +28,18 @@ public final class Qwen3Attention implements Layer {
         key = new BiasFreeLinear(config.dModel(), keys, random, parameters.scope("k_proj"));
         value = new BiasFreeLinear(config.dModel(), keys, random, parameters.scope("v_proj"));
         output = new BiasFreeLinear(queries, config.dModel(), random, parameters.scope("o_proj"));
+        queryNorm = new RMSNorm1D(config.headDim(), parameters.scope("q_norm"));
+        keyNorm = new RMSNorm1D(config.headDim(), parameters.scope("k_norm"));
+        rotary = new Qwen3Rotary(config.headDim(), config.ropeTheta());
+    }
+
+    Qwen3Attention(Qwen3Config config, ParameterFactory parameters,
+                   java.util.function.Function<String, Projection> projection) {
+        this.config = config;
+        query = projection.apply("q_proj");
+        key = projection.apply("k_proj");
+        value = projection.apply("v_proj");
+        output = projection.apply("o_proj");
         queryNorm = new RMSNorm1D(config.headDim(), parameters.scope("q_norm"));
         keyNorm = new RMSNorm1D(config.headDim(), parameters.scope("k_norm"));
         rotary = new Qwen3Rotary(config.headDim(), config.ropeTheta());

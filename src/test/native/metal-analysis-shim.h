@@ -18,6 +18,7 @@ float divide(float, float);
 using uint = unsigned int;
 using ulong = unsigned long;
 using ushort = unsigned short;
+using uchar = unsigned char;
 using half = _Float16;
 using bfloat = __bf16;
 using uint2 = uint __attribute__((ext_vector_type(2)));

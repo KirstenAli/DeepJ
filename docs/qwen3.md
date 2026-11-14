@@ -75,6 +75,28 @@ These entry points are independent of the existing model format registry.
 The implementation targets the released dense, tied-embedding Qwen3 configuration with default RoPE and full causal
 attention. Unsupported configuration options fail explicitly during loading.
 
+## Q8_0 inference on CPU and Metal
+
+Put a dense Qwen3 Q8_0 GGUF next to its matching `tokenizer.json`. For Qwen3-1.7B, use the
+[Q8_0 GGUF](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/blob/main/Qwen3-1.7B-Q8_0.gguf)
+and the tokenizer from the official Qwen3-1.7B snapshot.
+
+```bash
+mvn package -Pcli
+java -Xmx3g --enable-native-access=ALL-UNNAMED -jar target/deepj-cli.jar \
+  --backend metal generate ./qwen3-1.7b/Qwen3-1.7B-Q8_0.gguf \
+  --prompt 'What is the capital of France?' --max-tokens 32
+```
+
+Use `--backend cpu` for CPU generation. `chat`, `generate`, and `inspect` accept the GGUF path.
+GGUF uses the precision written in the checkpoint, so omit `--dtype`.
+`Qwen3Gguf.load(Path)` returns an inference model that implements `AutoCloseable`.
+Select the backend before loading, then open a generation session from the model.
+
+Q8_0 stores 32 signed weights and one FP16 scale in each 34-byte block. Weights stay packed
+in CPU heap or Metal device buffers. Activations and normalization weights use FP32.
+The loader supports GGUF v3 with Q8_0 matrices and F32 normalization vectors for dense Qwen3.
+
 ## CLI and desktop UI
 
 The normal `deepj chat`, `deepj generate`, and `deepj inspect` commands accept a Qwen3 snapshot directory,

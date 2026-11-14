@@ -34,6 +34,7 @@ struct MetalContext {
     id<MTLComputePipelineState> layoutMaximumBackwardPSO;
     id<MTLComputePipelineState> layoutMatmulPSO;
     id<MTLComputePipelineState> compactMatvecPSO;
+    id<MTLComputePipelineState> q8ProjectPSO, q8PrefillPSO, q8GatherPSO;
     std::once_flag compactMatmulOnce;
     id<MTLComputePipelineState> halfMatmulPSO;
     id<MTLComputePipelineState> bfloatMatmulPSO;
@@ -752,6 +753,113 @@ kernel void kernel_compact_matvec(device const unsigned char* left [[buffer(0)]]
     if (writer && column < params[6]) {
         storage_write_bits(output, tile.z * params[6] + column, params[4], as_type<uint>(sum));
     }
+}
+
+inline float q8_scale(ushort bits) {
+    return (bits & 0x7c00u) == 0 ? as_type<float>(storage_decode_half(bits)) : float(as_type<half>(bits));
+}
+
+inline float q8_value(device const ushort* blocks, uint position) {
+    device const ushort* block = blocks + (position / 32) * 17;
+    ushort pair = block[1 + (position % 32) / 2];
+    char value = as_type<char>(uchar(pair >> (8 * (position % 2))));
+    return float(value) * q8_scale(block[0]);
+}
+
+inline float q8_project_dot(device const float* input, device const ushort* blocks, uint size, uint lane) {
+    float sum = 0.0f;
+    for (uint first = lane * 2; first < size; first += 64) {
+        device const ushort* block = blocks + (first / 32) * 17;
+        ushort pair = block[1 + (first % 32) / 2];
+        float a = float(as_type<char>(uchar(pair))), b = float(as_type<char>(uchar(pair >> 8)));
+        float scale = q8_scale(block[0]);
+        sum += (a * input[first] + b * input[first + 1]) * scale;
+    }
+    return simd_sum(sum);
+}
+
+kernel void kernel_q8_project(device const float* input [[buffer(0)]],
+                              device const ushort* weights [[buffer(1)]], device float* output [[buffer(2)]],
+                              constant uint3& shape [[buffer(3)]], uint2 group [[threadgroup_position_in_grid]],
+                              uint simd [[simdgroup_index_in_threadgroup]], uint lane [[thread_index_in_simdgroup]]) {
+    uint row = group.x * 4 + simd;
+    if (row >= shape.x) return;
+    float sum = q8_project_dot(input + group.y * shape.y, weights + row * (shape.y / 32) * 17, shape.y, lane);
+    if (lane == 0) output[group.y * shape.x + row] = sum;
+}
+
+struct Q8Prefill {
+    device const float* input;
+    device const ushort* weights;
+    uint3 shape;
+    uint2 origin;
+};
+struct Q8Sums { simdgroup_float8x8 a, b, c, d; };
+
+inline void q8_fill_tile(Q8Prefill job, threadgroup float* activations, threadgroup float* weights,
+                         uint start, uint lane) {
+    uint blocksPerRow = (job.shape.y / 32) * 17;
+    for (uint i = lane; i < 1024; i += 128) {
+        uint row = i / 32, inner = start + i % 32;
+        uint token = job.origin.y + row, weight = job.origin.x + row;
+        activations[i] = token < job.shape.z ? job.input[token * job.shape.y + inner] : 0.0f;
+        weights[i] = weight < job.shape.x ? q8_value(job.weights + weight * blocksPerRow, inner) : 0.0f;
+    }
+}
+
+inline void q8_accumulate(thread Q8Sums& sums, threadgroup const float* a,
+                          threadgroup const float* b, uint group) {
+    for (uint index = 0; index < 32; index += 8) {
+        simdgroup_float8x8 v0, v1, w0, w1;
+        uint x = group % 2 * 16, y = group / 2 * 16;
+        simdgroup_load(v0, a + y * 32 + index, 32);
+        simdgroup_load(v1, a + (y + 8) * 32 + index, 32);
+        simdgroup_load(w0, b + x * 32 + index, 32, ulong2(0), true);
+        simdgroup_load(w1, b + (x + 8) * 32 + index, 32, ulong2(0), true);
+        simdgroup_multiply_accumulate(sums.a, v0, w0, sums.a);
+        simdgroup_multiply_accumulate(sums.b, v0, w1, sums.b);
+        simdgroup_multiply_accumulate(sums.c, v1, w0, sums.c);
+        simdgroup_multiply_accumulate(sums.d, v1, w1, sums.d);
+    }
+}
+
+inline void q8_store_tile(Q8Prefill job, device float* output, threadgroup float* tile,
+                          thread Q8Sums& sums, uint group, uint lane) {
+    uint base = group / 2 * 16 * 32 + group % 2 * 16;
+    simdgroup_store(sums.a, tile + base, 32);
+    simdgroup_store(sums.b, tile + base + 8, 32);
+    simdgroup_store(sums.c, tile + base + 8 * 32, 32);
+    simdgroup_store(sums.d, tile + base + 8 * 32 + 8, 32);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint i = lane; i < 1024; i += 128) {
+        uint token = job.origin.y + i / 32, row = job.origin.x + i % 32;
+        if (token < job.shape.z && row < job.shape.x) output[token * job.shape.x + row] = tile[i];
+    }
+}
+
+kernel void kernel_q8_prefill(device const float* input [[buffer(0)]],
+                              device const ushort* weights [[buffer(1)]], device float* output [[buffer(2)]],
+                              constant uint3& shape [[buffer(3)]], uint2 tile [[threadgroup_position_in_grid]],
+                              uint group [[simdgroup_index_in_threadgroup]], uint lane [[thread_index_in_threadgroup]]) {
+    threadgroup float activations[1024], transposedWeights[1024];
+    Q8Prefill job{input, weights, shape, {tile.x * 32, tile.y * 32}};
+    Q8Sums sums{simdgroup_float8x8(0.0f), simdgroup_float8x8(0.0f),
+                simdgroup_float8x8(0.0f), simdgroup_float8x8(0.0f)};
+    for (uint start = 0; start < shape.y; start += 32) {
+        q8_fill_tile(job, activations, transposedWeights, start, lane);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        q8_accumulate(sums, activations, transposedWeights, group);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    q8_store_tile(job, output, activations, sums, group, lane);
+}
+
+kernel void kernel_q8_gather(device const float* indices [[buffer(0)]],
+                             device const ushort* weights [[buffer(1)]], device float* output [[buffer(2)]],
+                             constant uint3& shape [[buffer(3)]], uint index [[thread_position_in_grid]]) {
+    if (index >= shape.y * shape.z) return;
+    uint row = uint(indices[index / shape.y]);
+    output[index] = row < shape.x ? q8_value(weights + row * (shape.y / 32) * 17, index % shape.y) : 0.0f;
 }
 
 kernel void kernel_layout_index_select(device const unsigned char* input [[buffer(0)]],
@@ -2790,6 +2898,14 @@ static void initNormalizationPipelines(MetalContext* ctx, id<MTLLibrary> library
     ctx->layoutNormalizationBackwardPSO = makePSO(library, @"kernel_layout_normalization_backward");
 }
 
+static void initQuantizedPipelines(MetalContext* ctx, id<MTLLibrary> library) {
+    ctx->q8ProjectPSO = makePSO(library, @"kernel_q8_project");
+    if ([ctx->device supportsFamily:MTLGPUFamilyApple7]) {
+        ctx->q8PrefillPSO = makePSO(library, @"kernel_q8_prefill");
+    }
+    ctx->q8GatherPSO = makePSO(library, @"kernel_q8_gather");
+}
+
 static void initLayoutPipelines(MetalContext* ctx, id<MTLLibrary> library) {
     initPositionPipelines(ctx, library);
     ctx->storageCopyPSO = makePSO(library, @"kernel_storage_copy");
@@ -3165,6 +3281,8 @@ static constexpr int OP_LAYOUT_ROTARY = 79;
 static constexpr int OP_CACHED_ATTENTION = 80;
 static constexpr int OP_CACHED_ATTENTION_SOFTCAP = 81;
 static constexpr int OP_CONVOLUTION_2D = 82;
+static constexpr int OP_Q8_PROJECT = 83;
+static constexpr int OP_Q8_GATHER = 84;
 
 static BufferEntry requireStorageEntry(int id, const char* opName) {
     auto entry = gBufferPool.find(id);
@@ -5673,6 +5791,7 @@ static int layoutTrainingCommandWidth(int op) {
 
 static int layoutCommandWidth(int op) {
     if (op == OP_CONVOLUTION_2D) return 13;
+    if (op == OP_Q8_PROJECT || op == OP_Q8_GATHER) return 7;
     if (op == OP_CACHED_ATTENTION) return 11;
     if (op == OP_CACHED_ATTENTION_SOFTCAP) return 13;
     if (op == OP_STORAGE_COPY) return 6;
@@ -5774,6 +5893,46 @@ static bool encodeLayoutTrainingCommand(GraphState& state, const jint* cmd, int 
     return true;
 }
 
+static simd_uint3 q8Shape(const jint* cmd, int pos) {
+    auto rows = positiveCount(cmd[pos + 4], "Q8 rows");
+    auto width = positiveCount(cmd[pos + 5], "Q8 width");
+    auto batch = positiveCount(cmd[pos + 6], "Q8 sample count");
+    if (width % 32 != 0) throw std::runtime_error("Q8 row width must be divisible by 32");
+    return simd_make_uint3((uint32_t)rows, (uint32_t)width, (uint32_t)batch);
+}
+
+static void q8CheckBuffers(const jint* cmd, int pos, simd_uint3 shape, bool gather) {
+    uint64_t input = (uint64_t)shape.z * (gather ? 1 : shape.y);
+    uint64_t output = (uint64_t)shape.z * (gather ? shape.y : shape.x);
+    uint64_t weights = (uint64_t)shape.x * (shape.y / 32) * 34;
+    if (input > INT32_MAX || output > INT32_MAX || weights > 2ULL * INT32_MAX ||
+        requireBuffer(cmd[pos + 1], "Q8 input").length != input * sizeof(float) ||
+        requireBuffer(cmd[pos + 3], "Q8 output").length != output * sizeof(float) ||
+        bufferDType(cmd[pos + 2]) != 2 || requireStorageBuffer(cmd[pos + 2], "Q8 weights").length != weights ||
+        cmd[pos + 1] == cmd[pos + 3]) throw std::runtime_error("Invalid Q8 buffer storage");
+}
+
+static void encodeQ8(GraphState& state, const jint* cmd, int pos) {
+    bool gather = cmd[pos] == OP_Q8_GATHER;
+    auto shape = q8Shape(cmd, pos);
+    q8CheckBuffers(cmd, pos, shape, gather);
+    if (state.ctx->q8ProjectPSO == nil) initQuantizedPipelines(state.ctx, state.ctx->library);
+    auto encoder = graphEncoder(state);
+    bool prefill = !gather && shape.z >= 16 && state.ctx->q8PrefillPSO;
+    auto pipeline = gather ? state.ctx->q8GatherPSO : (prefill ? state.ctx->q8PrefillPSO : state.ctx->q8ProjectPSO);
+    [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
+    [encoder setComputePipelineState:pipeline];
+    for (int index = 0; index < 3; index++) {
+        [encoder setBuffer:requireStorageBuffer(cmd[pos + 1 + index], "Q8 buffer") offset:0 atIndex:index];
+    }
+    bindValue(encoder, shape, 3);
+    if (gather) dispatch1D(encoder, pipeline, shape.y * shape.z);
+    else if (prefill) [encoder dispatchThreadgroups:MTLSizeMake((shape.x + 31) / 32, (shape.z + 31) / 32, 1)
+                               threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
+    else [encoder dispatchThreadgroups:MTLSizeMake((shape.x + 3) / 4, shape.z, 1)
+                   threadsPerThreadgroup:MTLSizeMake(128, 1, 1)];
+}
+
 static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
     int op = cmd[pos];
     if (op == OP_CONVOLUTION_2D) encodeConvolution2D(state, cmd, pos);
@@ -5793,6 +5952,7 @@ static bool encodeLayoutCommand(GraphState& state, const jint* cmd, int pos) {
 }
 
 static void encodeCommand(GraphState& state, const jint* cmd, int pos) {
+    if (cmd[pos] == OP_Q8_PROJECT || cmd[pos] == OP_Q8_GATHER) { encodeQ8(state, cmd, pos); return; }
     if (encodeLayoutCommand(state, cmd, pos)) return;
     if (encodeBasicCommand(state, cmd, pos)) return;
     if (encodeSpecialCommand(state, cmd, pos)) return;

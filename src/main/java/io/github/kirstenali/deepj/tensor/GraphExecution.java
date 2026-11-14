@@ -173,6 +173,13 @@ abstract class GraphExecution extends GraphAttentionRecordingOps {
         backwardBufferIds.removeAll(ids);
     }
 
+    void discardOwnedWeight(Tensor weight) {
+        if (!isEmpty()) flush();
+        weight.releaseDeviceBufferRetention();
+        weight.setGpuTag(null);
+        releaseOrphanedBuffers();
+    }
+
     List<Integer> temporaryBufferIds() {
         List<Integer> ids = new ArrayList<>();
         for (int id : allocatedBufferIds) {

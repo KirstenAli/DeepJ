@@ -5,6 +5,7 @@ import io.github.kirstenali.deepj.nn.transformer.DeepJChat;
 import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Pretrained;
 import io.github.kirstenali.deepj.nn.transformer.gemma2.Gemma2Snapshot;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Pretrained;
+import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Gguf;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Snapshot;
 import io.github.kirstenali.deepj.persistence.ModelInspection;
 import io.github.kirstenali.deepj.persistence.ModelSerializer;
@@ -44,6 +45,10 @@ interface CliModel extends AutoCloseable {
     }
 
     static CliModel load(Path path, BackendChoice backend, DType dtype) throws IOException {
+        if (gguf(path)) {
+            if (dtype != null) throw new IllegalArgumentException("GGUF uses the checkpoint Q8_0 weights");
+            return Qwen3Q8CliModel.load(path, backend);
+        }
         if (Gemma2Snapshot.matches(path)) return Gemma2CliModel.load(path, backend, dtype);
         if (Qwen3Snapshot.matches(path)) return Qwen3CliModel.load(path, backend, dtype);
         if (dtype != null) throw new IllegalArgumentException("--dtype is available for Qwen3 and Gemma 2 chat.");
@@ -59,7 +64,13 @@ interface CliModel extends AutoCloseable {
         }
     }
 
+    private static boolean gguf(Path path) {
+        return path.getFileName() != null && path.getFileName().toString().endsWith(".gguf")
+                && !Files.isDirectory(path);
+    }
+
     static ModelInspection inspect(Path path) throws IOException {
+        if (gguf(path)) return Qwen3Gguf.inspect(path);
         if (Gemma2Snapshot.matches(path)) return Gemma2Pretrained.inspect(Gemma2Snapshot.directory(path));
         return Qwen3Snapshot.matches(path) ? Qwen3Pretrained.inspect(Qwen3Snapshot.directory(path))
                 : ModelSerializer.inspect(modelFile(path));
