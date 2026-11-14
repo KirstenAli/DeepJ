@@ -896,3 +896,88 @@ Java_io_github_kirstenali_deepj_tensor_CpuBlas_sumSquares(JNIEnv* env, jclass, j
     if (!input.data) return initial;
     return deepj_optimizer::sumSquares(static_cast<const float*>(input.data), count, initial);
 }
+
+namespace deepj_cpu {
+struct Q8Shape {
+    int rows, width, batch, workers;
+};
+
+inline float q8Block(const float* input, const int8_t* bytes, float scale) {
+    float32x4_t sum = vdupq_n_f32(0);
+    for (int i = 0; i < 32; i += 8) {
+        int16x8_t values = vmovl_s8(vld1_s8(bytes + i));
+        sum = vfmaq_f32(sum, vld1q_f32(input + i), vcvtq_f32_s32(vmovl_s16(vget_low_s16(values))));
+        sum = vfmaq_f32(sum, vld1q_f32(input + i + 4), vcvtq_f32_s32(vmovl_s16(vget_high_s16(values))));
+    }
+    return vaddvq_f32(sum) * scale;
+}
+
+inline float q8Dot(const float* input, const uint16_t* blocks, int width) {
+    float sum = 0;
+    for (int i = 0; i < width / 32; i++) {
+        auto bytes = reinterpret_cast<const int8_t*>(blocks + i * 17 + 1);
+        sum += q8Block(input + i * 32, bytes, read<2>(blocks, i * 17));
+    }
+    return sum;
+}
+
+void q8Expand(const uint16_t* blocks, float* result, int width) {
+    for (int block = 0; block < width / 32; block++) {
+        float scale = read<2>(blocks, block * 17);
+        auto bytes = reinterpret_cast<const int8_t*>(blocks + block * 17 + 1);
+        for (int i = 0; i < 32; i += 8) {
+            int16x8_t values = vmovl_s8(vld1_s8(bytes + i));
+            float* dest = result + block * 32 + i;
+            vst1q_f32(dest, vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_low_s16(values))), scale));
+            vst1q_f32(dest + 4, vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_high_s16(values))), scale));
+        }
+    }
+}
+
+constexpr int q8TileRows = 256;
+
+void q8Matrix(const uint16_t* blocks, const float* input, float* output, Q8Shape shape, float* tile, int tileRows) {
+    for (int first = 0; first < shape.rows; first += tileRows) {
+        int rows = std::min(tileRows, shape.rows - first);
+        parallelRows(rows, shape.workers, [&](int row) {
+            auto source = blocks + size_t(first + row) * (shape.width / 32) * 17;
+            q8Expand(source, tile + size_t(row) * shape.width, shape.width);
+        });
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, shape.batch, rows, shape.width,
+                    1, input, shape.width, tile, shape.width, 0, output + first, shape.rows);
+    }
+}
+
+void q8Pinned(JNIEnv* env, jshortArray packed, jfloatArray input, jfloatArray output, Q8Shape shape) {
+    int tileRows = std::min(q8TileRows, shape.rows);
+    std::vector<float> tile(shape.batch > 1 ? size_t(tileRows) * shape.width : 0);
+    ProductArrays arrays(env, packed, input, output);
+    if (!arrays.valid()) return;
+    auto blocks = static_cast<const uint16_t*>(arrays.left.data);
+    auto left = static_cast<const float*>(arrays.right.data);
+    auto result = static_cast<float*>(arrays.output.data);
+    if (shape.batch > 1) {
+        q8Matrix(blocks, left, result, shape, tile.data(), tileRows);
+        return;
+    }
+    parallelRows(shape.rows, shape.workers, [&](int row) {
+        result[row] = q8Dot(left, blocks + size_t(row) * (shape.width / 32) * 17, shape.width);
+    });
+}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_kirstenali_deepj_tensor_CpuBlas_q8Project(
+        JNIEnv* env, jclass, jshortArray packed, jfloatArray input, jfloatArray output,
+        jint rows, jint width, jint batch, jint workers) {
+    if (rows <= 0 || width <= 0 || width % 32 != 0 || batch <= 0 || packed == nullptr ||
+        input == nullptr || output == nullptr || int64_t(rows) * (width / 32) * 17 != env->GetArrayLength(packed) ||
+        int64_t(batch) * width != env->GetArrayLength(input) || int64_t(batch) * rows != env->GetArrayLength(output)) {
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"), "Invalid Q8_0 projection storage");
+        return;
+    }
+    try {
+        deepj_cpu::q8Pinned(env, packed, input, output, {rows, width, batch, workers});
+    } catch (const std::bad_alloc&) {
+        env->ThrowNew(env->FindClass("java/lang/OutOfMemoryError"), "Q8_0 prefill tile allocation");
+    }
+}

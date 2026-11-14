@@ -15,11 +15,9 @@ class Qwen3ThinkingTest {
         var thinking = chat.withThinking(true);
         assertSame(chat.model(), thinking.model());
         assertSame(chat.tokenizer(), thinking.tokenizer());
-        var method = Qwen3ChatModel.class.getDeclaredMethod("fitConversation", List.class, int.class);
-        method.setAccessible(true);
         var messages = List.of(new Qwen3Chat.Message(Qwen3Chat.Role.USER, "Hello"));
-        assertEquals(Qwen3Chat.format(messages, true, true), method.invoke(thinking, messages, 8));
-        assertEquals(Qwen3Chat.format(messages, true, false), method.invoke(chat, messages, 8));
+        assertEquals(Qwen3Chat.format(messages, true, true), fit(thinking, messages));
+        assertEquals(Qwen3Chat.format(messages, true, false), fit(chat, messages));
         assertFalse(new Qwen3AgentModel(chat).thinking());
         assertTrue(new Qwen3AgentModel(chat, 8, .6f, 20, 1, 1, ContextWindowMode.REBUILD, true).thinking());
     }
@@ -29,12 +27,15 @@ class Qwen3ThinkingTest {
         var messages = List.of(new Qwen3Chat.Message(Qwen3Chat.Role.USER, "Hi"),
                 new Qwen3Chat.Message(Qwen3Chat.Role.ASSISTANT, "<think>Private reasoning</think>Hello"),
                 new Qwen3Chat.Message(Qwen3Chat.Role.USER, "Next"));
-        var fit = Qwen3ChatModel.class.getDeclaredMethod("fitConversation", List.class, int.class);
-        fit.setAccessible(true);
-        String plain = (String) fit.invoke(chat.withThinking(true), messages, 8);
+        String plain = fit(chat.withThinking(true), messages);
         assertTrue(plain.contains("Hello"));
         assertFalse(plain.contains("Private reasoning"));
         assertEquals(plain, agentPrompt(chat, messages));
+    }
+
+    private static String fit(Qwen3ChatModel chat, List<Qwen3Chat.Message> messages) {
+        return new Qwen3ChatSupport(chat.model().config(), chat.tokenizer(), chat.thinking(),
+                chat.model()::openGeneration).fitConversation(messages, 8);
     }
 
     private static String agentPrompt(Qwen3ChatModel chat, List<Qwen3Chat.Message> messages) throws Exception {

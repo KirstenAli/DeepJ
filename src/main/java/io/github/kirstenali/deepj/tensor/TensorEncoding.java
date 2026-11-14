@@ -52,12 +52,25 @@ public final class TensorEncoding {
 
     /** Explicit checkpoint transfer; private host staging is released after an independent backend copy. */
     public static Tensor readValuesToBackend(DataInput input, DType dtype, int... shape) throws IOException {
+        return readValuesToBackend(input, ByteOrder.BIG_ENDIAN, dtype, shape);
+    }
+
+    static Tensor readValuesToBackend(DataInput input, ByteOrder order, DType dtype, int... shape) throws IOException {
         Tensor staging = Tensor.deviceOnly(dtype, shape);
         try {
-            readValues(input, staging);
+            readValues(input, staging, order);
             return HostStaging.copy(staging);
         } finally {
             staging.memory().discardStaleHost();
+        }
+    }
+
+    /** Releases storage that belongs exclusively to a model that is closing. */
+    public static void releaseOwnedWeight(Tensor weight) {
+        if (weight.getGpuTag() instanceof GpuBuffer buffer && buffer.owner != null) {
+            buffer.owner.discardOwnedWeight(weight);
+        } else {
+            weight.releaseDeviceBufferRetention();
         }
     }
 

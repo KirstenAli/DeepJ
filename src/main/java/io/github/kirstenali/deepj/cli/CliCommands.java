@@ -16,7 +16,7 @@ final class CliCommands {
 
     @Command(name = "chat", mixinStandardHelpOptions = true, description = "Open a streaming terminal chat.")
     static final class Chat implements Callable<Integer> {
-        @Parameters(index = "0", paramLabel = "MODEL", description = "Model directory or .dj checkpoint.")
+        @Parameters(index = "0", paramLabel = "MODEL", description = "Directory, .dj model, or Qwen3 Q8_0 .gguf.")
         private Path path;
         @Option(names = "--dtype",
                 description = "Qwen3/Gemma 2 weight storage: ${COMPLETION-CANDIDATES}"
@@ -44,7 +44,7 @@ final class CliCommands {
     @Command(name = "generate", mixinStandardHelpOptions = true,
             description = "Stream one answer to stdout. Safe for pipes and scripts.")
     static final class Generate implements Callable<Integer> {
-        @Parameters(index = "0", paramLabel = "MODEL", description = "Model directory or .dj checkpoint.")
+        @Parameters(index = "0", paramLabel = "MODEL", description = "Directory, .dj model, or Qwen3 Q8_0 .gguf.")
         private Path path;
         @Mixin private SamplingOptions sampling = new SamplingOptions();
         @Mixin private PromptInput input = new PromptInput();
@@ -72,7 +72,7 @@ final class CliCommands {
     @Command(name = "inspect", mixinStandardHelpOptions = true,
             description = "Inspect embedded settings without loading model weights.")
     static final class Inspect implements Callable<Integer> {
-        @Parameters(index = "0", paramLabel = "MODEL", description = "Model directory or .dj checkpoint.")
+        @Parameters(index = "0", paramLabel = "MODEL", description = "Directory, .dj model, or Qwen3 Q8_0 .gguf.")
         private Path path;
         private final CliServices services;
 

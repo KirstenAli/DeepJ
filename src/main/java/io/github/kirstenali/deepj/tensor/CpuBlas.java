@@ -40,6 +40,8 @@ final class CpuBlas {
                                                       Object gamma, float[] output, int[] shape);
     static native boolean causalSoftmax(float[] input, float[] output, int rows, int width,
                                          float scale, int workers, int[] fallback);
+    static native void q8Project(short[] packed, float[] input, float[] output, int rows, int width,
+                                 int batch, int workers);
     static native void product(float[] left, float[] right, float[] output, int[] shape);
     static native void compactProduct(Object left, Object right, Object output, int[] shape);
     static native boolean compactSoftmax(short[] input, short[] output, int[] shape, float scale, int[] fallback);

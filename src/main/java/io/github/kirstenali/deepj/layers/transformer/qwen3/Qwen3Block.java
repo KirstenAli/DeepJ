@@ -2,6 +2,7 @@ package io.github.kirstenali.deepj.layers.transformer.qwen3;
 
 import io.github.kirstenali.deepj.inference.InferenceContext;
 import io.github.kirstenali.deepj.layers.Layer;
+import io.github.kirstenali.deepj.layers.Projection;
 import io.github.kirstenali.deepj.layers.transformer.SwiGLULayer;
 import io.github.kirstenali.deepj.layers.transformer.norm.RMSNorm1D;
 import io.github.kirstenali.deepj.nn.transformer.qwen3.Qwen3Config;
@@ -10,6 +11,7 @@ import io.github.kirstenali.deepj.optimisers.ParameterFactory;
 import io.github.kirstenali.deepj.tensor.Tensor;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 public final class Qwen3Block implements Layer {
@@ -22,6 +24,15 @@ public final class Qwen3Block implements Layer {
         second = new RMSNorm1D(config.dModel(), parameters.scope("post_attention_layernorm"));
         attention = new Qwen3Attention(config, random, parameters.scope("self_attn"));
         feedForward = new SwiGLULayer(config.dModel(), config.dFF(), random, false, parameters.scope("mlp"));
+    }
+
+    public Qwen3Block(Qwen3Config config, ParameterFactory parameters, Function<String, Projection> projection) {
+        first = new RMSNorm1D(config.dModel(), parameters.scope("input_layernorm"));
+        second = new RMSNorm1D(config.dModel(), parameters.scope("post_attention_layernorm"));
+        attention = new Qwen3Attention(config, parameters.scope("self_attn"),
+                name -> projection.apply("self_attn." + name));
+        feedForward = new SwiGLULayer(projection.apply("mlp.gate"), projection.apply("mlp.up"),
+                projection.apply("mlp.down"));
     }
 
     @Override public Tensor forward(Tensor input) { return finish(input.add(attention.forward(first.forward(input)))); }

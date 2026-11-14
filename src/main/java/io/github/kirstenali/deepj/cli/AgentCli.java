@@ -17,7 +17,7 @@ import java.util.concurrent.Callable;
 @Command(name = "deepj-agent", mixinStandardHelpOptions = true, versionProvider = DeepJCli.Version.class,
         description = "Chat with local models and approve terminal tool calls from supported models.")
 public final class AgentCli implements Callable<Integer> {
-    @Parameters(index = "0", paramLabel = "MODEL", description = "Model directory or checkpoint.")
+    @Parameters(index = "0", paramLabel = "MODEL", description = "Directory, .dj model, or Qwen3 Q8_0 .gguf.")
     private Path path;
     @Option(names = "--workdir", description = "Directory for terminal calls (default: current directory).")
     private Path directory = Path.of(".");

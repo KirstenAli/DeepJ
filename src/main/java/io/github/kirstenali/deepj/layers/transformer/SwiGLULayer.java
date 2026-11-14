@@ -36,6 +36,12 @@ public final class SwiGLULayer implements Layer {
         this.downProj = projection(dFF, dModel, rnd, bias, parameters.scope("down"));
     }
 
+    public SwiGLULayer(Projection gate, Projection up, Projection down) {
+        gateProj = java.util.Objects.requireNonNull(gate, "gate");
+        upProj = java.util.Objects.requireNonNull(up, "up");
+        downProj = java.util.Objects.requireNonNull(down, "down");
+    }
+
     private static Projection projection(int input, int output, Random random, boolean bias,
                                          ParameterFactory parameters) {
         return bias ? new Linear(input, output, random, parameters)
